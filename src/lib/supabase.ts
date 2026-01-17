@@ -16,6 +16,18 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'your-anon-
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // ============================================
+// C2B/M-PESA SUPABASE CLIENT  
+// ============================================
+// This uses a separate Supabase project for M-Pesa transactions
+// Configure your Energy App Supabase project credentials here
+// ============================================
+const c2bSupabaseUrl = 'https://pxcdaivlvltmdifxietb.supabase.co';
+const c2bSupabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB4Y2RhaXZsdmx0bWRpZnhpZXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjQ4Mzk0NzUsImV4cCI6MjA0MDQxNTQ3NX0.e_grsm45xJMdNJx-RAhVXMPnqQq7lXBeo0vQ_9c2bZ8';
+
+// Create separate Supabase client for C2B/M-Pesa operations
+export const c2bSupabase = createClient(c2bSupabaseUrl, c2bSupabaseAnonKey);
+
+// ============================================
 // DATABASE FUNCTIONS
 // ============================================
 
