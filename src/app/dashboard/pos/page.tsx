@@ -169,21 +169,28 @@ const CategoryButton = ({
     </button>
 );
 
-// Product Card for Category View - Modern White Card Style
+// Product Card - Clickable Card Design (no button)
 const ProductCard = ({ product, onAdd }: { product: Product; onAdd: () => void }) => (
-    <div className={`bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden transition-all hover:shadow-lg hover:border-gray-200 ${product.availableQty === 0 ? 'opacity-60' : ''}`}>
+    <div
+        onClick={product.availableQty > 0 ? onAdd : undefined}
+        className={`bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden transition-all cursor-pointer ${product.availableQty === 0
+            ? 'opacity-50 cursor-not-allowed'
+            : 'hover:shadow-lg hover:border-teal-300 hover:scale-[1.02] active:scale-[0.98]'
+            }`}
+    >
         {/* Product Image */}
-        <div className="h-32 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center relative overflow-hidden">
+        <div className="h-28 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center relative overflow-hidden">
             {product.imageUrl ? (
                 <img
                     src={product.imageUrl}
                     alt={product.name}
-                    className="w-full h-full object-contain p-2"
+                    className="w-full h-full object-cover"
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                 />
             ) : (
-                <div className={`w-16 h-16 rounded-xl bg-gradient-to-br ${product.color || 'from-blue-400 to-blue-600'} flex items-center justify-center text-white text-2xl font-bold shadow-md`}>
-                    {product.name.charAt(0).toUpperCase()}
+                <div className="flex flex-col items-center justify-center text-gray-300">
+                    <span className="text-3xl">📦</span>
+                    <span className="text-[10px]">No Image</span>
                 </div>
             )}
             {/* Stock Badge */}
@@ -191,39 +198,15 @@ const ProductCard = ({ product, onAdd }: { product: Product; onAdd: () => void }
                 product.availableQty < 10 ? 'bg-amber-100 text-amber-700' :
                     'bg-teal-100 text-teal-700'
                 }`}>
-                {product.availableQty === 0 ? 'OUT' : `${product.availableQty} Pcs`}
+                {product.availableQty === 0 ? 'OUT' : product.availableQty}
             </span>
         </div>
 
         {/* Product Info */}
-        <div className="p-3">
-            <h3 className="font-semibold text-gray-800 text-sm line-clamp-2 mb-1 min-h-[40px]">{product.name}</h3>
-
-            {product.barcode && (
-                <p className="text-xs text-gray-400 font-mono mb-1">SKU: {product.barcode}</p>
-            )}
-
-            {product.category && (
-                <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs mb-2">
-                    {product.category}
-                </span>
-            )}
-
-            {/* Price */}
-            <p className="text-lg font-bold text-gray-800">Ksh {product.salesPrice.toLocaleString()}</p>
+        <div className="p-2">
+            <h3 className="font-semibold text-gray-800 text-sm line-clamp-2 min-h-[32px]">{product.name}</h3>
+            <p className="text-base font-bold text-teal-600">Ksh {product.salesPrice.toLocaleString()}</p>
         </div>
-
-        {/* Add to Cart Button */}
-        <button
-            onClick={onAdd}
-            disabled={product.availableQty === 0}
-            className={`w-full py-2.5 font-semibold text-sm transition-all flex items-center justify-center gap-1 ${product.availableQty === 0
-                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                : 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:from-teal-600 hover:to-cyan-600 active:scale-[0.98]'
-                }`}
-        >
-            <span>+</span> Add to Cart
-        </button>
     </div>
 );
 
@@ -898,66 +881,34 @@ export default function RetailPOSPage() {
                         </div>
                     )}
 
-                    {/* Categories Toggle */}
-                    <div className="mb-4">
-                        <button
-                            onClick={() => setShowCategories(!showCategories)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all ${showCategories
-                                ? 'bg-blue-500 text-white'
-                                : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-blue-400'
-                                }`}
-                        >
-                            <span>📂</span>
-                            <span>{showCategories ? 'Hide Categories' : 'Show Categories'}</span>
-                            <span className="ml-1">{showCategories ? '▲' : '▼'}</span>
-                        </button>
-                    </div>
-
-                    {/* Categories Panel */}
-                    {showCategories && (
-                        <div className="animate-in slide-in-from-top duration-300">
-                            {/* Category Buttons */}
-                            <div className="flex gap-3 overflow-x-auto pb-3 mb-4">
-                                {categories.map(cat => (
-                                    <CategoryButton
-                                        key={cat.category_id}
-                                        category={cat}
-                                        isSelected={selectedCategory === cat.category_id}
-                                        onClick={() => loadCategoryProducts(cat.category_id, cat.category_name)}
-                                    />
-                                ))}
-                            </div>
-
-                            {/* Products in Category */}
-                            {selectedCategory && (
-                                <div className="bg-white rounded-2xl shadow-lg p-4 border border-gray-200">
-                                    <h3 className="text-sm font-bold text-gray-600 mb-3">
-                                        Products in Category ({categoryProducts.length})
-                                    </h3>
-                                    {categoryProducts.length > 0 ? (
-                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-[400px] overflow-y-auto">
-                                            {categoryProducts.map(product => (
-                                                <ProductCard
-                                                    key={product.id}
-                                                    product={product}
-                                                    onAdd={() => addToCart(product)}
-                                                />
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <p className="text-gray-400 text-center py-8">No products in this category</p>
-                                    )}
+                    {/* All Products Grid - Shows ALL products automatically */}
+                    {!searchQuery && (
+                        <div className="flex-1 overflow-y-auto">
+                            {isLoading ? (
+                                <div className="flex items-center justify-center h-full text-gray-400">
+                                    <div className="flex flex-col items-center gap-3">
+                                        <div className="w-10 h-10 border-4 border-teal-400/30 border-t-teal-500 rounded-full animate-spin"></div>
+                                        <span>Loading products...</span>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                                    {(selectedCategory ? categoryProducts : products).map(product => (
+                                        <ProductCard
+                                            key={product.id}
+                                            product={product}
+                                            onAdd={() => addToCart(product)}
+                                        />
+                                    ))}
                                 </div>
                             )}
-                        </div>
-                    )}
-
-                    {/* Instructions when nothing is active */}
-                    {!searchQuery && !showCategories && (
-                        <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
-                            <span className="text-6xl mb-4">📦</span>
-                            <p className="text-lg font-medium">Start by searching for a product</p>
-                            <p className="text-sm">or click "Show Categories" to browse</p>
+                            {!isLoading && products.length === 0 && (
+                                <div className="flex-1 flex flex-col items-center justify-center text-gray-400 py-12">
+                                    <span className="text-5xl mb-3">📦</span>
+                                    <p className="text-lg font-medium">No products found</p>
+                                    <p className="text-sm">Add products in the Products page</p>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

@@ -39,7 +39,7 @@ interface Supplier {
     supplier_id: number;
     supplier_code: string;
     supplier_name: string;
-    is_kitchen: boolean;
+    is_kitchen?: boolean;
 }
 
 interface Unit {
@@ -108,7 +108,7 @@ export default function ProductsPage() {
         setIsLoading(true);
         try {
             const { data, error } = await supabase
-                .from('products')
+                .from('retail_products')
                 .select('*')
                 .order('pid', { ascending: false });
 
@@ -124,7 +124,7 @@ export default function ProductsPage() {
     const loadCategories = useCallback(async () => {
         try {
             const { data, error } = await supabase
-                .from('product_categories')
+                .from('retail_categories')
                 .select('*')
                 .eq('active', true)
                 .order('category_name');
@@ -139,8 +139,8 @@ export default function ProductsPage() {
     const loadSuppliers = useCallback(async () => {
         try {
             const { data, error } = await supabase
-                .from('suppliers')
-                .select('supplier_id, supplier_code, supplier_name, is_kitchen')
+                .from('retail_suppliers')
+                .select('supplier_id, supplier_code, supplier_name')
                 .eq('active', true)
                 .order('supplier_name');
 
@@ -216,7 +216,7 @@ export default function ProductsPage() {
     const generateBarcode = async (): Promise<string> => {
         try {
             const { data } = await supabase
-                .from('products')
+                .from('retail_products')
                 .select('barcode')
                 .like('barcode', '1%')
                 .order('barcode', { ascending: false })
@@ -235,7 +235,7 @@ export default function ProductsPage() {
     const generateProductCode = async (): Promise<string> => {
         try {
             const { data } = await supabase
-                .from('products')
+                .from('retail_products')
                 .select('product_code')
                 .like('product_code', 'PRD-%')
                 .order('product_code', { ascending: false })
@@ -331,7 +331,7 @@ export default function ProductsPage() {
             if (editingProduct) {
                 // Update existing product
                 const { error } = await supabase
-                    .from('products')
+                    .from('retail_products')
                     .update({
                         ...productData,
                         updated_at: new Date().toISOString(),
@@ -347,11 +347,11 @@ export default function ProductsPage() {
                 // Create new product
                 const newCode = await generateProductCode();
                 const { error } = await supabase
-                    .from('products')
+                    .from('retail_products')
                     .insert({
                         ...productData,
                         product_code: newCode,
-                        added_date: new Date().toISOString(),
+                        created_at: new Date().toISOString(),
                     });
 
                 if (error) {
@@ -376,7 +376,7 @@ export default function ProductsPage() {
 
         try {
             const { error } = await supabase
-                .from('products')
+                .from('retail_products')
                 .delete()
                 .eq('pid', product.pid);
 
@@ -556,11 +556,22 @@ export default function ProductsPage() {
                                         </td>
                                         <td className="px-4 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div
-                                                    className={`w-10 h-10 rounded-xl flex items-center justify-center text-white text-lg font-bold bg-gradient-to-br ${product.button_ui_color || 'from-blue-400 to-blue-600'}`}
-                                                >
-                                                    {product.product_name.charAt(0).toUpperCase()}
-                                                </div>
+                                                {product.photo ? (
+                                                    <div className="w-12 h-12 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0 border border-gray-200">
+                                                        <img
+                                                            src={product.photo}
+                                                            alt={product.product_name}
+                                                            className="w-full h-full object-cover"
+                                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <div
+                                                        className={`w-12 h-12 rounded-xl flex items-center justify-center text-white text-lg font-bold bg-gradient-to-br ${product.button_ui_color || 'from-blue-400 to-blue-600'}`}
+                                                    >
+                                                        {product.product_name.charAt(0).toUpperCase()}
+                                                    </div>
+                                                )}
                                                 <div>
                                                     <p className="font-semibold text-gray-800">{product.product_name}</p>
                                                     {product.alias && (
