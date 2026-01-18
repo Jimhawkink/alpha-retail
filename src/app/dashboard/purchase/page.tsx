@@ -50,6 +50,7 @@ export default function PurchaseEntryPage() {
     const [qty, setQty] = useState<number>(1);
     const [price, setPrice] = useState<number>(0);
     const [selectedUnit, setSelectedUnit] = useState<string>('');
+    const [availableQty, setAvailableQty] = useState<number>(0);
 
     // Load initial data
     useEffect(() => {
@@ -341,8 +342,14 @@ export default function PurchaseEntryPage() {
                                         </option>
                                     ))}
                                 </select>
-                                {suppliers.length === 0 && (
-                                    <p className="text-xs text-amber-600 mt-1">⚠️ No suppliers found. Add suppliers first.</p>
+                                {suppliers.length === 0 ? (
+                                    <p className="text-xs text-amber-600 mt-1">
+                                        ⚠️ No suppliers. <a href="/dashboard/suppliers" className="text-blue-600 underline hover:text-blue-800">Add Supplier</a>
+                                    </p>
+                                ) : (
+                                    <a href="/dashboard/suppliers" className="text-xs text-blue-600 hover:underline mt-1 inline-block">
+                                        ➕ Add New Supplier
+                                    </a>
                                 )}
                             </div>
                             <div>
@@ -378,13 +385,23 @@ export default function PurchaseEntryPage() {
                                 <label className="text-sm font-medium text-gray-600 mb-1 block">Product *</label>
                                 <select
                                     value={selectedProduct}
-                                    onChange={(e) => {
+                                    onChange={async (e) => {
                                         const prodId = Number(e.target.value);
                                         setSelectedProduct(prodId);
+                                        setAvailableQty(0);
                                         const product = products.find(p => p.pid === prodId);
                                         if (product) {
                                             setPrice(product.purchase_cost || 0);
                                             setSelectedUnit(product.purchase_unit || 'PCS');
+
+                                            // Fetch available stock
+                                            const { data: stockData } = await supabase
+                                                .from('retail_stock')
+                                                .select('qty')
+                                                .eq('pid', prodId);
+
+                                            const totalStock = stockData?.reduce((sum, s) => sum + (s.qty || 0), 0) || 0;
+                                            setAvailableQty(totalStock);
                                         }
                                     }}
                                     className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-green-400"
@@ -396,6 +413,11 @@ export default function PurchaseEntryPage() {
                                         </option>
                                     ))}
                                 </select>
+                                {selectedProduct > 0 && (
+                                    <p className="text-xs mt-1 font-medium text-blue-600">
+                                        📦 Available Stock: {availableQty.toLocaleString()} {selectedUnit}
+                                    </p>
+                                )}
                                 {products.length === 0 && (
                                     <p className="text-xs text-amber-600 mt-1">⚠️ No products found. Add products first.</p>
                                 )}
@@ -451,35 +473,36 @@ export default function PurchaseEntryPage() {
                                 <p className="text-sm">Select ingredients and add them to the list</p>
                             </div>
                         ) : (
-                            <table className="w-full">
+                            <table className="w-full text-xs">
                                 <thead className="bg-gray-50">
                                     <tr>
-                                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">#</th>
-                                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Code</th>
-                                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Product</th>
-                                        <th className="text-center py-3 px-4 text-sm font-semibold text-gray-600">Unit</th>
-                                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">Qty</th>
-                                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">Price</th>
-                                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">Total</th>
-                                        <th className="text-center py-3 px-4 text-sm font-semibold text-gray-600">Action</th>
+                                        <th className="text-left py-2 px-3 text-xs font-semibold text-gray-600">#</th>
+                                        <th className="text-left py-2 px-3 text-xs font-semibold text-gray-600">Code</th>
+                                        <th className="text-left py-2 px-3 text-xs font-semibold text-gray-600">Product</th>
+                                        <th className="text-center py-2 px-3 text-xs font-semibold text-gray-600">Unit</th>
+                                        <th className="text-right py-2 px-3 text-xs font-semibold text-gray-600">Qty</th>
+                                        <th className="text-right py-2 px-3 text-xs font-semibold text-gray-600">Price</th>
+                                        <th className="text-right py-2 px-3 text-xs font-semibold text-gray-600">Total</th>
+                                        <th className="text-center py-2 px-3 text-xs font-semibold text-gray-600">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {items.map((item, idx) => (
                                         <tr key={item.id} className="border-t border-gray-50 hover:bg-green-50/30">
-                                            <td className="py-3 px-4 text-gray-500">{idx + 1}</td>
-                                            <td className="py-3 px-4 font-mono text-sm text-gray-600">{item.productCode}</td>
-                                            <td className="py-3 px-4 font-medium text-gray-800">{item.productName}</td>
-                                            <td className="py-3 px-4 text-center">
-                                                <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs">{item.unit}</span>
+                                            <td className="py-2 px-3 text-gray-500 text-xs">{idx + 1}</td>
+                                            <td className="py-2 px-3 font-mono text-xs text-gray-600">{item.productCode}</td>
+                                            <td className="py-2 px-3 font-medium text-gray-800 text-xs" title={item.productName}>{item.productName}</td>
+                                            <td className="py-2 px-3 text-center">
+                                                <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">{item.unit}</span>
                                             </td>
-                                            <td className="py-3 px-4 text-right text-gray-600 font-medium">{item.qty}</td>
-                                            <td className="py-3 px-4 text-right text-gray-600">Ksh {item.price.toLocaleString()}</td>
-                                            <td className="py-3 px-4 text-right font-bold text-green-600">Ksh {item.total.toLocaleString()}</td>
-                                            <td className="py-3 px-4 text-center">
+                                            <td className="py-2 px-3 text-right text-gray-600 font-medium text-xs">{item.qty}</td>
+                                            <td className="py-2 px-3 text-right text-gray-600 text-xs">Ksh {item.price.toLocaleString()}</td>
+                                            <td className="py-2 px-3 text-right font-bold text-green-600 text-xs">Ksh {item.total.toLocaleString()}</td>
+                                            <td className="py-2 px-3 text-center">
                                                 <button
                                                     onClick={() => removeItem(item.id)}
-                                                    className="p-2 hover:bg-red-50 rounded-lg text-red-500 transition-colors"
+                                                    className="p-1.5 hover:bg-red-50 rounded-lg text-red-500 transition-colors"
+                                                    title="Remove Item"
                                                 >
                                                     🗑️
                                                 </button>
