@@ -155,9 +155,12 @@ export default function SuppliersPage() {
 
             setShowModal(false);
             loadSuppliers();
-        } catch (err) {
+        } catch (err: unknown) {
             console.error('Error saving supplier:', err);
-            toast.error('Failed to save supplier');
+            const errorMessage = err instanceof Error ? err.message :
+                (typeof err === 'object' && err !== null && 'message' in err) ? String((err as { message: unknown }).message) :
+                    'Unknown error';
+            toast.error(`Failed: ${errorMessage}`);
         }
         setIsSaving(false);
     };
