@@ -448,8 +448,26 @@ export default function RetailPOSPage() {
     const [editingCartItem, setEditingCartItem] = useState<CartItem | null>(null);
     const [receiptNo, setReceiptNo] = useState('RCP-00001');
     const [storeName, setStoreName] = useState('Alpha Retail');
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     const searchInputRef = useRef<HTMLInputElement>(null);
+
+    // Toggle fullscreen mode
+    const toggleFullscreen = () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().then(() => {
+                setIsFullscreen(true);
+            }).catch(err => {
+                console.error('Fullscreen error:', err);
+            });
+        } else {
+            document.exitFullscreen().then(() => {
+                setIsFullscreen(false);
+            }).catch(err => {
+                console.error('Exit fullscreen error:', err);
+            });
+        }
+    };
 
     // Load products from database
     const loadProducts = useCallback(async () => {
@@ -740,6 +758,21 @@ export default function RetailPOSPage() {
                         {new Date().toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
                     </span>
                     <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm font-semibold">{receiptNo}</span>
+                    <button
+                        onClick={toggleFullscreen}
+                        className="p-2 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white rounded-lg transition-all hover:scale-105 active:scale-95 shadow-md"
+                        title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+                    >
+                        {isFullscreen ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
+                            </svg>
+                        ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                            </svg>
+                        )}
+                    </button>
                 </div>
             </div>
 
