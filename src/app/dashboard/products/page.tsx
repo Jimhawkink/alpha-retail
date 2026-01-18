@@ -716,6 +716,33 @@ export default function ProductsPage() {
                                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-400/20"
                                     />
                                 </div>
+
+                                {/* Product Image URL */}
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        🖼️ Product Image URL
+                                    </label>
+                                    <div className="flex gap-3">
+                                        <input
+                                            type="text"
+                                            value={formData.photo}
+                                            onChange={(e) => setFormData({ ...formData, photo: e.target.value })}
+                                            placeholder="https://example.com/product-image.jpg"
+                                            className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-400/20"
+                                        />
+                                        {formData.photo && (
+                                            <div className="w-14 h-14 rounded-xl bg-gray-100 border border-gray-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                                                <img
+                                                    src={formData.photo}
+                                                    alt="Preview"
+                                                    className="w-full h-full object-cover"
+                                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-1">Enter image URL to display on POS product cards</p>
+                                </div>
                             </div>
 
                             {/* Pricing Section */}

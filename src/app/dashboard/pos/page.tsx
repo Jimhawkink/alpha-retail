@@ -14,6 +14,7 @@ interface Product {
     costPrice: number;
     salesPrice: number;
     color?: string;
+    imageUrl?: string;
 }
 
 interface CartItem extends Product {
@@ -168,28 +169,62 @@ const CategoryButton = ({
     </button>
 );
 
-// Product Card for Category View
+// Product Card for Category View - Modern White Card Style
 const ProductCard = ({ product, onAdd }: { product: Product; onAdd: () => void }) => (
-    <button
-        onClick={onAdd}
-        disabled={product.availableQty === 0}
-        className={`relative bg-gradient-to-br ${product.color || 'from-blue-400 to-blue-600'} rounded-2xl p-3 text-white text-left transition-all hover:scale-105 hover:shadow-xl active:scale-95 h-28 overflow-hidden ${product.availableQty === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-    >
-        <div className="absolute inset-0 bg-white/10 backdrop-blur-[1px]"></div>
-        <div className="relative z-10 h-full flex flex-col justify-between">
-            <p className="font-bold text-sm leading-tight line-clamp-2 drop-shadow-sm">{product.name}</p>
-            <div className="flex items-center justify-between">
-                <span className="text-xs opacity-90 flex items-center gap-1">📦 {product.availableQty}</span>
-                <span className="font-bold text-sm bg-black/20 px-2 py-0.5 rounded-lg">{product.salesPrice.toLocaleString()}</span>
-            </div>
+    <div className={`bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden transition-all hover:shadow-lg hover:border-gray-200 ${product.availableQty === 0 ? 'opacity-60' : ''}`}>
+        {/* Product Image */}
+        <div className="h-32 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center relative overflow-hidden">
+            {product.imageUrl ? (
+                <img
+                    src={product.imageUrl}
+                    alt={product.name}
+                    className="w-full h-full object-contain p-2"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+            ) : (
+                <div className={`w-16 h-16 rounded-xl bg-gradient-to-br ${product.color || 'from-blue-400 to-blue-600'} flex items-center justify-center text-white text-2xl font-bold shadow-md`}>
+                    {product.name.charAt(0).toUpperCase()}
+                </div>
+            )}
+            {/* Stock Badge */}
+            <span className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-xs font-semibold ${product.availableQty === 0 ? 'bg-red-100 text-red-700' :
+                product.availableQty < 10 ? 'bg-amber-100 text-amber-700' :
+                    'bg-teal-100 text-teal-700'
+                }`}>
+                {product.availableQty === 0 ? 'OUT' : `${product.availableQty} Pcs`}
+            </span>
         </div>
-        {product.availableQty < 10 && product.availableQty > 0 && (
-            <span className="absolute top-2 right-2 w-2 h-2 bg-yellow-300 rounded-full animate-pulse"></span>
-        )}
-        {product.availableQty === 0 && (
-            <span className="absolute top-2 right-2 px-1.5 py-0.5 bg-red-500 text-[10px] font-bold rounded">OUT</span>
-        )}
-    </button>
+
+        {/* Product Info */}
+        <div className="p-3">
+            <h3 className="font-semibold text-gray-800 text-sm line-clamp-2 mb-1 min-h-[40px]">{product.name}</h3>
+
+            {product.barcode && (
+                <p className="text-xs text-gray-400 font-mono mb-1">SKU: {product.barcode}</p>
+            )}
+
+            {product.category && (
+                <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs mb-2">
+                    {product.category}
+                </span>
+            )}
+
+            {/* Price */}
+            <p className="text-lg font-bold text-gray-800">Ksh {product.salesPrice.toLocaleString()}</p>
+        </div>
+
+        {/* Add to Cart Button */}
+        <button
+            onClick={onAdd}
+            disabled={product.availableQty === 0}
+            className={`w-full py-2.5 font-semibold text-sm transition-all flex items-center justify-center gap-1 ${product.availableQty === 0
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:from-teal-600 hover:to-cyan-600 active:scale-[0.98]'
+                }`}
+        >
+            <span>+</span> Add to Cart
+        </button>
+    </div>
 );
 
 // Payment Modal
@@ -475,6 +510,7 @@ export default function RetailPOSPage() {
                 costPrice: p.purchase_cost || 0,
                 salesPrice: p.sales_cost || 0,
                 color: p.button_ui_color || 'from-blue-400 to-blue-600',
+                imageUrl: p.photo || '',
             }));
 
             setProducts(posProducts);
@@ -716,19 +752,100 @@ export default function RetailPOSPage() {
     };
 
     return (
-        <div className="h-screen flex flex-col bg-gray-100">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white px-6 py-3 flex items-center justify-between shadow-lg">
+        <div className="h-screen flex flex-col bg-gray-50">
+            {/* Top Bar - Breadcrumb & Session */}
+            <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <h1 className="text-xl font-bold flex items-center gap-2">
-                        <span>🛒</span> {storeName} - Retail POS
-                    </h1>
+                    <span className="text-gray-400 text-sm">📍 POS - Point of Sale</span>
+                    <span className="text-gray-300">|</span>
+                    <span className="text-gray-600 text-sm font-medium">{storeName}</span>
                 </div>
-                <div className="flex items-center gap-4">
-                    <span className="text-sm opacity-80">
+                <div className="flex items-center gap-3">
+                    <span className="text-xs text-gray-500">
                         {new Date().toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
                     </span>
-                    <span className="text-sm bg-blue-700 px-3 py-1 rounded-lg">{receiptNo}</span>
+                    <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm font-semibold">{receiptNo}</span>
+                </div>
+            </div>
+
+            {/* Main Header */}
+            <div className="bg-white border-b border-gray-200 px-4 py-3">
+                <div className="flex items-center justify-between gap-4">
+                    {/* Left - Store/Branch Dropdown */}
+                    <div className="flex items-center gap-4">
+                        <div>
+                            <label className="block text-xs text-gray-500 mb-1">Store/Branch</label>
+                            <select className="px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 font-medium focus:outline-none focus:border-blue-500 cursor-pointer min-w-[180px]">
+                                <option>🏪 Main Store</option>
+                                <option>🏪 Branch 1</option>
+                                <option>🏪 Branch 2</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs text-gray-500 mb-1">Counter</label>
+                            <select className="px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 font-medium focus:outline-none focus:border-blue-500 cursor-pointer min-w-[120px]">
+                                <option>Counter 1</option>
+                                <option>Counter 2</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Center - Search */}
+                    <div className="flex-1 max-w-xl">
+                        <div className="relative">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+                            <input
+                                ref={searchInputRef}
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onKeyDown={handleSearchKeyDown}
+                                placeholder="Search products by name or barcode..."
+                                className="w-full pl-11 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
+                                autoFocus
+                            />
+                            {searchQuery && (
+                                <button
+                                    onClick={() => { setSearchQuery(''); searchInputRef.current?.focus(); }}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                >
+                                    ✕
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Right - Customer & Filters */}
+                    <div className="flex items-center gap-3">
+                        <div>
+                            <label className="block text-xs text-gray-500 mb-1">Category</label>
+                            <select
+                                value={selectedCategory || ''}
+                                onChange={(e) => {
+                                    const catId = Number(e.target.value);
+                                    if (catId) {
+                                        const cat = categories.find(c => c.category_id === catId);
+                                        if (cat) loadCategoryProducts(catId, cat.category_name);
+                                    } else {
+                                        setSelectedCategory(null);
+                                        setCategoryProducts([]);
+                                    }
+                                }}
+                                className="px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 focus:outline-none focus:border-blue-500 cursor-pointer min-w-[140px]"
+                            >
+                                <option value="">All Categories</option>
+                                {categories.map(cat => (
+                                    <option key={cat.category_id} value={cat.category_id}>
+                                        {cat.icon} {cat.category_name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
+                            <span className="text-gray-500">👤</span>
+                            <span className="text-gray-700 font-medium text-sm">Walk-in Customer</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -736,30 +853,6 @@ export default function RetailPOSPage() {
             <div className="flex-1 flex overflow-hidden">
                 {/* Left Side - Products */}
                 <div className="flex-1 flex flex-col p-4 overflow-hidden">
-                    {/* Search Bar */}
-                    <div className="mb-4">
-                        <div className="relative">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-xl">🔍</span>
-                            <input
-                                ref={searchInputRef}
-                                type="text"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                onKeyDown={handleSearchKeyDown}
-                                placeholder="Search by product name or scan barcode..."
-                                className="w-full pl-12 pr-4 py-4 bg-white border-2 border-gray-200 rounded-2xl text-lg focus:outline-none focus:border-blue-500 shadow-sm"
-                                autoFocus
-                            />
-                            {searchQuery && (
-                                <button
-                                    onClick={() => { setSearchQuery(''); searchInputRef.current?.focus(); }}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xl"
-                                >
-                                    ✕
-                                </button>
-                            )}
-                        </div>
-                    </div>
 
                     {/* Search Results DataGrid */}
                     {searchQuery && filteredProducts.length > 0 && (
@@ -842,7 +935,7 @@ export default function RetailPOSPage() {
                                         Products in Category ({categoryProducts.length})
                                     </h3>
                                     {categoryProducts.length > 0 ? (
-                                        <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 max-h-[250px] overflow-y-auto">
+                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-[400px] overflow-y-auto">
                                             {categoryProducts.map(product => (
                                                 <ProductCard
                                                     key={product.id}
