@@ -169,17 +169,17 @@ const CategoryButton = ({
     </button>
 );
 
-// Product Card - Compact Clickable Design
+// Product Card - Larger Clickable Design
 const ProductCard = ({ product, onAdd }: { product: Product; onAdd: () => void }) => (
     <div
         onClick={product.availableQty > 0 ? onAdd : undefined}
-        className={`bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden transition-all cursor-pointer ${product.availableQty === 0
+        className={`bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden transition-all cursor-pointer ${product.availableQty === 0
                 ? 'opacity-50 cursor-not-allowed'
-                : 'hover:shadow-md hover:border-teal-300 active:scale-[0.98]'
+                : 'hover:shadow-lg hover:border-teal-400 active:scale-[0.98]'
             }`}
     >
         {/* Product Image */}
-        <div className="h-20 bg-gray-50 flex items-center justify-center relative overflow-hidden">
+        <div className="h-32 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center relative overflow-hidden">
             {product.imageUrl ? (
                 <img
                     src={product.imageUrl}
@@ -188,10 +188,10 @@ const ProductCard = ({ product, onAdd }: { product: Product; onAdd: () => void }
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                 />
             ) : (
-                <span className="text-2xl text-gray-300">📦</span>
+                <span className="text-4xl text-gray-300">📦</span>
             )}
             {/* Stock Badge */}
-            <span className={`absolute top-1 right-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${product.availableQty === 0 ? 'bg-red-500 text-white' :
+            <span className={`absolute top-2 right-2 px-2 py-1 rounded-lg text-xs font-bold ${product.availableQty === 0 ? 'bg-red-500 text-white' :
                     product.availableQty < 10 ? 'bg-amber-400 text-white' :
                         'bg-teal-500 text-white'
                 }`}>
@@ -199,9 +199,9 @@ const ProductCard = ({ product, onAdd }: { product: Product; onAdd: () => void }
             </span>
         </div>
         {/* Product Info */}
-        <div className="p-1.5">
-            <p className="text-xs font-medium text-gray-800 truncate">{product.name}</p>
-            <p className="text-sm font-bold text-teal-600">Ksh {product.salesPrice.toLocaleString()}</p>
+        <div className="p-3">
+            <p className="text-sm font-semibold text-gray-800 line-clamp-2 min-h-[40px]">{product.name}</p>
+            <p className="text-lg font-bold text-teal-600">Ksh {product.salesPrice.toLocaleString()}</p>
         </div>
     </div>
 );
@@ -851,7 +851,7 @@ export default function RetailPOSPage() {
                                         : (selectedCategory ? categoryProducts : products);
 
                                     return displayProducts.length > 0 ? (
-                                        <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2">
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                                             {displayProducts.map(product => (
                                                 <ProductCard
                                                     key={product.id}
