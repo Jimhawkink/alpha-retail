@@ -179,12 +179,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                         key={item.href}
                                         href={item.href}
                                         onClick={() => setActiveMenu(item.href)}
+                                        title={item.name}
                                         className={`flex items-center gap-3 px-3 py-2.5 rounded-xl mb-1 transition-all ${activeMenu === item.href
                                             ? 'bg-green-50 text-green-600'
                                             : 'text-gray-600 hover:bg-gray-50'
                                             }`}
                                     >
-                                        <span className="text-xl">{item.icon}</span>
+                                        <span className="text-xl" title={item.name}>{item.icon}</span>
                                         {sidebarOpen && (
                                             <>
                                                 <span className="font-medium text-sm flex-1">{item.name}</span>

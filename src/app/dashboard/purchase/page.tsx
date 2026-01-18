@@ -272,9 +272,12 @@ export default function PurchaseEntryPage() {
             setSelectedSupplier(0);
             setSupplierInvoiceNo('');
             await generateInvoiceNo();
-        } catch (err) {
+        } catch (err: unknown) {
             console.error('Error saving purchase:', err);
-            toast.error('Failed to save purchase');
+            const errorMessage = err instanceof Error ? err.message :
+                (typeof err === 'object' && err !== null && 'message' in err) ? String((err as { message: unknown }).message) :
+                    'Unknown error';
+            toast.error(`Failed to save: ${errorMessage}`);
         }
         setIsSaving(false);
     };
