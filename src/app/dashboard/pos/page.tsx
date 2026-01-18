@@ -171,21 +171,21 @@ const CategoryButton = ({
 
 // Product Card - Fixed Height, Compact Design
 const ProductCard = ({ product, onAdd }: { product: Product; onAdd: () => void }) => (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow h-[280px] flex flex-col">
-        {/* Image - Fixed 100px */}
-        <div className="h-[100px] bg-gray-50 flex items-center justify-center flex-shrink-0">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow h-[240px] flex flex-col">
+        {/* Image - Fixed 110px */}
+        <div className="h-[110px] bg-gray-50 flex items-center justify-center flex-shrink-0">
             {product.imageUrl ? (
-                <img src={product.imageUrl} alt={product.name} className="max-h-[80px] max-w-[80px] object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                <img src={product.imageUrl} alt={product.name} className="max-h-[100px] max-w-[100px] object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             ) : (
                 <div className="w-14 h-14 bg-gray-100 rounded-lg flex items-center justify-center"><span className="text-xl">📦</span></div>
             )}
         </div>
         {/* Content */}
-        <div className="flex-1 p-3 flex flex-col">
-            <h3 className="text-[13px] font-medium text-gray-800 line-clamp-2 h-[36px] leading-tight">{product.name}</h3>
-            <p className="text-[10px] text-gray-400 truncate">SKU: {product.barcode || product.id}</p>
-            <div className="h-[20px] flex items-center mt-1">
-                <span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-[9px]">{product.category || 'General'}</span>
+        <div className="flex-1 p-2 flex flex-col">
+            <h3 className="text-[12px] font-medium text-gray-800 line-clamp-1">{product.name}</h3>
+            <p className="text-[9px] text-gray-400 truncate">SKU: {product.barcode || product.id}</p>
+            <div className="h-[18px] flex items-center">
+                <span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-[8px]">{product.category || 'General'}</span>
             </div>
             <div className="flex-1"></div>
             <div className="flex items-center gap-2 mb-2">
@@ -847,7 +847,7 @@ export default function RetailPOSPage() {
                                         : (selectedCategory ? categoryProducts : products);
 
                                     return displayProducts.length > 0 ? (
-                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                                             {displayProducts.map(product => (
                                                 <ProductCard
                                                     key={product.id}
