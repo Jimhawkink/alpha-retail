@@ -305,11 +305,10 @@ export default function ProductsPage() {
         try {
             const margin = calculateMargin(formData.purchase_cost, formData.sales_cost);
 
-            // Prepare product data for database
+            // Prepare product data for database - only fields that exist in retail_products table
             const productData = {
                 product_name: formData.product_name,
                 alias: formData.alias || null,
-                vat_commodity: formData.vat_commodity,
                 description: formData.description || null,
                 barcode: formData.barcode || null,
                 category: formData.category || null,
@@ -319,10 +318,9 @@ export default function ProductsPage() {
                 sales_cost: formData.sales_cost || 0,
                 reorder_point: formData.reorder_point || 10,
                 margin_per: margin,
-                show_ps: formData.show_ps !== false,
+                show_in_pos: formData.show_ps !== false,
                 button_ui_color: formData.button_ui_color,
                 photo: formData.photo || null,
-                hscode: formData.hscode || null,
                 batch_no: formData.batch_no || null,
                 supplier_name: formData.supplier_name || null,
                 active: formData.active !== false,
