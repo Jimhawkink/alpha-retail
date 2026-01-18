@@ -57,7 +57,7 @@ export default function PurchasesPage() {
         setIsLoading(true);
         try {
             let query = supabase
-                .from('purchases')
+                .from('retail_purchases')
                 .select('*')
                 .order('purchase_id', { ascending: false });
 
@@ -99,7 +99,7 @@ export default function PurchasesPage() {
 
         try {
             const { data, error } = await supabase
-                .from('purchase_products')
+                .from('retail_purchase_products')
                 .select('*')
                 .eq('purchase_id', purchase.purchase_id);
 
@@ -117,7 +117,7 @@ export default function PurchasesPage() {
 
         try {
             const { error } = await supabase
-                .from('purchases')
+                .from('retail_purchases')
                 .delete()
                 .eq('purchase_id', purchase.purchase_id);
 
@@ -289,15 +289,15 @@ export default function PurchasesPage() {
                                         </td>
                                         <td className="py-3 px-4 text-center">
                                             <span className={`px-3 py-1 rounded-full text-xs font-semibold ${purchase.status === 'Completed' ? 'bg-green-100 text-green-700' :
-                                                    purchase.status === 'Pending' ? 'bg-orange-100 text-orange-700' :
-                                                        'bg-gray-100 text-gray-700'
+                                                purchase.status === 'Pending' ? 'bg-orange-100 text-orange-700' :
+                                                    'bg-gray-100 text-gray-700'
                                                 }`}>
                                                 {purchase.status || 'Pending'}
                                             </span>
                                         </td>
                                         <td className="py-3 px-4 text-center">
                                             <span className={`px-3 py-1 rounded-full text-xs font-semibold ${purchase.payment_status === 'Paid' ? 'bg-cyan-100 text-cyan-700' :
-                                                    'bg-red-100 text-red-700'
+                                                'bg-red-100 text-red-700'
                                                 }`}>
                                                 {purchase.payment_status || 'Unpaid'}
                                             </span>

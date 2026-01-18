@@ -12,13 +12,12 @@ interface Supplier {
     contact_person: string;
 }
 
-interface Ingredient {
+interface Product {
     pid: number;
     product_code: string;
     product_name: string;
-    base_unit: string;
-    cost_per_base_unit: number;
-    current_stock: number;
+    purchase_unit: string;
+    purchase_cost: number;
     category: string;
 }
 
@@ -35,7 +34,7 @@ interface PurchaseItem {
 
 export default function PurchaseEntryPage() {
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-    const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+    const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
 
@@ -57,9 +56,9 @@ export default function PurchaseEntryPage() {
         const loadData = async () => {
             setIsLoading(true);
             try {
-                // Load suppliers from suppliers table
+                // Load suppliers from retail_suppliers table
                 const { data: suppliersData, error: suppliersError } = await supabase
-                    .from('suppliers')
+                    .from('retail_suppliers')
                     .select('supplier_id, supplier_code, supplier_name, phone, contact_person')
                     .eq('active', true)
                     .order('supplier_name');
@@ -70,17 +69,17 @@ export default function PurchaseEntryPage() {
                     setSuppliers(suppliersData || []);
                 }
 
-                // Load ingredients from products_ingredients table
-                const { data: ingredientsData, error: ingredientsError } = await supabase
-                    .from('products_ingredients')
-                    .select('pid, product_code, product_name, base_unit, cost_per_base_unit, current_stock, category')
+                // Load products from retail_products table
+                const { data: productsData, error: productsError } = await supabase
+                    .from('retail_products')
+                    .select('pid, product_code, product_name, purchase_unit, purchase_cost, category')
                     .eq('active', true)
                     .order('product_name');
 
-                if (ingredientsError) {
-                    console.error('Error loading ingredients:', ingredientsError);
+                if (productsError) {
+                    console.error('Error loading products:', productsError);
                 } else {
-                    setIngredients(ingredientsData || []);
+                    setProducts(productsData || []);
                 }
 
                 // Generate next invoice number
@@ -98,7 +97,7 @@ export default function PurchaseEntryPage() {
     const generateInvoiceNo = async () => {
         try {
             const { data, error } = await supabase
-                .from('purchases')
+                .from('retail_purchases')
                 .select('purchase_no')
                 .order('purchase_id', { ascending: false })
                 .limit(1);
@@ -125,12 +124,12 @@ export default function PurchaseEntryPage() {
     // Add item to purchase list
     const addItem = () => {
         if (selectedProduct === 0 || qty <= 0 || price <= 0) {
-            toast.error('Please select ingredient, quantity, and price');
+            toast.error('Please select product, quantity, and price');
             return;
         }
 
-        const ingredient = ingredients.find(i => i.pid === selectedProduct);
-        if (!ingredient) return;
+        const product = products.find(p => p.pid === selectedProduct);
+        if (!product) return;
 
         // Check if already exists
         const existingIndex = items.findIndex(i => i.productId === selectedProduct);
@@ -145,10 +144,10 @@ export default function PurchaseEntryPage() {
             // Add new item
             const newItem: PurchaseItem = {
                 id: Date.now(),
-                productId: ingredient.pid,
-                productCode: ingredient.product_code || '',
-                productName: ingredient.product_name,
-                unit: selectedUnit || ingredient.base_unit || 'PCS',
+                productId: product.pid,
+                productCode: product.product_code || '',
+                productName: product.product_name,
+                unit: selectedUnit || product.purchase_unit || 'PCS',
                 qty,
                 price,
                 total: qty * price,
@@ -191,9 +190,9 @@ export default function PurchaseEntryPage() {
             const currentUser = userData ? JSON.parse(userData) : null;
             const supplier = suppliers.find(s => s.supplier_id === selectedSupplier);
 
-            // 1. Create purchase record
+            // 1. Create purchase record in retail_purchases
             const { data: purchaseData, error: purchaseError } = await supabase
-                .from('purchases')
+                .from('retail_purchases')
                 .insert({
                     purchase_no: invoiceNo,
                     purchase_date: purchaseDate,
@@ -215,7 +214,7 @@ export default function PurchaseEntryPage() {
 
             const purchaseId = purchaseData.purchase_id;
 
-            // 2. Add purchase items
+            // 2. Add purchase items to retail_purchase_products
             const purchaseItems = items.map(item => ({
                 purchase_id: purchaseId,
                 product_id: item.productId,
@@ -228,29 +227,40 @@ export default function PurchaseEntryPage() {
             }));
 
             const { error: itemsError } = await supabase
-                .from('purchase_products')
+                .from('retail_purchase_products')
                 .insert(purchaseItems);
 
             if (itemsError) throw itemsError;
 
-            // 3. Update stock for each ingredient in products_ingredients table
+            // 3. Update stock for each product in retail_stock table
             for (const item of items) {
-                // Get current stock
-                const { data: ingredientData } = await supabase
-                    .from('products_ingredients')
-                    .select('pid, current_stock')
+                // Check if stock entry exists for this product
+                const { data: stockData } = await supabase
+                    .from('retail_stock')
+                    .select('st_id, qty')
                     .eq('pid', item.productId)
                     .single();
 
-                if (ingredientData) {
-                    // Update stock
+                if (stockData) {
+                    // Update existing stock
                     await supabase
-                        .from('products_ingredients')
+                        .from('retail_stock')
                         .update({
-                            current_stock: (ingredientData.current_stock || 0) + item.qty,
+                            qty: (stockData.qty || 0) + item.qty,
+                            invoice_no: invoiceNo,
                             updated_at: new Date().toISOString()
                         })
-                        .eq('pid', ingredientData.pid);
+                        .eq('st_id', stockData.st_id);
+                } else {
+                    // Insert new stock entry
+                    await supabase
+                        .from('retail_stock')
+                        .insert({
+                            pid: item.productId,
+                            invoice_no: invoiceNo,
+                            qty: item.qty,
+                            storage_type: 'Store'
+                        });
                 }
             }
 
@@ -290,7 +300,7 @@ export default function PurchaseEntryPage() {
                             Purchase Entry
                         </span>
                     </h1>
-                    <p className="text-gray-500 mt-1">Record new ingredient purchases from suppliers</p>
+                    <p className="text-gray-500 mt-1">Record new product purchases from suppliers</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <div className="px-4 py-2 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl">
@@ -360,34 +370,34 @@ export default function PurchaseEntryPage() {
                     {/* Add Items */}
                     <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
                         <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                            <span className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">🥬</span>
-                            Add Ingredients
+                            <span className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">📦</span>
+                            Add Products
                         </h2>
                         <div className="grid grid-cols-5 gap-4 mb-4">
                             <div className="col-span-2">
-                                <label className="text-sm font-medium text-gray-600 mb-1 block">Ingredient *</label>
+                                <label className="text-sm font-medium text-gray-600 mb-1 block">Product *</label>
                                 <select
                                     value={selectedProduct}
                                     onChange={(e) => {
                                         const prodId = Number(e.target.value);
                                         setSelectedProduct(prodId);
-                                        const ingredient = ingredients.find(i => i.pid === prodId);
-                                        if (ingredient) {
-                                            setPrice(ingredient.cost_per_base_unit || 0);
-                                            setSelectedUnit(ingredient.base_unit || 'PCS');
+                                        const product = products.find(p => p.pid === prodId);
+                                        if (product) {
+                                            setPrice(product.purchase_cost || 0);
+                                            setSelectedUnit(product.purchase_unit || 'PCS');
                                         }
                                     }}
                                     className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-green-400"
                                 >
-                                    <option value={0}>Select Ingredient</option>
-                                    {ingredients.map(ingredient => (
-                                        <option key={ingredient.pid} value={ingredient.pid}>
-                                            {ingredient.product_code} - {ingredient.product_name} ({ingredient.base_unit || 'PCS'})
+                                    <option value={0}>Select Product</option>
+                                    {products.map(product => (
+                                        <option key={product.pid} value={product.pid}>
+                                            {product.product_code} - {product.product_name} ({product.purchase_unit || 'PCS'})
                                         </option>
                                     ))}
                                 </select>
-                                {ingredients.length === 0 && (
-                                    <p className="text-xs text-amber-600 mt-1">⚠️ No ingredients found. Add ingredients first.</p>
+                                {products.length === 0 && (
+                                    <p className="text-xs text-amber-600 mt-1">⚠️ No products found. Add products first.</p>
                                 )}
                             </div>
                             <div>
@@ -446,7 +456,7 @@ export default function PurchaseEntryPage() {
                                     <tr>
                                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">#</th>
                                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Code</th>
-                                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Ingredient</th>
+                                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Product</th>
                                         <th className="text-center py-3 px-4 text-sm font-semibold text-gray-600">Unit</th>
                                         <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">Qty</th>
                                         <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">Price</th>

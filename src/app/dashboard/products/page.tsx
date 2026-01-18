@@ -103,6 +103,7 @@ export default function ProductsPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [filterCategory, setFilterCategory] = useState('All');
     const [isSaving, setIsSaving] = useState(false);
+    const [openingQty, setOpeningQty] = useState(0);
 
     const loadProducts = useCallback(async () => {
         setIsLoading(true);
@@ -265,6 +266,7 @@ export default function ProductsPage() {
             barcode: newBarcode,
             supplier_name: getKitchenSupplier(), // Default to kitchen for food items
         });
+        setOpeningQty(0);
         setShowModal(true);
     };
 
@@ -344,18 +346,37 @@ export default function ProductsPage() {
             } else {
                 // Create new product
                 const newCode = await generateProductCode();
-                const { error } = await supabase
+                const { data: newProduct, error } = await supabase
                     .from('retail_products')
                     .insert({
                         ...productData,
                         product_code: newCode,
                         created_at: new Date().toISOString(),
-                    });
+                    })
+                    .select()
+                    .single();
 
                 if (error) {
                     console.error('Supabase insert error:', error);
                     throw new Error(error.message);
                 }
+
+                // If opening qty > 0, insert into retail_stock
+                if (openingQty > 0 && newProduct) {
+                    const { error: stockError } = await supabase
+                        .from('retail_stock')
+                        .insert({
+                            pid: newProduct.pid,
+                            invoice_no: 'OPENING',
+                            qty: openingQty,
+                            storage_type: 'Store'
+                        });
+
+                    if (stockError) {
+                        console.warn('Could not add opening stock:', stockError);
+                    }
+                }
+
                 toast.success(`Product ${newCode} created! ✓`);
             }
 
@@ -725,6 +746,24 @@ export default function ProductsPage() {
                                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-400/20"
                                     />
                                 </div>
+
+                                {/* Opening Qty - Only show when adding NEW product */}
+                                {!editingProduct && (
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                            📦 Opening Qty
+                                        </label>
+                                        <input
+                                            type="number"
+                                            value={openingQty}
+                                            onChange={(e) => setOpeningQty(Number(e.target.value))}
+                                            placeholder="Initial stock quantity"
+                                            min="0"
+                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-400/20"
+                                        />
+                                        <p className="text-xs text-gray-400 mt-1">Initial stock when creating product</p>
+                                    </div>
+                                )}
 
                                 {/* Product Image Upload */}
                                 <div className="md:col-span-2">
