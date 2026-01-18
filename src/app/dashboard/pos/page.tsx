@@ -169,66 +169,34 @@ const CategoryButton = ({
     </button>
 );
 
-// Product Card - Modern Clean Design (matching reference)
+// Product Card - Fixed Height, Compact Design
 const ProductCard = ({ product, onAdd }: { product: Product; onAdd: () => void }) => (
-    <div className={`bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden transition-all ${product.availableQty === 0 ? 'opacity-60' : 'hover:shadow-xl'
-        }`}>
-        {/* Product Image - Large, Centered */}
-        <div className="h-40 bg-white flex items-center justify-center p-4">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow h-[280px] flex flex-col">
+        {/* Image - Fixed 100px */}
+        <div className="h-[100px] bg-gray-50 flex items-center justify-center flex-shrink-0">
             {product.imageUrl ? (
-                <img
-                    src={product.imageUrl}
-                    alt={product.name}
-                    className="max-h-full max-w-full object-contain"
-                    onError={(e) => { (e.target as HTMLImageElement).src = ''; }}
-                />
+                <img src={product.imageUrl} alt={product.name} className="max-h-[80px] max-w-[80px] object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             ) : (
-                <div className="w-24 h-24 bg-gray-100 rounded-xl flex items-center justify-center">
-                    <span className="text-4xl">📦</span>
-                </div>
+                <div className="w-14 h-14 bg-gray-100 rounded-lg flex items-center justify-center"><span className="text-xl">📦</span></div>
             )}
         </div>
-
-        {/* Product Info */}
-        <div className="p-4 border-t border-gray-50">
-            {/* Name */}
-            <h3 className="font-semibold text-gray-800 text-base mb-1 line-clamp-1">{product.name}</h3>
-
-            {/* SKU */}
-            {product.barcode && (
-                <p className="text-xs text-gray-400 mb-2">SKU: {product.barcode}</p>
-            )}
-
-            {/* Category Tag */}
-            {product.category && (
-                <div className="flex gap-1 mb-3">
-                    <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-medium">
-                        {product.category}
-                    </span>
-                </div>
-            )}
-
-            {/* Price Row */}
-            <div className="flex items-center justify-between mb-3">
-                <span className="text-xl font-bold text-gray-900">Ksh {product.salesPrice.toLocaleString()}</span>
-                <span className={`px-2 py-1 rounded-lg text-xs font-bold ${product.availableQty === 0 ? 'bg-red-100 text-red-600' :
-                    product.availableQty < 10 ? 'bg-amber-100 text-amber-600' :
-                        'bg-emerald-100 text-emerald-600'
-                    }`}>
-                    {product.availableQty === 0 ? 'Out of Stock' : `${product.availableQty} Piece`}
+        {/* Content */}
+        <div className="flex-1 p-3 flex flex-col">
+            <h3 className="text-[13px] font-medium text-gray-800 line-clamp-2 h-[36px] leading-tight">{product.name}</h3>
+            <p className="text-[10px] text-gray-400 truncate">SKU: {product.barcode || product.id}</p>
+            <div className="h-[20px] flex items-center mt-1">
+                <span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-[9px]">{product.category || 'General'}</span>
+            </div>
+            <div className="flex-1"></div>
+            <div className="flex items-center gap-2 mb-2">
+                <span className="text-[15px] font-bold text-gray-900">Ksh {product.salesPrice.toLocaleString()}</span>
+                <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${product.availableQty === 0 ? 'bg-red-100 text-red-600' : product.availableQty < 10 ? 'bg-amber-100 text-amber-600' : 'bg-teal-100 text-teal-600'}`}>
+                    {product.availableQty === 0 ? 'Out' : `${product.availableQty} Pcs`}
                 </span>
             </div>
-
-            {/* Add to Cart Button */}
-            <button
-                onClick={(e) => { e.stopPropagation(); if (product.availableQty > 0) onAdd(); }}
-                disabled={product.availableQty === 0}
-                className={`w-full py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all ${product.availableQty === 0
-                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                    : 'bg-emerald-500 text-white hover:bg-emerald-600 active:scale-[0.98]'
-                    }`}
-            >
-                <span className="text-lg">+</span> Add to Cart
+            <button onClick={(e) => { e.stopPropagation(); if (product.availableQty > 0) onAdd(); }} disabled={product.availableQty === 0}
+                className={`w-full py-1.5 rounded-lg text-[11px] font-medium flex items-center justify-center gap-1 ${product.availableQty === 0 ? 'bg-gray-100 text-gray-400' : 'bg-emerald-500 text-white hover:bg-emerald-600 active:scale-[0.98]'}`}>
+                + Add to Cart
             </button>
         </div>
     </div>
@@ -879,7 +847,7 @@ export default function RetailPOSPage() {
                                         : (selectedCategory ? categoryProducts : products);
 
                                     return displayProducts.length > 0 ? (
-                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                             {displayProducts.map(product => (
                                                 <ProductCard
                                                     key={product.id}
