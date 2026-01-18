@@ -57,9 +57,9 @@ export default function PurchaseEntryPage() {
         const loadData = async () => {
             setIsLoading(true);
             try {
-                // Load suppliers from suppliers table
+                // Load suppliers from retail_suppliers table
                 const { data: suppliersData, error: suppliersError } = await supabase
-                    .from('suppliers')
+                    .from('retail_suppliers')
                     .select('supplier_id, supplier_code, supplier_name, phone, contact_person')
                     .eq('active', true)
                     .order('supplier_name');
