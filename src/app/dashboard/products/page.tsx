@@ -728,31 +728,85 @@ export default function ProductsPage() {
                                     />
                                 </div>
 
-                                {/* Product Image URL */}
+                                {/* Product Image Upload */}
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        🖼️ Product Image URL
+                                        🖼️ Product Image
                                     </label>
-                                    <div className="flex gap-3">
-                                        <input
-                                            type="text"
-                                            value={formData.photo}
-                                            onChange={(e) => setFormData({ ...formData, photo: e.target.value })}
-                                            placeholder="https://example.com/product-image.jpg"
-                                            className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-400/20"
-                                        />
-                                        {formData.photo && (
-                                            <div className="w-14 h-14 rounded-xl bg-gray-100 border border-gray-200 overflow-hidden flex items-center justify-center flex-shrink-0">
-                                                <img
-                                                    src={formData.photo}
-                                                    alt="Preview"
-                                                    className="w-full h-full object-cover"
-                                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                    <div className="flex items-start gap-4">
+                                        {/* Upload Area */}
+                                        <div className="flex-1">
+                                            <label className="relative flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition-all hover:border-teal-400">
+                                                <div className="flex flex-col items-center justify-center pt-4 pb-4">
+                                                    <span className="text-3xl mb-2">📷</span>
+                                                    <p className="text-sm text-gray-600 font-medium">Click to upload image</p>
+                                                    <p className="text-xs text-gray-400">PNG, JPG up to 2MB</p>
+                                                </div>
+                                                <input
+                                                    type="file"
+                                                    className="hidden"
+                                                    accept="image/*"
+                                                    onChange={async (e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (!file) return;
+
+                                                        if (file.size > 2 * 1024 * 1024) {
+                                                            toast.error('Image must be less than 2MB');
+                                                            return;
+                                                        }
+
+                                                        toast.loading('Uploading image...');
+                                                        try {
+                                                            const fileName = `product_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+                                                            const { data, error } = await supabase.storage
+                                                                .from('product-images')
+                                                                .upload(fileName, file, { upsert: true });
+
+                                                            if (error) throw error;
+
+                                                            const { data: urlData } = supabase.storage
+                                                                .from('product-images')
+                                                                .getPublicUrl(data.path);
+
+                                                            setFormData({ ...formData, photo: urlData.publicUrl });
+                                                            toast.dismiss();
+                                                            toast.success('Image uploaded! ✓');
+                                                        } catch (err) {
+                                                            toast.dismiss();
+                                                            console.error('Upload error:', err);
+                                                            toast.error('Failed to upload image');
+                                                        }
+                                                    }}
                                                 />
-                                            </div>
-                                        )}
+                                            </label>
+                                        </div>
+
+                                        {/* Preview */}
+                                        <div className="w-32 h-32 rounded-xl bg-gray-100 border-2 border-gray-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                                            {formData.photo ? (
+                                                <div className="relative w-full h-full">
+                                                    <img
+                                                        src={formData.photo}
+                                                        alt="Preview"
+                                                        className="w-full h-full object-cover"
+                                                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setFormData({ ...formData, photo: '' })}
+                                                        className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 flex items-center justify-center"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="text-center text-gray-400">
+                                                    <span className="text-2xl">📦</span>
+                                                    <p className="text-xs mt-1">No image</p>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                    <p className="text-xs text-gray-500 mt-1">Enter image URL to display on POS product cards</p>
                                 </div>
                             </div>
 

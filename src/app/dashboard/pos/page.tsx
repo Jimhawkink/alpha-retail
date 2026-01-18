@@ -169,17 +169,17 @@ const CategoryButton = ({
     </button>
 );
 
-// Product Card - Clickable Card Design (no button)
+// Product Card - Compact Clickable Design
 const ProductCard = ({ product, onAdd }: { product: Product; onAdd: () => void }) => (
     <div
         onClick={product.availableQty > 0 ? onAdd : undefined}
-        className={`bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden transition-all cursor-pointer ${product.availableQty === 0
-            ? 'opacity-50 cursor-not-allowed'
-            : 'hover:shadow-lg hover:border-teal-300 hover:scale-[1.02] active:scale-[0.98]'
+        className={`bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden transition-all cursor-pointer ${product.availableQty === 0
+                ? 'opacity-50 cursor-not-allowed'
+                : 'hover:shadow-md hover:border-teal-300 active:scale-[0.98]'
             }`}
     >
         {/* Product Image */}
-        <div className="h-28 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center relative overflow-hidden">
+        <div className="h-20 bg-gray-50 flex items-center justify-center relative overflow-hidden">
             {product.imageUrl ? (
                 <img
                     src={product.imageUrl}
@@ -188,24 +188,20 @@ const ProductCard = ({ product, onAdd }: { product: Product; onAdd: () => void }
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                 />
             ) : (
-                <div className="flex flex-col items-center justify-center text-gray-300">
-                    <span className="text-3xl">📦</span>
-                    <span className="text-[10px]">No Image</span>
-                </div>
+                <span className="text-2xl text-gray-300">📦</span>
             )}
             {/* Stock Badge */}
-            <span className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-xs font-semibold ${product.availableQty === 0 ? 'bg-red-100 text-red-700' :
-                product.availableQty < 10 ? 'bg-amber-100 text-amber-700' :
-                    'bg-teal-100 text-teal-700'
+            <span className={`absolute top-1 right-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${product.availableQty === 0 ? 'bg-red-500 text-white' :
+                    product.availableQty < 10 ? 'bg-amber-400 text-white' :
+                        'bg-teal-500 text-white'
                 }`}>
                 {product.availableQty === 0 ? 'OUT' : product.availableQty}
             </span>
         </div>
-
         {/* Product Info */}
-        <div className="p-2">
-            <h3 className="font-semibold text-gray-800 text-sm line-clamp-2 min-h-[32px]">{product.name}</h3>
-            <p className="text-base font-bold text-teal-600">Ksh {product.salesPrice.toLocaleString()}</p>
+        <div className="p-1.5">
+            <p className="text-xs font-medium text-gray-800 truncate">{product.name}</p>
+            <p className="text-sm font-bold text-teal-600">Ksh {product.salesPrice.toLocaleString()}</p>
         </div>
     </div>
 );
@@ -837,80 +833,48 @@ export default function RetailPOSPage() {
                 {/* Left Side - Products */}
                 <div className="flex-1 flex flex-col p-4 overflow-hidden">
 
-                    {/* Search Results DataGrid */}
-                    {searchQuery && filteredProducts.length > 0 && (
-                        <div className="bg-white rounded-2xl shadow-lg mb-4 overflow-hidden border border-gray-200">
-                            <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                                <span className="text-sm font-semibold text-gray-600">
-                                    🔍 Search Results ({filteredProducts.length})
-                                </span>
+                    {/* Products Grid - Filters by search AND category */}
+                    <div className="flex-1 overflow-y-auto">
+                        {isLoading ? (
+                            <div className="flex items-center justify-center h-full text-gray-400">
+                                <div className="flex flex-col items-center gap-3">
+                                    <div className="w-10 h-10 border-4 border-teal-400/30 border-t-teal-500 rounded-full animate-spin"></div>
+                                    <span>Loading products...</span>
+                                </div>
                             </div>
-                            <div className="max-h-[300px] overflow-y-auto">
-                                <table className="w-full">
-                                    <thead className="bg-gray-100 sticky top-0">
-                                        <tr>
-                                            <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Item Name</th>
-                                            <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Barcode</th>
-                                            <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase">Avl. Qty</th>
-                                            <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 uppercase">Cost</th>
-                                            <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 uppercase">Price</th>
-                                            <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {filteredProducts.map((product, index) => (
-                                            <ProductRow
-                                                key={product.id}
-                                                product={product}
-                                                isSelected={index === selectedProductIndex}
-                                                onClick={() => setSelectedProductIndex(index)}
-                                                onDoubleClick={() => addToCart(product)}
-                                            />
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    )}
+                        ) : (
+                            <>
+                                {/* Filter by search or category */}
+                                {(() => {
+                                    const displayProducts = searchQuery
+                                        ? filteredProducts
+                                        : (selectedCategory ? categoryProducts : products);
 
-                    {/* No Results */}
-                    {searchQuery && filteredProducts.length === 0 && (
-                        <div className="bg-white rounded-2xl shadow-lg mb-4 p-8 text-center border border-gray-200">
-                            <span className="text-4xl mb-3 block">🔍</span>
-                            <p className="text-gray-500">No products found for "{searchQuery}"</p>
-                        </div>
-                    )}
-
-                    {/* All Products Grid - Shows ALL products automatically */}
-                    {!searchQuery && (
-                        <div className="flex-1 overflow-y-auto">
-                            {isLoading ? (
-                                <div className="flex items-center justify-center h-full text-gray-400">
-                                    <div className="flex flex-col items-center gap-3">
-                                        <div className="w-10 h-10 border-4 border-teal-400/30 border-t-teal-500 rounded-full animate-spin"></div>
-                                        <span>Loading products...</span>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-                                    {(selectedCategory ? categoryProducts : products).map(product => (
-                                        <ProductCard
-                                            key={product.id}
-                                            product={product}
-                                            onAdd={() => addToCart(product)}
-                                        />
-                                    ))}
-                                </div>
-                            )}
-                            {!isLoading && products.length === 0 && (
-                                <div className="flex-1 flex flex-col items-center justify-center text-gray-400 py-12">
-                                    <span className="text-5xl mb-3">📦</span>
-                                    <p className="text-lg font-medium">No products found</p>
-                                    <p className="text-sm">Add products in the Products page</p>
-                                </div>
-                            )}
-                        </div>
-                    )}
+                                    return displayProducts.length > 0 ? (
+                                        <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2">
+                                            {displayProducts.map(product => (
+                                                <ProductCard
+                                                    key={product.id}
+                                                    product={product}
+                                                    onAdd={() => addToCart(product)}
+                                                />
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="flex-1 flex flex-col items-center justify-center text-gray-400 py-12">
+                                            <span className="text-5xl mb-3">{searchQuery ? '🔍' : '📦'}</span>
+                                            <p className="text-lg font-medium">
+                                                {searchQuery ? `No products found for "${searchQuery}"` : 'No products found'}
+                                            </p>
+                                            <p className="text-sm">
+                                                {searchQuery ? 'Try a different search term' : 'Add products in the Products page'}
+                                            </p>
+                                        </div>
+                                    );
+                                })()}
+                            </>
+                        )}
+                    </div>
                 </div>
 
                 {/* Right Side - Cart */}
