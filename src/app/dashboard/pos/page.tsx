@@ -169,39 +169,67 @@ const CategoryButton = ({
     </button>
 );
 
-// Product Card - Larger Clickable Design
+// Product Card - Modern Clean Design (matching reference)
 const ProductCard = ({ product, onAdd }: { product: Product; onAdd: () => void }) => (
-    <div
-        onClick={product.availableQty > 0 ? onAdd : undefined}
-        className={`bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden transition-all cursor-pointer ${product.availableQty === 0
-                ? 'opacity-50 cursor-not-allowed'
-                : 'hover:shadow-lg hover:border-teal-400 active:scale-[0.98]'
-            }`}
-    >
-        {/* Product Image */}
-        <div className="h-32 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center relative overflow-hidden">
+    <div className={`bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden transition-all ${product.availableQty === 0 ? 'opacity-60' : 'hover:shadow-xl'
+        }`}>
+        {/* Product Image - Large, Centered */}
+        <div className="h-40 bg-white flex items-center justify-center p-4">
             {product.imageUrl ? (
                 <img
                     src={product.imageUrl}
                     alt={product.name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    className="max-h-full max-w-full object-contain"
+                    onError={(e) => { (e.target as HTMLImageElement).src = ''; }}
                 />
             ) : (
-                <span className="text-4xl text-gray-300">📦</span>
+                <div className="w-24 h-24 bg-gray-100 rounded-xl flex items-center justify-center">
+                    <span className="text-4xl">📦</span>
+                </div>
             )}
-            {/* Stock Badge */}
-            <span className={`absolute top-2 right-2 px-2 py-1 rounded-lg text-xs font-bold ${product.availableQty === 0 ? 'bg-red-500 text-white' :
-                    product.availableQty < 10 ? 'bg-amber-400 text-white' :
-                        'bg-teal-500 text-white'
-                }`}>
-                {product.availableQty === 0 ? 'OUT' : product.availableQty}
-            </span>
         </div>
+
         {/* Product Info */}
-        <div className="p-3">
-            <p className="text-sm font-semibold text-gray-800 line-clamp-2 min-h-[40px]">{product.name}</p>
-            <p className="text-lg font-bold text-teal-600">Ksh {product.salesPrice.toLocaleString()}</p>
+        <div className="p-4 border-t border-gray-50">
+            {/* Name */}
+            <h3 className="font-semibold text-gray-800 text-base mb-1 line-clamp-1">{product.name}</h3>
+
+            {/* SKU */}
+            {product.barcode && (
+                <p className="text-xs text-gray-400 mb-2">SKU: {product.barcode}</p>
+            )}
+
+            {/* Category Tag */}
+            {product.category && (
+                <div className="flex gap-1 mb-3">
+                    <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-medium">
+                        {product.category}
+                    </span>
+                </div>
+            )}
+
+            {/* Price Row */}
+            <div className="flex items-center justify-between mb-3">
+                <span className="text-xl font-bold text-gray-900">Ksh {product.salesPrice.toLocaleString()}</span>
+                <span className={`px-2 py-1 rounded-lg text-xs font-bold ${product.availableQty === 0 ? 'bg-red-100 text-red-600' :
+                    product.availableQty < 10 ? 'bg-amber-100 text-amber-600' :
+                        'bg-emerald-100 text-emerald-600'
+                    }`}>
+                    {product.availableQty === 0 ? 'Out of Stock' : `${product.availableQty} Piece`}
+                </span>
+            </div>
+
+            {/* Add to Cart Button */}
+            <button
+                onClick={(e) => { e.stopPropagation(); if (product.availableQty > 0) onAdd(); }}
+                disabled={product.availableQty === 0}
+                className={`w-full py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all ${product.availableQty === 0
+                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    : 'bg-emerald-500 text-white hover:bg-emerald-600 active:scale-[0.98]'
+                    }`}
+            >
+                <span className="text-lg">+</span> Add to Cart
+            </button>
         </div>
     </div>
 );
@@ -851,7 +879,7 @@ export default function RetailPOSPage() {
                                         : (selectedCategory ? categoryProducts : products);
 
                                     return displayProducts.length > 0 ? (
-                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
                                             {displayProducts.map(product => (
                                                 <ProductCard
                                                     key={product.id}
