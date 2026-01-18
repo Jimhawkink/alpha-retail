@@ -750,31 +750,30 @@ export default function ProductsPage() {
                                                         const file = e.target.files?.[0];
                                                         if (!file) return;
 
-                                                        if (file.size > 2 * 1024 * 1024) {
-                                                            toast.error('Image must be less than 2MB');
+                                                        if (file.size > 500 * 1024) {
+                                                            toast.error('Image must be less than 500KB');
                                                             return;
                                                         }
 
-                                                        toast.loading('Uploading image...');
+                                                        toast.loading('Processing image...');
                                                         try {
-                                                            const fileName = `product_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
-                                                            const { data, error } = await supabase.storage
-                                                                .from('product-images')
-                                                                .upload(fileName, file, { upsert: true });
-
-                                                            if (error) throw error;
-
-                                                            const { data: urlData } = supabase.storage
-                                                                .from('product-images')
-                                                                .getPublicUrl(data.path);
-
-                                                            setFormData({ ...formData, photo: urlData.publicUrl });
-                                                            toast.dismiss();
-                                                            toast.success('Image uploaded! ✓');
+                                                            // Convert to base64
+                                                            const reader = new FileReader();
+                                                            reader.onloadend = () => {
+                                                                const base64String = reader.result as string;
+                                                                setFormData({ ...formData, photo: base64String });
+                                                                toast.dismiss();
+                                                                toast.success('Image added! ✓');
+                                                            };
+                                                            reader.onerror = () => {
+                                                                toast.dismiss();
+                                                                toast.error('Failed to read image');
+                                                            };
+                                                            reader.readAsDataURL(file);
                                                         } catch (err) {
                                                             toast.dismiss();
-                                                            console.error('Upload error:', err);
-                                                            toast.error('Failed to upload image');
+                                                            console.error('Image error:', err);
+                                                            toast.error('Failed to process image');
                                                         }
                                                     }}
                                                 />
