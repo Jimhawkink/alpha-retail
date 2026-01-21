@@ -300,8 +300,8 @@ const PaymentModal = ({
 
             const data = await response.json();
 
-            if (data.success && (data.CheckoutRequestID || data.checkoutRequestId)) {
-                const requestId = data.CheckoutRequestID || data.checkoutRequestId;
+            if (data.success && (data.checkout_request_id || data.CheckoutRequestID || data.checkoutRequestId)) {
+                const requestId = data.checkout_request_id || data.CheckoutRequestID || data.checkoutRequestId;
                 setCheckoutRequestId(requestId);
                 setMpesaStatus('waiting');
                 setMpesaStatusMessage('📲 Enter your M-Pesa PIN on your phone...');
@@ -338,7 +338,7 @@ const PaymentModal = ({
             attempts++;
 
             try {
-                const response = await fetch(`${MPESA_API_URL}/check-status?checkoutRequestId=${requestId}`, {
+                const response = await fetch(`${MPESA_API_URL}/check-status?checkout_request_id=${requestId}`, {
                     headers: {
                         'apikey': MPESA_SUPABASE_ANON_KEY,
                         'Authorization': `Bearer ${MPESA_SUPABASE_ANON_KEY}`
@@ -346,13 +346,14 @@ const PaymentModal = ({
                 });
                 const data = await response.json();
 
-                if (data.ResultCode === 0 && data.MpesaReceiptNumber) {
+                if (data.resultCode === 0) {
                     // Payment successful!
                     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+                    const receipt = data.mpesaReceiptNumber || data.MpesaReceiptNumber || 'Confirmed';
                     setMpesaStatus('success');
-                    setMpesaStatusMessage(`✅ Payment received! Receipt: ${data.MpesaReceiptNumber}`);
-                    setMpesaReceipt(data.MpesaReceiptNumber);
-                    toast.success(`✅ M-Pesa payment successful! ${data.MpesaReceiptNumber}`);
+                    setMpesaStatusMessage(`✅ Payment received! Receipt: ${receipt}`);
+                    setMpesaReceipt(receipt);
+                    toast.success(`✅ M-Pesa payment successful! ${receipt}`);
 
                     // Update transaction in database
                     await supabase.from('mpesa_transactions')
@@ -368,7 +369,7 @@ const PaymentModal = ({
                         onComplete('MPESA', total, data.MpesaReceiptNumber, customerName, requestId);
                     }, 1000);
 
-                } else if (data.ResultCode !== undefined && data.ResultCode !== null && data.ResultCode !== 0) {
+                } else if (data.resultCode !== undefined && data.resultCode !== null && data.resultCode !== 0) {
                     // Payment failed
                     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
                     setMpesaStatus('failed');
@@ -380,7 +381,7 @@ const PaymentModal = ({
                         2001: '❌ Wrong M-Pesa PIN entered',
                     };
 
-                    const desc = errorMessages[data.ResultCode] || `❌ Payment failed (Code: ${data.ResultCode})`;
+                    const desc = errorMessages[data.resultCode] || `❌ Payment failed (Code: ${data.resultCode})`;
                     setMpesaStatusMessage(desc);
                     toast.error(desc);
 
