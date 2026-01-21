@@ -204,6 +204,7 @@ const ProductCard = ({ product, onAdd }: { product: Product; onAdd: () => void }
 
 // M-Pesa API URL - uses Energy App's Supabase Edge Functions
 const MPESA_API_URL = 'https://pxcdaivlvltmdifxietb.supabase.co/functions/v1';
+const MPESA_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB4Y2RhaXZsdmx0bWRpZnhpZXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjQ4Mzk0NzUsImV4cCI6MjA0MDQxNTQ3NX0.e_grsm45xJMdNJx-RAhVXMPnqQq7lXBeo0vQ_9c2bZ8';
 
 // Format phone number for M-Pesa
 const formatMpesaPhone = (phone: string): string => {
@@ -284,7 +285,10 @@ const PaymentModal = ({
             const phone = formatMpesaPhone(mpesaPhone);
             const response = await fetch(`${MPESA_API_URL}/stkpush`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${MPESA_SUPABASE_ANON_KEY}`
+                },
                 body: JSON.stringify({
                     phone,
                     amount: Math.ceil(total),
@@ -333,7 +337,11 @@ const PaymentModal = ({
             attempts++;
 
             try {
-                const response = await fetch(`${MPESA_API_URL}/check-status?checkoutRequestId=${requestId}`);
+                const response = await fetch(`${MPESA_API_URL}/check-status?checkoutRequestId=${requestId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${MPESA_SUPABASE_ANON_KEY}`
+                    }
+                });
                 const data = await response.json();
 
                 if (data.ResultCode === 0 && data.MpesaReceiptNumber) {
