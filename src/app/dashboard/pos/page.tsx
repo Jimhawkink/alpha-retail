@@ -202,7 +202,27 @@ const ProductCard = ({ product, onAdd }: { product: Product; onAdd: () => void }
     </div>
 );
 
-// Payment Modal
+// M-Pesa API URL - uses Energy App's Supabase Edge Functions
+const MPESA_API_URL = 'https://pxcdaivlvltmdifxietb.supabase.co/functions/v1';
+
+// Format phone number for M-Pesa
+const formatMpesaPhone = (phone: string): string => {
+    let cleaned = phone.replace(/\s/g, '').replace(/\+/g, '').replace(/-/g, '');
+    if (cleaned.startsWith('0')) {
+        cleaned = '254' + cleaned.substring(1);
+    } else if (!cleaned.startsWith('254')) {
+        cleaned = '254' + cleaned;
+    }
+    return cleaned;
+};
+
+// Validate Kenyan phone number
+const isValidKenyanPhone = (phone: string): boolean => {
+    const cleaned = phone.replace(/\s/g, '').replace(/\+/g, '').replace(/-/g, '');
+    return /^(07\d{8}|01\d{8}|254\d{9})$/.test(cleaned);
+};
+
+// Payment Modal with M-Pesa STK Push
 const PaymentModal = ({
     isOpen,
     onClose,
@@ -213,7 +233,7 @@ const PaymentModal = ({
     isOpen: boolean;
     onClose: () => void;
     total: number;
-    onComplete: (method: string, amountPaid: number, mpesaReceipt?: string, customerName?: string) => void;
+    onComplete: (method: string, amountPaid: number, mpesaReceipt?: string, customerName?: string, checkoutRequestId?: string) => void;
     receiptNo: string;
 }) => {
     const [paymentMethod, setPaymentMethod] = useState('cash');
@@ -222,14 +242,167 @@ const PaymentModal = ({
     const [mpesaReceipt, setMpesaReceipt] = useState('');
     const [customerName, setCustomerName] = useState('');
 
+    // M-Pesa STK Push State
+    const [mpesaStatus, setMpesaStatus] = useState<'idle' | 'sending' | 'waiting' | 'success' | 'failed'>('idle');
+    const [mpesaStatusMessage, setMpesaStatusMessage] = useState('');
+    const [checkoutRequestId, setCheckoutRequestId] = useState('');
+    const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
     const change = paymentMethod === 'cash' ? Math.max(0, Number(amountPaid) - total) : 0;
     const quickAmounts = [100, 200, 500, 1000, 2000, 5000];
+
+    // Cleanup polling on unmount
+    useEffect(() => {
+        return () => {
+            if (pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current);
+            }
+        };
+    }, []);
+
+    // Reset M-Pesa state
+    const resetMpesaState = () => {
+        if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+        }
+        setMpesaStatus('idle');
+        setMpesaStatusMessage('');
+        setCheckoutRequestId('');
+    };
+
+    // Handle M-Pesa STK Push
+    const handleMpesaSTKPush = async () => {
+        if (!isValidKenyanPhone(mpesaPhone)) {
+            toast.error('📱 Please enter a valid Kenyan phone number (e.g., 0712345678)');
+            return;
+        }
+
+        setMpesaStatus('sending');
+        setMpesaStatusMessage('📤 Sending STK Push...');
+
+        try {
+            const phone = formatMpesaPhone(mpesaPhone);
+            const response = await fetch(`${MPESA_API_URL}/stkpush`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    phone,
+                    amount: Math.ceil(total),
+                    accountReference: receiptNo,
+                    transactionDesc: `Alpha Retail - ${receiptNo}`,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (data.success && (data.CheckoutRequestID || data.checkoutRequestId)) {
+                const requestId = data.CheckoutRequestID || data.checkoutRequestId;
+                setCheckoutRequestId(requestId);
+                setMpesaStatus('waiting');
+                setMpesaStatusMessage('📲 Enter your M-Pesa PIN on your phone...');
+
+                // Save pending transaction to database
+                await supabase.from('mpesa_transactions').insert({
+                    checkout_request_id: requestId,
+                    phone_number: phone,
+                    amount: total,
+                    account_reference: receiptNo,
+                    status: 'Pending',
+                });
+
+                // Start polling for status
+                startStatusPolling(requestId);
+            } else {
+                setMpesaStatus('failed');
+                setMpesaStatusMessage(data.error || data.message || '❌ Failed to send STK Push');
+                toast.error(data.error || 'Failed to send STK Push');
+            }
+        } catch (err: any) {
+            setMpesaStatus('failed');
+            setMpesaStatusMessage(err.message || '❌ Network error');
+            toast.error('Network error - please try again');
+        }
+    };
+
+    // Poll for M-Pesa payment status
+    const startStatusPolling = (requestId: string) => {
+        let attempts = 0;
+        const maxAttempts = 24; // 2 minutes (24 * 5 seconds)
+
+        pollIntervalRef.current = setInterval(async () => {
+            attempts++;
+
+            try {
+                const response = await fetch(`${MPESA_API_URL}/check-status?checkoutRequestId=${requestId}`);
+                const data = await response.json();
+
+                if (data.ResultCode === 0 && data.MpesaReceiptNumber) {
+                    // Payment successful!
+                    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+                    setMpesaStatus('success');
+                    setMpesaStatusMessage(`✅ Payment received! Receipt: ${data.MpesaReceiptNumber}`);
+                    setMpesaReceipt(data.MpesaReceiptNumber);
+                    toast.success(`✅ M-Pesa payment successful! ${data.MpesaReceiptNumber}`);
+
+                    // Update transaction in database
+                    await supabase.from('mpesa_transactions')
+                        .update({
+                            status: 'Completed',
+                            mpesa_receipt_number: data.MpesaReceiptNumber,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('checkout_request_id', requestId);
+
+                    // Auto-complete the sale after 1 second
+                    setTimeout(() => {
+                        onComplete('MPESA', total, data.MpesaReceiptNumber, customerName, requestId);
+                    }, 1000);
+
+                } else if (data.ResultCode !== undefined && data.ResultCode !== null && data.ResultCode !== 0) {
+                    // Payment failed
+                    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+                    setMpesaStatus('failed');
+
+                    const errorMessages: Record<number, string> = {
+                        1: '❌ Insufficient funds in M-Pesa account',
+                        1032: '❌ Request cancelled by user',
+                        1037: '❌ Request timed out - no response from phone',
+                        2001: '❌ Wrong M-Pesa PIN entered',
+                    };
+
+                    const desc = errorMessages[data.ResultCode] || `❌ Payment failed (Code: ${data.ResultCode})`;
+                    setMpesaStatusMessage(desc);
+                    toast.error(desc);
+
+                    // Update transaction status
+                    await supabase.from('mpesa_transactions')
+                        .update({ status: 'Failed', result_desc: desc })
+                        .eq('checkout_request_id', requestId);
+
+                } else if (attempts >= maxAttempts) {
+                    // Timeout
+                    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+                    setMpesaStatus('failed');
+                    setMpesaStatusMessage('⏰ Payment timeout - please check your M-Pesa messages');
+                    toast.error('Payment timeout - please check your M-Pesa messages');
+                }
+            } catch {
+                // Continue polling on error
+            }
+        }, 5000);
+    };
+
+    // Handle close with cleanup
+    const handleClose = () => {
+        resetMpesaState();
+        onClose();
+    };
 
     if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl">
+            <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between mb-6">
                     <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                         <span>💳</span> Payment
@@ -256,7 +429,7 @@ const PaymentModal = ({
                     ].map(method => (
                         <button
                             key={method.id}
-                            onClick={() => setPaymentMethod(method.id)}
+                            onClick={() => { setPaymentMethod(method.id); resetMpesaState(); }}
                             className={`p-3 rounded-xl border-2 transition-all ${paymentMethod === method.id
                                 ? 'border-green-500 bg-green-50'
                                 : 'border-gray-200 hover:border-gray-300 bg-gray-50'
@@ -305,29 +478,57 @@ const PaymentModal = ({
                     </div>
                 )}
 
-                {/* M-Pesa Input */}
+                {/* M-Pesa STK Push Section */}
                 {paymentMethod === 'mpesa' && (
                     <div className="space-y-4 mb-6">
                         <div>
-                            <label className="text-sm font-medium text-gray-600 mb-2 block">Phone Number</label>
+                            <label className="text-sm font-medium text-gray-600 mb-2 block">📱 Customer Phone Number</label>
                             <input
                                 type="tel"
                                 value={mpesaPhone}
                                 onChange={(e) => setMpesaPhone(e.target.value)}
-                                placeholder="0712345678"
+                                placeholder="07XX XXX XXX or 01XX XXX XXX"
                                 className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none text-lg"
+                                disabled={mpesaStatus === 'sending' || mpesaStatus === 'waiting'}
                             />
                         </div>
-                        <button className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold transition-colors flex items-center justify-center gap-2">
-                            <span>📤</span> Send STK Push
-                        </button>
-                        <div>
-                            <label className="text-sm font-medium text-gray-600 mb-2 block">M-Pesa Receipt (Optional)</label>
+
+                        {/* M-Pesa Status Display */}
+                        {mpesaStatus !== 'idle' && (
+                            <div className={`p-4 rounded-xl flex items-center gap-3 ${mpesaStatus === 'sending' ? 'bg-amber-50 border border-amber-300' :
+                                mpesaStatus === 'waiting' ? 'bg-blue-50 border border-blue-300' :
+                                    mpesaStatus === 'success' ? 'bg-green-50 border border-green-300' :
+                                        'bg-red-50 border border-red-300'
+                                }`}>
+                                {(mpesaStatus === 'sending' || mpesaStatus === 'waiting') && (
+                                    <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                                )}
+                                <span className={`font-medium ${mpesaStatus === 'sending' ? 'text-amber-700' :
+                                    mpesaStatus === 'waiting' ? 'text-blue-700' :
+                                        mpesaStatus === 'success' ? 'text-green-700' :
+                                            'text-red-700'
+                                    }`}>{mpesaStatusMessage}</span>
+                            </div>
+                        )}
+
+                        {/* Send STK Push Button */}
+                        {(mpesaStatus === 'idle' || mpesaStatus === 'failed') && (
+                            <button
+                                onClick={handleMpesaSTKPush}
+                                className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
+                            >
+                                <span>📤</span> Send STK Push
+                            </button>
+                        )}
+
+                        {/* Manual Receipt Entry */}
+                        <div className="pt-4 border-t border-gray-200">
+                            <p className="text-xs text-gray-500 mb-2 text-center">- OR enter receipt manually if customer has already paid -</p>
                             <input
                                 type="text"
                                 value={mpesaReceipt}
-                                onChange={(e) => setMpesaReceipt(e.target.value)}
-                                placeholder="e.g. QJK2A5B..."
+                                onChange={(e) => setMpesaReceipt(e.target.value.toUpperCase())}
+                                placeholder="M-Pesa Receipt e.g. RLJ5XXXXXX"
                                 className="w-full p-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none"
                             />
                         </div>
@@ -356,18 +557,31 @@ const PaymentModal = ({
                 {/* Actions */}
                 <div className="flex gap-3">
                     <button
-                        onClick={onClose}
+                        onClick={handleClose}
                         className="flex-1 py-3 border-2 border-gray-200 text-gray-600 rounded-xl font-semibold hover:bg-gray-50"
+                        disabled={mpesaStatus === 'sending' || mpesaStatus === 'waiting'}
                     >
                         Cancel
                     </button>
-                    <button
-                        onClick={() => onComplete(paymentMethod, Number(amountPaid) || total, mpesaReceipt, customerName)}
-                        className="flex-1 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold text-lg hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                    >
-                        <span>✅</span>
-                        <span>Complete Sale</span>
-                    </button>
+                    {mpesaStatus !== 'waiting' && mpesaStatus !== 'sending' && (
+                        <button
+                            onClick={() => onComplete(
+                                paymentMethod === 'mpesa' ? 'MPESA' : paymentMethod.toUpperCase(),
+                                Number(amountPaid) || total,
+                                mpesaReceipt,
+                                customerName,
+                                checkoutRequestId
+                            )}
+                            disabled={paymentMethod === 'mpesa' && !mpesaReceipt && mpesaStatus !== 'success'}
+                            className={`flex-1 py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 ${paymentMethod === 'mpesa' && !mpesaReceipt && mpesaStatus !== 'success'
+                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-lg'
+                                }`}
+                        >
+                            <span>✅</span>
+                            <span>Complete Sale</span>
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
@@ -686,7 +900,7 @@ export default function RetailPOSPage() {
     const grandTotal = subtotal - totalDiscount;
 
     // Complete sale
-    const completeSale = async (method: string, amountPaid: number, mpesaReceipt?: string, customerName?: string) => {
+    const completeSale = async (method: string, amountPaid: number, mpesaReceipt?: string, customerName?: string, checkoutRequestId?: string) => {
         try {
             // Create sale record in retail_sales table
             const { data: sale, error: saleError } = await supabase
@@ -702,7 +916,8 @@ export default function RetailPOSPage() {
                     payment_method: method.toUpperCase(),
                     amount_paid: amountPaid,
                     change_amount: Math.max(0, amountPaid - grandTotal),
-                    mpesa_code: mpesaReceipt,
+                    mpesa_code: mpesaReceipt || null,
+                    checkout_request_id: checkoutRequestId || null,
                     status: 'Completed'
                 }])
                 .select()
