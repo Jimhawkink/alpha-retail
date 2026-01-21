@@ -234,7 +234,7 @@ const PaymentModal = ({
     isOpen: boolean;
     onClose: () => void;
     total: number;
-    onComplete: (method: string, amountPaid: number, mpesaReceipt?: string, customerName?: string, checkoutRequestId?: string) => void;
+    onComplete: (method: string, amountPaid: number, mpesaReceipt?: string, customerName?: string, checkoutRequestId?: string, customerPhone?: string) => void;
     receiptNo: string;
 }) => {
     const [paymentMethod, setPaymentMethod] = useState('cash');
@@ -366,7 +366,7 @@ const PaymentModal = ({
 
                     // Auto-complete the sale after 1 second
                     setTimeout(() => {
-                        onComplete('MPESA', total, data.MpesaReceiptNumber, customerName, requestId);
+                        onComplete('MPESA', total, receipt, customerName, requestId, mpesaPhone);
                     }, 1000);
 
                 } else if (data.resultCode !== undefined && data.resultCode !== null && data.resultCode !== 0) {
@@ -911,7 +911,7 @@ export default function RetailPOSPage() {
     const grandTotal = subtotal - totalDiscount;
 
     // Complete sale
-    const completeSale = async (method: string, amountPaid: number, mpesaReceipt?: string, customerName?: string, checkoutRequestId?: string) => {
+    const completeSale = async (method: string, amountPaid: number, mpesaReceipt?: string, customerName?: string, checkoutRequestId?: string, customerPhone?: string) => {
         try {
             // Create sale record in retail_sales table
             const { data: sale, error: saleError } = await supabase
@@ -921,6 +921,7 @@ export default function RetailPOSPage() {
                     sale_date: new Date().toISOString().split('T')[0],
                     sale_datetime: new Date().toISOString(),
                     customer_name: customerName || 'Walk-in Customer',
+                    customer_phone: customerPhone || null,
                     subtotal: subtotal,
                     discount: totalDiscount,
                     total_amount: grandTotal,
