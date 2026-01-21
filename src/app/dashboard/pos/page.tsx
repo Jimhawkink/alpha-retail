@@ -204,7 +204,7 @@ const ProductCard = ({ product, onAdd }: { product: Product; onAdd: () => void }
 
 // M-Pesa API URL - uses Energy App's Supabase Edge Functions
 const MPESA_API_URL = 'https://pxcdaivlvltmdifxietb.supabase.co/functions/v1';
-const MPESA_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB4Y2RhaXZsdmx0bWRpZnhpZXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjQ4Mzk0NzUsImV4cCI6MjA0MDQxNTQ3NX0.e_grsm45xJMdNJx-RAhVXMPnqQq7lXBeo0vQ_9c2bZ8';
+const MPESA_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB4Y2RhaXZsdmx0bWRpZnhpZXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3NDI3NDIsImV4cCI6MjA4MTMxODc0Mn0.s6nv24s6M83gAcW_nSKCBfcXcqJ_7owwqdObPDT7Ky0';
 
 // Format phone number for M-Pesa
 const formatMpesaPhone = (phone: string): string => {
