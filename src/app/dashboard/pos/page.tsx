@@ -287,6 +287,7 @@ const PaymentModal = ({
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'apikey': MPESA_SUPABASE_ANON_KEY,
                     'Authorization': `Bearer ${MPESA_SUPABASE_ANON_KEY}`
                 },
                 body: JSON.stringify({
@@ -339,6 +340,7 @@ const PaymentModal = ({
             try {
                 const response = await fetch(`${MPESA_API_URL}/check-status?checkoutRequestId=${requestId}`, {
                     headers: {
+                        'apikey': MPESA_SUPABASE_ANON_KEY,
                         'Authorization': `Bearer ${MPESA_SUPABASE_ANON_KEY}`
                     }
                 });
