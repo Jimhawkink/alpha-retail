@@ -349,7 +349,35 @@ const PaymentModal = ({
                 if (data.resultCode === 0) {
                     // Payment successful!
                     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-                    const receipt = data.mpesaReceiptNumber || data.MpesaReceiptNumber || 'Confirmed';
+
+                    // Get receipt from response - check multiple possible field names
+                    let receipt = data.mpesaReceiptNumber || data.MpesaReceiptNumber || data.mpesa_receipt_number || data.mpesa_receipt || null;
+
+                    // If no receipt in response, try to extract from resultDesc (format: "...UALHE4GP51...")
+                    if (!receipt && data.resultDesc) {
+                        const match = data.resultDesc.match(/([A-Z0-9]{10})/);
+                        if (match) receipt = match[1];
+                    }
+
+                    // If still no receipt, fetch from database (callback may have saved it)
+                    if (!receipt) {
+                        const { data: txData } = await supabase
+                            .from('mpesa_transactions')
+                            .select('mpesa_receipt_number')
+                            .eq('checkout_request_id', requestId)
+                            .single();
+                        if (txData?.mpesa_receipt_number) {
+                            receipt = txData.mpesa_receipt_number;
+                        }
+                    }
+
+                    // Final fallback - use a timestamp-based placeholder only if absolutely nothing found
+                    if (!receipt) {
+                        console.warn('⚠️ No M-Pesa receipt found in response or database');
+                        receipt = `MPESA-${Date.now().toString(36).toUpperCase()}`;
+                    }
+
+                    console.log('✅ M-Pesa Receipt:', receipt);
                     setMpesaStatus('success');
                     setMpesaStatusMessage(`✅ Payment received! Receipt: ${receipt}`);
                     setMpesaReceipt(receipt);
@@ -359,7 +387,7 @@ const PaymentModal = ({
                     await supabase.from('mpesa_transactions')
                         .update({
                             status: 'Completed',
-                            mpesa_receipt_number: data.MpesaReceiptNumber,
+                            mpesa_receipt_number: receipt,
                             updated_at: new Date().toISOString()
                         })
                         .eq('checkout_request_id', requestId);
