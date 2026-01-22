@@ -19,7 +19,7 @@ serve(async (req) => {
 
     try {
         const url = new URL(req.url);
-        const checkoutRequestId = url.searchParams.get("checkoutRequestId");
+        const checkoutRequestId = url.searchParams.get("checkout_request_id") || url.searchParams.get("checkoutRequestId");
 
         if (!checkoutRequestId) {
             return new Response(

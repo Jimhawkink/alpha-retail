@@ -107,6 +107,7 @@ serve(async (req) => {
                     success: true,
                     message: "STK Push sent successfully",
                     CheckoutRequestID: stkData.CheckoutRequestID,
+                    checkout_request_id: stkData.CheckoutRequestID, // Also return underscore version
                     MerchantRequestID: stkData.MerchantRequestID,
                 }),
                 { headers: { ...corsHeaders, "Content-Type": "application/json" } }
