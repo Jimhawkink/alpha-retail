@@ -204,7 +204,7 @@ const ProductCard = ({ product, onAdd }: { product: Product; onAdd: () => void }
 
 // M-Pesa API URL - uses Alpha Retail's own Supabase Edge Functions (deployed to same project)
 const MPESA_API_URL = 'https://enlqpifpxuecxxozyiak.supabase.co/functions/v1';
-const MPESA_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVubHFwaWZweHVlY3h4b3p5aWFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU3MzQ5MjUsImV4cCI6MjA1MTMxMDkyNX0.yTGA1Kd_jCU1-hFkJXb23-bSzYMgWS9LGqSWmNvRdHg';
+const MPESA_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVubHFwaWZweHVlY3h4b3p5aWFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYwMjUzNjgsImV4cCI6MjA4MTYwMTM2OH0.-z3-2Mf3SkkZR3ZryOGyG-60jWERX9YLKIee048OziE';
 
 // Format phone number for M-Pesa
 const formatMpesaPhone = (phone: string): string => {
