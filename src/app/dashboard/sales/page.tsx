@@ -218,6 +218,7 @@ export default function SalesPage() {
                                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Time</th>
                                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Customer</th>
                                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Phone</th>
+                                    <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Discount</th>
                                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Payment</th>
                                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">M-Pesa Code</th>
                                     <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Amount</th>
@@ -241,6 +242,13 @@ export default function SalesPage() {
                                         </td>
                                         <td className="py-3 px-4 text-sm text-gray-600">
                                             {sale.customer_phone || '-'}
+                                        </td>
+                                        <td className="py-3 px-4 text-right">
+                                            {(sale.discount || 0) > 0 ? (
+                                                <span className="text-red-600 font-medium text-sm">-Ksh {sale.discount.toLocaleString()}</span>
+                                            ) : (
+                                                <span className="text-gray-400 text-sm">-</span>
+                                            )}
                                         </td>
                                         <td className="py-3 px-4">
                                             <span className={`px-3 py-1 rounded-lg text-sm font-medium ${(sale.payment_method || '').toUpperCase() === 'CASH' ? 'bg-yellow-100 text-yellow-700' :

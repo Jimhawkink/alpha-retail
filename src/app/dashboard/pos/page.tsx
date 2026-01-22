@@ -248,6 +248,7 @@ const PaymentModal = ({
     const [mpesaStatusMessage, setMpesaStatusMessage] = useState('');
     const [checkoutRequestId, setCheckoutRequestId] = useState('');
     const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const saleCompletedRef = useRef<boolean>(false); // Prevent multiple sale completions
 
     const change = paymentMethod === 'cash' ? Math.max(0, Number(amountPaid) - total) : 0;
     const quickAmounts = [100, 200, 500, 1000, 2000, 5000];
@@ -269,6 +270,7 @@ const PaymentModal = ({
         setMpesaStatus('idle');
         setMpesaStatusMessage('');
         setCheckoutRequestId('');
+        saleCompletedRef.current = false; // Reset for next payment
     };
 
     // Handle M-Pesa STK Push
@@ -392,9 +394,12 @@ const PaymentModal = ({
                         })
                         .eq('checkout_request_id', requestId);
 
-                    // Auto-complete the sale after 1 second
+                    // Auto-complete the sale after 1 second (only if not already completed)
                     setTimeout(() => {
-                        onComplete('MPESA', total, receipt, customerName, requestId, mpesaPhone);
+                        if (!saleCompletedRef.current) {
+                            saleCompletedRef.current = true;
+                            onComplete('MPESA', total, receipt, customerName, requestId, mpesaPhone);
+                        }
                     }, 1000);
 
                 } else if (data.resultCode !== undefined && data.resultCode !== null && data.resultCode !== 0) {
@@ -993,9 +998,9 @@ export default function RetailPOSPage() {
             setCart([]);
             loadNextReceiptNo();
             loadProducts(); // Refresh stock
-        } catch (err) {
+        } catch (err: any) {
             console.error('Error completing sale:', err);
-            toast.error('Failed to complete sale');
+            toast.error(`Failed to complete sale: ${err?.message || err?.details || 'Unknown error'}`);
         }
     };
 
