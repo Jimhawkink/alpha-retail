@@ -361,22 +361,58 @@ const PaymentModal = ({
                         if (match) receipt = match[1];
                     }
 
-                    // If still no receipt, fetch from database (callback may have saved it)
-                    if (!receipt) {
-                        const { data: txData } = await supabase
-                            .from('mpesa_transactions')
-                            .select('mpesa_receipt_number')
-                            .eq('checkout_request_id', requestId)
-                            .single();
-                        if (txData?.mpesa_receipt_number) {
-                            receipt = txData.mpesa_receipt_number;
-                        }
-                    }
+                    // If still no receipt, poll a few more times (callback may still be processing)
+                    if (!receipt && attempts < maxAttempts) {
+                        console.log('⏳ Payment success but receipt not yet available, retrying...');
+                        // Poll again after 2 seconds (callback should have saved by now)
+                        setTimeout(async () => {
+                            for (let retry = 0; retry < 5; retry++) {
+                                await new Promise(resolve => setTimeout(resolve, 1000));
+                                try {
+                                    const retryResponse = await fetch(`${MPESA_API_URL}/check-status?checkout_request_id=${requestId}`, {
+                                        headers: {
+                                            'apikey': MPESA_SUPABASE_ANON_KEY,
+                                            'Authorization': `Bearer ${MPESA_SUPABASE_ANON_KEY}`
+                                        }
+                                    });
+                                    const retryData = await retryResponse.json();
+                                    if (retryData.mpesaReceiptNumber) {
+                                        receipt = retryData.mpesaReceiptNumber;
+                                        console.log('✅ Got receipt on retry:', receipt);
+                                        break;
+                                    }
+                                } catch (e) {
+                                    console.error('Retry error:', e);
+                                }
+                            }
 
-                    // Final fallback - use a timestamp-based placeholder only if absolutely nothing found
-                    if (!receipt) {
-                        console.warn('⚠️ No M-Pesa receipt found in response or database');
-                        receipt = `MPESA-${Date.now().toString(36).toUpperCase()}`;
+                            // Final completion with whatever receipt we have
+                            if (!receipt) {
+                                console.warn('⚠️ Could not get M-Pesa receipt after retries');
+                                receipt = `MPESA-${Date.now().toString(36).toUpperCase()}`;
+                            }
+
+                            setMpesaStatus('success');
+                            setMpesaStatusMessage(`✅ Payment received! Receipt: ${receipt}`);
+                            setMpesaReceipt(receipt);
+                            toast.success(`✅ M-Pesa payment successful! ${receipt}`);
+
+                            // Update transaction in database
+                            await supabase.from('mpesa_transactions')
+                                .update({
+                                    status: 'Completed',
+                                    mpesa_receipt_number: receipt,
+                                    updated_at: new Date().toISOString()
+                                })
+                                .eq('checkout_request_id', requestId);
+
+                            // Complete the sale
+                            if (!saleCompletedRef.current) {
+                                saleCompletedRef.current = true;
+                                onComplete('MPESA', total, receipt, customerName, requestId, mpesaPhone);
+                            }
+                        }, 500);
+                        return;
                     }
 
                     console.log('✅ M-Pesa Receipt:', receipt);
