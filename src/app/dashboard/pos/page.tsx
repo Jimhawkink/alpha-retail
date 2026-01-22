@@ -809,21 +809,31 @@ export default function RetailPOSPage() {
     // Generate next receipt number
     const loadNextReceiptNo = useCallback(async () => {
         try {
-            const { data } = await supabase
+            const { data, error } = await supabase
                 .from('retail_sales')
                 .select('receipt_no')
                 .order('sale_id', { ascending: false })
-                .limit(1)
-                .single();
+                .limit(1);
 
-            if (data?.receipt_no) {
-                const match = data.receipt_no.match(/RCP-(\d+)/);
+            if (error) {
+                console.error('Error loading receipt number:', error);
+                setReceiptNo('RCP-00001');
+                return;
+            }
+
+            if (data && data.length > 0 && data[0].receipt_no) {
+                const match = data[0].receipt_no.match(/(?:RCP-|P-)(\d+)/);
                 if (match) {
                     const nextNum = parseInt(match[1]) + 1;
                     setReceiptNo(`RCP-${String(nextNum).padStart(5, '0')}`);
+                    return;
                 }
             }
-        } catch {
+
+            // Fallback for first receipt or if parsing fails
+            setReceiptNo('RCP-00001');
+        } catch (err) {
+            console.error('Exception loading receipt number:', err);
             setReceiptNo('RCP-00001');
         }
     }, []);
