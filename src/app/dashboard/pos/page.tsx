@@ -202,9 +202,9 @@ const ProductCard = ({ product, onAdd }: { product: Product; onAdd: () => void }
     </div>
 );
 
-// M-Pesa API URL - uses Energy App's Supabase Edge Functions (working setup)
-const MPESA_API_URL = 'https://pxcdaivlvltmdifxietb.supabase.co/functions/v1';
-const MPESA_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB4Y2RhaXZsdmx0bWRpZnhpZXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3NDI3NDIsImV4cCI6MjA4MTMxODc0Mn0.s6nv24s6M83gAcW_nSKCBfcXcqJ_7owwqdObPDT7Ky0';
+// M-Pesa API URL - using AlphaRetail's own Supabase Edge Functions
+const MPESA_API_URL = 'https://enlqpifpxuecxxozyiak.supabase.co/functions/v1';
+const MPESA_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVubHFwaWZweHVlY3h4b3p5aWFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYwMjUzNjgsImV4cCI6MjA4MTYwMTM2OH0.-z3-2Mf3SkkZR3ZryOGyG-60jWERX9YLKIee048OziE';
 
 // Format phone number for M-Pesa
 const formatMpesaPhone = (phone: string): string => {
