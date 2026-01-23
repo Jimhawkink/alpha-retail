@@ -764,20 +764,46 @@ export function generateKOTHTML(data: KOTData, company: CompanyInfo = defaultCom
 `;
 }
 
-// Print function - opens print dialog
+// Print function - uses iframe to avoid popup blockers
 export function printReceipt(html: string): void {
-  const printWindow = window.open('', '_blank', 'width=350,height=600');
-  if (printWindow) {
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.focus();
+  console.log('🖨️ Printing receipt...');
+
+  // Create hidden iframe for printing
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = 'none';
+  iframe.style.visibility = 'hidden';
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow?.document;
+  if (doc) {
+    doc.open();
+    doc.write(html);
+    doc.close();
 
     // Wait for content to load then print
-    setTimeout(() => {
-      printWindow.print();
-      // Close after print dialog closes
-      printWindow.onafterprint = () => printWindow.close();
-    }, 250);
+    iframe.onload = () => {
+      setTimeout(() => {
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+          console.log('🖨️ Print dialog opened');
+        } catch (e) {
+          console.error('Print error:', e);
+        }
+        // Remove iframe after printing
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 1000);
+      }, 300);
+    };
+  } else {
+    console.error('Could not create print iframe');
+    document.body.removeChild(iframe);
   }
 }
 

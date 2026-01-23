@@ -1079,6 +1079,7 @@ export default function RetailPOSPage() {
             // Auto-print receipt for M-Pesa payments
             if (method.toUpperCase() === 'MPESA') {
                 try {
+                    console.log('🖨️ Auto-printing M-Pesa receipt...');
                     const company = await loadCompanyInfo();
                     const now = new Date();
                     const receiptData: ReceiptData = {
@@ -1103,9 +1104,11 @@ export default function RetailPOSPage() {
                         customerPhone: customerPhone || undefined,
                         mpesaReceipt: mpesaReceipt || undefined
                     };
+                    console.log('🖨️ Receipt data:', receiptData);
                     printMpesaReceipt(receiptData, company);
+                    console.log('🖨️ Print function called');
                 } catch (printErr) {
-                    console.error('Receipt print error:', printErr);
+                    console.error('❌ Receipt print error:', printErr);
                 }
             }
 
