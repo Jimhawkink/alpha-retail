@@ -446,8 +446,8 @@ const PaymentModal = ({
                         }
                     }, 1000);
 
-                } else if (data.success === false || (data.resultCode !== undefined && data.resultCode !== null && data.resultCode !== 0)) {
-                    // Payment failed or cancelled
+                } else if ((data.success === false || (data.resultCode !== undefined && data.resultCode !== null && data.resultCode !== 0)) && data.status !== 'pending') {
+                    // Payment failed or cancelled (but NOT if still pending - waiting for callback)
                     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
                     setMpesaStatus('failed');
 
