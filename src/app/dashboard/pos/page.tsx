@@ -341,7 +341,7 @@ const PaymentModal = ({
     // Poll for M-Pesa payment status
     const startStatusPolling = (requestId: string) => {
         let attempts = 0;
-        const maxAttempts = 3; // 15 seconds (3 * 5 seconds) - reduced for faster testing
+        const maxAttempts = 9; // 45 seconds (9 * 5 seconds) - enough time for callback
 
         pollIntervalRef.current = setInterval(async () => {
             attempts++;
