@@ -285,6 +285,9 @@ const PaymentModal = ({
 
         try {
             const phone = formatMpesaPhone(mpesaPhone);
+            console.log('🔵 Sending STK to:', `${MPESA_API_URL}/stkpush`);
+            console.log('🔵 Phone:', phone, 'Amount:', Math.ceil(total));
+
             const response = await fetch(`${MPESA_API_URL}/stkpush`, {
                 method: 'POST',
                 headers: {
@@ -301,6 +304,7 @@ const PaymentModal = ({
             });
 
             const data = await response.json();
+            console.log('🔵 STK Response:', data);
 
             if (data.success && (data.checkout_request_id || data.CheckoutRequestID || data.checkoutRequestId)) {
                 const requestId = data.checkout_request_id || data.CheckoutRequestID || data.checkoutRequestId;
@@ -320,14 +324,17 @@ const PaymentModal = ({
                 // Start polling for status
                 startStatusPolling(requestId);
             } else {
+                const errorMsg = data.error || data.errorMessage || data.message || JSON.stringify(data);
+                console.error('❌ STK Failed:', errorMsg);
                 setMpesaStatus('failed');
-                setMpesaStatusMessage(data.error || data.message || '❌ Failed to send STK Push');
-                toast.error(data.error || 'Failed to send STK Push');
+                setMpesaStatusMessage(`❌ ${errorMsg}`);
+                toast.error(`STK Error: ${errorMsg}`);
             }
         } catch (err: any) {
+            console.error('❌ Network Error:', err);
             setMpesaStatus('failed');
-            setMpesaStatusMessage(err.message || '❌ Network error');
-            toast.error('Network error - please try again');
+            setMpesaStatusMessage(`❌ ${err.message}`);
+            toast.error(`Network error: ${err.message}`);
         }
     };
 
