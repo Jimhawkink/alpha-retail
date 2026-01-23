@@ -72,6 +72,9 @@ serve(async (req) => {
 
         const password = btoa(`${SHORTCODE}${PASSKEY}${timestamp}`);
 
+        // Get Till Number (for Buy Goods) - defaults to shortcode if not set
+        const TILL_NUMBER = Deno.env.get("MPESA_TILL_NUMBER") || SHORTCODE;
+
         // Step 3: Initiate STK Push (Buy Goods / Till)
         const stkPayload = {
             BusinessShortCode: SHORTCODE,
@@ -80,14 +83,14 @@ serve(async (req) => {
             TransactionType: "CustomerBuyGoodsOnline",  // For Till numbers
             Amount: Math.ceil(amount),
             PartyA: phone,
-            PartyB: SHORTCODE,
+            PartyB: TILL_NUMBER,  // Till number for Buy Goods
             PhoneNumber: phone,
             CallBackURL: CALLBACK_URL || `${BASE_URL}/callback`,
             AccountReference: accountReference || "Payment",
             TransactionDesc: transactionDesc || "Payment",
         };
 
-        console.log("📤 Sending STK Push...");
+        console.log("📤 Sending STK Push with CallBackURL:", CALLBACK_URL);
 
         const stkResponse = await fetch(`${BASE_URL}/mpesa/stkpush/v1/processrequest`, {
             method: "POST",
