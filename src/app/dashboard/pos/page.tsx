@@ -312,7 +312,16 @@ const PaymentModal = ({
                 setMpesaStatus('waiting');
                 setMpesaStatusMessage('📲 Enter your M-Pesa PIN on your phone...');
 
-                // Start polling for status (Energy App tracks the transaction)
+                // Save pending transaction to local database (for visibility)
+                await supabase.from('mpesa_transactions').insert({
+                    checkout_request_id: requestId,
+                    phone_number: phone,
+                    amount: total,
+                    account_reference: receiptNo,
+                    status: 'Pending',
+                });
+
+                // Poll Energy App's check-status for receipt updates
                 startStatusPolling(requestId);
             } else {
                 const errorMsg = data.error || data.errorMessage || data.message || JSON.stringify(data);
