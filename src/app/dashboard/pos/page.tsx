@@ -446,10 +446,13 @@ const PaymentModal = ({
                         }
                     }, 1000);
 
-                } else if (data.resultCode !== undefined && data.resultCode !== null && data.resultCode !== 0) {
-                    // Payment failed
+                } else if (data.success === false || (data.resultCode !== undefined && data.resultCode !== null && data.resultCode !== 0)) {
+                    // Payment failed or cancelled
                     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
                     setMpesaStatus('failed');
+
+                    // Determine error message
+                    let desc = '❌ Payment failed';
 
                     const errorMessages: Record<number, string> = {
                         1: '❌ Insufficient funds in M-Pesa account',
@@ -458,7 +461,21 @@ const PaymentModal = ({
                         2001: '❌ Wrong M-Pesa PIN entered',
                     };
 
-                    const desc = errorMessages[data.resultCode] || `❌ Payment failed (Code: ${data.resultCode})`;
+                    if (data.resultCode && errorMessages[data.resultCode]) {
+                        desc = errorMessages[data.resultCode];
+                    } else if (data.resultDesc) {
+                        const descLower = data.resultDesc.toLowerCase();
+                        if (descLower.includes('insufficient') || descLower.includes('balance')) {
+                            desc = '❌ Insufficient funds in M-Pesa account';
+                        } else if (descLower.includes('cancel')) {
+                            desc = '❌ Request cancelled by user';
+                        } else {
+                            desc = `❌ Payment failed: ${data.resultDesc}`;
+                        }
+                    } else if (data.resultCode) {
+                        desc = `❌ Payment failed (Code: ${data.resultCode})`;
+                    }
+
                     setMpesaStatusMessage(desc);
                     toast.error(desc);
 
