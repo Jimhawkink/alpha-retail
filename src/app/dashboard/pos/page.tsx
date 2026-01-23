@@ -354,6 +354,7 @@ const PaymentModal = ({
                     }
                 });
                 const data = await response.json();
+                console.log('🔵 check-status Response:', JSON.stringify(data, null, 2));
 
                 if (data.resultCode === 0) {
                     // Payment successful!
