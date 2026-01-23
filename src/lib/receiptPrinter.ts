@@ -1083,6 +1083,7 @@ export function generateMpesaReceiptHTML(data: ReceiptData, company: CompanyInfo
       <span style="width:20%;text-align:right;">${item.price.toFixed(2)}</span>
       <span style="width:25%;text-align:right;font-weight:bold;">${item.total.toFixed(2)}</span>
     </div>
+    ${(item.discount && item.discount > 0) ? `<div style="padding-left:15px;color:#c00;font-size:10px;">Discount: -${item.discount.toFixed(2)}</div>` : ''}
   </div>
   `).join('')}
 
