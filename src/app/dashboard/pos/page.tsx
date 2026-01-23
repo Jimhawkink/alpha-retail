@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
+import { printMpesaReceipt, ReceiptData, loadCompanyInfo } from '@/lib/receiptPrinter';
 
 // Types for Retail POS
 interface Product {
@@ -597,6 +598,17 @@ const PaymentModal = ({
                                 disabled={mpesaStatus === 'sending' || mpesaStatus === 'waiting'}
                             />
                         </div>
+                        <div>
+                            <label className="text-sm font-medium text-gray-600 mb-2 block">👤 Customer Name (Optional)</label>
+                            <input
+                                type="text"
+                                value={customerName}
+                                onChange={(e) => setCustomerName(e.target.value)}
+                                placeholder="Enter customer name"
+                                className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none text-lg"
+                                disabled={mpesaStatus === 'sending' || mpesaStatus === 'waiting'}
+                            />
+                        </div>
 
                         {/* M-Pesa Status Display */}
                         {mpesaStatus !== 'idle' && (
@@ -1062,6 +1074,39 @@ export default function RetailPOSPage() {
                     p_product_id: item.id,
                     p_qty: item.qty
                 });
+            }
+
+            // Auto-print receipt for M-Pesa payments
+            if (method.toUpperCase() === 'MPESA') {
+                try {
+                    const company = await loadCompanyInfo();
+                    const now = new Date();
+                    const receiptData: ReceiptData = {
+                        invoiceNo: receiptNo,
+                        date: now.toLocaleDateString('en-GB'),
+                        time: now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+                        cashier: 'Cashier',
+                        items: cart.map(item => ({
+                            name: item.name,
+                            qty: item.qty,
+                            price: item.salesPrice,
+                            total: item.salesPrice * item.qty
+                        })),
+                        subtotal: subtotal,
+                        discount: totalDiscount,
+                        tax: 0,
+                        total: grandTotal,
+                        paymentMethod: 'MPESA',
+                        amountPaid: amountPaid,
+                        change: 0,
+                        customerName: customerName || undefined,
+                        customerPhone: customerPhone || undefined,
+                        mpesaReceipt: mpesaReceipt || undefined
+                    };
+                    printMpesaReceipt(receiptData, company);
+                } catch (printErr) {
+                    console.error('Receipt print error:', printErr);
+                }
             }
 
             toast.success('Sale completed successfully!');
