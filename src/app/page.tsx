@@ -14,8 +14,7 @@ export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [currentTime, setCurrentTime] = useState('');
     const [currentDate, setCurrentDate] = useState('');
-    const [storeName, setStoreName] = useState('Alpha Hospital');
-    const [loginMode, setLoginMode] = useState<'Retail' | 'Hospital'>('Hospital');
+    const [storeName, setStoreName] = useState('Alpha Plus');
 
     useEffect(() => {
         const updateDateTime = () => {
@@ -58,98 +57,53 @@ export default function LoginPage() {
         }
 
         try {
-            if (loginMode === 'Hospital') {
-                // Query hospital.users table
-                const { data, error: dbError } = await supabase
-                    .from('hospital_users')
-                    .select('*')
-                    .eq('user_name', username)
-                    .eq('active', true)
-                    .single();
+            // Query retail users table
+            const { data, error: dbError } = await supabase
+                .from('users')
+                .select('*')
+                .eq('user_name', username)
+                .eq('active', true)
+                .single();
 
-                if (dbError || !data) {
-                    setError('Invalid hospital username or password');
-                    setIsLoading(false);
-                    return;
+            if (dbError || !data) {
+                setError('Invalid retail username or password');
+                setIsLoading(false);
+                return;
+            }
+
+            // Check password/PIN with fallback
+            let isMatch = false;
+            try {
+                // Check password hash
+                if (data.password_hash && (data.password_hash.startsWith('$2a$') || data.password_hash.startsWith('$2b$'))) {
+                    isMatch = await bcrypt.compare(password, data.password_hash);
                 }
-
-                // Check password with fallback
-                let isMatch = false;
-                try {
-                    // Try bcrypt first if it looks like a hash
-                    if (data.password_hash && (data.password_hash.startsWith('$2a$') || data.password_hash.startsWith('$2b$'))) {
-                        isMatch = await bcrypt.compare(password, data.password_hash);
-                    }
-                } catch (bErr) {
-                    console.error('Bcrypt error:', bErr);
+                // Check PIN hash if password didn't match
+                if (!isMatch && data.pin && (data.pin.startsWith('$2a$') || data.pin.startsWith('$2b$'))) {
+                    if (await bcrypt.compare(password, data.pin)) isMatch = true;
                 }
+            } catch (bErr) {
+                console.error('Bcrypt error:', bErr);
+            }
 
-                // Fallback for plain text
-                if (!isMatch && data.password_hash === password) {
+            // Final fallback for plain text (password or PIN)
+            if (!isMatch) {
+                if (data.password_hash === password || data.pin === password) {
                     isMatch = true;
                 }
+            }
 
-                if (isMatch) {
-                    localStorage.setItem('user', JSON.stringify({
-                        userId: data.user_id,
-                        userName: data.user_name,
-                        name: data.full_name,
-                        userType: data.user_type,
-                        isHospital: true
-                    }));
-                    router.push('/dashboard/hospital-pos');
-                } else {
-                    setError('Invalid hospital username or password');
-                }
+            if (isMatch) {
+                localStorage.setItem('user', JSON.stringify({
+                    userId: data.user_id,
+                    userName: data.user_name,
+                    name: data.name,
+                    userType: data.user_type,
+                    email: data.email
+                }));
+                router.push('/dashboard');
             } else {
-                // Query retail users table
-                const { data, error: dbError } = await supabase
-                    .from('users')
-                    .select('*')
-                    .eq('user_name', username)
-                    .eq('active', true)
-                    .single();
-
-                if (dbError || !data) {
-                    setError('Invalid retail username or password');
-                    setIsLoading(false);
-                    return;
-                }
-
-                // Check password/PIN with fallback
-                let isMatch = false;
-                try {
-                    // Check password hash
-                    if (data.password_hash && (data.password_hash.startsWith('$2a$') || data.password_hash.startsWith('$2b$'))) {
-                        isMatch = await bcrypt.compare(password, data.password_hash);
-                    }
-                    // Check PIN hash if password didn't match
-                    if (!isMatch && data.pin && (data.pin.startsWith('$2a$') || data.pin.startsWith('$2b$'))) {
-                        if (await bcrypt.compare(password, data.pin)) isMatch = true;
-                    }
-                } catch (bErr) {
-                    console.error('Bcrypt error:', bErr);
-                }
-
-                // Final fallback for plain text (password or PIN)
-                if (!isMatch) {
-                    if (data.password_hash === password || data.pin === password) {
-                        isMatch = true;
-                    }
-                }
-
-                if (isMatch) {
-                    localStorage.setItem('user', JSON.stringify({
-                        userId: data.user_id,
-                        userName: data.user_name,
-                        name: data.name,
-                        userType: data.user_type,
-                        email: data.email
-                    }));
-                    router.push('/dashboard');
-                } else {
-                    setError('Invalid retail username or password');
-                }
+                setError('Invalid retail username or password');
             }
         } catch (err) {
             console.error('Login error:', err);
@@ -187,14 +141,14 @@ export default function LoginPage() {
 
                         {/* Portal Icon */}
                         <div className="relative inline-flex items-center justify-center w-24 h-24 bg-white/20 backdrop-blur-sm rounded-3xl mb-4 shadow-lg border border-white/30 transition-transform hover:rotate-12">
-                            <span className="text-6xl">{loginMode === 'Hospital' ? '🏥' : '🛒'}</span>
+                            <span className="text-6xl">🛒</span>
                         </div>
 
                         <h1 className="text-2xl md:text-3xl font-bold text-white mb-1">
-                            {loginMode === 'Hospital' ? 'Alpha Hospital' : storeName}
+                            {storeName}
                         </h1>
                         <p className="text-green-100 text-sm font-medium">
-                            {loginMode === 'Hospital' ? '✨ Medical Billing & POS System ✨' : '✨ Retail Point of Sale System ✨'}
+                            ✨ Retail Point of Sale System ✨
                         </p>
 
                         {/* Time */}
@@ -202,26 +156,6 @@ export default function LoginPage() {
                             <span className="flex items-center gap-1"><span>🕐</span> {currentTime}</span>
                             <span className="w-1 h-1 rounded-full bg-white/50"></span>
                             <span className="flex items-center gap-1"><span>📅</span> {currentDate}</span>
-                        </div>
-                    </div>
-
-                    {/* Login Mode Toggle */}
-                    <div className="px-8 mt-6">
-                        <div className="flex bg-gray-100 p-1 rounded-2xl border border-gray-200">
-                            <button
-                                type="button"
-                                onClick={() => setLoginMode('Hospital')}
-                                className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${loginMode === 'Hospital' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400'}`}
-                            >
-                                🏥 HOSPITAL
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setLoginMode('Retail')}
-                                className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${loginMode === 'Retail' ? 'bg-white text-green-600 shadow-sm' : 'text-gray-400'}`}
-                            >
-                                🛒 RETAIL
-                            </button>
                         </div>
                     </div>
 
@@ -280,7 +214,7 @@ export default function LoginPage() {
                             <button
                                 type="submit"
                                 disabled={isLoading}
-                                className={`w-full py-4 px-6 bg-gradient-to-r ${loginMode === 'Hospital' ? 'from-blue-600 to-indigo-700' : 'from-emerald-500 via-green-600 to-teal-600'} text-white text-lg font-bold rounded-2xl shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 disabled:opacity-60 flex items-center justify-center gap-3`}
+                                className={`w-full py-4 px-6 bg-gradient-to-r from-emerald-500 via-green-600 to-teal-600 text-white text-lg font-bold rounded-2xl shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 disabled:opacity-60 flex items-center justify-center gap-3`}
                             >
                                 {isLoading ? (
                                     <>
@@ -289,8 +223,8 @@ export default function LoginPage() {
                                     </>
                                 ) : (
                                     <>
-                                        <span>{loginMode === 'Hospital' ? '🏥' : '🛒'}</span>
-                                        <span>Sign In to {loginMode} POS</span>
+                                        <span>🛒</span>
+                                        <span>Sign In to POS</span>
                                         <span>→</span>
                                     </>
                                 )}

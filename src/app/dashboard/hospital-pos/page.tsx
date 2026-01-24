@@ -26,57 +26,100 @@ export default function HospitalPOSPage() {
     const [patients, setPatients] = useState<Patient[]>([]);
     const [services, setServices] = useState<HospitalService[]>([]);
     const [filteredServices, setFilteredServices] = useState<HospitalService[]>([]);
+    const [selectedCategory, setSelectedCategory] = useState('All');
     const [cart, setCart] = useState<CartItem[]>([]);
-    const [patientName, setPatientName] = useState('');
+    const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+    const [patientSearch, setPatientSearch] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [receiptNo, setReceiptNo] = useState('HOSP-00001');
     const [showReceipt, setShowReceipt] = useState(false);
     const [printData, setPrintData] = useState<any>(null);
+    const [hospitalInfo, setHospitalInfo] = useState({
+        name: "ALPHA PLUS HOSPITAL",
+        address: "123 Medical Plaza, Nairobi",
+        phone: "0720316175",
+        pin: "P051234567X"
+    });
 
     const receiptRef = useRef<HTMLDivElement>(null);
 
-    // Load patients and services
-    useEffect(() => {
-        const loadData = async () => {
-            setIsLoading(true);
-            try {
-                const { data: svcData } = await supabase.from('hospital_services').select('*').eq('active', true);
-                setServices(svcData || []);
-                setFilteredServices(svcData || []);
+    // Load initialization data
+    const loadInitData = async () => {
+        setIsLoading(true);
+        try {
+            // 1. Load clinical services
+            const { data: svcData } = await supabase.from('hospital_services').select('*').eq('active', true);
+            setServices(svcData || []);
+            setFilteredServices(svcData || []);
 
-                // Load next receipt number
-                const { data: saleData } = await supabase
-                    .from('hospital_billing')
-                    .select('receipt_no')
-                    .order('billing_id', { ascending: false })
-                    .limit(1);
-
-                if (saleData?.[0]?.receipt_no) {
-                    const match = saleData[0].receipt_no.match(/HOSP-(\d+)/);
-                    if (match) {
-                        const nextNum = parseInt(match[1]) + 1;
-                        setReceiptNo(`HOSP-${String(nextNum).padStart(5, '0')}`);
-                    }
-                }
-            } catch (err) {
-                console.error('Error loading data:', err);
+            // 2. Load facility settings
+            const { data: settings } = await supabase.from('hospital_settings').select('*').single();
+            if (settings) {
+                setHospitalInfo({
+                    name: settings.hospital_name,
+                    address: settings.address,
+                    phone: settings.phone,
+                    pin: settings.pin_number
+                });
             }
-            setIsLoading(false);
-        };
-        loadData();
+
+            // 3. Load next receipt number
+            const { data: saleData } = await supabase
+                .from('hospital_sales')
+                .select('receipt_no')
+                .order('sale_id', { ascending: false })
+                .limit(1);
+
+            if (saleData?.[0]?.receipt_no) {
+                const match = saleData[0].receipt_no.match(/HOSP-(\d+)/);
+                if (match) {
+                    const nextNum = parseInt(match[1]) + 1;
+                    setReceiptNo(`HOSP-${String(nextNum).padStart(5, '0')}`);
+                }
+            }
+        } catch (err) {
+            console.error('Error loading initialization data:', err);
+        }
+        setIsLoading(false);
+    };
+
+    useEffect(() => {
+        loadInitData();
     }, []);
+
+    // Patient Search Effect
+    useEffect(() => {
+        const searchPatients = async () => {
+            if (patientSearch.length < 2) {
+                setPatients([]);
+                return;
+            }
+            const { data } = await supabase
+                .from('hospital_patients')
+                .select('patient_id, patient_name')
+                .ilike('patient_name', `%${patientSearch}%`)
+                .limit(5);
+            setPatients(data || []);
+        };
+        const timer = setTimeout(searchPatients, 300);
+        return () => clearTimeout(timer);
+    }, [patientSearch]);
 
     // Filter services
     useEffect(() => {
         const query = searchQuery.toLowerCase();
         setFilteredServices(
-            services.filter(s =>
-                s.service_name.toLowerCase().includes(query) ||
-                s.category.toLowerCase().includes(query)
-            )
+            services.filter(s => {
+                const matchesSearch = s.service_name.toLowerCase().includes(query) ||
+                    s.category.toLowerCase().includes(query);
+                const matchesCategory = selectedCategory === 'All' || s.category === selectedCategory;
+                return matchesSearch && matchesCategory;
+            })
         );
-    }, [searchQuery, services]);
+    }, [searchQuery, services, selectedCategory]);
+
+    const categories = ['All', ...Array.from(new Set(services.map(s => s.category)))];
 
     const addToCart = (service: HospitalService) => {
         setCart(prev => {
@@ -98,56 +141,83 @@ export default function HospitalPOSPage() {
     const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
 
     const completeSale = async (method: string) => {
-        if (!patientName) {
-            toast.error('Please enter patient name');
+        if (!patientSearch && !selectedPatient) {
+            toast.error('Please specify patient name');
             return;
         }
         if (cart.length === 0) {
-            toast.error('Cart is empty');
+            toast.error('Clinical cart is empty');
             return;
         }
 
         try {
-            // 1. Create patient if not exists (simplified for now)
-            const { data: patient } = await supabase
-                .from('hospital_patients')
-                .insert({ patient_name: patientName })
-                .select()
-                .single();
+            const userData = localStorage.getItem('user');
+            const currentUser = userData ? JSON.parse(userData) : null;
 
-            // 2. Create entry in public.sales (base table)
+            // 1. Resolve Patient
+            let patientId = selectedPatient?.patient_id;
+            let finalPatientName = selectedPatient?.patient_name || patientSearch;
+
+            if (!patientId) {
+                // Check if patient already exists to avoid duplicates
+                const { data: existing } = await supabase
+                    .from('hospital_patients')
+                    .select('patient_id')
+                    .ilike('patient_name', finalPatientName)
+                    .single();
+
+                if (existing) {
+                    patientId = existing.patient_id;
+                } else {
+                    const { data: newPatient } = await supabase
+                        .from('hospital_patients')
+                        .insert({ patient_name: finalPatientName })
+                        .select()
+                        .single();
+                    patientId = newPatient?.patient_id;
+                }
+            }
+
+            const vHash = Math.random().toString(36).substring(2, 10).toUpperCase();
+
+            // 2. Create entry in hospital_sales
             const { data: sale, error: saleError } = await supabase
-                .from('public.sales')
+                .from('hospital_sales')
                 .insert({
                     receipt_no: receiptNo,
-                    customer_name: patientName,
+                    patient_id: patientId,
+                    patient_name: finalPatientName,
                     total_amount: total,
                     payment_method: method,
                     status: 'Completed',
-                    order_type: 'Hospital Billing'
+                    created_by: currentUser?.userId,
+                    verification_hash: vHash
                 })
                 .select()
                 .single();
 
             if (saleError) throw saleError;
 
-            const vHash = Math.random().toString(36).substring(2, 10).toUpperCase();
-
-            // 3. Create entry in hospital.billing (metadata)
-            await supabase.from('hospital_billing').insert({
+            // 3. Insert items
+            const saleItems = cart.map(item => ({
                 sale_id: sale.sale_id,
-                receipt_no: receiptNo,
-                patient_id: patient?.patient_id,
-                patient_name: patientName,
-                total_amount: total,
-                payment_method: method,
-                verification_hash: vHash
-            });
+                service_id: item.service_id,
+                service_name: item.service_name,
+                price: item.price,
+                quantity: item.qty,
+                subtotal: item.price * item.qty
+            }));
+
+            const { error: itemsError } = await supabase
+                .from('hospital_sales_items')
+                .insert(saleItems);
+
+            if (itemsError) throw itemsError;
 
             // Prepare for print
             setPrintData({
                 receiptNo,
-                patientName,
+                patientName: finalPatientName,
                 items: [...cart],
                 total,
                 paymentMethod: method,
@@ -156,13 +226,14 @@ export default function HospitalPOSPage() {
             });
             setShowReceipt(true);
 
-            toast.success('Billing completed successfully!');
+            toast.success('Medical billing complete');
             setCart([]);
-            setPatientName('');
-            loadData(); // Refresh receipt number
+            setPatientSearch('');
+            setSelectedPatient(null);
+            loadInitData(); // Refresh state
         } catch (err) {
-            console.error('Error completing sale:', err);
-            toast.error('Failed to complete sale');
+            console.error('Error completing clinical sale:', err);
+            toast.error('System failed to process billing');
         }
     };
 
@@ -170,37 +241,6 @@ export default function HospitalPOSPage() {
         window.print();
         setShowReceipt(false);
     };
-
-    const loadData = async () => {
-        setIsLoading(true);
-        try {
-            const { data: svcData } = await supabase.from('hospital_services').select('*').eq('active', true);
-            setServices(svcData || []);
-            setFilteredServices(svcData || []);
-
-            // Load next receipt number
-            const { data: saleData } = await supabase
-                .from('hospital_billing')
-                .select('receipt_no')
-                .order('billing_id', { ascending: false })
-                .limit(1);
-
-            if (saleData?.[0]?.receipt_no) {
-                const match = saleData[0].receipt_no.match(/HOSP-(\d+)/);
-                if (match) {
-                    const nextNum = parseInt(match[1]) + 1;
-                    setReceiptNo(`HOSP-${String(nextNum).padStart(5, '0')}`);
-                }
-            }
-        } catch (err) {
-            console.error('Error loading data:', err);
-        }
-        setIsLoading(false);
-    };
-
-    useEffect(() => {
-        loadData();
-    }, []);
 
     return (
         <div className="flex h-[calc(100vh-100px)] gap-4">
@@ -217,29 +257,78 @@ export default function HospitalPOSPage() {
                     </div>
                 </div>
 
-                {/* Patient Selection */}
-                <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Patient Name</label>
-                    <input
-                        type="text"
-                        value={patientName}
-                        onChange={(e) => setPatientName(e.target.value)}
-                        placeholder="Enter patient full name..."
-                        className="w-full p-4 bg-blue-50/50 border-2 border-blue-100 rounded-xl focus:border-blue-500 focus:outline-none text-lg"
-                    />
+                {/* Patient Search & Registration */}
+                <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-100 relative z-50">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Patient Identifier (Name/ID)</label>
+                    <div className="relative">
+                        <input
+                            type="text"
+                            value={patientSearch}
+                            onChange={(e) => {
+                                setPatientSearch(e.target.value);
+                                if (selectedPatient && e.target.value !== selectedPatient.patient_name) {
+                                    setSelectedPatient(null);
+                                }
+                            }}
+                            placeholder="Type to search or register new patient..."
+                            className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-blue-600 focus:bg-white focus:outline-none text-lg font-black transition-all"
+                        />
+                        {patients.length > 0 && !selectedPatient && (
+                            <div className="absolute top-full left-0 right-0 bg-white border border-slate-100 mt-2 rounded-2xl shadow-2xl overflow-hidden z-[100]">
+                                {patients.map(p => (
+                                    <button
+                                        key={p.patient_id}
+                                        onClick={() => {
+                                            setSelectedPatient(p);
+                                            setPatientSearch(p.patient_name);
+                                            setPatients([]);
+                                        }}
+                                        className="w-full p-4 text-left hover:bg-blue-50 border-b border-slate-50 last:border-0 transition-colors flex justify-between items-center"
+                                    >
+                                        <span className="font-bold text-slate-700">{p.patient_name}</span>
+                                        <span className="text-[10px] font-black text-blue-600 uppercase bg-blue-100 px-2 py-1 rounded">M-Account</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        {selectedPatient && (
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                                <span className="bg-emerald-100 text-emerald-600 px-3 py-1 rounded-full text-[10px] font-black uppercase">Verified Patient</span>
+                                <button onClick={() => { setSelectedPatient(null); setPatientSearch(''); }} className="text-slate-400 hover:text-slate-600 font-bold text-xl">✕</button>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Services Grid */}
                 <div className="flex-1 bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-4 overflow-hidden">
-                    <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
-                        <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Search services (e.g. Ultra Sound, Dental...)"
-                            className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
-                        />
+                    <div className="flex flex-col gap-4">
+                        <div className="relative">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">🔍</span>
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Search medical services or drugs..."
+                                className="w-full pl-11 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-blue-600 focus:bg-white focus:outline-none text-sm font-semibold transition-all"
+                            />
+                        </div>
+
+                        {/* Category Tabs */}
+                        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                            {categories.map(cat => (
+                                <button
+                                    key={cat}
+                                    onClick={() => setSelectedCategory(cat)}
+                                    className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all ${selectedCategory === cat
+                                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-200'
+                                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                        }`}
+                                >
+                                    {cat === 'Pharmacy' ? '💊 Drugs' : cat === 'Laboratory' ? '🔬 Lab' : cat === 'All' ? '📂 All' : cat}
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
                     <div className="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-3 gap-3 pr-2">
@@ -319,12 +408,7 @@ export default function HospitalPOSPage() {
                         <HospitalReceipt
                             ref={receiptRef}
                             receiptData={printData}
-                            hospitalInfo={{
-                                name: "ALPHA PLUS HOSPITAL",
-                                address: "123 Medical Plaza, Nairobi",
-                                phone: "0720316175",
-                                pin: "P051234567X"
-                            }}
+                            hospitalInfo={hospitalInfo}
                         />
                     </div>
                     <div className="flex gap-4 print:hidden">

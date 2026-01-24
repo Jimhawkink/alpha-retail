@@ -294,306 +294,282 @@ export default function PurchaseEntryPage() {
     }
 
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
+        <div className="space-y-8 animate-in fade-in duration-700 pb-12">
+            {/* Header section with Invoice Badge */}
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-                        <span className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg">📥</span>
-                        <span className="bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                            Purchase Entry
-                        </span>
+                    <h1 className="text-4xl font-black text-slate-900 flex items-center gap-4">
+                        <span className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-teal-700 rounded-[22px] flex items-center justify-center text-white text-3xl shadow-2xl shadow-emerald-200/50">📥</span>
+                        Stock Acquisition
                     </h1>
-                    <p className="text-gray-500 mt-1">Record new product purchases from suppliers</p>
+                    <p className="text-slate-400 text-sm font-bold uppercase tracking-[0.2em] mt-3 ml-1">
+                        Inventory Procurement • Audit Registry v4.0
+                    </p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <div className="px-4 py-2 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl">
-                        <span className="text-sm text-green-600 font-medium">Invoice #</span>
-                        <span className="ml-2 font-bold text-green-700">{invoiceNo}</span>
+                <div className="flex items-center gap-4">
+                    <div className="px-6 py-4 bg-emerald-50 border-2 border-emerald-100 rounded-[24px] shadow-inner flex flex-col items-center min-w-[160px]">
+                        <span className="text-[10px] text-emerald-600 font-black uppercase tracking-widest">System Ref</span>
+                        <span className="text-xl font-black text-slate-900 font-mono">{invoiceNo}</span>
                     </div>
                     <a
                         href="/dashboard/purchases"
-                        className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+                        className="w-14 h-14 bg-white border-2 border-slate-100 text-slate-400 rounded-[22px] hover:border-emerald-600 hover:text-emerald-600 transition-all flex items-center justify-center text-xl shadow-sm hover:shadow-md"
+                        title="Acquisition Ledger"
                     >
-                        <span>📋</span>
-                        <span className="font-medium text-gray-600">View Records</span>
+                        📋
                     </a>
                 </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-6">
-                {/* Left Panel - Purchase Details */}
-                <div className="col-span-2 space-y-6">
-                    {/* Supplier & Invoice Info */}
-                    <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-                        <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                            <span className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">🏢</span>
-                            Supplier Information
-                        </h2>
-                        <div className="grid grid-cols-3 gap-4">
-                            <div>
-                                <label className="text-sm font-medium text-gray-600 mb-1 block">Supplier *</label>
-                                <select
-                                    value={selectedSupplier}
-                                    onChange={(e) => setSelectedSupplier(Number(e.target.value))}
-                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-green-400"
-                                >
-                                    <option value={0}>Select Supplier</option>
-                                    {suppliers.map(supplier => (
-                                        <option key={supplier.supplier_id} value={supplier.supplier_id}>
-                                            {supplier.supplier_code} - {supplier.supplier_name}
-                                        </option>
-                                    ))}
-                                </select>
-                                {suppliers.length === 0 ? (
-                                    <p className="text-xs text-amber-600 mt-1">
-                                        ⚠️ No suppliers. <a href="/dashboard/suppliers" className="text-blue-600 underline hover:text-blue-800">Add Supplier</a>
-                                    </p>
-                                ) : (
-                                    <a href="/dashboard/suppliers" className="text-xs text-blue-600 hover:underline mt-1 inline-block">
-                                        ➕ Add New Supplier
-                                    </a>
-                                )}
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+                {/* Primary Data Input - Left Panel */}
+                <div className="xl:col-span-8 space-y-8">
+                    {/* Origin & Ref Info */}
+                    <div className="bg-white rounded-[40px] p-8 shadow-2xl shadow-slate-200/50 border border-slate-50">
+                        <div className="flex items-center gap-3 mb-8">
+                            <span className="text-2xl">🏢</span>
+                            <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">Acquisition Source</h2>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="space-y-2">
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1 ml-1 block">Vendor Profile *</label>
+                                <div className="relative group">
+                                    <select
+                                        value={selectedSupplier}
+                                        onChange={(e) => setSelectedSupplier(Number(e.target.value))}
+                                        className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-[20px] text-slate-900 font-bold focus:outline-none focus:border-emerald-600 transition-all appearance-none cursor-pointer"
+                                    >
+                                        <option value={0}>Identify Vendor</option>
+                                        {suppliers.map(supplier => (
+                                            <option key={supplier.supplier_id} value={supplier.supplier_id}>
+                                                {supplier.supplier_name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-40 font-black">▼</span>
+                                </div>
                             </div>
-                            <div>
-                                <label className="text-sm font-medium text-gray-600 mb-1 block">Supplier Invoice No</label>
+                            <div className="space-y-2">
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1 ml-1 block">Vendor Invoice Ref</label>
                                 <input
                                     type="text"
                                     value={supplierInvoiceNo}
                                     onChange={(e) => setSupplierInvoiceNo(e.target.value)}
-                                    placeholder="Supplier's Invoice No"
-                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-green-400"
+                                    placeholder="e.g. SN-99201"
+                                    className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-[20px] text-slate-900 font-bold focus:outline-none focus:border-emerald-600 transition-all shadow-inner"
                                 />
                             </div>
-                            <div>
-                                <label className="text-sm font-medium text-gray-600 mb-1 block">Date</label>
+                            <div className="space-y-2">
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1 ml-1 block">Acquisition Date</label>
                                 <input
                                     type="date"
                                     value={purchaseDate}
                                     onChange={(e) => setPurchaseDate(e.target.value)}
-                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-green-400"
+                                    className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-[20px] text-slate-900 font-bold focus:outline-none focus:border-emerald-600 transition-all"
                                 />
                             </div>
                         </div>
                     </div>
 
-                    {/* Add Items */}
-                    <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-                        <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                            <span className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">📦</span>
-                            Add Products
-                        </h2>
-                        <div className="grid grid-cols-5 gap-4 mb-4">
-                            <div className="col-span-2">
-                                <label className="text-sm font-medium text-gray-600 mb-1 block">Product *</label>
-                                <select
-                                    value={selectedProduct}
-                                    onChange={async (e) => {
-                                        const prodId = Number(e.target.value);
-                                        setSelectedProduct(prodId);
-                                        setAvailableQty(0);
-                                        const product = products.find(p => p.pid === prodId);
-                                        if (product) {
-                                            setPrice(product.purchase_cost || 0);
-                                            setSelectedUnit(product.purchase_unit || 'PCS');
-
-                                            // Fetch available stock
-                                            const { data: stockData } = await supabase
-                                                .from('retail_stock')
-                                                .select('qty')
-                                                .eq('pid', prodId);
-
-                                            const totalStock = stockData?.reduce((sum, s) => sum + (s.qty || 0), 0) || 0;
-                                            setAvailableQty(totalStock);
-                                        }
-                                    }}
-                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-green-400"
-                                >
-                                    <option value={0}>Select Product</option>
-                                    {products.map(product => (
-                                        <option key={product.pid} value={product.pid}>
-                                            {product.product_code} - {product.product_name} ({product.purchase_unit || 'PCS'})
-                                        </option>
-                                    ))}
-                                </select>
-                                {selectedProduct > 0 && (
-                                    <p className="text-xs mt-1 font-medium text-blue-600">
-                                        📦 Available Stock: {availableQty.toLocaleString()} {selectedUnit}
-                                    </p>
-                                )}
-                                {products.length === 0 && (
-                                    <p className="text-xs text-amber-600 mt-1">⚠️ No products found. Add products first.</p>
-                                )}
+                    {/* Operational Input - Product Entry */}
+                    <div className="bg-white rounded-[40px] p-8 shadow-2xl shadow-slate-200/50 border border-slate-50">
+                        <div className="flex items-center gap-3 mb-8">
+                            <span className="text-2xl">📦</span>
+                            <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">Item Specification</h2>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-12 gap-6 items-end">
+                            <div className="md:col-span-2 lg:col-span-5 space-y-2">
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1 ml-1 block">Register Product *</label>
+                                <div className="relative group">
+                                    <select
+                                        value={selectedProduct}
+                                        onChange={async (e) => {
+                                            const prodId = Number(e.target.value);
+                                            setSelectedProduct(prodId);
+                                            setAvailableQty(0);
+                                            const product = products.find(p => p.pid === prodId);
+                                            if (product) {
+                                                setPrice(product.purchase_cost || 0);
+                                                setSelectedUnit(product.purchase_unit || 'PCS');
+                                                const { data: stockData } = await supabase.from('retail_stock').select('qty').eq('pid', prodId);
+                                                const totalStock = stockData?.reduce((sum, s) => sum + (s.qty || 0), 0) || 0;
+                                                setAvailableQty(totalStock);
+                                            }
+                                        }}
+                                        className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-[20px] text-slate-900 font-bold focus:outline-none focus:border-emerald-600 transition-all appearance-none cursor-pointer"
+                                    >
+                                        <option value={0}>Select Inventory Item</option>
+                                        {products.map(product => (
+                                            <option key={product.pid} value={product.pid}>
+                                                {product.product_name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-40 font-black">▼</span>
+                                </div>
                             </div>
-                            <div>
-                                <label className="text-sm font-medium text-gray-600 mb-1 block">Quantity *</label>
+                            <div className="md:col-span-1 lg:col-span-2 space-y-2">
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1 ml-1 block">Quantity</label>
                                 <input
                                     type="number"
                                     value={qty}
                                     onChange={(e) => setQty(Number(e.target.value))}
-                                    min={0.1}
-                                    step={0.1}
-                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-green-400"
+                                    className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-[20px] text-slate-900 font-bold focus:outline-none focus:border-emerald-600 transition-all shadow-inner text-center"
                                 />
                             </div>
-                            <div>
-                                <label className="text-sm font-medium text-gray-600 mb-1 block">Unit Price *</label>
+                            <div className="md:col-span-1 lg:col-span-3 space-y-2">
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1 ml-1 block">Unit Valuation (Ksh)</label>
                                 <input
                                     type="number"
                                     value={price}
                                     onChange={(e) => setPrice(Number(e.target.value))}
-                                    min={0}
-                                    step={0.01}
-                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-green-400"
+                                    className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-[20px] text-slate-900 font-bold focus:outline-none focus:border-emerald-600 transition-all shadow-inner text-right"
                                 />
                             </div>
-                            <div className="flex items-end">
+                            <div className="md:col-span-1 lg:col-span-2">
                                 <button
                                     onClick={addItem}
-                                    className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                                    className="w-full h-[60px] bg-slate-900 text-white rounded-[20px] font-black uppercase text-xs tracking-widest hover:bg-emerald-600 hover:shadow-xl hover:shadow-emerald-200/50 transition-all flex items-center justify-center gap-2"
                                 >
                                     <span>➕</span> Add
                                 </button>
                             </div>
                         </div>
+                        {selectedProduct > 0 && (
+                            <div className="mt-4 flex items-center gap-2 px-4 py-2 bg-blue-50/50 rounded-xl w-fit">
+                                <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Current Stock Balance:</span>
+                                <span className="text-sm font-black text-slate-900">{availableQty.toLocaleString()} {selectedUnit}</span>
+                            </div>
+                        )}
                     </div>
 
-                    {/* Items List */}
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                        <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50">
-                            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                                <span>🛒</span> Purchase Items
-                                <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-600 text-sm rounded-full">
-                                    {items.length} items
-                                </span>
-                            </h2>
+                    {/* Acquisition Manifest - Table */}
+                    <div className="bg-white rounded-[40px] shadow-2xl shadow-slate-200/50 border border-slate-50 overflow-hidden">
+                        <div className="px-8 py-6 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
+                            <h2 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em]">Acquisition Manifest</h2>
+                            <span className="px-4 py-1.5 bg-white text-slate-900 text-[10px] font-black rounded-full shadow-sm border border-slate-100 tracking-[0.1em]">
+                                {items.length} ENTRIES REGISTERED
+                            </span>
                         </div>
-
-                        {items.length === 0 ? (
-                            <div className="p-12 text-center text-gray-400">
-                                <span className="text-5xl block mb-4">📭</span>
-                                <p className="font-medium">No items added yet</p>
-                                <p className="text-sm">Select ingredients and add them to the list</p>
-                            </div>
-                        ) : (
-                            <table className="w-full text-xs">
-                                <thead className="bg-gray-50">
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead>
                                     <tr>
-                                        <th className="text-left py-2 px-3 text-xs font-semibold text-gray-600">#</th>
-                                        <th className="text-left py-2 px-3 text-xs font-semibold text-gray-600">Code</th>
-                                        <th className="text-left py-2 px-3 text-xs font-semibold text-gray-600">Product</th>
-                                        <th className="text-center py-2 px-3 text-xs font-semibold text-gray-600">Unit</th>
-                                        <th className="text-right py-2 px-3 text-xs font-semibold text-gray-600">Qty</th>
-                                        <th className="text-right py-2 px-3 text-xs font-semibold text-gray-600">Price</th>
-                                        <th className="text-right py-2 px-3 text-xs font-semibold text-gray-600">Total</th>
-                                        <th className="text-center py-2 px-3 text-xs font-semibold text-gray-600">Action</th>
+                                        <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Descriptor</th>
+                                        <th className="px-8 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Quantity</th>
+                                        <th className="px-8 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Valuation</th>
+                                        <th className="px-8 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Extended</th>
+                                        <th className="px-8 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Audit</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    {items.map((item, idx) => (
-                                        <tr key={item.id} className="border-t border-gray-50 hover:bg-green-50/30">
-                                            <td className="py-2 px-3 text-gray-500 text-xs">{idx + 1}</td>
-                                            <td className="py-2 px-3 font-mono text-xs text-gray-600">{item.productCode}</td>
-                                            <td className="py-2 px-3 font-medium text-gray-800 text-xs" title={item.productName}>{item.productName}</td>
-                                            <td className="py-2 px-3 text-center">
-                                                <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">{item.unit}</span>
-                                            </td>
-                                            <td className="py-2 px-3 text-right text-gray-600 font-medium text-xs">{item.qty}</td>
-                                            <td className="py-2 px-3 text-right text-gray-600 text-xs">Ksh {item.price.toLocaleString()}</td>
-                                            <td className="py-2 px-3 text-right font-bold text-green-600 text-xs">Ksh {item.total.toLocaleString()}</td>
-                                            <td className="py-2 px-3 text-center">
-                                                <button
-                                                    onClick={() => removeItem(item.id)}
-                                                    className="p-1.5 hover:bg-red-50 rounded-lg text-red-500 transition-colors"
-                                                    title="Remove Item"
-                                                >
-                                                    🗑️
-                                                </button>
+                                <tbody className="divide-y-2 divide-slate-50">
+                                    {items.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={5} className="px-8 py-20 text-center">
+                                                <div className="flex flex-col items-center gap-4 opacity-30 grayscale">
+                                                    <span className="text-6xl">📥</span>
+                                                    <span className="text-xs font-black uppercase tracking-[0.3em]">Manifest empty: Waiting for input</span>
+                                                </div>
                                             </td>
                                         </tr>
-                                    ))}
+                                    ) : (
+                                        items.map((item, idx) => (
+                                            <tr key={item.id} className="group hover:bg-emerald-50/30 transition-all duration-300">
+                                                <td className="px-8 py-6">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-black text-slate-800 leading-tight">{item.productName}</span>
+                                                        <span className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">{item.productCode} • {item.unit}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-8 py-6 text-center">
+                                                    <span className="px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-black text-slate-700">{item.qty}</span>
+                                                </td>
+                                                <td className="px-8 py-6 text-right">
+                                                    <span className="text-xs font-black text-slate-900">Ksh {item.price.toLocaleString()}</span>
+                                                </td>
+                                                <td className="px-8 py-6 text-right">
+                                                    <span className="text-sm font-black text-emerald-600">Ksh {item.total.toLocaleString()}</span>
+                                                </td>
+                                                <td className="px-8 py-6 text-center">
+                                                    <button
+                                                        onClick={() => removeItem(item.id)}
+                                                        className="w-10 h-10 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white transition-all flex items-center justify-center shadow-inner group-hover:shadow-lg group-hover:shadow-rose-200/50"
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
                                 </tbody>
                             </table>
-                        )}
+                        </div>
                     </div>
                 </div>
 
-                {/* Right Panel - Summary */}
-                <div className="space-y-6">
-                    {/* Order Summary */}
-                    <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm sticky top-24">
-                        <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                            <span className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">📊</span>
-                            Purchase Summary
+                {/* Audit & Settlement - Right Panel */}
+                <div className="xl:col-span-4 space-y-8 sticky top-24">
+                    {/* Valuations Summary */}
+                    <div className="bg-slate-900 rounded-[40px] p-8 text-white shadow-2xl shadow-slate-200 overflow-hidden relative group">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-125 transition-transform duration-700"></div>
+                        <h2 className="text-xl font-black uppercase tracking-tight mb-8 flex items-center gap-3">
+                            <span className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center text-sm">📊</span>
+                            Audit Summary
                         </h2>
 
-                        <div className="space-y-3 mb-6">
-                            <div className="flex justify-between text-gray-600">
-                                <span>Subtotal</span>
-                                <span className="font-medium">Ksh {subtotal.toLocaleString()}</span>
+                        <div className="space-y-4 mb-10">
+                            <div className="flex justify-between items-center opacity-60">
+                                <span className="text-[11px] font-black uppercase tracking-widest">Gross Manifest</span>
+                                <span className="font-bold">Ksh {subtotal.toLocaleString()}</span>
                             </div>
-                            <div className="flex justify-between text-gray-600">
-                                <span>Discount</span>
-                                <span className="font-medium text-green-600">- Ksh {discount.toLocaleString()}</span>
+                            <div className="flex justify-between items-center">
+                                <span className="text-[11px] font-black uppercase tracking-widest text-emerald-400">Ledger Deduction</span>
+                                <span className="font-bold text-emerald-400">- Ksh {discount.toLocaleString()}</span>
                             </div>
-                            <div className="h-px bg-gray-100"></div>
-                            <div className="flex justify-between text-xl font-bold text-gray-800">
-                                <span>Total</span>
-                                <span className="text-green-600">Ksh {total.toLocaleString()}</span>
+                            <div className="pt-6 border-t border-white/10">
+                                <p className="text-[11px] font-black text-white/40 uppercase tracking-[0.2em] mb-2">Total Procurement Cost</p>
+                                <p className="text-5xl font-black tracking-tighter">Ksh {total.toLocaleString()}</p>
                             </div>
                         </div>
 
-                        {/* Supplier Info Display */}
                         {selectedSupplier > 0 && (
-                            <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl mb-6 border border-green-100">
-                                <p className="text-sm font-medium text-green-700 mb-1">Selected Supplier</p>
-                                <p className="font-semibold text-gray-800">{suppliers.find(s => s.supplier_id === selectedSupplier)?.supplier_name}</p>
-                                <p className="text-sm text-gray-600">{suppliers.find(s => s.supplier_id === selectedSupplier)?.phone}</p>
+                            <div className="p-5 bg-white/5 backdrop-blur-md rounded-3xl border border-white/10 mb-8 animate-in slide-in-from-right-4 duration-500">
+                                <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">Authorized Source</p>
+                                <p className="font-black text-emerald-400 uppercase leading-snug tracking-tight">
+                                    {suppliers.find(s => s.supplier_id === selectedSupplier)?.supplier_name}
+                                </p>
                             </div>
                         )}
 
-                        {/* Action Buttons */}
-                        <div className="space-y-3">
+                        <div className="space-y-4">
                             <button
                                 onClick={savePurchase}
                                 disabled={items.length === 0 || isSaving}
-                                className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-full py-6 bg-emerald-500 text-white rounded-[28px] font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-emerald-500/20 hover:bg-emerald-400 hover:shadow-2xl transition-all disabled:opacity-20 disabled:grayscale disabled:shadow-none"
                             >
-                                {isSaving ? (
-                                    <><span className="animate-spin">⏳</span> Saving...</>
-                                ) : (
-                                    <><span>💾</span> Save Purchase</>
-                                )}
+                                {isSaving ? "Synchronizing..." : "Submit Acquisition"}
                             </button>
                             <button
                                 onClick={() => setItems([])}
-                                className="w-full py-3 border-2 border-gray-200 text-gray-600 rounded-xl font-semibold hover:bg-gray-50 transition-all flex items-center justify-center gap-2"
+                                className="w-full py-4 text-white/30 hover:text-rose-400 font-black uppercase text-[10px] tracking-[0.2em] transition-colors"
                             >
-                                <span>🗑️</span>
-                                <span>Clear All</span>
+                                Purge All Entries
                             </button>
                         </div>
                     </div>
 
-                    {/* Quick Stats */}
-                    <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-                        <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                            <span>📈</span> Quick Stats
-                        </h3>
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                                <span className="text-gray-600">Total Items</span>
-                                <span className="font-bold text-gray-800">{items.length}</span>
+                    {/* Quick Analytics Card */}
+                    <div className="bg-white rounded-[40px] p-8 shadow-xl shadow-slate-200/40 border border-slate-50 overflow-hidden relative group">
+                        <div className="absolute -right-4 -top-4 w-24 h-24 bg-slate-50 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
+                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6 relative">Procurement KPIs</h3>
+                        <div className="space-y-4 relative">
+                            <div className="flex items-center justify-between p-4 bg-slate-50/50 rounded-3xl border border-slate-50">
+                                <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">SKU Count</span>
+                                <span className="text-lg font-black text-slate-900">{items.length}</span>
                             </div>
-                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                                <span className="text-gray-600">Total Qty</span>
-                                <span className="font-bold text-gray-800">{items.reduce((sum, item) => sum + item.qty, 0).toLocaleString()}</span>
-                            </div>
-                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                                <span className="text-gray-600">Avg. Price</span>
-                                <span className="font-bold text-gray-800">
-                                    Ksh {items.length > 0 ? Math.round(total / items.reduce((sum, item) => sum + item.qty, 0)).toLocaleString() : 0}
-                                </span>
+                            <div className="flex items-center justify-between p-4 bg-slate-50/50 rounded-3xl border border-slate-50">
+                                <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Global Qty</span>
+                                <span className="text-lg font-black text-emerald-600">{items.reduce((sum, item) => sum + item.qty, 0).toLocaleString()}</span>
                             </div>
                         </div>
                     </div>

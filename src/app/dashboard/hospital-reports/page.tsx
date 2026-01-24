@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
 interface BillingRecord {
-    billing_id: number;
+    sale_id: number;
     receipt_no: string;
     patient_name: string;
     total_amount: number;
@@ -28,7 +28,13 @@ export default function HospitalReportsPage() {
     useEffect(() => {
         const loadReports = async () => {
             setIsLoading(true);
-            const { data, error } = await supabase.from('hospital_billing').select('*').gte('created_at', `${dateFrom}T00:00:00`).lte('created_at', `${dateTo}T23:59:59`).order('created_at', { ascending: false });
+            const { data, error } = await supabase
+                .from('hospital_sales')
+                .select('*')
+                .gte('created_at', `${dateFrom}T00:00:00`)
+                .lte('created_at', `${dateTo}T23:59:59`)
+                .order('created_at', { ascending: false });
+
             if (error) {
                 console.error('Error fetching billing records:', error);
                 setIsLoading(false);
@@ -50,7 +56,7 @@ export default function HospitalReportsPage() {
             setIsLoading(false);
         };
         loadReports();
-    }, []);
+    }, [dateFrom, dateTo]);
 
     return (
         <div className="space-y-6">
@@ -95,7 +101,7 @@ export default function HospitalReportsPage() {
                     </thead>
                     <tbody className="divide-y divide-gray-50">
                         {records.map(record => (
-                            <tr key={record.billing_id} className="hover:bg-gray-50 transition-colors">
+                            <tr key={record.sale_id} className="hover:bg-gray-50 transition-colors">
                                 <td className="px-6 py-4 text-sm text-gray-500">
                                     {new Date(record.created_at).toLocaleDateString()}
                                 </td>

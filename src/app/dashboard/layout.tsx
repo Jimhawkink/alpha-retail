@@ -6,7 +6,8 @@ import Link from 'next/link';
 import { SettingsProvider, useCompanyName } from '@/context/SettingsContext';
 
 // Menu Items for Retail Store System
-const menuItems = [
+// Menu Items for Retail Store System
+const retailMenuItems = [
     {
         category: 'Main',
         items: [
@@ -67,15 +68,6 @@ const menuItems = [
         ]
     },
     {
-        category: 'Hospital Management',
-        items: [
-            { name: 'Hospital POS', icon: '🏥', href: '/dashboard/hospital-pos', badge: 'New' },
-            { name: 'Companies', icon: '🏢', href: '/dashboard/hospital-companies', badge: null },
-            { name: 'Staff Management', icon: '👥', href: '/dashboard/hospital-users', badge: null },
-            { name: 'Billing Reports', icon: '📉', href: '/dashboard/hospital-reports', badge: null },
-        ]
-    },
-    {
         category: 'Administration',
         items: [
             { name: 'Users', icon: '👥', href: '/dashboard/users', badge: null },
@@ -83,6 +75,39 @@ const menuItems = [
             { name: 'Company', icon: '🏪', href: '/dashboard/company', badge: null },
             { name: 'Tax Settings', icon: '📊', href: '/dashboard/tax-settings', badge: null },
             { name: 'Units', icon: '📏', href: '/dashboard/units', badge: null },
+        ]
+    },
+];
+
+// Menu Items for Hospital System (TOTALLY NEW & ISOLATED)
+const hospitalMenuItems = [
+    {
+        category: 'Hospital Console',
+        items: [
+            { name: 'Overview', icon: '🏢', href: '/dashboard/hospital-dashboard', badge: null },
+            { name: 'Medical POS', icon: '🏥', href: '/dashboard/hospital-pos', badge: 'Live' },
+        ]
+    },
+    {
+        category: 'Patient Management',
+        items: [
+            { name: 'Patients List', icon: '👥', href: '/dashboard/hospital-patients', badge: null },
+            { name: 'Services', icon: '🩺', href: '/dashboard/hospital-services', badge: null },
+            { name: 'Insurance/Companies', icon: '🏢', href: '/dashboard/hospital-companies', badge: null },
+        ]
+    },
+    {
+        category: 'Operations',
+        items: [
+            { name: 'Sales & Billing', icon: '📝', href: '/dashboard/hospital-reports', badge: null },
+            { name: 'M-Pesa Intake', icon: '📱', href: '/dashboard/hospital-mpesa', badge: null },
+        ]
+    },
+    {
+        category: 'Clinic Settings',
+        items: [
+            { name: 'Staff Management', icon: '👨‍⚕️', href: '/dashboard/hospital-users', badge: null },
+            { name: 'General Settings', icon: '⚙️', href: '/dashboard/hospital-settings', badge: null },
         ]
     },
 ];
@@ -99,10 +124,10 @@ function CompanyNameDisplay() {
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
-    const [user, setUser] = useState<{ userId: string; name: string } | null>(null);
+    const [user, setUser] = useState<{ userId: string; name: string; isHospital?: boolean } | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [currentTime, setCurrentTime] = useState(new Date());
-    const [activeMenu, setActiveMenu] = useState('/dashboard');
+    const [activeMenu, setActiveMenu] = useState('');
 
     useEffect(() => {
         const userData = localStorage.getItem('user');
@@ -112,6 +137,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }
         const parsedUser = JSON.parse(userData);
         setUser(parsedUser);
+        setActiveMenu(window.location.pathname);
 
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
         return () => clearInterval(timer);
@@ -128,8 +154,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const greeting = getGreeting();
 
     const handleLogout = () => {
+        const isHosp = user?.isHospital;
         localStorage.removeItem('user');
-        router.push('/');
+        router.push(isHosp ? '/hospital-login' : '/');
     };
 
     if (!user) return null;
@@ -138,17 +165,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <SettingsProvider>
             <div className="min-h-screen bg-[#f8fafc] flex">
                 {/* Sidebar */}
-                <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-white border-r border-gray-200 flex flex-col transition-all duration-300 fixed h-full z-50`}>
+                <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} ${user.isHospital ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'} flex flex-col transition-all duration-300 fixed h-full z-50 border-r`}>
                     {/* Logo Section */}
-                    <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100">
+                    <div className={`h-16 flex items-center justify-between px-4 border-b ${user.isHospital ? 'border-slate-800' : 'border-gray-100'}`}>
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg">
-                                <span className="text-xl">🛒</span>
+                            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${user.isHospital ? 'from-blue-500 to-indigo-600' : 'from-green-500 to-emerald-600'} flex items-center justify-center shadow-lg transition-colors`}>
+                                <span className="text-xl">{user.isHospital ? '🏥' : '🛒'}</span>
                             </div>
                             {sidebarOpen && (
                                 <div>
-                                    <CompanyNameDisplay />
-                                    <span className="text-xs text-green-600 font-medium">Retail v1.0</span>
+                                    {user.isHospital ? (
+                                        <h1 className="font-bold text-white text-sm leading-tight max-w-[140px] break-words">
+                                            Alpha Medical
+                                        </h1>
+                                    ) : (
+                                        <CompanyNameDisplay />
+                                    )}
+                                    <span className={`text-xs font-medium ${user.isHospital ? 'text-blue-400' : 'text-green-600'}`}>
+                                        {user.isHospital ? 'Hospital v1.0' : 'Retail v1.0'}
+                                    </span>
                                 </div>
                             )}
                         </div>
@@ -168,7 +203,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 <input
                                     type="text"
                                     placeholder="Search..."
-                                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-green-400 focus:ring-2 focus:ring-green-100 transition-all"
+                                    className={`w-full pl-10 pr-4 py-2.5 ${user.isHospital ? 'bg-slate-800 border-slate-700 text-white focus:border-blue-500 focus:ring-blue-900/20' : 'bg-gray-50 border border-gray-200 focus:border-green-400 focus:ring-green-100'} border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all`}
                                 />
                             </div>
                         </div>
@@ -176,10 +211,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                     {/* Navigation */}
                     <nav className="flex-1 overflow-y-auto px-3 py-2">
-                        {menuItems.map((section, idx) => (
+                        {(user.isHospital ? hospitalMenuItems : retailMenuItems).map((section, idx) => (
                             <div key={idx} className="mb-4">
                                 {sidebarOpen && (
-                                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 mb-2">
+                                    <p className={`text-xs font-semibold ${user.isHospital ? 'text-slate-500' : 'text-gray-400'} uppercase tracking-wider px-3 mb-2`}>
                                         {section.category}
                                     </p>
                                 )}
@@ -190,8 +225,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                         onClick={() => setActiveMenu(item.href)}
                                         title={item.name}
                                         className={`flex items-center gap-3 px-3 py-2.5 rounded-xl mb-1 transition-all ${activeMenu === item.href
-                                            ? 'bg-green-50 text-green-600'
-                                            : 'text-gray-600 hover:bg-gray-50'
+                                            ? (user.isHospital ? 'bg-blue-600 text-white' : 'bg-green-50 text-green-600')
+                                            : (user.isHospital ? 'text-slate-400 hover:bg-slate-800 hover:text-white' : 'text-gray-600 hover:bg-gray-50')
                                             }`}
                                     >
                                         <span className="text-xl" title={item.name}>{item.icon}</span>
@@ -200,7 +235,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                                 <span className="font-medium text-sm flex-1">{item.name}</span>
                                                 {item.badge && (
                                                     <span className={`text-xs px-2 py-0.5 rounded-full ${item.badge === 'Live'
-                                                        ? 'bg-green-100 text-green-600'
+                                                        ? (user.isHospital ? 'bg-blue-500 text-white' : 'bg-green-100 text-green-600')
                                                         : 'bg-red-100 text-red-600'
                                                         }`}>
                                                         {item.badge}
@@ -215,21 +250,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </nav>
 
                     {/* User Profile */}
-                    <div className="p-4 border-t border-gray-100">
+                    <div className={`p-4 border-t ${user.isHospital ? 'border-slate-800' : 'border-gray-100'}`}>
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white font-bold">
+                            <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${user.isHospital ? 'from-blue-500 to-indigo-600' : 'from-green-500 to-emerald-600'} flex items-center justify-center text-white font-bold shadow-lg`}>
                                 {user.name.charAt(0).toUpperCase()}
                             </div>
                             {sidebarOpen && (
                                 <div className="flex-1">
-                                    <p className="font-semibold text-gray-800 text-sm">{user.name}</p>
-                                    <p className="text-xs text-gray-500">Cashier</p>
+                                    <p className={`font-semibold text-sm ${user.isHospital ? 'text-white' : 'text-gray-800'}`}>{user.name}</p>
+                                    <p className={`text-xs ${user.isHospital ? 'text-slate-500' : 'text-gray-500'}`}>{user.isHospital ? 'Medical Staff' : 'Cashier'}</p>
                                 </div>
                             )}
                             {sidebarOpen && (
                                 <button
                                     onClick={handleLogout}
-                                    className="p-2 hover:bg-red-50 rounded-lg text-red-500 transition-colors"
+                                    className={`p-2 rounded-lg transition-colors ${user.isHospital ? 'hover:bg-slate-800 text-slate-400 hover:text-white' : 'hover:bg-red-50 text-red-500'}`}
                                     title="Logout"
                                 >
                                     🚪
@@ -244,11 +279,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     {/* Top Header */}
                     <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 sticky top-0 z-40">
                         <div className="flex items-center gap-4">
-                            <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                            <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
                                 {greeting.emoji} {greeting.text}
-                                <span className="text-2xl">👋</span>
                             </h2>
-                            <span className="text-sm text-gray-400">Alpha Retail POS - v1.0</span>
+                            <span className={`text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-lg ${user.isHospital ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600'}`}>
+                                {user.isHospital ? 'Hospital Portal v1.0' : 'Retail Portal v1.0'}
+                            </span>
                         </div>
 
                         <div className="flex items-center gap-4">
@@ -259,9 +295,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             </div>
 
                             {/* Refresh Button */}
-                            <button className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-colors shadow-sm">
+                            <button className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-white font-black transition-all shadow-lg active:scale-95 ${user.isHospital ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/20' : 'bg-green-500 hover:bg-green-600 shadow-green-500/20'}`}>
                                 <span>🔄</span>
-                                <span className="font-medium">Refresh</span>
+                                <span className="text-sm">Refresh</span>
                             </button>
 
                             {/* Notifications */}
@@ -271,12 +307,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             </button>
 
                             {/* User Avatar */}
-                            <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
+                            <div className="flex items-center gap-4 pl-4 border-l border-gray-200">
                                 <div className="text-right">
-                                    <p className="font-semibold text-gray-800 text-sm">{user.name}</p>
-                                    <p className="text-xs text-gray-500">Cashier</p>
+                                    <p className="font-black text-slate-800 text-sm leading-tight">{user.name}</p>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{user.isHospital ? 'Hospital Staff' : 'Store Cashier'}</p>
                                 </div>
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white font-bold shadow-md">
+                                <div className={`w-11 h-11 rounded-2xl bg-gradient-to-br ${user.isHospital ? 'from-blue-500 to-indigo-600' : 'from-green-500 to-emerald-600'} flex items-center justify-center text-white font-black shadow-lg shadow-blue-500/10`}>
                                     {user.name.charAt(0).toUpperCase()}
                                 </div>
                             </div>
