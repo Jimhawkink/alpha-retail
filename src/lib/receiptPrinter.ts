@@ -24,6 +24,7 @@ export interface ReceiptData {
   amountPaid: number;
   change: number;
   customerName?: string;
+  customerPhone?: string;
   mpesaReceipt?: string;
   tableNo?: string;
   orderNotes?: string;
@@ -763,20 +764,46 @@ export function generateKOTHTML(data: KOTData, company: CompanyInfo = defaultCom
 `;
 }
 
-// Print function - opens print dialog
+// Print function - uses iframe to avoid popup blockers
 export function printReceipt(html: string): void {
-  const printWindow = window.open('', '_blank', 'width=350,height=600');
-  if (printWindow) {
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.focus();
+  console.log('🖨️ Printing receipt...');
+
+  // Create hidden iframe for printing
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = 'none';
+  iframe.style.visibility = 'hidden';
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow?.document;
+  if (doc) {
+    doc.open();
+    doc.write(html);
+    doc.close();
 
     // Wait for content to load then print
-    setTimeout(() => {
-      printWindow.print();
-      // Close after print dialog closes
-      printWindow.onafterprint = () => printWindow.close();
-    }, 250);
+    iframe.onload = () => {
+      setTimeout(() => {
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+          console.log('🖨️ Print dialog opened');
+        } catch (e) {
+          console.error('Print error:', e);
+        }
+        // Remove iframe after printing
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 1000);
+      }, 300);
+    };
+  } else {
+    console.error('Could not create print iframe');
+    document.body.removeChild(iframe);
   }
 }
 
@@ -919,15 +946,223 @@ export function printUnpaidBill(data: ReceiptData, company?: CompanyInfo): void 
   printReceipt(html);
 }
 
+// Mask phone number for privacy (e.g., 0712345678 -> 0712xxxx78)
+export function maskPhoneNumber(phone: string): string {
+  if (!phone) return '';
+  // Clean phone number
+  const cleaned = phone.replace(/\D/g, '');
+
+  if (cleaned.length >= 10) {
+    // Format: 0712xxxx78 (show first 4 and last 2 digits)
+    const prefix = cleaned.slice(0, 4);
+    const suffix = cleaned.slice(-2);
+    return `${prefix}xxxx${suffix}`;
+  }
+  return phone;
+}
+
+// Generate professional M-Pesa receipt HTML with classic thermal POS style
+export function generateMpesaReceiptHTML(data: ReceiptData, company: CompanyInfo = getCompanyInfo()): string {
+  // Generate item rows with classic thermal style (item name on top, qty/price/amount below)
+  const itemRows = data.items.map((item) => `
+<div style="margin:8px 0;">
+  <div style="font-weight:bold;">${item.name}</div>
+  <div style="display:flex;justify-content:space-between;padding-left:20px;">
+    <span>${item.qty}</span>
+    <span>${item.price.toFixed(2)}</span>
+    <span style="font-weight:bold;">${item.total.toFixed(2)}</span>
+  </div>
+</div>
+  `).join('');
+
+  const maskedPhone = maskPhoneNumber(data.customerPhone || '');
+  const dashLine = '----------------------------------------';
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Receipt - ${data.invoiceNo}</title>
+  <style>
+    @page { margin: 0; size: 80mm auto; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 12px;
+      width: 80mm;
+      padding: 5mm;
+      background: #fff;
+      color: #000;
+      line-height: 1.4;
+    }
+    .center { text-align: center; }
+    .bold { font-weight: bold; }
+    .right { text-align: right; }
+    .dash-line { 
+      text-align: center; 
+      letter-spacing: -1px;
+      margin: 5px 0;
+    }
+    .row {
+      display: flex;
+      justify-content: space-between;
+    }
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      margin: 3px 0;
+    }
+    .item-header {
+      display: flex;
+      justify-content: space-between;
+      font-weight: bold;
+      border-bottom: 1px dashed #000;
+      padding-bottom: 3px;
+      margin-bottom: 5px;
+    }
+    .total-section {
+      border-top: 1px dashed #000;
+      padding-top: 8px;
+      margin-top: 8px;
+    }
+    .grand-total {
+      font-size: 14px;
+      font-weight: bold;
+      border: 1px solid #000;
+      padding: 5px;
+      margin: 8px 0;
+    }
+    .mpesa-box {
+      border: 1px dashed #000;
+      padding: 8px;
+      margin: 10px 0;
+      text-align: center;
+    }
+    @media print { body { width: 80mm; } }
+  </style>
+</head>
+<body>
+  <!-- Company Header -->
+  <div class="center">
+    <div class="bold" style="font-size:14px;text-transform:uppercase;">${company.name}</div>
+    <div>${company.address}</div>
+    <div>Tel: ${company.phone}</div>
+    ${company.pin ? `<div>PIN: ${company.pin}</div>` : ''}
+  </div>
+
+  <div class="dash-line">${dashLine}</div>
+
+  <!-- Sale Type & Receipt Info -->
+  <div class="header-row">
+    <span class="bold">M-PESA SALE</span>
+    <span>${data.customerName || 'Walk-in'}</span>
+  </div>
+  <div class="header-row">
+    <span>${data.invoiceNo}</span>
+    <span>${data.date} ${data.time}</span>
+  </div>
+  <div>Cashier: ${data.cashier}</div>
+
+  <div class="dash-line">${dashLine}</div>
+
+  <!-- Items Header -->
+  <div class="item-header">
+    <span style="width:40%;">Item</span>
+    <span style="width:15%;text-align:center;">Qty</span>
+    <span style="width:20%;text-align:right;">Price</span>
+    <span style="width:25%;text-align:right;">Amount</span>
+  </div>
+
+  <!-- Items -->
+  ${data.items.map((item) => `
+  <div style="margin:6px 0;">
+    <div class="bold">${item.name}</div>
+    <div class="row" style="padding-left:15px;">
+      <span style="width:15%;text-align:center;">${item.qty}</span>
+      <span style="width:20%;text-align:right;">${item.price.toFixed(2)}</span>
+      <span style="width:25%;text-align:right;font-weight:bold;">${item.total.toFixed(2)}</span>
+    </div>
+    ${(item.discount && item.discount > 0) ? `<div style="padding-left:15px;color:#c00;font-size:10px;">Discount: -${item.discount.toFixed(2)}</div>` : ''}
+  </div>
+  `).join('')}
+
+  <div class="dash-line">${dashLine}</div>
+
+  <!-- Totals Section -->
+  <div class="total-section">
+    <div class="row">
+      <span>TOTAL:</span>
+      <span class="bold">${data.items.length} Items</span>
+      <span class="bold">${data.total.toFixed(2)}</span>
+    </div>
+    <div class="row">
+      <span>Payment Received</span>
+      <span>${data.amountPaid.toFixed(2)}</span>
+    </div>
+    ${data.change > 0 ? `
+    <div class="row" style="margin-top:5px;">
+      <span class="bold">CHANGE</span>
+      <span class="bold">${data.change.toFixed(2)}</span>
+    </div>
+    ` : ''}
+  </div>
+
+  <div class="dash-line">${dashLine}</div>
+
+  <!-- M-Pesa Details -->
+  <div class="mpesa-box">
+    <div class="bold">PAID VIA M-PESA</div>
+    ${data.mpesaReceipt ? `<div style="font-size:14px;font-weight:bold;margin:5px 0;">${data.mpesaReceipt}</div>` : ''}
+    ${maskedPhone ? `<div>Phone: ${maskedPhone}</div>` : ''}
+  </div>
+
+  ${data.customerName ? `
+  <div class="row">
+    <span>Customer:</span>
+    <span class="bold">${data.customerName}</span>
+  </div>
+  ` : ''}
+
+  <div class="dash-line">${dashLine}</div>
+
+  <!-- QR Code for Verification -->
+  <div class="center" style="margin:10px 0;">
+    <img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=https://alpha-retail.vercel.app/verify/${encodeURIComponent(data.invoiceNo)}" 
+         alt="Verify Receipt" style="width:80px;height:80px;"/>
+    <div style="font-size:8px;margin-top:3px;">Scan to verify receipt</div>
+  </div>
+
+  <!-- Footer -->
+  <div class="center" style="margin-top:10px;">
+    <div class="bold">*** THANK YOU! ***</div>
+    <div style="font-size:10px;margin-top:5px;">Goods once sold are not refundable</div>
+    <div style="font-size:9px;margin-top:8px;color:#666;">Powered by Alpha Retail POS</div>
+  </div>
+</body>
+</html>
+`;
+}
+
+// Print M-Pesa receipt
+export function printMpesaReceipt(data: ReceiptData, company?: CompanyInfo): void {
+  const html = generateMpesaReceiptHTML(data, company);
+  printReceipt(html);
+}
+
 export default {
   generateReceiptHTML,
   generateCustomerBillHTML,
   generateKOTHTML,
+  generateMpesaReceiptHTML,
   printReceipt,
   printToThermalPrinter,
   createReceiptData,
   createKOTData,
   printCustomerReceipt,
   printKOT,
-  printUnpaidBill
+  printUnpaidBill,
+  printMpesaReceipt,
+  maskPhoneNumber
 };
+

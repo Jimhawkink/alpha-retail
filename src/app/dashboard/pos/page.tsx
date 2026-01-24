@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
+import { printMpesaReceipt, ReceiptData, loadCompanyInfo } from '@/lib/receiptPrinter';
 
 // Types for Retail POS
 interface Product {
@@ -202,7 +203,7 @@ const ProductCard = ({ product, onAdd }: { product: Product; onAdd: () => void }
     </div>
 );
 
-// M-Pesa API URL - uses AlphaPlusWeb's own Supabase Edge Functions
+// M-Pesa API URL - using AlphaRetail's own Supabase Edge Functions
 const MPESA_API_URL = 'https://enlqpifpxuecxxozyiak.supabase.co/functions/v1';
 const MPESA_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVubHFwaWZweHVlY3h4b3p5aWFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYwMjUzNjgsImV4cCI6MjA4MTYwMTM2OH0.-z3-2Mf3SkkZR3ZryOGyG-60jWERX9YLKIee048OziE';
 
@@ -285,6 +286,9 @@ const PaymentModal = ({
 
         try {
             const phone = formatMpesaPhone(mpesaPhone);
+            console.log('🔵 Sending STK to:', `${MPESA_API_URL}/stkpush`);
+            console.log('🔵 Phone:', phone, 'Amount:', Math.ceil(total));
+
             const response = await fetch(`${MPESA_API_URL}/stkpush`, {
                 method: 'POST',
                 headers: {
@@ -301,6 +305,7 @@ const PaymentModal = ({
             });
 
             const data = await response.json();
+            console.log('🔵 STK Response:', data);
 
             if (data.success && (data.checkout_request_id || data.CheckoutRequestID || data.checkoutRequestId)) {
                 const requestId = data.checkout_request_id || data.CheckoutRequestID || data.checkoutRequestId;
@@ -308,7 +313,7 @@ const PaymentModal = ({
                 setMpesaStatus('waiting');
                 setMpesaStatusMessage('📲 Enter your M-Pesa PIN on your phone...');
 
-                // Save pending transaction to database
+                // Save pending transaction to local database (for visibility)
                 await supabase.from('mpesa_transactions').insert({
                     checkout_request_id: requestId,
                     phone_number: phone,
@@ -317,24 +322,27 @@ const PaymentModal = ({
                     status: 'Pending',
                 });
 
-                // Start polling for status
+                // Poll Energy App's check-status for receipt updates
                 startStatusPolling(requestId);
             } else {
+                const errorMsg = data.error || data.errorMessage || data.message || JSON.stringify(data);
+                console.error('❌ STK Failed:', errorMsg);
                 setMpesaStatus('failed');
-                setMpesaStatusMessage(data.error || data.message || '❌ Failed to send STK Push');
-                toast.error(data.error || 'Failed to send STK Push');
+                setMpesaStatusMessage(`❌ ${errorMsg}`);
+                toast.error(`STK Error: ${errorMsg}`);
             }
         } catch (err: any) {
+            console.error('❌ Network Error:', err);
             setMpesaStatus('failed');
-            setMpesaStatusMessage(err.message || '❌ Network error');
-            toast.error('Network error - please try again');
+            setMpesaStatusMessage(`❌ ${err.message}`);
+            toast.error(`Network error: ${err.message}`);
         }
     };
 
     // Poll for M-Pesa payment status
     const startStatusPolling = (requestId: string) => {
         let attempts = 0;
-        const maxAttempts = 24; // 2 minutes (24 * 5 seconds)
+        const maxAttempts = 24; // 2 minutes (24 * 5 seconds) - more time for callback
 
         pollIntervalRef.current = setInterval(async () => {
             attempts++;
@@ -347,6 +355,7 @@ const PaymentModal = ({
                     }
                 });
                 const data = await response.json();
+                console.log('🔵 check-status Response:', JSON.stringify(data, null, 2));
 
                 if (data.resultCode === 0) {
                     // Payment successful!
@@ -361,22 +370,58 @@ const PaymentModal = ({
                         if (match) receipt = match[1];
                     }
 
-                    // If still no receipt, fetch from database (callback may have saved it)
-                    if (!receipt) {
-                        const { data: txData } = await supabase
-                            .from('mpesa_transactions')
-                            .select('mpesa_receipt_number')
-                            .eq('checkout_request_id', requestId)
-                            .single();
-                        if (txData?.mpesa_receipt_number) {
-                            receipt = txData.mpesa_receipt_number;
-                        }
-                    }
+                    // If still no receipt, poll a few more times (callback may still be processing)
+                    if (!receipt && attempts < maxAttempts) {
+                        console.log('⏳ Payment success but receipt not yet available, retrying...');
+                        // Poll again after 2 seconds (callback should have saved by now)
+                        setTimeout(async () => {
+                            for (let retry = 0; retry < 5; retry++) {
+                                await new Promise(resolve => setTimeout(resolve, 1000));
+                                try {
+                                    const retryResponse = await fetch(`${MPESA_API_URL}/check-status?checkout_request_id=${requestId}`, {
+                                        headers: {
+                                            'apikey': MPESA_SUPABASE_ANON_KEY,
+                                            'Authorization': `Bearer ${MPESA_SUPABASE_ANON_KEY}`
+                                        }
+                                    });
+                                    const retryData = await retryResponse.json();
+                                    if (retryData.mpesaReceiptNumber) {
+                                        receipt = retryData.mpesaReceiptNumber;
+                                        console.log('✅ Got receipt on retry:', receipt);
+                                        break;
+                                    }
+                                } catch (e) {
+                                    console.error('Retry error:', e);
+                                }
+                            }
 
-                    // Final fallback - use a timestamp-based placeholder only if absolutely nothing found
-                    if (!receipt) {
-                        console.warn('⚠️ No M-Pesa receipt found in response or database');
-                        receipt = `MPESA-${Date.now().toString(36).toUpperCase()}`;
+                            // Final completion with whatever receipt we have
+                            if (!receipt) {
+                                console.warn('⚠️ Could not get M-Pesa receipt after retries');
+                                receipt = `MPESA-${Date.now().toString(36).toUpperCase()}`;
+                            }
+
+                            setMpesaStatus('success');
+                            setMpesaStatusMessage(`✅ Payment received! Receipt: ${receipt}`);
+                            setMpesaReceipt(receipt);
+                            toast.success(`✅ M-Pesa payment successful! ${receipt}`);
+
+                            // Update transaction in database
+                            await supabase.from('mpesa_transactions')
+                                .update({
+                                    status: 'Completed',
+                                    mpesa_receipt_number: receipt,
+                                    updated_at: new Date().toISOString()
+                                })
+                                .eq('checkout_request_id', requestId);
+
+                            // Complete the sale
+                            if (!saleCompletedRef.current) {
+                                saleCompletedRef.current = true;
+                                onComplete('MPESA', total, receipt, customerName, requestId, mpesaPhone);
+                            }
+                        }, 500);
+                        return;
                     }
 
                     console.log('✅ M-Pesa Receipt:', receipt);
@@ -402,10 +447,13 @@ const PaymentModal = ({
                         }
                     }, 1000);
 
-                } else if (data.resultCode !== undefined && data.resultCode !== null && data.resultCode !== 0) {
-                    // Payment failed
+                } else if ((data.success === false || (data.resultCode !== undefined && data.resultCode !== null && data.resultCode !== 0)) && data.status !== 'pending') {
+                    // Payment failed or cancelled (but NOT if still pending - waiting for callback)
                     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
                     setMpesaStatus('failed');
+
+                    // Determine error message
+                    let desc = '❌ Payment failed';
 
                     const errorMessages: Record<number, string> = {
                         1: '❌ Insufficient funds in M-Pesa account',
@@ -414,7 +462,21 @@ const PaymentModal = ({
                         2001: '❌ Wrong M-Pesa PIN entered',
                     };
 
-                    const desc = errorMessages[data.resultCode] || `❌ Payment failed (Code: ${data.resultCode})`;
+                    if (data.resultCode && errorMessages[data.resultCode]) {
+                        desc = errorMessages[data.resultCode];
+                    } else if (data.resultDesc) {
+                        const descLower = data.resultDesc.toLowerCase();
+                        if (descLower.includes('insufficient') || descLower.includes('balance')) {
+                            desc = '❌ Insufficient funds in M-Pesa account';
+                        } else if (descLower.includes('cancel')) {
+                            desc = '❌ Request cancelled by user';
+                        } else {
+                            desc = `❌ Payment failed: ${data.resultDesc}`;
+                        }
+                    } else if (data.resultCode) {
+                        desc = `❌ Payment failed (Code: ${data.resultCode})`;
+                    }
+
                     setMpesaStatusMessage(desc);
                     toast.error(desc);
 
@@ -532,6 +594,17 @@ const PaymentModal = ({
                                 value={mpesaPhone}
                                 onChange={(e) => setMpesaPhone(e.target.value)}
                                 placeholder="07XX XXX XXX or 01XX XXX XXX"
+                                className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none text-lg"
+                                disabled={mpesaStatus === 'sending' || mpesaStatus === 'waiting'}
+                            />
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium text-gray-600 mb-2 block">👤 Customer Name (Optional)</label>
+                            <input
+                                type="text"
+                                value={customerName}
+                                onChange={(e) => setCustomerName(e.target.value)}
+                                placeholder="Enter customer name"
                                 className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none text-lg"
                                 disabled={mpesaStatus === 'sending' || mpesaStatus === 'waiting'}
                             />
@@ -1001,6 +1074,42 @@ export default function RetailPOSPage() {
                     p_product_id: item.id,
                     p_qty: item.qty
                 });
+            }
+
+            // Auto-print receipt for M-Pesa payments
+            if (method.toUpperCase() === 'MPESA') {
+                try {
+                    console.log('🖨️ Auto-printing M-Pesa receipt...');
+                    const company = await loadCompanyInfo();
+                    const now = new Date();
+                    const receiptData: ReceiptData = {
+                        invoiceNo: receiptNo,
+                        date: now.toLocaleDateString('en-GB'),
+                        time: now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+                        cashier: 'Cashier',
+                        items: cart.map(item => ({
+                            name: item.name,
+                            qty: item.qty,
+                            price: item.salesPrice,
+                            total: item.salesPrice * item.qty
+                        })),
+                        subtotal: subtotal,
+                        discount: totalDiscount,
+                        tax: 0,
+                        total: grandTotal,
+                        paymentMethod: 'MPESA',
+                        amountPaid: amountPaid,
+                        change: 0,
+                        customerName: customerName || undefined,
+                        customerPhone: customerPhone || undefined,
+                        mpesaReceipt: mpesaReceipt || undefined
+                    };
+                    console.log('🖨️ Receipt data:', receiptData);
+                    printMpesaReceipt(receiptData, company);
+                    console.log('🖨️ Print function called');
+                } catch (printErr) {
+                    console.error('❌ Receipt print error:', printErr);
+                }
             }
 
             toast.success('Sale completed successfully!');
