@@ -104,6 +104,9 @@ export default function ProductsPage() {
     const [filterCategory, setFilterCategory] = useState('All');
     const [isSaving, setIsSaving] = useState(false);
     const [openingQty, setOpeningQty] = useState(0);
+    const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
+    const [stockData, setStockData] = useState<Record<number, number>>({});
+    const [showPriceList, setShowPriceList] = useState(false);
 
     const loadProducts = useCallback(async () => {
         setIsLoading(true);
@@ -120,6 +123,24 @@ export default function ProductsPage() {
             toast.error('Failed to load products');
         }
         setIsLoading(false);
+    }, []);
+
+    const loadStockData = useCallback(async () => {
+        try {
+            const { data, error } = await supabase
+                .from('retail_stock')
+                .select('pid, qty');
+
+            if (error) throw error;
+
+            const stockMap: Record<number, number> = {};
+            (data || []).forEach((s: { pid: number; qty: number }) => {
+                stockMap[s.pid] = (stockMap[s.pid] || 0) + (s.qty || 0);
+            });
+            setStockData(stockMap);
+        } catch (err) {
+            console.error('Error loading stock data:', err);
+        }
     }, []);
 
     const loadCategories = useCallback(async () => {
@@ -204,11 +225,12 @@ export default function ProductsPage() {
 
     useEffect(() => {
         loadProducts();
+        loadStockData();
         loadCategories();
         loadSuppliers();
         loadUnits();
         loadCompanyName();
-    }, [loadProducts, loadCategories, loadSuppliers, loadUnits, loadCompanyName]);
+    }, [loadProducts, loadStockData, loadCategories, loadSuppliers, loadUnits, loadCompanyName]);
 
     // Get kitchen supplier name (default)
     const getKitchenSupplier = () => companyName || 'Kitchen';
@@ -424,22 +446,73 @@ export default function ProductsPage() {
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-bold text-gray-800 flex items-center gap-3">
-                        <span className="text-3xl">🍕</span>
-                        Products (Dish Items)
+                    <h1 className="text-xl md:text-2xl font-bold text-gray-800 flex items-center gap-2">
+                        <span className="text-2xl">📦</span>
+                        Products
                     </h1>
-                    <p className="text-gray-500 text-sm mt-1">
-                        Manage your menu items and dishes • Code format: PRD-XX
+                    <p className="text-gray-500 text-xs mt-1">
+                        Manage your retail products • Code format: PRD-XX
                     </p>
                 </div>
 
-                <button
-                    onClick={openAddModal}
-                    className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold rounded-2xl shadow-lg shadow-blue-300/40 hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-300"
-                >
-                    <span className="text-xl">➕</span>
-                    Add Product
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                    <button
+                        onClick={() => toast.success('📝 Purchase Order - Coming soon!')}
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-gradient-to-r from-teal-50 to-teal-100 text-teal-700 border border-teal-200 rounded-lg hover:from-teal-100 hover:to-teal-200 transition-all"
+                    >
+                        📝 Make PO
+                    </button>
+                    <button
+                        onClick={() => toast.success('📊 Review Items - Coming soon!')}
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-gradient-to-r from-amber-50 to-amber-100 text-amber-700 border border-amber-200 rounded-lg hover:from-amber-100 hover:to-amber-200 transition-all"
+                    >
+                        📊 Review
+                    </button>
+                    <button
+                        onClick={() => setShowPriceList(true)}
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-gradient-to-r from-purple-50 to-purple-100 text-purple-700 border border-purple-200 rounded-lg hover:from-purple-100 hover:to-purple-200 transition-all"
+                    >
+                        💰 Price List
+                    </button>
+                    <button
+                        onClick={() => {
+                            const csvContent = [
+                                ['Code', 'Name', 'Category', 'Purchase', 'Sales', 'Stock', 'Status'].join(','),
+                                ...filteredProducts.map(p => [
+                                    p.product_code,
+                                    `"${p.product_name}"`,
+                                    p.category || '',
+                                    p.purchase_cost,
+                                    p.sales_cost,
+                                    stockData[p.pid] || 0,
+                                    p.active ? 'Active' : 'Inactive'
+                                ].join(','))
+                            ].join('\n');
+                            const blob = new Blob([csvContent], { type: 'text/csv' });
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = 'products.csv';
+                            a.click();
+                            toast.success('📥 Exported to CSV!');
+                        }}
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-gradient-to-r from-emerald-50 to-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg hover:from-emerald-100 hover:to-emerald-200 transition-all"
+                    >
+                        📥 Export
+                    </button>
+                    <button
+                        onClick={() => toast.success('⚙️ Settings - Coming soon!')}
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-gradient-to-r from-gray-50 to-gray-100 text-gray-700 border border-gray-200 rounded-lg hover:from-gray-100 hover:to-gray-200 transition-all"
+                    >
+                        ⚙️ Settings
+                    </button>
+                    <button
+                        onClick={openAddModal}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm font-medium rounded-xl shadow-md hover:scale-105 active:scale-95 transition-all"
+                    >
+                        ➕ Add Product
+                    </button>
+                </div>
             </div>
 
             {/* Stats Cards */}
@@ -490,6 +563,92 @@ export default function ProductsPage() {
                 </div>
             </div>
 
+            {/* Quick Actions Toolbar */}
+            <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
+                <div className="flex flex-wrap gap-2">
+                    <button
+                        onClick={() => {
+                            if (selectedProducts.length === 1) {
+                                const product = products.find(p => p.pid === selectedProducts[0]);
+                                if (product) toast.success(`📋 Item history for: ${product.product_name}`);
+                            } else {
+                                toast('Select one item to view history', { icon: 'ℹ️' });
+                            }
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gradient-to-r from-indigo-50 to-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg hover:from-indigo-100 hover:to-indigo-200 transition-all"
+                    >
+                        🔍 Look Up
+                    </button>
+                    <button
+                        onClick={() => {
+                            if (selectedProducts.length > 0) {
+                                window.location.href = `/dashboard/purchase?products=${selectedProducts.join(',')}`;
+                            } else {
+                                window.location.href = '/dashboard/purchase';
+                            }
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gradient-to-r from-green-50 to-green-100 text-green-700 border border-green-200 rounded-lg hover:from-green-100 hover:to-green-200 transition-all"
+                    >
+                        🛒 Purchase
+                    </button>
+                    <button
+                        onClick={() => toast.success('📝 Purchase Order - Coming soon!')}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gradient-to-r from-teal-50 to-teal-100 text-teal-700 border border-teal-200 rounded-lg hover:from-teal-100 hover:to-teal-200 transition-all"
+                    >
+                        📝 Make PO
+                    </button>
+                    <button
+                        onClick={() => toast.success('📊 Review Items - Coming soon!')}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gradient-to-r from-amber-50 to-amber-100 text-amber-700 border border-amber-200 rounded-lg hover:from-amber-100 hover:to-amber-200 transition-all"
+                    >
+                        📊 Review
+                    </button>
+                    <button
+                        onClick={() => setShowPriceList(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gradient-to-r from-purple-50 to-purple-100 text-purple-700 border border-purple-200 rounded-lg hover:from-purple-100 hover:to-purple-200 transition-all"
+                    >
+                        💰 Price List
+                    </button>
+                    <button
+                        onClick={() => {
+                            const csvContent = [
+                                ['Code', 'Name', 'Category', 'Purchase', 'Sales', 'Stock', 'Status'].join(','),
+                                ...filteredProducts.map(p => [
+                                    p.product_code,
+                                    `"${p.product_name}"`,
+                                    p.category || '',
+                                    p.purchase_cost,
+                                    p.sales_cost,
+                                    stockData[p.pid] || 0,
+                                    p.active ? 'Active' : 'Inactive'
+                                ].join(','))
+                            ].join('\n');
+                            const blob = new Blob([csvContent], { type: 'text/csv' });
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = 'products.csv';
+                            a.click();
+                            toast.success('📥 Products exported to CSV!');
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gradient-to-r from-emerald-50 to-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg hover:from-emerald-100 hover:to-emerald-200 transition-all"
+                    >
+                        📥 Export
+                    </button>
+                    <button
+                        onClick={() => toast.success('⚙️ Settings - Coming soon!')}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gradient-to-r from-gray-50 to-gray-100 text-gray-700 border border-gray-200 rounded-lg hover:from-gray-100 hover:to-gray-200 transition-all"
+                    >
+                        ⚙️ Settings
+                    </button>
+                    {selectedProducts.length > 0 && (
+                        <span className="flex items-center px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-lg">
+                            ✓ {selectedProducts.length} selected
+                        </span>
+                    )}
+                </div>
+            </div>
+
             {/* Filters */}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
                 <div className="flex flex-col md:flex-row gap-4">
@@ -530,20 +689,35 @@ export default function ProductsPage() {
                     <table className="w-full">
                         <thead>
                             <tr className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
-                                <th className="px-4 py-4 text-left text-sm font-semibold">Code</th>
-                                <th className="px-4 py-4 text-left text-sm font-semibold">Product Name</th>
-                                <th className="px-4 py-4 text-left text-sm font-semibold hidden md:table-cell">Category</th>
-                                <th className="px-4 py-4 text-right text-sm font-semibold">Purchase</th>
-                                <th className="px-4 py-4 text-right text-sm font-semibold">Sales</th>
-                                <th className="px-4 py-4 text-center text-sm font-semibold hidden lg:table-cell">Margin %</th>
-                                <th className="px-4 py-4 text-center text-sm font-semibold">Status</th>
-                                <th className="px-4 py-4 text-center text-sm font-semibold">Actions</th>
+                                <th className="px-2 py-3 text-center w-10">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedProducts.length === filteredProducts.length && filteredProducts.length > 0}
+                                        onChange={(e) => {
+                                            if (e.target.checked) {
+                                                setSelectedProducts(filteredProducts.map(p => p.pid));
+                                            } else {
+                                                setSelectedProducts([]);
+                                            }
+                                        }}
+                                        className="w-4 h-4 rounded border-white/50 cursor-pointer"
+                                    />
+                                </th>
+                                <th className="px-3 py-3 text-left text-xs font-semibold">Code</th>
+                                <th className="px-3 py-3 text-left text-xs font-semibold">Product Name</th>
+                                <th className="px-3 py-3 text-left text-xs font-semibold hidden md:table-cell">Category</th>
+                                <th className="px-3 py-3 text-right text-xs font-semibold">Purchase</th>
+                                <th className="px-3 py-3 text-right text-xs font-semibold">Sales</th>
+                                <th className="px-3 py-3 text-center text-xs font-semibold">Avail Qty</th>
+                                <th className="px-3 py-3 text-center text-xs font-semibold hidden lg:table-cell">Margin %</th>
+                                <th className="px-3 py-3 text-center text-xs font-semibold">Status</th>
+                                <th className="px-3 py-3 text-center text-xs font-semibold">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan={8} className="px-4 py-12 text-center">
+                                    <td colSpan={10} className="px-4 py-12 text-center">
                                         <div className="flex flex-col items-center gap-3">
                                             <div className="w-10 h-10 border-4 border-blue-400/30 border-t-blue-500 rounded-full animate-spin"></div>
                                             <span className="text-gray-500">Loading products...</span>
@@ -552,7 +726,7 @@ export default function ProductsPage() {
                                 </tr>
                             ) : filteredProducts.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} className="px-4 py-12 text-center">
+                                    <td colSpan={10} className="px-4 py-12 text-center">
                                         <div className="flex flex-col items-center gap-3">
                                             <span className="text-5xl">📦</span>
                                             <p className="text-gray-500">No products found</p>
@@ -567,16 +741,30 @@ export default function ProductsPage() {
                                 </tr>
                             ) : (
                                 filteredProducts.map((product) => (
-                                    <tr key={product.pid} className="border-t border-gray-50 hover:bg-blue-50/50 transition-colors">
-                                        <td className="px-4 py-4">
-                                            <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
+                                    <tr key={product.pid} className={`border-t border-gray-50 hover:bg-blue-50/50 transition-colors ${selectedProducts.includes(product.pid) ? 'bg-blue-50' : ''}`}>
+                                        <td className="px-2 py-2 text-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedProducts.includes(product.pid)}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                        setSelectedProducts([...selectedProducts, product.pid]);
+                                                    } else {
+                                                        setSelectedProducts(selectedProducts.filter(id => id !== product.pid));
+                                                    }
+                                                }}
+                                                className="w-4 h-4 rounded border-gray-300 cursor-pointer"
+                                            />
+                                        </td>
+                                        <td className="px-3 py-2">
+                                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
                                                 {product.product_code}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-4">
-                                            <div className="flex items-center gap-3">
+                                        <td className="px-3 py-2">
+                                            <div className="flex items-center gap-2">
                                                 {product.photo ? (
-                                                    <div className="w-12 h-12 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0 border border-gray-200">
+                                                    <div className="w-8 h-8 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0 border border-gray-200">
                                                         <img
                                                             src={product.photo}
                                                             alt={product.product_name}
@@ -586,56 +774,78 @@ export default function ProductsPage() {
                                                     </div>
                                                 ) : (
                                                     <div
-                                                        className={`w-12 h-12 rounded-xl flex items-center justify-center text-white text-lg font-bold bg-gradient-to-br ${product.button_ui_color || 'from-blue-400 to-blue-600'}`}
+                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold bg-gradient-to-br ${product.button_ui_color || 'from-blue-400 to-blue-600'}`}
                                                     >
                                                         {product.product_name.charAt(0).toUpperCase()}
                                                     </div>
                                                 )}
                                                 <div>
-                                                    <p className="font-semibold text-gray-800">{product.product_name}</p>
+                                                    <p className="text-xs font-medium text-gray-800">{product.product_name}</p>
                                                     {product.alias && (
-                                                        <p className="text-xs text-gray-500">{product.alias}</p>
+                                                        <p className="text-[10px] text-gray-400">{product.alias}</p>
                                                     )}
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-4 py-4 hidden md:table-cell">
-                                            <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
-                                                {product.category || 'Uncategorized'}
+                                        <td className="px-3 py-2 hidden md:table-cell">
+                                            <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-[10px] font-medium">
+                                                {product.category || 'N/A'}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-4 text-right font-medium text-gray-600">
-                                            Ksh {product.purchase_cost?.toLocaleString() || '0'}
+                                        <td className="px-3 py-2 text-right text-xs text-gray-600">
+                                            {product.purchase_cost?.toLocaleString() || '0'}
                                         </td>
-                                        <td className="px-4 py-4 text-right font-bold text-gray-800">
-                                            Ksh {product.sales_cost?.toLocaleString() || '0'}
+                                        <td className="px-3 py-2 text-right text-xs font-medium text-gray-800">
+                                            {product.sales_cost?.toLocaleString() || '0'}
                                         </td>
-                                        <td className="px-4 py-4 text-center hidden lg:table-cell">
-                                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${product.margin_per >= 30 ? 'bg-green-100 text-green-700' :
+                                        <td className="px-3 py-2 text-center">
+                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${(stockData[product.pid] || 0) > 10 ? 'bg-green-100 text-green-700' :
+                                                (stockData[product.pid] || 0) > 0 ? 'bg-yellow-100 text-yellow-700' :
+                                                    'bg-red-100 text-red-700'
+                                                }`}>
+                                                {stockData[product.pid] || 0}
+                                            </span>
+                                        </td>
+                                        <td className="px-3 py-2 text-center hidden lg:table-cell">
+                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${product.margin_per >= 30 ? 'bg-green-100 text-green-700' :
                                                 product.margin_per >= 15 ? 'bg-yellow-100 text-yellow-700' :
                                                     'bg-red-100 text-red-700'
                                                 }`}>
                                                 {product.margin_per?.toFixed(1) || '0'}%
                                             </span>
                                         </td>
-                                        <td className="px-4 py-4 text-center">
-                                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${product.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                                        <td className="px-3 py-2 text-center">
+                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${product.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
                                                 }`}>
-                                                {product.active ? '✅ Active' : '⏸️ Inactive'}
+                                                {product.active ? 'Active' : 'Off'}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-4">
-                                            <div className="flex items-center justify-center gap-2">
+                                        <td className="px-2 py-2">
+                                            <div className="flex items-center justify-center gap-1">
+                                                <button
+                                                    onClick={() => toast.success(`📋 Item history for: ${product.product_name}`)}
+                                                    className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg transition-all text-xs"
+                                                    title="Look Up History"
+                                                >
+                                                    🔍
+                                                </button>
+                                                <button
+                                                    onClick={() => window.location.href = `/dashboard/purchase?product=${product.pid}`}
+                                                    className="p-1.5 bg-green-50 hover:bg-green-100 text-green-600 rounded-lg transition-all text-xs"
+                                                    title="Purchase This Item"
+                                                >
+                                                    🛒
+                                                </button>
                                                 <button
                                                     onClick={() => openEditModal(product)}
-                                                    className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-xl transition-all hover:scale-110"
+                                                    className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-all text-xs"
                                                     title="Edit"
                                                 >
                                                     ✏️
                                                 </button>
                                                 <button
                                                     onClick={() => deleteProduct(product)}
-                                                    className="p-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-xl transition-all hover:scale-110"
+                                                    className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-all text-xs"
                                                     title="Delete"
                                                 >
                                                     🗑️
