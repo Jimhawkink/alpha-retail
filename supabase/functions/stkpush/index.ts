@@ -72,12 +72,12 @@ serve(async (req) => {
 
         const password = btoa(`${SHORTCODE}${PASSKEY}${timestamp}`);
 
-        // Step 3: Initiate STK Push
+        // Step 3: Initiate STK Push (Buy Goods / Till)
         const stkPayload = {
             BusinessShortCode: SHORTCODE,
             Password: password,
             Timestamp: timestamp,
-            TransactionType: "CustomerPayBillOnline",
+            TransactionType: "CustomerBuyGoodsOnline",  // For Till numbers
             Amount: Math.ceil(amount),
             PartyA: phone,
             PartyB: SHORTCODE,

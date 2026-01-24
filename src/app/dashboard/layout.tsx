@@ -67,6 +67,15 @@ const menuItems = [
         ]
     },
     {
+        category: 'Hospital Management',
+        items: [
+            { name: 'Hospital POS', icon: '🏥', href: '/dashboard/hospital-pos', badge: 'New' },
+            { name: 'Companies', icon: '🏢', href: '/dashboard/hospital-companies', badge: null },
+            { name: 'Staff Management', icon: '👥', href: '/dashboard/hospital-users', badge: null },
+            { name: 'Billing Reports', icon: '📉', href: '/dashboard/hospital-reports', badge: null },
+        ]
+    },
+    {
         category: 'Administration',
         items: [
             { name: 'Users', icon: '👥', href: '/dashboard/users', badge: null },
