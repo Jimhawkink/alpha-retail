@@ -61,7 +61,7 @@ export default function LoginPage() {
             if (loginMode === 'Hospital') {
                 // Query hospital.users table
                 const { data, error: dbError } = await supabase
-                    .from('hospital.users')
+                    .from('hospital_users')
                     .select('*')
                     .eq('user_name', username)
                     .eq('active', true)
@@ -73,12 +73,23 @@ export default function LoginPage() {
                     return;
                 }
 
-                // Check hashed password
-                const isMatch = await bcrypt.compare(password, data.password_hash);
-                // Fallback for plain text (for initial migration)
-                const isPlainTextMatch = data.password_hash === password;
+                // Check password with fallback
+                let isMatch = false;
+                try {
+                    // Try bcrypt first if it looks like a hash
+                    if (data.password_hash && (data.password_hash.startsWith('$2a$') || data.password_hash.startsWith('$2b$'))) {
+                        isMatch = await bcrypt.compare(password, data.password_hash);
+                    }
+                } catch (bErr) {
+                    console.error('Bcrypt error:', bErr);
+                }
 
-                if (isMatch || isPlainTextMatch) {
+                // Fallback for plain text
+                if (!isMatch && data.password_hash === password) {
+                    isMatch = true;
+                }
+
+                if (isMatch) {
                     localStorage.setItem('user', JSON.stringify({
                         userId: data.user_id,
                         userName: data.user_name,
@@ -88,12 +99,12 @@ export default function LoginPage() {
                     }));
                     router.push('/dashboard/hospital-pos');
                 } else {
-                    setError('Invalid username or password');
+                    setError('Invalid hospital username or password');
                 }
             } else {
-                // Query retail_users table
+                // Query retail users table
                 const { data, error: dbError } = await supabase
-                    .from('users') // Updated from retail_users to users to match dashboard/users/page.tsx
+                    .from('users')
                     .select('*')
                     .eq('user_name', username)
                     .eq('active', true)
@@ -105,15 +116,29 @@ export default function LoginPage() {
                     return;
                 }
 
-                // Check password hash
-                const isPasswordMatch = await bcrypt.compare(password, data.password_hash);
-                const isPinMatch = data.pin ? await bcrypt.compare(password, data.pin) : false;
+                // Check password/PIN with fallback
+                let isMatch = false;
+                try {
+                    // Check password hash
+                    if (data.password_hash && (data.password_hash.startsWith('$2a$') || data.password_hash.startsWith('$2b$'))) {
+                        isMatch = await bcrypt.compare(password, data.password_hash);
+                    }
+                    // Check PIN hash if password didn't match
+                    if (!isMatch && data.pin && (data.pin.startsWith('$2a$') || data.pin.startsWith('$2b$'))) {
+                        if (await bcrypt.compare(password, data.pin)) isMatch = true;
+                    }
+                } catch (bErr) {
+                    console.error('Bcrypt error:', bErr);
+                }
 
-                // Fallback for plain text
-                const isPlainTextPasswordMatch = data.password_hash === password;
-                const isPlainTextPinMatch = data.pin === password;
+                // Final fallback for plain text (password or PIN)
+                if (!isMatch) {
+                    if (data.password_hash === password || data.pin === password) {
+                        isMatch = true;
+                    }
+                }
 
-                if (isPasswordMatch || isPinMatch || isPlainTextPasswordMatch || isPlainTextPinMatch) {
+                if (isMatch) {
                     localStorage.setItem('user', JSON.stringify({
                         userId: data.user_id,
                         userName: data.user_name,
@@ -123,7 +148,7 @@ export default function LoginPage() {
                     }));
                     router.push('/dashboard');
                 } else {
-                    setError('Invalid username or password');
+                    setError('Invalid retail username or password');
                 }
             }
         } catch (err) {

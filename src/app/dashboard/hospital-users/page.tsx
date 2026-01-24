@@ -30,7 +30,7 @@ export default function HospitalUsersPage() {
 
     const loadUsers = async () => {
         setIsLoading(true);
-        const { data } = await supabase.from('hospital.users').select('*').order('full_name');
+        const { data, error } = await supabase.from('hospital_users').select('*').order('created_at', { ascending: false });
         setUsers(data || []);
         setIsLoading(false);
     };
@@ -51,7 +51,7 @@ export default function HospitalUsersPage() {
                 password_hash: hashedPassword
             };
 
-            const { error } = await supabase.from('hospital.users').insert([submissionData]);
+            const { error } = await supabase.from('hospital_users').insert([submissionData]);
 
             if (error) throw error;
 

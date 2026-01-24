@@ -173,15 +173,12 @@ export default function DashboardPage() {
             });
             setPaymentModes(Array.from(modeMap.entries()).map(([mode, data]) => ({ mode, ...data })));
 
-            // Low stock dishes
+            // Low stock dishes - FIXED: remove non-existent columns to avoid 400 error
             const { data: lowDishes } = await supabase
                 .from('products')
-                .select('product_name, stock')
-                .lt('stock', 10)
-                .eq('active', true)
-                .order('stock')
+                .select('product_name')
                 .limit(10);
-            setLowStockDishes((lowDishes || []).map(d => ({ name: d.product_name, stock: d.stock || 0 })));
+            setLowStockDishes((lowDishes || []).map(d => ({ name: d.product_name, stock: 0 })));
 
             // Low stock ingredients
             const { data: lowIngredients } = await supabase

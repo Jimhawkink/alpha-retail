@@ -41,13 +41,13 @@ export default function HospitalPOSPage() {
         const loadData = async () => {
             setIsLoading(true);
             try {
-                const { data: svcData } = await supabase.from('hospital.services').select('*').eq('active', true);
+                const { data: svcData } = await supabase.from('hospital_services').select('*').eq('active', true);
                 setServices(svcData || []);
                 setFilteredServices(svcData || []);
 
                 // Load next receipt number
                 const { data: saleData } = await supabase
-                    .from('hospital.billing')
+                    .from('hospital_billing')
                     .select('receipt_no')
                     .order('billing_id', { ascending: false })
                     .limit(1);
@@ -110,7 +110,7 @@ export default function HospitalPOSPage() {
         try {
             // 1. Create patient if not exists (simplified for now)
             const { data: patient } = await supabase
-                .from('hospital.patients')
+                .from('hospital_patients')
                 .insert({ patient_name: patientName })
                 .select()
                 .single();
@@ -134,7 +134,7 @@ export default function HospitalPOSPage() {
             const vHash = Math.random().toString(36).substring(2, 10).toUpperCase();
 
             // 3. Create entry in hospital.billing (metadata)
-            await supabase.from('hospital.billing').insert({
+            await supabase.from('hospital_billing').insert({
                 sale_id: sale.sale_id,
                 receipt_no: receiptNo,
                 patient_id: patient?.patient_id,
@@ -174,13 +174,13 @@ export default function HospitalPOSPage() {
     const loadData = async () => {
         setIsLoading(true);
         try {
-            const { data: svcData } = await supabase.from('hospital.services').select('*').eq('active', true);
+            const { data: svcData } = await supabase.from('hospital_services').select('*').eq('active', true);
             setServices(svcData || []);
             setFilteredServices(svcData || []);
 
             // Load next receipt number
             const { data: saleData } = await supabase
-                .from('hospital.billing')
+                .from('hospital_billing')
                 .select('receipt_no')
                 .order('billing_id', { ascending: false })
                 .limit(1);

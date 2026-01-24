@@ -29,7 +29,7 @@ export default function HospitalCompaniesPage() {
 
     const loadCompanies = async () => {
         setIsLoading(true);
-        const { data } = await supabase.from('hospital.companies').select('*').order('company_name');
+        const { data } = await supabase.from('hospital_companies').select('*').order('company_name');
         setCompanies(data || []);
         setIsLoading(false);
     };
@@ -42,10 +42,10 @@ export default function HospitalCompaniesPage() {
         e.preventDefault();
         try {
             if (editingCompany) {
-                await supabase.from('hospital.companies').update(formData).eq('id', editingCompany.id);
+                await supabase.from('hospital_companies').update(formData).eq('id', editingCompany.id);
                 toast.success('Company updated');
             } else {
-                await supabase.from('hospital.companies').insert([formData]);
+                await supabase.from('hospital_companies').insert([formData]);
                 toast.success('Company registered');
             }
             setIsModalOpen(false);

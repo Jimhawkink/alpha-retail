@@ -21,16 +21,24 @@ export default function HospitalReportsPage() {
         cashTotal: 0,
         mpesaTotal: 0
     });
+    const today = new Date().toISOString().split('T')[0];
+    const [dateFrom, setDateFrom] = useState(today);
+    const [dateTo, setDateTo] = useState(today);
 
     useEffect(() => {
         const loadReports = async () => {
             setIsLoading(true);
-            const { data } = await supabase.from('hospital.billing').select('*').order('created_at', { ascending: false });
+            const { data, error } = await supabase.from('hospital_billing').select('*').gte('created_at', `${dateFrom}T00:00:00`).lte('created_at', `${dateTo}T23:59:59`).order('created_at', { ascending: false });
+            if (error) {
+                console.error('Error fetching billing records:', error);
+                setIsLoading(false);
+                return;
+            }
             if (data) {
                 setRecords(data);
-                const revenue = data.reduce((sum, r) => sum + Number(r.total_amount), 0);
-                const cash = data.filter(r => r.payment_method === 'CASH').reduce((sum, r) => sum + Number(r.total_amount), 0);
-                const mpesa = data.filter(r => r.payment_method === 'MPESA').reduce((sum, r) => sum + Number(r.total_amount), 0);
+                const revenue = data.reduce((sum, r) => sum + Number(r.total_amount || 0), 0);
+                const cash = data.filter(r => r.payment_method === 'CASH').reduce((sum, r) => sum + Number(r.total_amount || 0), 0);
+                const mpesa = data.filter(r => r.payment_method === 'MPESA').reduce((sum, r) => sum + Number(r.total_amount || 0), 0);
 
                 setSummary({
                     totalRevenue: revenue,

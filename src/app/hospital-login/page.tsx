@@ -16,14 +16,14 @@ export default function HospitalLoginPage() {
         setIsLoading(true);
 
         try {
-            const { data, error } = await supabase
-                .from('hospital.users')
+            const { data, error: dbError } = await supabase
+                .from('hospital_users')
                 .select('*')
                 .eq('user_name', username)
                 .eq('active', true)
                 .single();
 
-            if (error || !data) {
+            if (dbError || !data) {
                 toast.error('Invalid hospital credentials');
                 setIsLoading(false);
                 return;

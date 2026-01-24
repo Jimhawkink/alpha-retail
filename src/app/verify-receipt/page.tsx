@@ -18,7 +18,7 @@ function VerificationContent() {
             }
 
             const { data, error } = await supabase
-                .from('hospital.billing')
+                .from('hospital_billing')
                 .select('*')
                 .eq('verification_hash', hash)
                 .single();
