@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
+import bcrypt from 'bcryptjs';
 
 interface HospitalUser {
     user_id: number;
@@ -41,13 +42,26 @@ export default function HospitalUsersPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            await supabase.from('hospital.users').insert([formData]);
-            toast.success('User created');
+            // Hash password before saving
+            const salt = bcrypt.genSaltSync(10);
+            const hashedPassword = bcrypt.hashSync(formData.password_hash, salt);
+
+            const submissionData = {
+                ...formData,
+                password_hash: hashedPassword
+            };
+
+            const { error } = await supabase.from('hospital.users').insert([submissionData]);
+
+            if (error) throw error;
+
+            toast.success('User created with secure password');
             setIsModalOpen(false);
             setFormData({ user_code: '', user_name: '', password_hash: '', full_name: '', user_type: 'Cashier', phone: '' });
             loadUsers();
-        } catch (err) {
-            toast.error('Failed to create user');
+        } catch (err: any) {
+            console.error('Error creating user:', err);
+            toast.error(err.message || 'Failed to create user');
         }
     };
 
@@ -84,8 +98,8 @@ export default function HospitalUsersPage() {
                                 <td className="px-6 py-4 font-bold text-gray-800">{user.full_name}</td>
                                 <td className="px-6 py-4">
                                     <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${user.user_type === 'Doctor' ? 'bg-blue-100 text-blue-600' :
-                                            user.user_type === 'Admin' ? 'bg-purple-100 text-purple-600' :
-                                                'bg-gray-100 text-gray-600'
+                                        user.user_type === 'Admin' ? 'bg-purple-100 text-purple-600' :
+                                            'bg-gray-100 text-gray-600'
                                         }`}>
                                         {user.user_type}
                                     </span>

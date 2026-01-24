@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import bcrypt from 'bcryptjs';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -13,7 +14,8 @@ export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [currentTime, setCurrentTime] = useState('');
     const [currentDate, setCurrentDate] = useState('');
-    const [storeName, setStoreName] = useState('Alpha Retail');
+    const [storeName, setStoreName] = useState('Alpha Hospital');
+    const [loginMode, setLoginMode] = useState<'Retail' | 'Hospital'>('Hospital');
 
     useEffect(() => {
         const updateDateTime = () => {
@@ -56,32 +58,73 @@ export default function LoginPage() {
         }
 
         try {
-            // Query retail_users table
-            const { data, error: dbError } = await supabase
-                .from('retail_users')
-                .select('*')
-                .eq('user_name', username)
-                .eq('active', true)
-                .single();
+            if (loginMode === 'Hospital') {
+                // Query hospital.users table
+                const { data, error: dbError } = await supabase
+                    .from('hospital.users')
+                    .select('*')
+                    .eq('user_name', username)
+                    .eq('active', true)
+                    .single();
 
-            if (dbError || !data) {
-                setError('Invalid username or password');
-                setIsLoading(false);
-                return;
-            }
+                if (dbError || !data) {
+                    setError('Invalid hospital username or password');
+                    setIsLoading(false);
+                    return;
+                }
 
-            // Check password
-            if (data.password_hash === password || data.pin === password) {
-                localStorage.setItem('user', JSON.stringify({
-                    userId: data.user_id,
-                    userName: data.user_name,
-                    name: data.name,
-                    userType: data.user_type,
-                    email: data.email
-                }));
-                router.push('/dashboard');
+                // Check hashed password
+                const isMatch = await bcrypt.compare(password, data.password_hash);
+                // Fallback for plain text (for initial migration)
+                const isPlainTextMatch = data.password_hash === password;
+
+                if (isMatch || isPlainTextMatch) {
+                    localStorage.setItem('user', JSON.stringify({
+                        userId: data.user_id,
+                        userName: data.user_name,
+                        name: data.full_name,
+                        userType: data.user_type,
+                        isHospital: true
+                    }));
+                    router.push('/dashboard/hospital-pos');
+                } else {
+                    setError('Invalid username or password');
+                }
             } else {
-                setError('Invalid username or password');
+                // Query retail_users table
+                const { data, error: dbError } = await supabase
+                    .from('users') // Updated from retail_users to users to match dashboard/users/page.tsx
+                    .select('*')
+                    .eq('user_name', username)
+                    .eq('active', true)
+                    .single();
+
+                if (dbError || !data) {
+                    setError('Invalid retail username or password');
+                    setIsLoading(false);
+                    return;
+                }
+
+                // Check password hash
+                const isPasswordMatch = await bcrypt.compare(password, data.password_hash);
+                const isPinMatch = data.pin ? await bcrypt.compare(password, data.pin) : false;
+
+                // Fallback for plain text
+                const isPlainTextPasswordMatch = data.password_hash === password;
+                const isPlainTextPinMatch = data.pin === password;
+
+                if (isPasswordMatch || isPinMatch || isPlainTextPasswordMatch || isPlainTextPinMatch) {
+                    localStorage.setItem('user', JSON.stringify({
+                        userId: data.user_id,
+                        userName: data.user_name,
+                        name: data.name,
+                        userType: data.user_type,
+                        email: data.email
+                    }));
+                    router.push('/dashboard');
+                } else {
+                    setError('Invalid username or password');
+                }
             }
         } catch (err) {
             console.error('Login error:', err);
@@ -117,16 +160,16 @@ export default function LoginPage() {
                         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
                         <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2"></div>
 
-                        {/* Shopping Basket Icon */}
-                        <div className="relative inline-flex items-center justify-center w-24 h-24 bg-white/20 backdrop-blur-sm rounded-3xl mb-4 shadow-lg border border-white/30">
-                            <span className="text-6xl">🛒</span>
+                        {/* Portal Icon */}
+                        <div className="relative inline-flex items-center justify-center w-24 h-24 bg-white/20 backdrop-blur-sm rounded-3xl mb-4 shadow-lg border border-white/30 transition-transform hover:rotate-12">
+                            <span className="text-6xl">{loginMode === 'Hospital' ? '🏥' : '🛒'}</span>
                         </div>
 
                         <h1 className="text-2xl md:text-3xl font-bold text-white mb-1">
-                            {storeName}
+                            {loginMode === 'Hospital' ? 'Alpha Hospital' : storeName}
                         </h1>
                         <p className="text-green-100 text-sm font-medium">
-                            ✨ Retail Point of Sale System ✨
+                            {loginMode === 'Hospital' ? '✨ Medical Billing & POS System ✨' : '✨ Retail Point of Sale System ✨'}
                         </p>
 
                         {/* Time */}
@@ -137,8 +180,28 @@ export default function LoginPage() {
                         </div>
                     </div>
 
+                    {/* Login Mode Toggle */}
+                    <div className="px-8 mt-6">
+                        <div className="flex bg-gray-100 p-1 rounded-2xl border border-gray-200">
+                            <button
+                                type="button"
+                                onClick={() => setLoginMode('Hospital')}
+                                className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${loginMode === 'Hospital' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400'}`}
+                            >
+                                🏥 HOSPITAL
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setLoginMode('Retail')}
+                                className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${loginMode === 'Retail' ? 'bg-white text-green-600 shadow-sm' : 'text-gray-400'}`}
+                            >
+                                🛒 RETAIL
+                            </button>
+                        </div>
+                    </div>
+
                     {/* Form Section */}
-                    <div className="px-8 py-8">
+                    <div className="px-8 py-6">
                         <form onSubmit={handleLogin} className="space-y-5">
                             {/* Username */}
                             <div className="space-y-2">
@@ -189,11 +252,10 @@ export default function LoginPage() {
                                 </div>
                             )}
 
-                            {/* Login Button */}
                             <button
                                 type="submit"
                                 disabled={isLoading}
-                                className="w-full py-4 px-6 bg-gradient-to-r from-emerald-500 via-green-600 to-teal-600 hover:from-emerald-600 hover:via-green-700 hover:to-teal-700 text-white text-lg font-bold rounded-2xl shadow-lg shadow-green-500/30 hover:shadow-xl hover:shadow-green-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-3"
+                                className={`w-full py-4 px-6 bg-gradient-to-r ${loginMode === 'Hospital' ? 'from-blue-600 to-indigo-700' : 'from-emerald-500 via-green-600 to-teal-600'} text-white text-lg font-bold rounded-2xl shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 disabled:opacity-60 flex items-center justify-center gap-3`}
                             >
                                 {isLoading ? (
                                     <>
@@ -202,8 +264,8 @@ export default function LoginPage() {
                                     </>
                                 ) : (
                                     <>
-                                        <span>🛒</span>
-                                        <span>Sign In to POS</span>
+                                        <span>{loginMode === 'Hospital' ? '🏥' : '🛒'}</span>
+                                        <span>Sign In to {loginMode} POS</span>
                                         <span>→</span>
                                     </>
                                 )}

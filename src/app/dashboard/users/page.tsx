@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
+import bcrypt from 'bcryptjs';
 
 interface User {
     user_id: number;
@@ -155,6 +156,8 @@ export default function UsersPage() {
         }
 
         try {
+            const salt = bcrypt.genSaltSync(10);
+
             if (editingUser) {
                 // Update existing user
                 const updateData: Record<string, unknown> = {
@@ -166,12 +169,15 @@ export default function UsersPage() {
                     national_id: formData.national_id,
                     salary_type: formData.salary_type,
                     salary_amount: formData.salary_amount,
-                    pin: formData.pin,
                     active: formData.active,
                 };
 
                 if (formData.password) {
-                    updateData.password_hash = formData.password;
+                    updateData.password_hash = bcrypt.hashSync(formData.password, salt);
+                }
+
+                if (formData.pin) {
+                    updateData.pin = bcrypt.hashSync(formData.pin, salt);
                 }
 
                 const { error } = await supabase
@@ -180,15 +186,18 @@ export default function UsersPage() {
                     .eq('user_id', editingUser.user_id);
 
                 if (error) throw error;
-                toast.success('User updated successfully! ✅');
+                toast.success('User updated successfully with encryption! ✅');
             } else {
-                // Create new user - user_code will be set to null initially
+                // Create new user
+                const hashedPassword = bcrypt.hashSync(formData.password || '', salt);
+                const hashedPin = formData.pin ? bcrypt.hashSync(formData.pin, salt) : null;
+
                 const { data, error } = await supabase
                     .from('users')
                     .insert([{
-                        user_code: null, // Let database handle or update after insert
+                        user_code: null,
                         user_name: formData.user_name,
-                        password_hash: formData.password || formData.pin,
+                        password_hash: hashedPassword,
                         name: formData.name,
                         user_type: formData.user_type,
                         email: formData.email || null,
@@ -196,7 +205,7 @@ export default function UsersPage() {
                         national_id: formData.national_id || null,
                         salary_type: formData.salary_type,
                         salary_amount: formData.salary_amount || 0,
-                        pin: formData.pin || null,
+                        pin: hashedPin,
                         active: formData.active,
                         is_super_admin: false,
                     }])
@@ -214,7 +223,7 @@ export default function UsersPage() {
                         .eq('user_id', data.user_id);
                 }
 
-                toast.success('User created successfully! 🎉');
+                toast.success('User created successfully with encryption! 🎉');
             }
 
             setShowModal(false);
