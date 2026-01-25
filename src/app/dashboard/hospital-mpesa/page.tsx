@@ -40,74 +40,83 @@ export default function HospitalMpesaPage() {
         loadTransactions();
     }, []);
 
+    if (isLoading) return <div className="p-8 text-slate-400 font-bold uppercase tracking-widest text-xs animate-pulse">Syncing Mobile Revenue Records...</div>;
+
     return (
-        <div className="space-y-8 bg-[#fbfcfd] min-h-screen text-black">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tight">Mobile Revenue</h1>
-                    <p className="text-slate-500 font-medium">M-Pesa transaction auditing for medical services</p>
+        <div className="space-y-10 max-w-[1400px] mx-auto pb-20">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm">
+                <div className="flex items-center gap-5">
+                    <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-3xl shadow-inner">
+                        📱
+                    </div>
+                    <div>
+                        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Mobile Revenue</h1>
+                        <p className="text-slate-500 font-medium text-sm mt-1 uppercase tracking-wider">M-Pesa transaction auditing for medical services</p>
+                    </div>
                 </div>
                 <button
                     onClick={loadTransactions}
-                    className="px-8 py-4 bg-white border border-slate-200 text-slate-700 rounded-[24px] font-black hover:bg-slate-50 transition-all active:scale-95 flex items-center gap-2"
+                    className="px-8 py-4 bg-slate-900 text-white rounded-[24px] font-bold hover:bg-black transition-all shadow-xl shadow-slate-900/20 active:scale-95 flex items-center gap-3 uppercase text-xs tracking-widest border-b-4 border-slate-700"
                 >
                     <span>🔄</span> Refresh Stream
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="bg-emerald-600 p-8 rounded-[40px] text-white shadow-xl shadow-emerald-500/20 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full translate-x-10 -translate-y-10"></div>
-                    <span className="text-4xl mb-6 block relative z-10">📱</span>
-                    <p className="text-emerald-100 text-[10px] font-black uppercase tracking-widest mb-1 relative z-10">Total M-Pesa Collection</p>
-                    <p className="text-4xl font-black relative z-10">Ksh {stats.total.toLocaleString()}</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div className="bg-slate-900 p-8 rounded-[40px] text-white shadow-2xl shadow-slate-900/10 relative overflow-hidden border border-white/5">
+                    <div className="absolute top-0 right-0 w-40 h-40 bg-blue-600/10 rounded-full translate-x-10 -translate-y-10"></div>
+                    <div className="relative z-10">
+                        <span className="text-4xl mb-6 block">📱</span>
+                        <p className="text-blue-400 text-[10px] font-bold uppercase tracking-widest mb-2">Total Collection</p>
+                        <p className="text-4xl font-bold tracking-tighter">Ksh {stats.total.toLocaleString()}</p>
+                    </div>
                 </div>
-                <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm relative overflow-hidden group">
+                <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-xl shadow-slate-200/40 relative overflow-hidden group">
                     <span className="text-4xl mb-6 block">📝</span>
-                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Transaction Volume</p>
-                    <p className="text-4xl font-black text-slate-900">{stats.volume} Records</p>
+                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-2">Transaction Count</p>
+                    <p className="text-4xl font-bold text-slate-900 tracking-tighter">{stats.volume} Records</p>
                 </div>
-                <div className="bg-blue-600 p-8 rounded-[40px] text-white shadow-xl shadow-blue-500/20 relative overflow-hidden">
+                <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-xl shadow-slate-200/40 relative overflow-hidden">
                     <span className="text-4xl mb-6 block">🛡️</span>
-                    <p className="text-blue-100 text-[10px] font-black uppercase tracking-widest mb-1">Verification Status</p>
-                    <p className="text-4xl font-black">100% Secured</p>
+                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-2">Audit Status</p>
+                    <p className="text-4xl font-bold text-blue-600 tracking-tighter">SECURED</p>
                 </div>
             </div>
 
-            <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden text-black">
-                <div className="p-8 border-b border-slate-50 flex items-center justify-between">
-                    <h3 className="font-black text-xl text-slate-900">M-Pesa Audit Logs</h3>
-                    <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-lg uppercase">Real-time Feed</span>
+            <div className="bg-white rounded-[40px] shadow-xl shadow-slate-200/40 border border-slate-100 overflow-hidden">
+                <div className="px-10 py-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
+                    <h3 className="font-bold text-xl text-slate-900 tracking-tight">M-Pesa Revenue Stream</h3>
+                    <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-4 py-2 rounded-xl uppercase tracking-widest border border-blue-100">Live Synchronization</span>
                 </div>
-                <div className="overflow-x-auto text-black">
+                <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-slate-50/50 border-b border-slate-100">
-                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[2px]">Timestamp</th>
-                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[2px]">Receipt</th>
-                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[2px]">Patient Entity</th>
-                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[2px]">M-Pesa Code</th>
-                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[2px] text-right">Settlement</th>
+                            <tr className="bg-white border-b border-slate-100">
+                                <th className="px-10 py-6 text-[11px] font-bold text-slate-400 uppercase tracking-[2px]">Timestamp</th>
+                                <th className="px-10 py-6 text-[11px] font-bold text-slate-400 uppercase tracking-[2px]">Journal Ref</th>
+                                <th className="px-10 py-6 text-[11px] font-bold text-slate-400 uppercase tracking-[2px]">Patient Entity</th>
+                                <th className="px-10 py-6 text-[11px] font-bold text-slate-400 uppercase tracking-[2px]">M-Pesa Reference</th>
+                                <th className="px-10 py-6 text-[11px] font-bold text-slate-400 uppercase tracking-[2px] text-right">Settlement</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                             {transactions.map(t => (
-                                <tr key={t.sale_id} className="hover:bg-blue-50/20 transition-colors group">
-                                    <td className="px-8 py-5 text-slate-400 font-bold text-xs">{new Date(t.created_at).toLocaleString()}</td>
-                                    <td className="px-8 py-5 font-black text-sm text-blue-600">{t.receipt_no}</td>
-                                    <td className="px-8 py-5 font-bold text-slate-800">{t.patient_name}</td>
-                                    <td className="px-8 py-5">
-                                        <span className="px-3 py-1 bg-slate-900 text-white rounded-lg text-xs font-black tracking-widest">{t.mpesa_code || '---'}</span>
+                                <tr key={t.sale_id} className="hover:bg-blue-50/30 transition-colors group">
+                                    <td className="px-10 py-6 text-slate-400 font-bold text-[11px] uppercase tracking-wider">{new Date(t.created_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
+                                    <td className="px-10 py-6 font-bold text-sm text-blue-600 tracking-widest">{t.receipt_no}</td>
+                                    <td className="px-10 py-6 font-bold text-slate-800 text-lg leading-tight">{t.patient_name}</td>
+                                    <td className="px-10 py-6">
+                                        <span className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[11px] font-bold tracking-[3px] shadow-lg shadow-slate-900/10">{t.mpesa_code || '---'}</span>
                                     </td>
-                                    <td className="px-8 py-5 text-right font-black text-slate-900">Ksh {t.total_amount.toLocaleString()}</td>
+                                    <td className="px-10 py-6 text-right font-bold text-slate-900 text-lg">Ksh {t.total_amount.toLocaleString()}</td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                     {transactions.length === 0 && !isLoading && (
-                        <div className="py-24 text-center">
-                            <span className="text-6xl mb-6 block opacity-10">📱</span>
-                            <p className="font-black text-slate-300 uppercase tracking-widest text-sm">No M-Pesa payments detected in medical streams</p>
+                        <div className="py-32 text-center bg-slate-50/30">
+                            <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center text-5xl mx-auto mb-6 shadow-inner grayscale opacity-30">📱</div>
+                            <p className="font-bold text-slate-400 uppercase tracking-[4px] text-xs">Revenue Stream Empty</p>
                         </div>
                     )}
                 </div>

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { SettingsProvider, useCompanyName } from '@/context/SettingsContext';
+import { supabase } from '@/lib/supabase';
 
 // Menu Items for Retail Store System
 // Menu Items for Retail Store System
@@ -112,13 +113,47 @@ const hospitalMenuItems = [
     },
 ];
 
-// Component to display company name dynamically
+// Component to display hospital name and motto dynamically
+function HospitalNameDisplay() {
+    const [hospitalInfo, setHospitalInfo] = useState({ name: 'Alpha Medical', motto: 'Recover Well' });
+
+    useEffect(() => {
+        const loadInfo = async () => {
+            const { data } = await supabase.from('hospital_settings').select('hospital_name, hospital_motto').single();
+            if (data) {
+                setHospitalInfo({
+                    name: data.hospital_name,
+                    motto: data.hospital_motto
+                });
+            }
+        };
+        loadInfo();
+    }, []);
+
+    return (
+        <div>
+            <h1 className="font-bold text-white text-sm leading-tight max-w-[140px] break-words uppercase">
+                {hospitalInfo.name}
+            </h1>
+            <span className="text-[10px] font-medium text-blue-400 italic">
+                {hospitalInfo.motto}
+            </span>
+        </div>
+    );
+}
+
+// Component to display retail company name dynamically
 function CompanyNameDisplay() {
     const companyName = useCompanyName();
     return (
-        <h1 className="font-bold text-gray-800 text-sm leading-tight max-w-[140px] break-words">
-            {companyName || 'Alpha Retail'}
-        </h1>
+        <div>
+            <h1 className="font-bold text-gray-800 text-sm leading-tight max-w-[140px] break-words">
+                {companyName || 'Alpha Retail'}
+            </h1>
+            <span className="text-[10px] font-medium text-green-600">
+                Retail v1.0
+            </span>
+        </div>
     );
 }
 
@@ -173,17 +208,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 <span className="text-xl">{user.isHospital ? '🏥' : '🛒'}</span>
                             </div>
                             {sidebarOpen && (
-                                <div>
+                                <div className="flex-1">
                                     {user.isHospital ? (
-                                        <h1 className="font-bold text-white text-sm leading-tight max-w-[140px] break-words">
-                                            Alpha Medical
-                                        </h1>
+                                        <HospitalNameDisplay />
                                     ) : (
                                         <CompanyNameDisplay />
                                     )}
-                                    <span className={`text-xs font-medium ${user.isHospital ? 'text-blue-400' : 'text-green-600'}`}>
-                                        {user.isHospital ? 'Hospital v1.0' : 'Retail v1.0'}
-                                    </span>
                                 </div>
                             )}
                         </div>

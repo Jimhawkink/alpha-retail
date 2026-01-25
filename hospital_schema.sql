@@ -91,6 +91,7 @@ ON CONFLICT (user_name) DO NOTHING;
 CREATE TABLE IF NOT EXISTS hospital_settings (
     id SERIAL PRIMARY KEY,
     hospital_name VARCHAR(255) DEFAULT 'ALPHA PLUS HOSPITAL',
+    hospital_motto VARCHAR(255) DEFAULT 'RECOVER WELL',
     address TEXT DEFAULT '123 Medical Plaza, Nairobi',
     phone VARCHAR(50) DEFAULT '0720316175',
     pin_number VARCHAR(50) DEFAULT 'P051234567X',
