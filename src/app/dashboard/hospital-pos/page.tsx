@@ -58,6 +58,15 @@ export default function HospitalPOSPage() {
         );
     }, [searchQuery, services, selectedCategory]);
 
+    useEffect(() => {
+        if (showReceipt) {
+            const timer = setTimeout(() => {
+                window.print();
+            }, 500); // Small delay to ensure render
+            return () => clearTimeout(timer);
+        }
+    }, [showReceipt]);
+
     // Functions
     const loadInitData = async () => {
         setIsLoading(true);
@@ -423,18 +432,20 @@ export default function HospitalPOSPage() {
 
             {/* Hidden Receipt Component */}
             {showReceipt && printData && (
-                <div className="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center">
-                    <HospitalReceipt
-                        receiptData={printData}
-                        hospitalInfo={hospitalInfo}
-                    />
-                    <div className="mt-8 flex gap-4 print:hidden z-[101]">
-                        <button onClick={handlePrint} className="px-8 py-3 bg-blue-600 text-white rounded font-bold shadow-xl hover:bg-blue-700 transition-colors">
-                            Print Receipt
-                        </button>
-                        <button onClick={() => setShowReceipt(false)} className="px-8 py-3 bg-gray-200 text-gray-800 rounded font-bold hover:bg-gray-300 transition-colors">
-                            Close
-                        </button>
+                <div className="fixed inset-0 bg-white z-[100] overflow-y-auto">
+                    <div className="min-h-screen flex flex-col items-center justify-center py-10">
+                        <HospitalReceipt
+                            receiptData={printData}
+                            hospitalInfo={hospitalInfo}
+                        />
+                        <div className="mt-8 flex gap-4 print:hidden z-[101]">
+                            <button onClick={handlePrint} className="px-8 py-3 bg-blue-600 text-white rounded font-bold shadow-xl hover:bg-blue-700 transition-colors">
+                                Print Receipt
+                            </button>
+                            <button onClick={() => setShowReceipt(false)} className="px-8 py-3 bg-gray-200 text-gray-800 rounded font-bold hover:bg-gray-300 transition-colors">
+                                Close
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
