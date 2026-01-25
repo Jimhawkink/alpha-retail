@@ -23,6 +23,7 @@ export default function HospitalPOSPage() {
     const [filteredServices, setFilteredServices] = useState<HospitalService[]>([]);
     const [cart, setCart] = useState<CartItem[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
+    const [customerName, setCustomerName] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<string>('All Categories');
     const [receiptNo, setReceiptNo] = useState('RCP-00020');
     const [isLoading, setIsLoading] = useState(true);
@@ -113,7 +114,7 @@ export default function HospitalPOSPage() {
 
     const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
 
-    const completeSale = async () => {
+    const completeSale = async (method: string) => {
         if (cart.length === 0) return;
 
         try {
@@ -126,9 +127,9 @@ export default function HospitalPOSPage() {
                 .from('hospital_sales')
                 .insert({
                     receipt_no: receiptNo,
-                    patient_name: 'Walk-in Customer',
+                    patient_name: customerName || 'Walk-in Customer',
                     total_amount: total,
-                    payment_method: 'Access',
+                    payment_method: method,
                     status: 'Completed',
                     created_by: currentUser?.userId,
                     verification_hash: vHash
@@ -152,7 +153,7 @@ export default function HospitalPOSPage() {
 
             setPrintData({
                 receiptNo,
-                patientName: 'Walk-in Customer',
+                patientName: customerName || 'Walk-in Customer',
                 items: [...cart],
                 total,
                 date: new Date().toLocaleString(),
@@ -173,92 +174,67 @@ export default function HospitalPOSPage() {
         setShowReceipt(false);
     };
 
+    const toggleFullScreen = () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen();
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
+        }
+    };
+
     return (
-        <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
-            {/* Top Bar - White with Shadow */}
-            <div className="bg-white h-16 px-6 flex items-center justify-between shadow-sm border-b border-slate-100 fixed top-0 left-0 right-0 z-50 ml-64">
-                <div className="flex items-center gap-3">
-                    <span className="text-2xl">🌅</span>
-                    <h1 className="text-xl font-bold text-slate-800">Good Morning <span className="text-amber-400">👋</span></h1>
-                    <span className="text-slate-300 mx-2">|</span>
-                    <span className="text-sm text-slate-400 font-medium">Alpha Retail POS - v1.0</span>
-                </div>
-
-                <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                        <span className="text-emerald-600 text-xs font-bold uppercase">Online</span>
-                    </div>
-
-                    <button onClick={loadInitData} className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-emerald-200 transition-all active:scale-95">
-                        <span>🔄</span> Refresh
-                    </button>
-
-                    <button className="relative p-2 text-slate-400 hover:text-amber-500 transition-colors">
-                        <span className="text-xl">🔔</span>
-                        <div className="absolute top-1.5 right-2 w-2 h-2 bg-rose-500 rounded-full border border-white"></div>
-                    </button>
-
-                    <div className="flex items-center gap-3 border-l border-slate-100 pl-6">
-                        <div className="text-right">
-                            <p className="text-xs font-bold text-slate-800">Super Admin</p>
-                            <p className="text-[10px] text-slate-400">Cashier</p>
-                        </div>
-                        <div className="w-9 h-9 bg-emerald-500 text-white rounded-full flex items-center justify-center font-bold text-sm shadow-md">
-                            S
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Main Content Area */}
-            <div className="pt-20 px-6 pb-6 h-screen flex gap-6">
+        <div className="h-[calc(100vh-theme(spacing.16))] flex flex-col bg-slate-50 font-sans text-slate-800 p-6">
+            <div className="flex gap-6 h-full">
 
                 {/* Left Side - Product Grid */}
-                <div className="flex-1 flex flex-col gap-6">
+                <div className="flex-1 flex flex-col gap-6 h-full overflow-hidden">
 
-                    {/* Secondary Header */}
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+                    {/* Header Bar */}
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between shrink-0">
                         <div className="flex items-center gap-3">
                             <span className="text-rose-500 text-xs font-bold">📍 POS - Point of Sale</span>
                             <span className="text-slate-300">|</span>
-                            <span className="text-slate-500 text-sm font-medium">Alpha Retail</span>
+                            <span className="text-slate-500 text-sm font-medium">HOSPITAL</span>
                         </div>
                         <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">
+                                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                                <span className="text-emerald-600 text-xs font-bold uppercase">Online</span>
+                            </div>
                             <span className="text-xs font-bold text-slate-400">{currentDate}</span>
                             <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-md text-xs font-bold border border-blue-100">{receiptNo}</span>
-                            <button className="w-8 h-8 bg-slate-800 text-white rounded-lg flex items-center justify-center hover:bg-black transition-colors">
+                            <button onClick={toggleFullScreen} className="w-8 h-8 bg-slate-800 text-white rounded-lg flex items-center justify-center hover:bg-black transition-colors">
                                 ⛶
                             </button>
                         </div>
                     </div>
 
                     {/* Filter Bar */}
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 grid grid-cols-12 gap-4 items-center">
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 grid grid-cols-12 gap-4 items-center shrink-0">
                         <div className="col-span-2">
                             <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Store/Branch</label>
                             <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
                                 <span className="text-lg">🏪</span>
                                 <span className="text-sm font-bold text-slate-700">Main Store</span>
-                                <span className="ml-auto text-[10px]">▼</span>
                             </div>
                         </div>
                         <div className="col-span-2">
                             <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Counter</label>
                             <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
                                 <span className="text-sm font-bold text-slate-700">Counter 1</span>
-                                <span className="ml-auto text-[10px]">▼</span>
                             </div>
                         </div>
-                        <div className="col-span-4 self-end">
+                        <div className="col-span-3 self-end">
                             <div className="relative">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">🔍</span>
                                 <input
                                     type="text"
-                                    placeholder="Search products by name or barcode..."
+                                    placeholder="Search service..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full pl-10 pr-4 py-2.5 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-slate-600 font-medium placeholder:text-slate-400/80"
+                                    className="w-full pl-10 pr-4 py-2.5 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-slate-600 font-medium"
                                 />
                             </div>
                         </div>
@@ -272,9 +248,16 @@ export default function HospitalPOSPage() {
                                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
                         </div>
-                        <div className="col-span-2 self-end">
-                            <div className="flex items-center gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200 justify-center">
-                                <span className="text-slate-800 font-bold">👤 Walk-in Customer</span>
+                        <div className="col-span-3 self-end">
+                            <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">👤</span>
+                                <input
+                                    type="text"
+                                    value={customerName}
+                                    onChange={(e) => setCustomerName(e.target.value)}
+                                    placeholder="Customer Name"
+                                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-bold text-slate-700"
+                                />
                             </div>
                         </div>
                     </div>
@@ -282,15 +265,14 @@ export default function HospitalPOSPage() {
                     {/* Products Grid */}
                     <div className="flex-1 overflow-y-auto pr-2">
                         {isLoading ? (
-                            <div className="flex items-center justify-center h-64">
+                            <div className="flex items-center justify-center h-full">
                                 <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 pb-4">
                                 {filteredServices.map(svc => (
-                                    <div key={svc.service_id} className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex flex-col group hover:shadow-md transition-shadow">
-                                        <div className="h-32 mb-4 bg-slate-50 rounded-lg flex items-center justify-center text-5xl relative overflow-hidden group-hover:bg-slate-100 transition-colors">
-                                            {/* Service Icons map based on category */}
+                                    <div key={svc.service_id} className="bg-white rounded-xl border border-slate-100 shadow-sm p-3 flex flex-col group hover:shadow-md transition-shadow">
+                                        <div className="h-20 mb-3 bg-slate-50 rounded-lg flex items-center justify-center relative overflow-hidden group-hover:bg-slate-100 transition-colors">
                                             <img
                                                 src={
                                                     svc.category === 'Pharmacy' ? '/services/pharmacy.png' :
@@ -302,29 +284,26 @@ export default function HospitalPOSPage() {
                                                                             '/services/registration.png'
                                                 }
                                                 alt={svc.service_name}
-                                                className="w-full h-full object-contain p-2 mix-blend-multiply group-hover:scale-110 transition-transform duration-500"
+                                                className="h-16 object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-500"
                                             />
                                         </div>
 
                                         <div className="mb-2">
-                                            <h3 className="text-sm font-bold text-slate-800 line-clamp-1 uppercase" title={svc.service_name}>{svc.service_name}</h3>
+                                            <h3 className="text-xs font-bold text-slate-800 line-clamp-1 uppercase leading-tight" title={svc.service_name}>{svc.service_name}</h3>
                                             <div className="flex items-center gap-2 mt-1">
-                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">SKU: {svc.service_id}</span>
-                                                <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-bold uppercase">{svc.category}</span>
+                                                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">SKU: {svc.service_id}</span>
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center gap-3 mt-auto mb-4">
-                                            <span className="text-lg font-bold text-slate-900">Ksh {svc.price.toLocaleString()}</span>
-                                            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded text-[10px] font-bold ml-auto">Available</span>
+                                        <div className="flex items-center gap-3 mt-auto">
+                                            <span className="text-sm font-bold text-slate-900">Ksh {svc.price.toLocaleString()}</span>
+                                            <button
+                                                onClick={() => addToCart(svc)}
+                                                className="ml-auto w-8 h-8 bg-emerald-500 text-white rounded-lg flex items-center justify-center hover:bg-emerald-600 transition-colors shadow-md shadow-emerald-200 active:scale-95"
+                                            >
+                                                +
+                                            </button>
                                         </div>
-
-                                        <button
-                                            onClick={() => addToCart(svc)}
-                                            className="w-full py-2.5 bg-emerald-500 text-white rounded-lg font-bold text-xs uppercase tracking-wide hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-200 active:scale-95 flex items-center justify-center gap-2"
-                                        >
-                                            <span>+</span> Add to Cart
-                                        </button>
                                     </div>
                                 ))}
                             </div>
@@ -334,12 +313,12 @@ export default function HospitalPOSPage() {
                 </div>
 
                 {/* Right Side - Cart */}
-                <div className="w-[400px] flex flex-col bg-white rounded-xl shadow-lg border border-slate-100 overflow-hidden h-full">
+                <div className="w-[380px] flex flex-col bg-white rounded-xl shadow-lg border border-slate-100 overflow-hidden h-full shrink-0">
                     {/* Cart Header */}
-                    <div className="bg-emerald-500 p-4 flex items-center justify-between text-white">
+                    <div className="bg-emerald-500 p-4 flex items-center justify-between text-white shrink-0">
                         <div className="flex items-center gap-2">
                             <span className="text-lg">🛒</span>
-                            <span className="font-bold">Cart ({cart.reduce((a, b) => a + b.qty, 0)} items)</span>
+                            <span className="font-bold">Cart ({cart.reduce((a, b) => a + b.qty, 0)})</span>
                         </div>
                         <button onClick={() => setCart([])} className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded text-xs font-bold transition-colors">
                             Clear
@@ -350,38 +329,33 @@ export default function HospitalPOSPage() {
                     <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
                         {cart.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-full text-slate-400 opacity-50">
-                                <span className="text-6xl mb-4">🛒</span>
+                                <span className="text-4xl mb-3">🛒</span>
                                 <p className="font-bold uppercase text-xs tracking-widest">Cart Empty</p>
                             </div>
                         ) : (
                             cart.map(item => (
-                                <div key={item.service_id} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm relative group">
-                                    <div className="flex justify-between items-start mb-3">
+                                <div key={item.service_id} className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm relative group">
+                                    <div className="flex justify-between items-start mb-2">
                                         <div className="pr-6">
-                                            <h4 className="font-bold text-slate-800 text-sm line-clamp-2 uppercase leading-tight">{item.service_name}</h4>
+                                            <h4 className="font-bold text-slate-800 text-xs line-clamp-2 uppercase leading-tight">{item.service_name}</h4>
                                             <div className="flex items-center gap-1 mt-1 text-[10px] text-slate-400 font-bold">
-                                                <span>@ Ksh {item.price.toLocaleString()}</span>
-                                                <span>•</span>
-                                                <span>{item.service_id}</span>
+                                                <span>@ {item.price.toLocaleString()}</span>
                                             </div>
                                         </div>
                                         <p className="font-bold text-slate-900 text-sm">{(item.price * item.qty).toLocaleString()}</p>
                                     </div>
 
                                     <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <button onClick={() => updateQty(item.service_id, -1)} className="w-8 h-8 flex items-center justify-center bg-orange-500 text-white rounded-md font-bold text-lg hover:bg-orange-600 transition-colors shadow-md shadow-orange-200">-</button>
-                                            <span className="w-6 text-center font-bold text-slate-700">{item.qty}</span>
-                                            <button onClick={() => updateQty(item.service_id, 1)} className="w-8 h-8 flex items-center justify-center bg-emerald-500 text-white rounded-md font-bold text-lg hover:bg-emerald-600 transition-colors shadow-md shadow-emerald-200">+</button>
-                                        </div>
-                                        <div className="bg-orange-50 text-orange-600 px-3 py-1 rounded text-[10px] font-bold uppercase flex items-center gap-1 cursor-pointer hover:bg-orange-100">
-                                            🔥 Discount
+                                        <div className="flex items-center gap-2">
+                                            <button onClick={() => updateQty(item.service_id, -1)} className="w-6 h-6 flex items-center justify-center bg-orange-100 text-orange-600 rounded-md font-bold hover:bg-orange-200">-</button>
+                                            <span className="w-6 text-center font-bold text-slate-700 text-sm">{item.qty}</span>
+                                            <button onClick={() => updateQty(item.service_id, 1)} className="w-6 h-6 flex items-center justify-center bg-emerald-100 text-emerald-600 rounded-md font-bold hover:bg-emerald-200">+</button>
                                         </div>
                                     </div>
 
                                     <button
                                         onClick={() => removeFromCart(item.service_id)}
-                                        className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center text-rose-200 hover:text-rose-500 hover:bg-rose-50 rounded transition-all"
+                                        className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center text-rose-300 hover:text-rose-500 hover:bg-rose-50 rounded transition-all"
                                     >
                                         ✕
                                     </button>
@@ -391,7 +365,7 @@ export default function HospitalPOSPage() {
                     </div>
 
                     {/* Cart Footer */}
-                    <div className="bg-white p-6 border-t border-slate-100 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)]">
+                    <div className="bg-white p-6 border-t border-slate-100 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)] shrink-0">
                         <div className="flex justify-between items-center mb-2">
                             <span className="text-slate-500 font-medium text-sm">Subtotal</span>
                             <span className="font-bold text-slate-600">Ksh {total.toLocaleString()}</span>
@@ -400,13 +374,22 @@ export default function HospitalPOSPage() {
                             <span className="text-slate-800 font-bold text-lg uppercase">Total</span>
                             <span className="font-bold text-slate-900 text-2xl">Ksh {total.toLocaleString()}</span>
                         </div>
-                        <button
-                            onClick={completeSale}
-                            disabled={cart.length === 0}
-                            className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold uppercase tracking-widest text-sm shadow-xl active:scale-95 hover:bg-black transition-all disabled:opacity-50 disabled:active:scale-100"
-                        >
-                            Finalize Payment
-                        </button>
+                        <div className="grid grid-cols-2 gap-3">
+                            <button
+                                onClick={() => completeSale('Access')}
+                                disabled={cart.length === 0}
+                                className="py-3 bg-slate-900 text-white rounded-xl font-bold uppercase tracking-widest text-xs shadow-lg active:scale-95 hover:bg-black transition-all disabled:opacity-50"
+                            >
+                                💵 Cash
+                            </button>
+                            <button
+                                onClick={() => completeSale('MPESA')}
+                                disabled={cart.length === 0}
+                                className="py-3 bg-emerald-600 text-white rounded-xl font-bold uppercase tracking-widest text-xs shadow-lg active:scale-95 hover:bg-emerald-700 transition-all disabled:opacity-50"
+                            >
+                                📱 M-Pesa
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
