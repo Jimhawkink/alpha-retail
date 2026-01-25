@@ -1,21 +1,16 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 import { HospitalReceipt } from '@/components/HospitalReceipt';
 
-interface Patient {
-    patient_id: number;
-    patient_name: string;
-}
-
+// Types
 interface HospitalService {
     service_id: number;
     service_name: string;
     category: string;
     price: number;
-    reg_type: string;
 }
 
 interface CartItem extends HospitalService {
@@ -23,48 +18,55 @@ interface CartItem extends HospitalService {
 }
 
 export default function HospitalPOSPage() {
-    const [patients, setPatients] = useState<Patient[]>([]);
+    // State
     const [services, setServices] = useState<HospitalService[]>([]);
     const [filteredServices, setFilteredServices] = useState<HospitalService[]>([]);
-    const [selectedCategory, setSelectedCategory] = useState('All');
     const [cart, setCart] = useState<CartItem[]>([]);
-    const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-    const [patientSearch, setPatientSearch] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState<string>('All Categories');
+    const [receiptNo, setReceiptNo] = useState('RCP-00020');
     const [isLoading, setIsLoading] = useState(true);
-    const [receiptNo, setReceiptNo] = useState('HOSP-00001');
     const [showReceipt, setShowReceipt] = useState(false);
     const [printData, setPrintData] = useState<any>(null);
-    const [hospitalInfo, setHospitalInfo] = useState({
+    const [currentDate, setCurrentDate] = useState('');
+
+    // Static Data
+    const hospitalInfo = {
         name: "ALPHA PLUS HOSPITAL",
         address: "123 Medical Plaza, Nairobi",
         phone: "0720316175",
         pin: "P051234567X"
-    });
+    };
 
-    const receiptRef = useRef<HTMLDivElement>(null);
+    const categories = ['All Categories', 'Registration', 'Consultation', 'Laboratory', 'Pharmacy', 'Radiology', 'Dental', 'Procedure'];
 
-    // Load initialization data
+    // Effects
+    useEffect(() => {
+        loadInitData();
+        const date = new Date();
+        setCurrentDate(date.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }));
+    }, []);
+
+    useEffect(() => {
+        const query = searchQuery.toLowerCase();
+        setFilteredServices(
+            services.filter(s => {
+                const matchesSearch = s.service_name.toLowerCase().includes(query);
+                const matchesCategory = selectedCategory === 'All Categories' || s.category === selectedCategory;
+                return matchesSearch && matchesCategory;
+            })
+        );
+    }, [searchQuery, services, selectedCategory]);
+
+    // Functions
     const loadInitData = async () => {
         setIsLoading(true);
         try {
-            // 1. Load clinical services
-            const { data: svcData } = await supabase.from('hospital_services').select('*').eq('active', true);
-            setServices(svcData || []);
-            setFilteredServices(svcData || []);
+            const { data } = await supabase.from('hospital_services').select('*').eq('active', true);
+            setServices(data || []);
+            setFilteredServices(data || []);
 
-            // 2. Load facility settings
-            const { data: settings } = await supabase.from('hospital_settings').select('*').single();
-            if (settings) {
-                setHospitalInfo({
-                    name: settings.hospital_name,
-                    address: settings.address,
-                    phone: settings.phone,
-                    pin: settings.pin_number
-                });
-            }
-
-            // 3. Load next receipt number
+            // Get next receipt number
             const { data: saleData } = await supabase
                 .from('hospital_sales')
                 .select('receipt_no')
@@ -72,66 +74,27 @@ export default function HospitalPOSPage() {
                 .limit(1);
 
             if (saleData?.[0]?.receipt_no) {
-                const match = saleData[0].receipt_no.match(/HOSP-(\d+)/);
+                const match = saleData[0].receipt_no.match(/RCP-(\d+)/);
                 if (match) {
                     const nextNum = parseInt(match[1]) + 1;
-                    setReceiptNo(`HOSP-${String(nextNum).padStart(5, '0')}`);
+                    setReceiptNo(`RCP-${String(nextNum).padStart(5, '0')}`);
                 }
             }
         } catch (err) {
-            console.error('Error loading initialization data:', err);
+            console.error(err);
         }
         setIsLoading(false);
     };
-
-    useEffect(() => {
-        loadInitData();
-    }, []);
-
-    // Patient Search Effect
-    useEffect(() => {
-        const searchPatients = async () => {
-            if (patientSearch.length < 2) {
-                setPatients([]);
-                return;
-            }
-            const { data } = await supabase
-                .from('hospital_patients')
-                .select('patient_id, patient_name')
-                .ilike('patient_name', `%${patientSearch}%`)
-                .limit(5);
-            setPatients(data || []);
-        };
-        const timer = setTimeout(searchPatients, 300);
-        return () => clearTimeout(timer);
-    }, [patientSearch]);
-
-    // Filter services
-    useEffect(() => {
-        const query = searchQuery.toLowerCase();
-        setFilteredServices(
-            services.filter(s => {
-                const matchesSearch = s.service_name.toLowerCase().includes(query) ||
-                    s.category.toLowerCase().includes(query);
-                const matchesCategory = selectedCategory === 'All' || s.category === selectedCategory;
-                return matchesSearch && matchesCategory;
-            })
-        );
-    }, [searchQuery, services, selectedCategory]);
-
-    const categories = ['All', 'Registration', 'Consultation', 'Laboratory', 'Radiology', 'Pharmacy', 'Dental'];
 
     const addToCart = (service: HospitalService) => {
         setCart(prev => {
             const existing = prev.find(item => item.service_id === service.service_id);
             if (existing) {
-                return prev.map(item =>
-                    item.service_id === service.service_id ? { ...item, qty: item.qty + 1 } : item
-                );
+                return prev.map(item => item.service_id === service.service_id ? { ...item, qty: item.qty + 1 } : item);
             }
             return [...prev, { ...service, qty: 1 }];
         });
-        toast.success(`${service.service_name} added`);
+        toast.success('Added to cart');
     };
 
     const updateQty = (id: number, delta: number) => {
@@ -150,31 +113,22 @@ export default function HospitalPOSPage() {
 
     const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
 
-    const completeSale = async (method: string) => {
-        if (!patientSearch.trim()) {
-            toast.error('Please enter patient name manually');
-            return;
-        }
-        if (cart.length === 0) {
-            toast.error('Clinical manifest is empty');
-            return;
-        }
+    const completeSale = async () => {
+        if (cart.length === 0) return;
 
         try {
             const userData = localStorage.getItem('user');
             const currentUser = userData ? JSON.parse(userData) : null;
-            const finalPatientName = patientSearch.trim();
-
             const vHash = Math.random().toString(36).substring(2, 10).toUpperCase();
 
-            // 1. Create entry in hospital_sales
-            const { data: sale, error: saleError } = await supabase
+            // Save Sale
+            const { data: sale, error } = await supabase
                 .from('hospital_sales')
                 .insert({
                     receipt_no: receiptNo,
-                    patient_name: finalPatientName,
+                    patient_name: 'Walk-in Customer',
                     total_amount: total,
-                    payment_method: method,
+                    payment_method: 'Access',
                     status: 'Completed',
                     created_by: currentUser?.userId,
                     verification_hash: vHash
@@ -182,10 +136,10 @@ export default function HospitalPOSPage() {
                 .select()
                 .single();
 
-            if (saleError) throw saleError;
+            if (error) throw error;
 
-            // 2. Insert items
-            const saleItems = cart.map(item => ({
+            // Save Items
+            const items = cart.map(item => ({
                 sale_id: sale.sale_id,
                 service_id: item.service_id,
                 service_name: item.service_name,
@@ -194,238 +148,279 @@ export default function HospitalPOSPage() {
                 subtotal: item.price * item.qty
             }));
 
-            const { error: itemsError } = await supabase
-                .from('hospital_sales_items')
-                .insert(saleItems);
+            await supabase.from('hospital_sales_items').insert(items);
 
-            if (itemsError) throw itemsError;
-
-            // Prepare for print
             setPrintData({
                 receiptNo,
-                patientName: finalPatientName,
+                patientName: 'Walk-in Customer',
                 items: [...cart],
                 total,
-                paymentMethod: method,
                 date: new Date().toLocaleString(),
                 verificationHash: vHash
             });
             setShowReceipt(true);
-
-            toast.success('Clinical Bill Finalized');
             setCart([]);
-            setPatientSearch('');
             loadInitData();
+            toast.success('Sale Completed');
+
         } catch (err) {
-            console.error('Error completing clinical sale:', err);
-            toast.error('Processing failed');
+            toast.error('Transaction Failed');
         }
-    };
+    }
 
     const handlePrint = () => {
         window.print();
         setShowReceipt(false);
     };
 
-    if (isLoading) return (
-        <div className="flex items-center justify-center h-96">
-            <div className="text-center animate-pulse">
-                <span className="text-4xl">🏥</span>
-                <p className="mt-4 font-bold text-slate-400 uppercase tracking-widest text-xs">Loading Console...</p>
-            </div>
-        </div>
-    );
-
     return (
-        <div className="space-y-6 max-w-[1600px] mx-auto pb-12">
-            {/* Minimalist Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm">
-                <div className="flex items-center gap-5">
-                    <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-3xl shadow-inner">
-                        🩺
-                    </div>
-                    <div>
-                        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Clinical Point-of-Sale</h1>
-                        <p className="text-slate-400 font-medium text-sm mt-1 uppercase tracking-wider">Revenue Operations • {hospitalInfo.name}</p>
-                    </div>
-                </div>
+        <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
+            {/* Top Bar - White with Shadow */}
+            <div className="bg-white h-16 px-6 flex items-center justify-between shadow-sm border-b border-slate-100 fixed top-0 left-0 right-0 z-50 ml-64">
                 <div className="flex items-center gap-3">
-                    <div className="px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-right">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Receipt Ref</p>
-                        <p className="text-xl font-bold text-blue-600 font-mono tracking-tighter">{receiptNo}</p>
+                    <span className="text-2xl">🌅</span>
+                    <h1 className="text-xl font-bold text-slate-800">Good Morning <span className="text-amber-400">👋</span></h1>
+                    <span className="text-slate-300 mx-2">|</span>
+                    <span className="text-sm text-slate-400 font-medium">Alpha Retail POS - v1.0</span>
+                </div>
+
+                <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                        <span className="text-emerald-600 text-xs font-bold uppercase">Online</span>
                     </div>
-                    <button onClick={loadInitData} className="w-14 h-14 bg-white border border-slate-200 rounded-2xl hover:border-blue-500 hover:text-blue-600 transition-all flex items-center justify-center text-xl shadow-sm">
-                        🔄
+
+                    <button onClick={loadInitData} className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-emerald-200 transition-all active:scale-95">
+                        <span>🔄</span> Refresh
                     </button>
+
+                    <button className="relative p-2 text-slate-400 hover:text-amber-500 transition-colors">
+                        <span className="text-xl">🔔</span>
+                        <div className="absolute top-1.5 right-2 w-2 h-2 bg-rose-500 rounded-full border border-white"></div>
+                    </button>
+
+                    <div className="flex items-center gap-3 border-l border-slate-100 pl-6">
+                        <div className="text-right">
+                            <p className="text-xs font-bold text-slate-800">Super Admin</p>
+                            <p className="text-[10px] text-slate-400">Cashier</p>
+                        </div>
+                        <div className="w-9 h-9 bg-emerald-500 text-white rounded-full flex items-center justify-center font-bold text-sm shadow-md">
+                            S
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-                {/* Left Side: Services & Patient */}
-                <div className="xl:col-span-8 space-y-6">
-                    {/* Manual Patient Entry */}
-                    <div className="bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm">
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 ml-1">Patient Name • Manual Entry Only</label>
-                        <div className="relative group">
-                            <span className="absolute left-5 top-1/2 -translate-y-1/2 text-2xl group-focus-within:scale-110 transition-transform">👤</span>
-                            <input
-                                type="text"
-                                value={patientSearch}
-                                onChange={(e) => setPatientSearch(e.target.value)}
-                                placeholder="Key in patient name precisely as it should appear on receipt..."
-                                className="w-full pl-16 pr-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-blue-500 focus:bg-white focus:outline-none text-xl font-bold transition-all placeholder:text-slate-300 shadow-inner"
-                            />
+            {/* Main Content Area */}
+            <div className="pt-20 px-6 pb-6 h-screen flex gap-6">
+
+                {/* Left Side - Product Grid */}
+                <div className="flex-1 flex flex-col gap-6">
+
+                    {/* Secondary Header */}
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <span className="text-rose-500 text-xs font-bold">📍 POS - Point of Sale</span>
+                            <span className="text-slate-300">|</span>
+                            <span className="text-slate-500 text-sm font-medium">Alpha Retail</span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <span className="text-xs font-bold text-slate-400">{currentDate}</span>
+                            <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-md text-xs font-bold border border-blue-100">{receiptNo}</span>
+                            <button className="w-8 h-8 bg-slate-800 text-white rounded-lg flex items-center justify-center hover:bg-black transition-colors">
+                                ⛶
+                            </button>
                         </div>
                     </div>
 
-                    {/* Services Explorer */}
-                    <div className="bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm flex flex-col gap-8 min-h-[600px]">
-                        <div className="flex flex-col md:flex-row gap-6 items-center">
-                            <div className="flex-1 relative w-full">
-                                <span className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+                    {/* Filter Bar */}
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 grid grid-cols-12 gap-4 items-center">
+                        <div className="col-span-2">
+                            <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Store/Branch</label>
+                            <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                                <span className="text-lg">🏪</span>
+                                <span className="text-sm font-bold text-slate-700">Main Store</span>
+                                <span className="ml-auto text-[10px]">▼</span>
+                            </div>
+                        </div>
+                        <div className="col-span-2">
+                            <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Counter</label>
+                            <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                                <span className="text-sm font-bold text-slate-700">Counter 1</span>
+                                <span className="ml-auto text-[10px]">▼</span>
+                            </div>
+                        </div>
+                        <div className="col-span-4 self-end">
+                            <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">🔍</span>
                                 <input
                                     type="text"
+                                    placeholder="Search products by name or barcode..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    placeholder="Filter services or medicines..."
-                                    className="w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:border-blue-500 focus:bg-white focus:outline-none text-sm font-semibold transition-all shadow-inner"
+                                    className="w-full pl-10 pr-4 py-2.5 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-slate-600 font-medium placeholder:text-slate-400/80"
                                 />
                             </div>
-                            <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
-                                {categories.map(cat => (
-                                    <button
-                                        key={cat}
-                                        onClick={() => setSelectedCategory(cat)}
-                                        className={`px-6 py-3 rounded-xl text-[11px] font-bold uppercase tracking-widest whitespace-nowrap transition-all ${selectedCategory === cat
-                                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-200'
-                                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                                            }`}
-                                    >
-                                        {cat}
-                                    </button>
-                                ))}
-                            </div>
                         </div>
-
-                        <div className="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-4 gap-4 overflow-y-auto pr-2">
-                            {filteredServices.map(svc => (
-                                <button
-                                    key={svc.service_id}
-                                    onClick={() => addToCart(svc)}
-                                    className="p-6 bg-slate-50/50 hover:bg-blue-50 border border-slate-100 hover:border-blue-200 rounded-3xl text-left transition-all group relative overflow-hidden flex flex-col justify-between h-40"
-                                >
-                                    <div>
-                                        <span className="text-[9px] font-bold text-blue-500 uppercase tracking-[2px]">{svc.category}</span>
-                                        <h3 className="font-bold text-slate-800 line-clamp-2 mt-2 leading-tight">{svc.service_name}</h3>
-                                    </div>
-                                    <div className="flex items-center justify-between mt-auto">
-                                        <p className="text-lg font-bold text-slate-900 tracking-tighter">Ksh {svc.price.toLocaleString()}</p>
-                                        <span className="w-8 h-8 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100">➕</span>
-                                    </div>
-                                </button>
-                            ))}
+                        <div className="col-span-2">
+                            <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Category</label>
+                            <select
+                                value={selectedCategory}
+                                onChange={(e) => setSelectedCategory(e.target.value)}
+                                className="w-full bg-slate-50 p-2 rounded-lg border border-slate-200 text-sm font-bold text-slate-700 outline-none"
+                            >
+                                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        </div>
+                        <div className="col-span-2 self-end">
+                            <div className="flex items-center gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200 justify-center">
+                                <span className="text-slate-800 font-bold">👤 Walk-in Customer</span>
+                            </div>
                         </div>
                     </div>
+
+                    {/* Products Grid */}
+                    <div className="flex-1 overflow-y-auto pr-2">
+                        {isLoading ? (
+                            <div className="flex items-center justify-center h-64">
+                                <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                                {filteredServices.map(svc => (
+                                    <div key={svc.service_id} className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex flex-col group hover:shadow-md transition-shadow">
+                                        <div className="h-32 mb-4 bg-slate-50 rounded-lg flex items-center justify-center text-5xl relative overflow-hidden group-hover:bg-slate-100 transition-colors">
+                                            {/* Service Icons map based on category */}
+                                            <img
+                                                src={
+                                                    svc.category === 'Pharmacy' ? '/services/pharmacy.png' :
+                                                        svc.category === 'Laboratory' ? '/services/lab.png' :
+                                                            svc.category === 'Radiology' ? '/services/ultrasound.png' :
+                                                                svc.category === 'Dental' ? '/services/dental.png' :
+                                                                    svc.category === 'Procedure' ? '/services/procedure.png' :
+                                                                        svc.category === 'Consultation' ? '/services/consultation.png' :
+                                                                            '/services/registration.png'
+                                                }
+                                                alt={svc.service_name}
+                                                className="w-full h-full object-contain p-2 mix-blend-multiply group-hover:scale-110 transition-transform duration-500"
+                                            />
+                                        </div>
+
+                                        <div className="mb-2">
+                                            <h3 className="text-sm font-bold text-slate-800 line-clamp-1 uppercase" title={svc.service_name}>{svc.service_name}</h3>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">SKU: {svc.service_id}</span>
+                                                <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-bold uppercase">{svc.category}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-3 mt-auto mb-4">
+                                            <span className="text-lg font-bold text-slate-900">Ksh {svc.price.toLocaleString()}</span>
+                                            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded text-[10px] font-bold ml-auto">Available</span>
+                                        </div>
+
+                                        <button
+                                            onClick={() => addToCart(svc)}
+                                            className="w-full py-2.5 bg-emerald-500 text-white rounded-lg font-bold text-xs uppercase tracking-wide hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-200 active:scale-95 flex items-center justify-center gap-2"
+                                        >
+                                            <span>+</span> Add to Cart
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
                 </div>
 
-                {/* Right Side: Medical Bill / Cart */}
-                <div className="xl:col-span-4 sticky top-24">
-                    <div className="bg-slate-900 rounded-[40px] shadow-2xl shadow-blue-900/10 flex flex-col overflow-hidden min-h-[700px]">
-                        <div className="p-8 bg-slate-900 text-white border-b border-white/5 flex justify-between items-center">
-                            <div>
-                                <h2 className="text-xl font-bold tracking-tight">Medical Manifest</h2>
-                                <p className="text-xs text-slate-400 font-medium mt-1">Authorized Billing Console</p>
-                            </div>
-                            <span className="bg-blue-600 text-white px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest leading-none">
-                                {cart.length} Unit(s)
-                            </span>
+                {/* Right Side - Cart */}
+                <div className="w-[400px] flex flex-col bg-white rounded-xl shadow-lg border border-slate-100 overflow-hidden h-full">
+                    {/* Cart Header */}
+                    <div className="bg-emerald-500 p-4 flex items-center justify-between text-white">
+                        <div className="flex items-center gap-2">
+                            <span className="text-lg">🛒</span>
+                            <span className="font-bold">Cart ({cart.reduce((a, b) => a + b.qty, 0)} items)</span>
                         </div>
+                        <button onClick={() => setCart([])} className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded text-xs font-bold transition-colors">
+                            Clear
+                        </button>
+                    </div>
 
-                        <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                            {cart.map(item => (
-                                <div key={item.service_id} className="bg-white/5 p-5 rounded-3xl border border-white/5 group hover:border-white/10 transition-all">
-                                    <div className="flex justify-between items-start gap-4">
-                                        <div className="flex-1">
-                                            <h4 className="font-bold text-white text-sm leading-tight">{item.service_name}</h4>
-                                            <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1">{item.category}</p>
+                    {/* Cart Items */}
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
+                        {cart.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-full text-slate-400 opacity-50">
+                                <span className="text-6xl mb-4">🛒</span>
+                                <p className="font-bold uppercase text-xs tracking-widest">Cart Empty</p>
+                            </div>
+                        ) : (
+                            cart.map(item => (
+                                <div key={item.service_id} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm relative group">
+                                    <div className="flex justify-between items-start mb-3">
+                                        <div className="pr-6">
+                                            <h4 className="font-bold text-slate-800 text-sm line-clamp-2 uppercase leading-tight">{item.service_name}</h4>
+                                            <div className="flex items-center gap-1 mt-1 text-[10px] text-slate-400 font-bold">
+                                                <span>@ Ksh {item.price.toLocaleString()}</span>
+                                                <span>•</span>
+                                                <span>{item.service_id}</span>
+                                            </div>
                                         </div>
-                                        <button onClick={() => removeFromCart(item.service_id)} className="text-slate-600 hover:text-rose-500 transition-colors">✕</button>
+                                        <p className="font-bold text-slate-900 text-sm">{(item.price * item.qty).toLocaleString()}</p>
                                     </div>
-                                    <div className="flex justify-between items-center mt-6">
-                                        <div className="flex items-center bg-black/40 rounded-2xl p-1 border border-white/5">
-                                            <button onClick={() => updateQty(item.service_id, -1)} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white transition-all text-lg">−</button>
-                                            <span className="w-10 text-center font-bold text-white text-xs">{item.qty}</span>
-                                            <button onClick={() => updateQty(item.service_id, 1)} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white transition-all text-lg">＋</button>
+
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <button onClick={() => updateQty(item.service_id, -1)} className="w-8 h-8 flex items-center justify-center bg-orange-500 text-white rounded-md font-bold text-lg hover:bg-orange-600 transition-colors shadow-md shadow-orange-200">-</button>
+                                            <span className="w-6 text-center font-bold text-slate-700">{item.qty}</span>
+                                            <button onClick={() => updateQty(item.service_id, 1)} className="w-8 h-8 flex items-center justify-center bg-emerald-500 text-white rounded-md font-bold text-lg hover:bg-emerald-600 transition-colors shadow-md shadow-emerald-200">+</button>
                                         </div>
-                                        <p className="font-bold text-blue-400">Ksh {(item.price * item.qty).toLocaleString()}</p>
+                                        <div className="bg-orange-50 text-orange-600 px-3 py-1 rounded text-[10px] font-bold uppercase flex items-center gap-1 cursor-pointer hover:bg-orange-100">
+                                            🔥 Discount
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
-                            {cart.length === 0 && (
-                                <div className="flex flex-col items-center justify-center h-[400px] text-slate-700">
-                                    <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center text-4xl mb-6 grayscale opacity-50">📋</div>
-                                    <p className="font-bold text-sm tracking-widest uppercase opacity-40">Bill Empty</p>
-                                </div>
-                            )}
-                        </div>
 
-                        <div className="p-8 bg-black/40 border-t border-white/5 backdrop-blur-xl">
-                            <div className="flex justify-between items-end mb-8">
-                                <div>
-                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[2px] mb-1">Total Payables</p>
-                                    <h3 className="text-4xl font-bold text-white tracking-tighter">Ksh {total.toLocaleString()}</h3>
+                                    <button
+                                        onClick={() => removeFromCart(item.service_id)}
+                                        className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center text-rose-200 hover:text-rose-500 hover:bg-rose-50 rounded transition-all"
+                                    >
+                                        ✕
+                                    </button>
                                 </div>
-                                <button onClick={() => setCart([])} className="text-[10px] text-slate-500 hover:text-rose-500 font-bold uppercase tracking-widest mb-2 border-b border-transparent hover:border-rose-500 transition-all">
-                                    Clear all
-                                </button>
-                            </div>
+                            ))
+                        )}
+                    </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <button
-                                    onClick={() => completeSale('CASH')}
-                                    disabled={cart.length === 0}
-                                    className="py-5 bg-white text-slate-900 font-bold rounded-2xl transition-all shadow-xl active:scale-95 disabled:opacity-10 disabled:grayscale uppercase text-xs tracking-widest"
-                                >
-                                    💸 Liquid Cash
-                                </button>
-                                <button
-                                    onClick={() => completeSale('MPESA')}
-                                    disabled={cart.length === 0}
-                                    className="py-5 bg-blue-600 text-white font-bold rounded-2xl transition-all shadow-xl active:scale-95 disabled:opacity-10 disabled:grayscale uppercase text-xs tracking-widest"
-                                >
-                                    📱 M-Pesa
-                                </button>
-                            </div>
+                    {/* Cart Footer */}
+                    <div className="bg-white p-6 border-t border-slate-100 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)]">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="text-slate-500 font-medium text-sm">Subtotal</span>
+                            <span className="font-bold text-slate-600">Ksh {total.toLocaleString()}</span>
                         </div>
+                        <div className="flex justify-between items-center mb-6 pt-4 border-t border-slate-100 border-dashed">
+                            <span className="text-slate-800 font-bold text-lg uppercase">Total</span>
+                            <span className="font-bold text-slate-900 text-2xl">Ksh {total.toLocaleString()}</span>
+                        </div>
+                        <button
+                            onClick={completeSale}
+                            disabled={cart.length === 0}
+                            className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold uppercase tracking-widest text-sm shadow-xl active:scale-95 hover:bg-black transition-all disabled:opacity-50 disabled:active:scale-100"
+                        >
+                            Finalize Payment
+                        </button>
                     </div>
                 </div>
             </div>
 
-            {/* Receipt Modal */}
+            {/* Hidden Receipt Component */}
             {showReceipt && printData && (
-                <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xl z-[200] flex flex-col items-center justify-center p-4 animate-in fade-in duration-500">
-                    <div className="bg-white p-1 rounded-[40px] shadow-2xl max-w-md w-full overflow-hidden mb-6">
-                        <div className="max-h-[70vh] overflow-y-auto p-4">
-                            <HospitalReceipt
-                                ref={receiptRef}
-                                receiptData={printData}
-                                hospitalInfo={hospitalInfo}
-                            />
-                        </div>
-                    </div>
-                    <div className="flex gap-4">
-                        <button
-                            onClick={handlePrint}
-                            className="px-10 py-5 bg-blue-600 text-white rounded-[24px] font-bold shadow-2xl active:scale-95 uppercase text-xs tracking-widest transition-all hover:bg-blue-500"
-                        >
-                            🖨️ Commit & Print
-                        </button>
-                        <button
-                            onClick={() => setShowReceipt(false)}
-                            className="px-10 py-5 bg-white/10 text-white rounded-[24px] font-bold backdrop-blur-md uppercase text-xs tracking-widest border border-white/20 transition-all hover:bg-white/20"
-                        >
-                            Dismiss
-                        </button>
+                <div className="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center">
+                    <HospitalReceipt
+                        receiptData={printData}
+                        hospitalInfo={hospitalInfo}
+                    />
+                    <div className="mt-8 flex gap-4 print:hidden">
+                        <button onClick={handlePrint} className="px-8 py-3 bg-blue-600 text-white rounded font-bold">Print</button>
+                        <button onClick={() => setShowReceipt(false)} className="px-8 py-3 bg-gray-200 text-gray-800 rounded font-bold">Close</button>
                     </div>
                 </div>
             )}
