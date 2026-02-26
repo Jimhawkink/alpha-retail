@@ -30,6 +30,15 @@ interface Category {
     color: string;
 }
 
+interface CreditCustomer {
+    customer_id: number;
+    customer_code: string;
+    customer_name: string;
+    phone: string;
+    current_balance: number;
+    credit_limit: number;
+}
+
 // Product Search DataGrid Row
 const ProductRow = ({
     product,
@@ -781,6 +790,12 @@ export default function RetailPOSPage() {
     const [storeName, setStoreName] = useState('Alpha Retail');
     const [isFullscreen, setIsFullscreen] = useState(false);
 
+    // Customer selection
+    const [creditCustomers, setCreditCustomers] = useState<CreditCustomer[]>([]);
+    const [selectedCustomer, setSelectedCustomer] = useState<CreditCustomer | null>(null);
+    const [customerSearch, setCustomerSearch] = useState('');
+    const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+
     const searchInputRef = useRef<HTMLInputElement>(null);
 
     // Toggle fullscreen mode
@@ -911,13 +926,28 @@ export default function RetailPOSPage() {
         }
     }, []);
 
+    // Load credit customers for dropdown
+    const loadCreditCustomers = useCallback(async () => {
+        try {
+            const { data } = await supabase
+                .from('retail_credit_customers')
+                .select('customer_id, customer_code, customer_name, phone, current_balance, credit_limit')
+                .eq('active', true)
+                .order('customer_name');
+            setCreditCustomers(data || []);
+        } catch (err) {
+            console.error('Error loading customers:', err);
+        }
+    }, []);
+
     // Initial load
     useEffect(() => {
         loadProducts();
         loadCategories();
         loadStoreName();
         loadNextReceiptNo();
-    }, [loadProducts, loadCategories, loadStoreName, loadNextReceiptNo]);
+        loadCreditCustomers();
+    }, [loadProducts, loadCategories, loadStoreName, loadNextReceiptNo, loadCreditCustomers]);
 
     // Search products when query changes
     useEffect(() => {
@@ -1029,6 +1059,11 @@ export default function RetailPOSPage() {
     // Complete sale
     const completeSale = async (method: string, amountPaid: number, mpesaReceipt?: string, customerName?: string, checkoutRequestId?: string, customerPhone?: string) => {
         try {
+            // Use selected customer info if available
+            const custName = selectedCustomer ? selectedCustomer.customer_name : (customerName || 'Walk-in Customer');
+            const custPhone = selectedCustomer ? selectedCustomer.phone : (customerPhone || null);
+            const custId = selectedCustomer ? selectedCustomer.customer_id : null;
+
             // Create sale record in retail_sales table
             const { data: sale, error: saleError } = await supabase
                 .from('retail_sales')
@@ -1036,13 +1071,14 @@ export default function RetailPOSPage() {
                     receipt_no: receiptNo,
                     sale_date: new Date().toISOString().split('T')[0],
                     sale_datetime: new Date().toISOString(),
-                    customer_name: customerName || 'Walk-in Customer',
-                    customer_phone: customerPhone || null,
+                    customer_name: custName,
+                    customer_phone: custPhone,
+                    customer_id: custId,
                     subtotal: subtotal,
                     discount: totalDiscount,
                     total_amount: grandTotal,
                     payment_method: method.toUpperCase(),
-                    amount_paid: amountPaid,
+                    amount_paid: method.toUpperCase() === 'CREDIT' ? 0 : amountPaid,
                     change_amount: Math.max(0, amountPaid - grandTotal),
                     mpesa_code: mpesaReceipt || null,
                     checkout_request_id: checkoutRequestId || null,
@@ -1112,11 +1148,22 @@ export default function RetailPOSPage() {
                 }
             }
 
+            // If credit sale, update customer balance
+            if (method.toUpperCase() === 'CREDIT' && selectedCustomer) {
+                const newBalance = (selectedCustomer.current_balance || 0) + grandTotal;
+                await supabase.from('retail_credit_customers')
+                    .update({ current_balance: newBalance })
+                    .eq('customer_id', selectedCustomer.customer_id);
+            }
+
             toast.success('Sale completed successfully!');
             setShowPayment(false);
             setCart([]);
+            setSelectedCustomer(null);
+            setCustomerSearch('');
             loadNextReceiptNo();
             loadProducts(); // Refresh stock
+            loadCreditCustomers(); // Refresh balances
         } catch (err: any) {
             console.error('Error completing sale:', err);
             toast.error(`Failed to complete sale: ${err?.message || err?.details || 'Unknown error'}`);
@@ -1228,9 +1275,37 @@ export default function RetailPOSPage() {
                                 ))}
                             </select>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
-                            <span className="text-gray-500">👤</span>
-                            <span className="text-gray-700 font-medium text-sm">Walk-in Customer</span>
+                        <div className="relative">
+                            <label className="block text-xs text-gray-500 mb-1">Customer</label>
+                            <div className="relative">
+                                <input
+                                    value={customerSearch}
+                                    onChange={e => { setCustomerSearch(e.target.value); setShowCustomerDropdown(true); if (!e.target.value) setSelectedCustomer(null); }}
+                                    onFocus={() => setShowCustomerDropdown(true)}
+                                    onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 200)}
+                                    placeholder={selectedCustomer ? selectedCustomer.customer_name : '👤 Walk-in Customer'}
+                                    className={`px-3 py-2 border rounded-lg bg-gray-50 focus:outline-none focus:border-blue-500 cursor-text min-w-[200px] text-sm ${selectedCustomer ? 'border-blue-400 bg-blue-50 font-semibold text-blue-800' : 'border-gray-200 text-gray-700'}`}
+                                />
+                                {selectedCustomer && (
+                                    <button onClick={() => { setSelectedCustomer(null); setCustomerSearch(''); }}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-xs">✕</button>
+                                )}
+                            </div>
+                            {showCustomerDropdown && customerSearch && (
+                                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto">
+                                    {creditCustomers.filter(c => c.customer_name?.toLowerCase().includes(customerSearch.toLowerCase()) || c.phone?.includes(customerSearch)).length === 0 ? (
+                                        <p className="p-3 text-sm text-gray-400">No customers found</p>
+                                    ) : (
+                                        creditCustomers.filter(c => c.customer_name?.toLowerCase().includes(customerSearch.toLowerCase()) || c.phone?.includes(customerSearch)).slice(0, 8).map(c => (
+                                            <button key={c.customer_id} onMouseDown={() => { setSelectedCustomer(c); setCustomerSearch(c.customer_name); setShowCustomerDropdown(false); }}
+                                                className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-0">
+                                                <p className="font-semibold text-gray-800 text-sm">{c.customer_name}</p>
+                                                <p className="text-[10px] text-gray-500">{c.phone} &bull; Bal: Ksh {(c.current_balance || 0).toLocaleString()}</p>
+                                            </button>
+                                        ))
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

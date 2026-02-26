@@ -46,6 +46,7 @@ const menuItems = [
         items: [
             { name: 'Expenses', icon: '💸', href: '/dashboard/expenses', badge: null },
             { name: 'Credit Customers', icon: '💳', href: '/dashboard/credit-customers', badge: null },
+            { name: 'Credit Payments', icon: '💰', href: '/dashboard/credit-payments', badge: null },
             { name: 'M-Pesa', icon: '📱', href: '/dashboard/mpesa', badge: null },
         ]
     },
