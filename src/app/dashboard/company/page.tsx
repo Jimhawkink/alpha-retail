@@ -154,7 +154,7 @@ export default function CompanyPage() {
     };
 
     const tabs = [
-        { id: 'general', label: 'General Info', icon: '🏨', description: 'Company details' },
+        { id: 'general', label: 'General Info', icon: '🏪', description: 'Company details' },
         { id: 'location', label: 'Location', icon: '📍', description: 'Address & branches' },
         { id: 'receipt', label: 'Receipts', icon: '🧾', description: 'Receipt settings' },
         { id: 'system', label: 'System', icon: '⚙️', description: 'System preferences' },
@@ -178,11 +178,11 @@ export default function CompanyPage() {
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <div>
                         <h1 className="text-2xl md:text-3xl font-bold text-gray-800 flex items-center gap-3">
-                            <span className="text-3xl">🏨</span>
+                            <span className="text-3xl">🏪</span>
                             Company Settings
                         </h1>
                         <p className="text-gray-500 text-sm mt-1">
-                            Configure your hotel/business details used across the entire system
+                            Configure your business details used across the entire system
                         </p>
                     </div>
 
@@ -211,7 +211,7 @@ export default function CompanyPage() {
                 <div className="bg-gradient-to-r from-sky-50 via-blue-50 to-cyan-50 border border-blue-100 rounded-2xl p-6 mb-6 shadow-sm">
                     <div className="flex items-center gap-4">
                         <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-blue-500 rounded-2xl flex items-center justify-center text-3xl text-white shadow-lg shadow-blue-200">
-                            🏨
+                            🏪
                         </div>
                         <div>
                             <h2 className="text-2xl font-bold text-gray-800">{settings.company_name}</h2>
@@ -253,23 +253,23 @@ export default function CompanyPage() {
                 {activeTab === 'general' && (
                     <div className="p-6 space-y-6">
                         <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
-                            <span className="text-2xl">🏨</span>
+                            <span className="text-2xl">🏪</span>
                             <div>
                                 <h3 className="text-lg font-bold text-gray-800">General Information</h3>
-                                <p className="text-sm text-gray-500">Basic details about your hotel/business</p>
+                                <p className="text-sm text-gray-500">Basic details about your business</p>
                             </div>
                         </div>
 
                         {/* Company Name - Most Important */}
                         <div className="bg-gradient-to-r from-sky-50 to-blue-50 rounded-2xl p-5 border-2 border-sky-200">
                             <label className="block text-sm font-bold text-sky-700 mb-2">
-                                🏨 Company / Hotel Name <span className="text-red-500">*</span>
+                                🏪 Company Name <span className="text-red-500">*</span>
                             </label>
                             <input
                                 type="text"
                                 value={settings.company_name}
                                 onChange={(e) => setSettings({ ...settings, company_name: e.target.value })}
-                                placeholder="Enter your hotel/company name"
+                                placeholder="Enter your company name"
                                 className="w-full px-5 py-4 bg-white border-2 border-sky-300 rounded-xl text-lg font-semibold text-gray-800 placeholder-gray-400 focus:outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-500/20"
                             />
                             <p className="text-xs text-sky-600 mt-2">
@@ -287,7 +287,7 @@ export default function CompanyPage() {
                                     type="email"
                                     value={settings.email}
                                     onChange={(e) => setSettings({ ...settings, email: e.target.value })}
-                                    placeholder="info@yourhotel.com"
+                                    placeholder="info@yourbusiness.com"
                                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
                                 />
                             </div>
@@ -301,7 +301,7 @@ export default function CompanyPage() {
                                     type="url"
                                     value={settings.website}
                                     onChange={(e) => setSettings({ ...settings, website: e.target.value })}
-                                    placeholder="www.yourhotel.com"
+                                    placeholder="www.yourbusiness.com"
                                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
                                 />
                             </div>
@@ -512,7 +512,7 @@ export default function CompanyPage() {
                                     <textarea
                                         value={settings.receipt_header}
                                         onChange={(e) => setSettings({ ...settings, receipt_header: e.target.value })}
-                                        placeholder="Welcome to our hotel! / Any text to show at the top"
+                                        placeholder="Welcome to our store! / Any text to show at the top"
                                         rows={2}
                                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 resize-none"
                                     />
@@ -554,7 +554,7 @@ export default function CompanyPage() {
                                 </p>
                                 <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 font-mono text-xs">
                                     <div className="text-center border-b border-dashed border-gray-300 pb-3">
-                                        <p className="font-bold text-base">{settings.company_name || 'Your Hotel Name'}</p>
+                                        <p className="font-bold text-base">{settings.company_name || 'Your Business Name'}</p>
                                         <p className="text-gray-500">{settings.address || 'Address'}</p>
                                         <p className="text-gray-500">Tel: {settings.phone || '0720316175'}</p>
                                         {settings.kra_pin && <p className="text-gray-500">PIN: {settings.kra_pin}</p>}

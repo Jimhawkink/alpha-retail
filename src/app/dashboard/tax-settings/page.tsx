@@ -203,7 +203,7 @@ export default function TaxSettingsPage() {
                 <div className="flex items-start gap-4">
                     <span className="text-3xl">💡</span>
                     <div>
-                        <h3 className="font-bold text-purple-800">Tax Types for Hotels & Restaurants</h3>
+                        <h3 className="font-bold text-purple-800">Tax Types for Businesses</h3>
                         <p className="text-sm text-purple-700 mt-1">
                             <strong>VAT 16%</strong> - Standard rate for taxable goods and services |
                             <strong> Zero Rated 0%</strong> - For export and specified goods |

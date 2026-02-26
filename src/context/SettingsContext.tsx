@@ -20,7 +20,7 @@ interface CompanySettings {
 }
 
 const defaultSettings: CompanySettings = {
-    company_name: 'Hotel System',
+    company_name: 'Alpha Retail',
     address: '',
     city: '',
     country: 'Kenya',
@@ -99,7 +99,7 @@ export function useSettings() {
 
 export function useCompanyName() {
     const { settings } = useSettings();
-    return settings.company_name || 'Hotel System';
+    return settings.company_name || 'Alpha Retail';
 }
 
 export function useCurrency() {
