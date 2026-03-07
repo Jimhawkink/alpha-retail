@@ -894,26 +894,33 @@ export default function RetailPOSPage() {
         }
     }, []);
 
-    // Generate next receipt number
+    // Generate next receipt number — find max across ALL receipts to avoid duplicates
     const loadNextReceiptNo = useCallback(async () => {
         try {
             const { data, error } = await supabase
                 .from('retail_sales')
                 .select('receipt_no')
+                .like('receipt_no', 'RCP-%')
                 .order('sale_id', { ascending: false })
-                .limit(1);
+                .limit(500);
 
             if (error) {
                 console.error('Error loading receipt number:', error);
-                setReceiptNo('RCP-00001');
+                setReceiptNo(`RCP-${Date.now().toString(36).toUpperCase()}`);
                 return;
             }
 
-            if (data && data.length > 0 && data[0].receipt_no) {
-                const match = data[0].receipt_no.match(/(?:RCP-|P-)(\d+)/);
-                if (match) {
-                    const nextNum = parseInt(match[1]) + 1;
-                    setReceiptNo(`RCP-${String(nextNum).padStart(5, '0')}`);
+            if (data && data.length > 0) {
+                let maxNum = 0;
+                for (const row of data) {
+                    const match = row.receipt_no?.match(/RCP-(\d+)/);
+                    if (match) {
+                        const num = parseInt(match[1]);
+                        if (num > maxNum) maxNum = num;
+                    }
+                }
+                if (maxNum > 0) {
+                    setReceiptNo(`RCP-${String(maxNum + 1).padStart(5, '0')}`);
                     return;
                 }
             }
@@ -922,7 +929,7 @@ export default function RetailPOSPage() {
             setReceiptNo('RCP-00001');
         } catch (err) {
             console.error('Exception loading receipt number:', err);
-            setReceiptNo('RCP-00001');
+            setReceiptNo(`RCP-${Date.now().toString(36).toUpperCase()}`);
         }
     }, []);
 
@@ -1064,11 +1071,32 @@ export default function RetailPOSPage() {
             const custPhone = selectedCustomer ? selectedCustomer.phone : (customerPhone || null);
             const custId = selectedCustomer ? selectedCustomer.customer_id : null;
 
+            // Generate a FRESH receipt number right before insert to avoid duplicates
+            let freshReceiptNo = receiptNo;
+            try {
+                const { data: latestSales } = await supabase
+                    .from('retail_sales')
+                    .select('receipt_no')
+                    .like('receipt_no', 'RCP-%')
+                    .order('sale_id', { ascending: false })
+                    .limit(1);
+
+                if (latestSales && latestSales.length > 0) {
+                    const match = latestSales[0].receipt_no?.match(/RCP-(\d+)/);
+                    if (match) {
+                        freshReceiptNo = `RCP-${String(parseInt(match[1]) + 1).padStart(5, '0')}`;
+                    }
+                }
+            } catch {
+                // If fresh generation fails, add timestamp suffix to make it unique
+                freshReceiptNo = `RCP-${Date.now().toString(36).toUpperCase()}`;
+            }
+
             // Create sale record in retail_sales table
             const { data: sale, error: saleError } = await supabase
                 .from('retail_sales')
                 .insert([{
-                    receipt_no: receiptNo,
+                    receipt_no: freshReceiptNo,
                     sale_date: new Date().toISOString().split('T')[0],
                     sale_datetime: new Date().toISOString(),
                     customer_name: custName,
@@ -1119,7 +1147,7 @@ export default function RetailPOSPage() {
                     const company = await loadCompanyInfo();
                     const now = new Date();
                     const receiptData: ReceiptData = {
-                        invoiceNo: receiptNo,
+                        invoiceNo: freshReceiptNo,
                         date: now.toLocaleDateString('en-GB'),
                         time: now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
                         cashier: 'Cashier',
