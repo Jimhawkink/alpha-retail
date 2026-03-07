@@ -970,10 +970,10 @@ export function generateMpesaReceiptHTML(data: ReceiptData, company: CompanyInfo
   // Build item rows
   const itemRows = data.items.map((item, i) => `
     <tr style="border-bottom:1px solid #e8e8e8;">
-      <td style="padding:6px 0;font-size:11px;color:#1a1a1a;">${item.name}</td>
-      <td style="padding:6px 4px;text-align:center;font-size:11px;color:#444;">${item.qty}</td>
-      <td style="padding:6px 0;text-align:right;font-size:11px;color:#444;">${item.price.toLocaleString()}</td>
-      <td style="padding:6px 0;text-align:right;font-size:11px;font-weight:600;color:#1a1a1a;">${item.total.toLocaleString()}</td>
+      <td style="padding:6px 0;font-size:11px;color:#000;">${item.name}</td>
+      <td style="padding:6px 4px;text-align:center;font-size:11px;color:#000;">${item.qty}</td>
+      <td style="padding:6px 0;text-align:right;font-size:11px;color:#000;">${item.price.toLocaleString()}</td>
+      <td style="padding:6px 0;text-align:right;font-size:11px;font-weight:600;color:#000;">${item.total.toLocaleString()}</td>
     </tr>
     ${(item.discount && item.discount > 0) ? `
     <tr>
@@ -997,7 +997,7 @@ export function generateMpesaReceiptHTML(data: ReceiptData, company: CompanyInfo
       width: 80mm;
       padding: 4mm;
       background: #fff;
-      color: #1a1a1a;
+      color: #000;
       line-height: 1.35;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
@@ -1024,16 +1024,16 @@ export function generateMpesaReceiptHTML(data: ReceiptData, company: CompanyInfo
 
   <!-- ═══════════ HEADER ═══════════ -->
   <div class="center" style="padding:6px 0 4px 0;">
-    <div style="font-size:16px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:#111;">
+    <div style="font-size:16px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:#000;">
       ${company.name}
     </div>
-    <div style="font-size:9px;color:#666;margin-top:3px;line-height:1.5;">
+    <div style="font-size:9px;color:#000;margin-top:3px;line-height:1.5;">
       ${company.address}<br>
       Tel: ${company.phone}
       ${company.email ? ` | ${company.email}` : ''}
       ${company.pin ? `<br>PIN: ${company.pin}` : ''}
     </div>
-    ${company.slogan ? `<div style="font-size:8px;color:#888;font-style:italic;margin-top:3px;">${company.slogan}</div>` : ''}
+    ${company.slogan ? `<div style="font-size:8px;color:#000;font-style:italic;margin-top:3px;">${company.slogan}</div>` : ''}
   </div>
 
   <hr class="divider-bold">
@@ -1048,26 +1048,26 @@ export function generateMpesaReceiptHTML(data: ReceiptData, company: CompanyInfo
   <!-- ═══════════ RECEIPT INFO ═══════════ -->
   <div style="background:#f8f8f8;border-radius:4px;padding:8px 10px;margin:6px 0;">
     <div class="row" style="margin:2px 0;">
-      <span style="color:#666;font-size:10px;">Receipt No</span>
+      <span style="color:#000;font-size:10px;">Receipt No</span>
       <span style="font-weight:700;font-size:12px;letter-spacing:0.5px;">${data.invoiceNo}</span>
     </div>
     <div class="row" style="margin:2px 0;">
-      <span style="color:#666;font-size:10px;">Date</span>
+      <span style="color:#000;font-size:10px;">Date</span>
       <span style="font-size:10px;">${data.date}</span>
     </div>
     <div class="row" style="margin:2px 0;">
-      <span style="color:#666;font-size:10px;">Time</span>
+      <span style="color:#000;font-size:10px;">Time</span>
       <span style="font-size:10px;">${data.time}</span>
     </div>
     <div class="row" style="margin:2px 0;">
-      <span style="color:#666;font-size:10px;">Served By</span>
+      <span style="color:#000;font-size:10px;">Served By</span>
       <span style="font-size:10px;">${data.cashier}</span>
     </div>
   </div>
 
   ${data.customerName ? `
   <div class="row" style="padding:4px 0;">
-    <span style="color:#666;font-size:10px;">Customer</span>
+    <span style="color:#000;font-size:10px;">Customer</span>
     <span style="font-weight:600;font-size:11px;">${data.customerName}</span>
   </div>
   ` : ''}
@@ -1078,10 +1078,10 @@ export function generateMpesaReceiptHTML(data: ReceiptData, company: CompanyInfo
   <table style="width:100%;border-collapse:collapse;">
     <thead>
       <tr style="border-bottom:2px solid #333;">
-        <th style="text-align:left;padding:4px 0;font-size:9px;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:0.5px;width:42%;">Item</th>
-        <th style="text-align:center;padding:4px;font-size:9px;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:0.5px;width:12%;">Qty</th>
-        <th style="text-align:right;padding:4px 0;font-size:9px;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:0.5px;width:22%;">Price</th>
-        <th style="text-align:right;padding:4px 0;font-size:9px;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:0.5px;width:24%;">Amount</th>
+        <th style="text-align:left;padding:4px 0;font-size:9px;font-weight:600;color:#000;text-transform:uppercase;letter-spacing:0.5px;width:42%;">Item</th>
+        <th style="text-align:center;padding:4px;font-size:9px;font-weight:600;color:#000;text-transform:uppercase;letter-spacing:0.5px;width:12%;">Qty</th>
+        <th style="text-align:right;padding:4px 0;font-size:9px;font-weight:600;color:#000;text-transform:uppercase;letter-spacing:0.5px;width:22%;">Price</th>
+        <th style="text-align:right;padding:4px 0;font-size:9px;font-weight:600;color:#000;text-transform:uppercase;letter-spacing:0.5px;width:24%;">Amount</th>
       </tr>
     </thead>
     <tbody>
@@ -1094,18 +1094,18 @@ export function generateMpesaReceiptHTML(data: ReceiptData, company: CompanyInfo
   <!-- ═══════════ TOTALS ═══════════ -->
   <div style="padding:2px 0;">
     <div class="row" style="margin:3px 0;">
-      <span style="font-size:10px;color:#666;">Subtotal (${totalItems} items)</span>
+      <span style="font-size:10px;color:#000;">Subtotal (${totalItems} items)</span>
       <span style="font-size:11px;">${data.subtotal.toLocaleString()}</span>
     </div>
     ${data.discount > 0 ? `
     <div class="row" style="margin:3px 0;">
-      <span style="font-size:10px;color:#4CAF50;">Discount</span>
-      <span style="font-size:11px;color:#4CAF50;font-weight:600;">-${data.discount.toLocaleString()}</span>
+      <span style="font-size:10px;color:#000;">Discount</span>
+      <span style="font-size:11px;color:#000;font-weight:600;">-${data.discount.toLocaleString()}</span>
     </div>
     ` : ''}
     ${data.tax > 0 ? `
     <div class="row" style="margin:3px 0;">
-      <span style="font-size:10px;color:#666;">VAT (16%)</span>
+      <span style="font-size:10px;color:#000;">VAT (16%)</span>
       <span style="font-size:11px;">${data.tax.toLocaleString()}</span>
     </div>
     ` : ''}
@@ -1122,34 +1122,34 @@ export function generateMpesaReceiptHTML(data: ReceiptData, company: CompanyInfo
   <!-- ═══════════ M-PESA DETAILS ═══════════ -->
   <div style="border:2px solid #4CAF50;border-radius:6px;padding:10px;margin:8px 0;">
     <div class="center" style="margin-bottom:6px;">
-      <span style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#666;font-weight:600;">Payment Confirmation</span>
+      <span style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#000;font-weight:600;">Payment Confirmation</span>
     </div>
     ${data.mpesaReceipt ? `
     <div class="center" style="margin:4px 0;">
-      <div style="font-size:8px;color:#888;text-transform:uppercase;letter-spacing:0.5px;">M-Pesa Code</div>
-      <div style="font-size:16px;font-weight:800;color:#4CAF50;letter-spacing:2px;margin-top:2px;">
+      <div style="font-size:8px;color:#000;text-transform:uppercase;letter-spacing:0.5px;">M-Pesa Code</div>
+      <div style="font-size:16px;font-weight:800;color:#000;letter-spacing:2px;margin-top:2px;">
         ${data.mpesaReceipt}
       </div>
     </div>
     ` : ''}
     <div class="row" style="margin:4px 0;">
-      <span style="font-size:10px;color:#666;">Amount Paid</span>
+      <span style="font-size:10px;color:#000;">Amount Paid</span>
       <span style="font-size:12px;font-weight:700;">KES ${data.amountPaid.toLocaleString()}</span>
     </div>
     ${maskedPhone ? `
     <div class="row" style="margin:4px 0;">
-      <span style="font-size:10px;color:#666;">Phone</span>
+      <span style="font-size:10px;color:#000;">Phone</span>
       <span style="font-size:11px;font-weight:600;letter-spacing:1px;">${maskedPhone}</span>
     </div>
     ` : ''}
     ${data.change > 0 ? `
     <div class="row" style="margin:4px 0;">
-      <span style="font-size:10px;color:#666;">Change</span>
+      <span style="font-size:10px;color:#000;">Change</span>
       <span style="font-size:11px;font-weight:600;">KES ${data.change.toLocaleString()}</span>
     </div>
     ` : ''}
     <div class="center" style="margin-top:6px;">
-      <span style="display:inline-block;background:#E8F5E9;color:#2E7D32;font-size:10px;font-weight:700;padding:3px 10px;border-radius:3px;">
+      <span style="display:inline-block;background:#E8F5E9;color:#000;font-size:10px;font-weight:700;padding:3px 10px;border-radius:3px;">
         ✓ PAYMENT RECEIVED
       </span>
     </div>
@@ -1161,7 +1161,7 @@ export function generateMpesaReceiptHTML(data: ReceiptData, company: CompanyInfo
   <div class="center" style="margin:8px 0;">
     <img src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=https://alpha-retail.vercel.app/verify/${encodeURIComponent(data.invoiceNo)}" 
          alt="Verify" style="width:70px;height:70px;"/>
-    <div style="font-size:7px;color:#aaa;margin-top:3px;">Scan to verify receipt</div>
+    <div style="font-size:7px;color:#000;margin-top:3px;">Scan to verify receipt</div>
   </div>
 
   <hr class="divider">
@@ -1169,9 +1169,9 @@ export function generateMpesaReceiptHTML(data: ReceiptData, company: CompanyInfo
   <!-- ═══════════ FOOTER ═══════════ -->
   <div class="center" style="padding:6px 0;">
     <div style="font-size:11px;font-weight:700;letter-spacing:1px;">★ THANK YOU! ★</div>
-    <div style="font-size:9px;color:#777;margin-top:4px;">We appreciate your business</div>
-    <div style="font-size:8px;color:#aaa;margin-top:6px;">Goods once sold are not refundable</div>
-    <div style="font-size:7px;color:#ccc;margin-top:6px;">Powered by Alpha Retail POS</div>
+    <div style="font-size:9px;color:#000;margin-top:4px;">We appreciate your business</div>
+    <div style="font-size:8px;color:#000;margin-top:6px;">Goods once sold are not refundable</div>
+    <div style="font-size:7px;color:#000;margin-top:6px;">Powered by Alpha Retail POS</div>
   </div>
 
 </body>
