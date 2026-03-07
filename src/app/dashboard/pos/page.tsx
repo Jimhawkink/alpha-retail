@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
-import { printMpesaReceipt, ReceiptData, loadCompanyInfo } from '@/lib/receiptPrinter';
+import { printMpesaReceipt, printCustomerReceipt, ReceiptData, loadCompanyInfo } from '@/lib/receiptPrinter';
 
 // Types for Retail POS
 interface Product {
@@ -1173,6 +1173,39 @@ export default function RetailPOSPage() {
                     console.log('🖨️ Print function called');
                 } catch (printErr) {
                     console.error('❌ Receipt print error:', printErr);
+                }
+            }
+
+
+            // Auto-print receipt for Cash payments
+            if (method.toUpperCase() === 'CASH') {
+                try {
+                    const company = await loadCompanyInfo();
+                    const now = new Date();
+                    const receiptData: ReceiptData = {
+                        invoiceNo: freshReceiptNo,
+                        date: now.toLocaleDateString('en-GB'),
+                        time: now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+                        cashier: 'Cashier',
+                        items: cart.map(item => ({
+                            name: item.name,
+                            qty: item.qty,
+                            price: item.salesPrice,
+                            total: item.salesPrice * item.qty
+                        })),
+                        subtotal: subtotal,
+                        discount: totalDiscount,
+                        tax: 0,
+                        total: grandTotal,
+                        paymentMethod: 'CASH',
+                        amountPaid: amountPaid,
+                        change: Math.max(0, amountPaid - grandTotal),
+                        customerName: custName,
+                        isPaid: true
+                    };
+                    printCustomerReceipt(receiptData, company);
+                } catch (printErr) {
+                    console.error('Cash receipt print error:', printErr);
                 }
             }
 
