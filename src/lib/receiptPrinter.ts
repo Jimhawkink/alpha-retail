@@ -150,10 +150,10 @@ export function getCompanyInfo(): CompanyInfo {
 export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo = defaultCompanyInfo, isPaid: boolean = false): string {
   const itemRows = data.items.map((item, index) => `
     <tr>
-      <td style="text-align:left;padding:2px 0;border-bottom:1px dotted #ccc;font-size:10px;overflow:visible;">${index + 1}. ${item.name}</td>
-      <td style="text-align:right;padding:2px 2px;border-bottom:1px dotted #ccc;font-size:10px;">${item.qty}</td>
-      <td style="text-align:right;padding:2px 2px;border-bottom:1px dotted #ccc;font-size:10px;">${item.price.toLocaleString()}</td>
-      <td style="text-align:right;padding:2px 0;border-bottom:1px dotted #ccc;font-weight:bold;font-size:10px;">${item.total.toLocaleString()}</td>
+      <td>${index + 1}. ${item.name}</td>
+      <td>${item.qty}</td>
+      <td>${item.price.toLocaleString()}</td>
+      <td style="font-weight:bold;">${item.total.toLocaleString()}</td>
     </tr>
     ${item.notes ? `<tr><td colspan="4" style="font-size:9px;color:#c00;padding:1px 0 2px 12px;font-style:italic;">↳ ${item.notes}</td></tr>` : ''}
   `).join('');
@@ -195,10 +195,11 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
       font-family: 'Segoe UI', 'Arial', sans-serif;
       font-size: 11px;
       width: 80mm;
-      padding: 3mm;
+      padding: 2mm 3mm;
       background: #fff;
       color: #000;
       position: relative;
+      overflow: hidden;
     }
     .header {
       text-align: center;
@@ -278,19 +279,29 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
     }
     .items-table th {
       background: #eee;
-      padding: 4px 2px;
+      padding: 3px 1px;
       text-align: left;
       font-size: 9px;
       font-weight: bold;
       border-top: 1px solid #000;
       border-bottom: 1px solid #000;
-      overflow: visible;
-      white-space: nowrap;
     }
     .items-table td {
-      overflow: visible;
-      white-space: nowrap;
       font-size: 10px;
+      padding: 2px 1px;
+      border-bottom: 1px dotted #ccc;
+      vertical-align: top;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    .items-table td:first-child {
+      text-align: left;
+    }
+    .items-table td:nth-child(2),
+    .items-table td:nth-child(3),
+    .items-table td:nth-child(4) {
+      text-align: right;
+      white-space: nowrap;
     }
     .items-table th:nth-child(2),
     .items-table th:nth-child(3),
@@ -308,18 +319,18 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
     .total-row {
       display: flex;
       justify-content: space-between;
-      padding: 2px 0;
+      padding: 1px 0;
       font-size: 11px;
     }
     .grand-total {
-      background: linear-gradient(135deg, #000 0%, #333 100%);
+      background: #000;
       color: #fff;
-      padding: 6px 8px;
-      margin: 3px 0;
+      padding: 5px 6px;
+      margin: 2px 0;
       border-radius: 3px;
     }
     .grand-total .total-row {
-      font-size: 16px;
+      font-size: 14px;
       font-weight: bold;
     }
     .payment-section {
@@ -373,21 +384,10 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
       color: #666;
       margin-top: 2px;
     }
-    .barcode-section {
+    .qr-section {
       text-align: center;
       margin: 4px 0 2px 0;
-      padding: 3px;
-    }
-    .barcode {
-      display: none;
-    }
-    .invoice-no-large {
-      font-size: 10px;
-      font-weight: bold;
-      letter-spacing: 1px;
-    }
-    .qr-code {
-      display: none;
+      padding: 3px 0;
     }
     .powered-by {
       font-size: 7px;
@@ -457,10 +457,10 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
   <table class="items-table">
     <thead>
       <tr>
-        <th style="width:40%">ITEM</th>
-        <th style="width:12%">QTY</th>
-        <th style="width:22%">PRICE</th>
-        <th style="width:26%">TOTAL</th>
+        <th style="width:38%">ITEM</th>
+        <th style="width:10%">QTY</th>
+        <th style="width:24%">PRICE</th>
+        <th style="width:28%">TOTAL</th>
       </tr>
     </thead>
     <tbody>
@@ -538,10 +538,12 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
   </div>
   ` : ''}
 
-  <!-- Barcode Section -->
-  <div class="barcode-section">
-    <div class="barcode">*${data.invoiceNo}*</div>
-    <div class="invoice-no-large">${data.invoiceNo}</div>
+  <!-- QR Code + Receipt No -->
+  <div style="text-align:center;margin:6px 0 4px 0;padding:4px 0;border-top:1px dashed #ccc;">
+    <img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(data.invoiceNo + ' | ' + company.name + ' | Ksh ' + data.total.toLocaleString() + ' | ' + data.date)}" 
+      style="width:70px;height:70px;margin:4px auto;display:block;" 
+      alt="QR" />
+    <div style="font-size:9px;font-weight:bold;letter-spacing:1px;margin-top:2px;">${data.invoiceNo}</div>
   </div>
 
   <!-- Footer -->
