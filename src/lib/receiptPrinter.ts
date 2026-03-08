@@ -297,19 +297,30 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
     .items-table td:first-child {
       text-align: left;
     }
-    .items-table td:nth-child(2),
-    .items-table td:nth-child(3),
+    .items-table td:nth-child(2) {
+      text-align: center;
+      white-space: nowrap;
+    }
+    .items-table td:nth-child(3) {
+      text-align: right;
+      white-space: nowrap;
+      padding-right: 4px;
+    }
     .items-table td:nth-child(4) {
       text-align: right;
       white-space: nowrap;
+      padding-right: 6px;
     }
-    .items-table th:nth-child(2),
-    .items-table th:nth-child(3),
+    .items-table th:nth-child(2) {
+      text-align: center;
+    }
+    .items-table th:nth-child(3) {
+      text-align: right;
+      padding-right: 4px;
+    }
     .items-table th:nth-child(4) {
       text-align: right;
-    }
-    .items-table th:last-child {
-      text-align: right;
+      padding-right: 6px;
     }
     .totals-section {
       border-top: 1px solid #000;
@@ -319,13 +330,13 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
     .total-row {
       display: flex;
       justify-content: space-between;
-      padding: 1px 0;
+      padding: 1px 4px 1px 0;
       font-size: 11px;
     }
     .grand-total {
       background: #000;
       color: #fff;
-      padding: 5px 6px;
+      padding: 5px 8px 5px 6px;
       margin: 2px 0;
       border-radius: 3px;
     }
@@ -421,23 +432,19 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
     ${isPaid ? '✓ TAX INVOICE ✓' : '⚠ CUSTOMER BILL ⚠'}
   </div>
 
-  <!-- Invoice Info -->
-  <div class="info-section">
-    <div>
-      <div class="info-label">Invoice No:</div>
-      <div class="info-value">${data.invoiceNo}</div>
+  <!-- Invoice Info with QR Code -->
+  <div style="display:flex;align-items:center;gap:6px;padding:4px;background:#f5f5f5;border-radius:3px;margin:4px 0;">
+    <div style="flex:1;">
+      <div style="margin-bottom:3px;"><span style="font-size:9px;color:#666;">Invoice No:</span><br/><span style="font-size:11px;font-weight:bold;">${data.invoiceNo}</span></div>
+      <div><span style="font-size:9px;color:#666;">Time:</span><br/><span style="font-size:10px;font-weight:bold;">${data.time}</span></div>
     </div>
-    <div>
-      <div class="info-label">Date:</div>
-      <div class="info-value">${data.date}</div>
+    <div style="text-align:center;">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(data.invoiceNo + '|' + company.name + '|Ksh' + data.total + '|' + data.date)}" 
+        style="width:55px;height:55px;display:block;" alt="QR" />
     </div>
-    <div>
-      <div class="info-label">Time:</div>
-      <div class="info-value">${data.time}</div>
-    </div>
-    <div>
-      <div class="info-label">Cashier:</div>
-      <div class="info-value">${data.cashier}</div>
+    <div style="flex:1;text-align:right;">
+      <div style="margin-bottom:3px;"><span style="font-size:9px;color:#666;">Date:</span><br/><span style="font-size:10px;font-weight:bold;">${data.date}</span></div>
+      <div><span style="font-size:9px;color:#666;">Cashier:</span><br/><span style="font-size:10px;font-weight:bold;">${data.cashier}</span></div>
     </div>
   </div>
 
@@ -538,12 +545,9 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
   </div>
   ` : ''}
 
-  <!-- QR Code + Receipt No -->
-  <div style="text-align:center;margin:6px 0 4px 0;padding:4px 0;border-top:1px dashed #ccc;">
-    <img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(data.invoiceNo + ' | ' + company.name + ' | Ksh ' + data.total.toLocaleString() + ' | ' + data.date)}" 
-      style="width:70px;height:70px;margin:4px auto;display:block;" 
-      alt="QR" />
-    <div style="font-size:9px;font-weight:bold;letter-spacing:1px;margin-top:2px;">${data.invoiceNo}</div>
+  <!-- Receipt No -->
+  <div style="text-align:center;margin:4px 0 2px 0;padding:2px 0;border-top:1px dashed #ccc;">
+    <div style="font-size:9px;font-weight:bold;letter-spacing:1px;">${data.invoiceNo}</div>
   </div>
 
   <!-- Footer -->
