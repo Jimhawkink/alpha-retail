@@ -150,12 +150,12 @@ export function getCompanyInfo(): CompanyInfo {
 export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo = defaultCompanyInfo, isPaid: boolean = false): string {
   const itemRows = data.items.map((item, index) => `
     <tr>
-      <td style="text-align:left;padding:4px 0;border-bottom:1px dotted #ccc;">${index + 1}. ${item.name}</td>
-      <td style="text-align:center;padding:4px 0;border-bottom:1px dotted #ccc;">${item.qty}</td>
-      <td style="text-align:right;padding:4px 0;border-bottom:1px dotted #ccc;">${item.price.toLocaleString()}</td>
-      <td style="text-align:right;padding:4px 0;border-bottom:1px dotted #ccc;font-weight:bold;">${item.total.toLocaleString()}</td>
+      <td style="text-align:left;padding:2px 0;border-bottom:1px dotted #ccc;font-size:10px;overflow:visible;">${index + 1}. ${item.name}</td>
+      <td style="text-align:right;padding:2px 2px;border-bottom:1px dotted #ccc;font-size:10px;">${item.qty}</td>
+      <td style="text-align:right;padding:2px 2px;border-bottom:1px dotted #ccc;font-size:10px;">${item.price.toLocaleString()}</td>
+      <td style="text-align:right;padding:2px 0;border-bottom:1px dotted #ccc;font-weight:bold;font-size:10px;">${item.total.toLocaleString()}</td>
     </tr>
-    ${item.notes ? `<tr><td colspan="4" style="font-size:10px;color:#c00;padding:2px 0 4px 15px;font-style:italic;">↳ ${item.notes}</td></tr>` : ''}
+    ${item.notes ? `<tr><td colspan="4" style="font-size:9px;color:#c00;padding:1px 0 2px 12px;font-style:italic;">↳ ${item.notes}</td></tr>` : ''}
   `).join('');
 
   const watermarkStyle = !isPaid ? `
@@ -195,27 +195,27 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
       font-family: 'Segoe UI', 'Arial', sans-serif;
       font-size: 11px;
       width: 80mm;
-      padding: 4mm;
+      padding: 3mm;
       background: #fff;
       color: #000;
       position: relative;
     }
     .header {
       text-align: center;
-      padding-bottom: 10px;
-      border-bottom: 3px double #000;
-      margin-bottom: 10px;
+      padding-bottom: 6px;
+      border-bottom: 2px double #000;
+      margin-bottom: 6px;
     }
     .company-logo {
-      font-size: 28px;
-      margin-bottom: 5px;
+      font-size: 18px;
+      margin-bottom: 2px;
     }
     .company-name {
-      font-size: 18px;
+      font-size: 14px;
       font-weight: bold;
       text-transform: uppercase;
-      letter-spacing: 2px;
-      margin-bottom: 3px;
+      letter-spacing: 1px;
+      margin-bottom: 2px;
     }
     .company-details {
       font-size: 10px;
@@ -232,20 +232,20 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
       background: #000;
       color: #fff;
       text-align: center;
-      padding: 8px;
-      font-size: 16px;
+      padding: 4px;
+      font-size: 12px;
       font-weight: bold;
-      letter-spacing: 3px;
-      margin: 10px 0;
+      letter-spacing: 2px;
+      margin: 4px 0;
     }
     .info-section {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 5px;
-      padding: 8px;
+      gap: 2px 8px;
+      padding: 4px 6px;
       background: #f5f5f5;
-      border-radius: 5px;
-      margin: 10px 0;
+      border-radius: 3px;
+      margin: 4px 0;
     }
     .info-row {
       display: flex;
@@ -273,53 +273,61 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
     .items-table {
       width: 100%;
       border-collapse: collapse;
-      margin: 10px 0;
+      margin: 4px 0;
+      table-layout: fixed;
     }
     .items-table th {
       background: #eee;
-      padding: 6px 4px;
+      padding: 4px 2px;
       text-align: left;
-      font-size: 10px;
+      font-size: 9px;
       font-weight: bold;
-      border-top: 2px solid #000;
-      border-bottom: 2px solid #000;
+      border-top: 1px solid #000;
+      border-bottom: 1px solid #000;
+      overflow: visible;
+      white-space: nowrap;
+    }
+    .items-table td {
+      overflow: visible;
+      white-space: nowrap;
+      font-size: 10px;
     }
     .items-table th:nth-child(2),
     .items-table th:nth-child(3),
     .items-table th:nth-child(4) {
-      text-align: center;
+      text-align: right;
     }
     .items-table th:last-child {
       text-align: right;
     }
     .totals-section {
-      border-top: 2px solid #000;
-      padding-top: 10px;
-      margin-top: 10px;
+      border-top: 1px solid #000;
+      padding-top: 3px;
+      margin-top: 2px;
     }
     .total-row {
       display: flex;
       justify-content: space-between;
-      padding: 4px 0;
-      font-size: 12px;
+      padding: 2px 0;
+      font-size: 11px;
     }
     .grand-total {
       background: linear-gradient(135deg, #000 0%, #333 100%);
       color: #fff;
-      padding: 12px;
-      margin: 10px 0;
-      border-radius: 5px;
+      padding: 6px 8px;
+      margin: 3px 0;
+      border-radius: 3px;
     }
     .grand-total .total-row {
-      font-size: 20px;
+      font-size: 16px;
       font-weight: bold;
     }
     .payment-section {
       background: #f0fff0;
-      border: 2px solid #4CAF50;
-      padding: 10px;
-      border-radius: 5px;
-      margin: 10px 0;
+      border: 1px solid #4CAF50;
+      padding: 6px;
+      border-radius: 3px;
+      margin: 4px 0;
     }
     .payment-section.unpaid {
       background: #fff0f0;
@@ -351,52 +359,40 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
     }
     .footer {
       text-align: center;
-      margin-top: 15px;
-      padding-top: 10px;
+      margin-top: 6px;
+      padding-top: 4px;
       border-top: 1px dashed #000;
     }
     .thank-you {
-      font-size: 14px;
+      font-size: 11px;
       font-weight: bold;
-      margin-bottom: 5px;
+      margin-bottom: 2px;
     }
     .footer-note {
-      font-size: 9px;
+      font-size: 8px;
       color: #666;
-      margin-top: 5px;
+      margin-top: 2px;
     }
     .barcode-section {
       text-align: center;
-      margin: 15px 0 5px 0;
-      padding: 10px;
-      border: 1px dashed #ccc;
+      margin: 4px 0 2px 0;
+      padding: 3px;
     }
     .barcode {
-      font-family: 'Libre Barcode 39', monospace;
-      font-size: 35px;
-      letter-spacing: 2px;
+      display: none;
     }
     .invoice-no-large {
-      font-size: 12px;
+      font-size: 10px;
       font-weight: bold;
-      letter-spacing: 2px;
-      margin-top: 5px;
+      letter-spacing: 1px;
     }
     .qr-code {
-      width: 60px;
-      height: 60px;
-      background: #f0f0f0;
-      margin: 5px auto;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 8px;
-      color: #999;
+      display: none;
     }
     .powered-by {
-      font-size: 8px;
+      font-size: 7px;
       color: #999;
-      margin-top: 10px;
+      margin-top: 3px;
     }
     @media print {
       body { width: 80mm; }
@@ -461,10 +457,10 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
   <table class="items-table">
     <thead>
       <tr>
-        <th style="width:45%">ITEM</th>
-        <th style="width:15%">QTY</th>
-        <th style="width:20%">PRICE</th>
-        <th style="width:20%">TOTAL</th>
+        <th style="width:40%">ITEM</th>
+        <th style="width:12%">QTY</th>
+        <th style="width:22%">PRICE</th>
+        <th style="width:26%">TOTAL</th>
       </tr>
     </thead>
     <tbody>
