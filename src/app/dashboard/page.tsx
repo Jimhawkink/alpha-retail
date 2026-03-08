@@ -1,58 +1,50 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    BarElement,
+    ArcElement,
+    Title,
+    Tooltip,
+    Legend,
+    Filler,
+} from 'chart.js';
+import { Line, Bar, Doughnut } from 'react-chartjs-2';
 
-interface SalesData {
-    date: string;
-    total: number;
-    count: number;
-}
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler);
 
-interface CategorySales {
-    category: string;
-    total: number;
-    percentage: number;
-}
+// ────────────────── Types ──────────────────
+interface DailySales { date: string; cash: number; mpesa: number; credit: number; total: number; orders: number; }
+interface TopProduct { name: string; qty: number; revenue: number; avgPrice: number; }
+interface LowStockItem { name: string; stock: number; reorder: number; type: 'dish' | 'ingredient'; status: 'out' | 'critical' | 'low'; }
+interface UserSalesData { name: string; sales: number; orders: number; }
+interface RecentPurchase { date: string; supplier: string; total: number; status: string; items: number; }
 
-interface TopProduct {
-    name: string;
-    qty: number;
-    revenue: number;
-}
-
-interface PaymentModeData {
-    mode: string;
-    total: number;
-    count: number;
-}
-
-interface WaiterSales {
-    name: string;
-    sales: number;
-    orders: number;
-}
-
-interface HourlyData {
-    hour: number;
-    sales: number;
-    orders: number;
-}
-
+// ────────────────── Dashboard ──────────────────
 export default function DashboardPage() {
     const [isLoading, setIsLoading] = useState(true);
-    const [dateFrom, setDateFrom] = useState(new Date().toISOString().split('T')[0]);
+    const [dateFrom, setDateFrom] = useState(() => {
+        const d = new Date(); d.setDate(d.getDate() - 7);
+        return d.toISOString().split('T')[0];
+    });
     const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0]);
+    const [rangePreset, setRangePreset] = useState<string>('7d');
 
-    // Stats
+    // KPI Stats
     const [todaySales, setTodaySales] = useState(0);
     const [yesterdaySales, setYesterdaySales] = useState(0);
     const [todayOrders, setTodayOrders] = useState(0);
     const [yesterdayOrders, setYesterdayOrders] = useState(0);
-    const [totalCustomers, setTotalCustomers] = useState(0);
+    const [todayCash, setTodayCash] = useState(0);
+    const [todayMpesa, setTodayMpesa] = useState(0);
+    const [todayCredit, setTodayCredit] = useState(0);
     const [pendingBills, setPendingBills] = useState(0);
-
-    // NEW: Financial stats
     const [totalExpenses, setTotalExpenses] = useState(0);
     const [totalAdvances, setTotalAdvances] = useState(0);
     const [totalVouchers, setTotalVouchers] = useState(0);
@@ -60,572 +52,714 @@ export default function DashboardPage() {
     const [closedShifts, setClosedShifts] = useState(0);
 
     // Chart data
-    const [salesData, setSalesData] = useState<SalesData[]>([]);
-    const [categorySales, setCategorySales] = useState<CategorySales[]>([]);
+    const [dailySales, setDailySales] = useState<DailySales[]>([]);
     const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
-    const [paymentModes, setPaymentModes] = useState<PaymentModeData[]>([]);
-    const [waiterSales, setWaiterSales] = useState<WaiterSales[]>([]);
-    const [hourlyData, setHourlyData] = useState<HourlyData[]>([]);
+    const [lowStock, setLowStock] = useState<LowStockItem[]>([]);
+    const [userSales, setUserSales] = useState<UserSalesData[]>([]);
+    const [recentPurchases, setRecentPurchases] = useState<RecentPurchase[]>([]);
+    const scrollRef = useRef<HTMLDivElement>(null);
 
-    // Low stock alerts
-    const [lowStockDishes, setLowStockDishes] = useState<Array<{ name: string; stock: number }>>([]);
-    const [lowStockIngredients, setLowStockIngredients] = useState<Array<{ name: string; stock: number; reorder: number }>>([]);
+    // ──── Date Presets ────
+    const setPreset = (preset: string) => {
+        setRangePreset(preset);
+        const now = new Date();
+        const to = now.toISOString().split('T')[0];
+        let from = to;
+        if (preset === '1d') from = to;
+        else if (preset === '7d') { const d = new Date(); d.setDate(d.getDate() - 7); from = d.toISOString().split('T')[0]; }
+        else if (preset === '14d') { const d = new Date(); d.setDate(d.getDate() - 14); from = d.toISOString().split('T')[0]; }
+        else if (preset === '30d') { const d = new Date(); d.setDate(d.getDate() - 30); from = d.toISOString().split('T')[0]; }
+        else if (preset === 'month') { from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`; }
+        setDateFrom(from);
+        setDateTo(to);
+    };
 
-    // M-Pesa comparison
-    const [mpesaToday, setMpesaToday] = useState(0);
-    const [mpesaYesterday, setMpesaYesterday] = useState(0);
-
+    // ──── Data Loading ────
     const loadDashboardData = useCallback(async () => {
         setIsLoading(true);
         const today = new Date().toISOString().split('T')[0];
         const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
         try {
-            // Today's sales - FIXED: use total_amount instead of grand_total
-            const { data: todayData } = await supabase
+            // ── Today's Sales by payment method ──
+            const { data: todayData } = await supabase.from('sales').select('total_amount, payment_method').eq('sale_date', today);
+            const tData = todayData || [];
+            setTodaySales(tData.reduce((s, r) => s + (r.total_amount || 0), 0));
+            setTodayOrders(tData.length);
+            setTodayCash(tData.filter(r => (r.payment_method || '').toLowerCase().includes('cash')).reduce((s, r) => s + (r.total_amount || 0), 0));
+            setTodayMpesa(tData.filter(r => (r.payment_method || '').toLowerCase().includes('mpesa')).reduce((s, r) => s + (r.total_amount || 0), 0));
+            setTodayCredit(tData.filter(r => (r.payment_method || '').toLowerCase().includes('credit')).reduce((s, r) => s + (r.total_amount || 0), 0));
+
+            // ── Yesterday's Sales ──
+            const { data: yData } = await supabase.from('sales').select('total_amount').eq('sale_date', yesterday);
+            setYesterdaySales((yData || []).reduce((s, r) => s + (r.total_amount || 0), 0));
+            setYesterdayOrders((yData || []).length);
+
+            // ── Pending Bills ──
+            const { data: pBills } = await supabase.from('sales').select('sale_id').eq('status', 'Pending');
+            setPendingBills(pBills?.length || 0);
+
+            // ── Daily Sales Trend (by date range, broken by payment method) ──
+            const { data: rangeSales } = await supabase
                 .from('sales')
-                .select('total_amount, payment_method')
-                .eq('sale_date', today);
-
-            const todayTotal = (todayData || []).reduce((sum, s) => sum + (s.total_amount || 0), 0);
-            setTodaySales(todayTotal);
-            setTodayOrders(todayData?.length || 0);
-            setMpesaToday((todayData || []).filter(s => (s.payment_method || '').toLowerCase().includes('mpesa')).reduce((sum, s) => sum + (s.total_amount || 0), 0));
-
-            // Yesterday's sales
-            const { data: yesterdayData } = await supabase
-                .from('sales')
-                .select('total_amount, payment_method')
-                .eq('sale_date', yesterday);
-
-            const yestTotal = (yesterdayData || []).reduce((sum, s) => sum + (s.total_amount || 0), 0);
-            setYesterdaySales(yestTotal);
-            setYesterdayOrders(yesterdayData?.length || 0);
-            setMpesaYesterday((yesterdayData || []).filter(s => (s.payment_method || '').toLowerCase().includes('mpesa')).reduce((sum, s) => sum + (s.total_amount || 0), 0));
-
-            // Pending bills - from sales table with status Pending
-            const { data: pendingData } = await supabase
-                .from('sales')
-                .select('sale_id')
-                .eq('status', 'Pending');
-            setPendingBills(pendingData?.length || 0);
-
-            // Sales for last 7 days
-            const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
-            const { data: weekSales } = await supabase
-                .from('sales')
-                .select('sale_date, total_amount')
-                .gte('sale_date', sevenDaysAgo)
+                .select('sale_date, total_amount, payment_method')
+                .gte('sale_date', dateFrom)
+                .lte('sale_date', dateTo)
                 .order('sale_date');
 
-            // Aggregate by date
-            const salesByDate = new Map<string, { total: number; count: number }>();
-            (weekSales || []).forEach(s => {
-                const date = s.sale_date;
-                if (!salesByDate.has(date)) {
-                    salesByDate.set(date, { total: 0, count: 0 });
-                }
-                const entry = salesByDate.get(date)!;
-                entry.total += s.total_amount || 0;
-                entry.count += 1;
+            const salesMap = new Map<string, DailySales>();
+            // Fill in all dates in range
+            const start = new Date(dateFrom);
+            const end = new Date(dateTo);
+            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                const key = d.toISOString().split('T')[0];
+                salesMap.set(key, { date: key, cash: 0, mpesa: 0, credit: 0, total: 0, orders: 0 });
+            }
+            (rangeSales || []).forEach(s => {
+                const key = s.sale_date;
+                if (!salesMap.has(key)) salesMap.set(key, { date: key, cash: 0, mpesa: 0, credit: 0, total: 0, orders: 0 });
+                const entry = salesMap.get(key)!;
+                const amt = s.total_amount || 0;
+                const method = (s.payment_method || '').toLowerCase();
+                entry.total += amt; entry.orders += 1;
+                if (method.includes('mpesa')) entry.mpesa += amt;
+                else if (method.includes('credit')) entry.credit += amt;
+                else entry.cash += amt;
             });
-            setSalesData(Array.from(salesByDate.entries()).map(([date, data]) => ({ date, ...data })));
+            setDailySales(Array.from(salesMap.values()).sort((a, b) => a.date.localeCompare(b.date)));
 
-            // Top selling products
+            // ── Top Selling Products ──
             const { data: salesItems } = await supabase
                 .from('sales_items')
-                .select('product_name, quantity, subtotal')
-                .order('created_at', { ascending: false })
-                .limit(500);
+                .select('product_name, quantity, subtotal, created_at')
+                .gte('created_at', `${dateFrom}T00:00:00`)
+                .lte('created_at', `${dateTo}T23:59:59`)
+                .limit(1000);
 
-            const productMap = new Map<string, { qty: number; revenue: number }>();
+            const prodMap = new Map<string, { qty: number; revenue: number }>();
             (salesItems || []).forEach(item => {
-                const name = item.product_name;
-                if (!productMap.has(name)) {
-                    productMap.set(name, { qty: 0, revenue: 0 });
-                }
-                const entry = productMap.get(name)!;
-                entry.qty += item.quantity || 0;
-                entry.revenue += item.subtotal || 0;
+                const name = item.product_name || 'Unknown';
+                if (!prodMap.has(name)) prodMap.set(name, { qty: 0, revenue: 0 });
+                const e = prodMap.get(name)!;
+                e.qty += item.quantity || 0;
+                e.revenue += item.subtotal || 0;
             });
-            const topProds = Array.from(productMap.entries())
-                .map(([name, data]) => ({ name, ...data }))
-                .sort((a, b) => b.qty - a.qty)
-                .slice(0, 10);
-            setTopProducts(topProds);
+            setTopProducts(
+                Array.from(prodMap.entries())
+                    .map(([name, data]) => ({ name, ...data, avgPrice: data.qty > 0 ? Math.round(data.revenue / data.qty) : 0 }))
+                    .sort((a, b) => b.qty - a.qty)
+                    .slice(0, 15)
+            );
 
-            // Payment modes
-            const { data: allSales } = await supabase
-                .from('sales')
-                .select('payment_method, total_amount')
-                .gte('sale_date', dateFrom)
-                .lte('sale_date', dateTo);
+            // ── Low Stock Items ──
+            const { data: lowDishes } = await supabase.from('products').select('product_name, stock, reorder_point').eq('active', true).order('stock').limit(20);
+            const { data: lowIngredients } = await supabase.from('products_ingredients').select('product_name, current_stock, reorder_point').eq('active', true).order('current_stock').limit(20);
 
-            const modeMap = new Map<string, { total: number; count: number }>();
-            (allSales || []).forEach(s => {
-                const mode = s.payment_method || 'CASH';
-                if (!modeMap.has(mode)) {
-                    modeMap.set(mode, { total: 0, count: 0 });
-                }
-                const entry = modeMap.get(mode)!;
-                entry.total += s.total_amount || 0;
-                entry.count += 1;
+            const lowItems: LowStockItem[] = [];
+            (lowDishes || []).filter(d => (d.stock || 0) <= (d.reorder_point || 10)).forEach(d => {
+                const stock = d.stock || 0;
+                const reorder = d.reorder_point || 10;
+                lowItems.push({ name: d.product_name, stock, reorder, type: 'dish', status: stock === 0 ? 'out' : stock <= reorder * 0.3 ? 'critical' : 'low' });
             });
-            setPaymentModes(Array.from(modeMap.entries()).map(([mode, data]) => ({ mode, ...data })));
+            (lowIngredients || []).filter(i => (i.current_stock || 0) <= (i.reorder_point || 10)).forEach(i => {
+                const stock = i.current_stock || 0;
+                const reorder = i.reorder_point || 10;
+                lowItems.push({ name: i.product_name, stock, reorder, type: 'ingredient', status: stock === 0 ? 'out' : stock <= reorder * 0.3 ? 'critical' : 'low' });
+            });
+            setLowStock(lowItems.sort((a, b) => a.stock - b.stock));
 
-            // Low stock dishes
-            const { data: lowDishes } = await supabase
-                .from('products')
-                .select('product_name, stock')
-                .lt('stock', 10)
-                .eq('active', true)
-                .order('stock')
-                .limit(10);
-            setLowStockDishes((lowDishes || []).map(d => ({ name: d.product_name, stock: d.stock || 0 })));
-
-            // Low stock ingredients
-            const { data: lowIngredients } = await supabase
-                .from('products_ingredients')
-                .select('product_name, current_stock, reorder_point')
-                .eq('active', true)
-                .order('current_stock')
-                .limit(10);
-            setLowStockIngredients((lowIngredients || [])
-                .filter(i => (i.current_stock || 0) <= (i.reorder_point || 10))
-                .map(i => ({ name: i.product_name, stock: i.current_stock || 0, reorder: i.reorder_point || 10 })));
-
-            // Waiter sales
+            // ── User/Waiter Sales ──
             const { data: waiterData } = await supabase
                 .from('sales')
-                .select('waiter_name, total_amount, created_by')
-                .gte('sale_date', dateFrom)
-                .lte('sale_date', dateTo);
-
-            const waiterMap = new Map<string, { sales: number; orders: number }>();
+                .select('waiter_name, created_by, total_amount')
+                .gte('sale_date', dateFrom).lte('sale_date', dateTo);
+            const wMap = new Map<string, { sales: number; orders: number }>();
             (waiterData || []).forEach(s => {
                 const name = s.waiter_name || s.created_by || 'Unknown';
-                if (!waiterMap.has(name)) {
-                    waiterMap.set(name, { sales: 0, orders: 0 });
-                }
-                const entry = waiterMap.get(name)!;
-                entry.sales += s.total_amount || 0;
-                entry.orders += 1;
+                if (!wMap.has(name)) wMap.set(name, { sales: 0, orders: 0 });
+                const e = wMap.get(name)!;
+                e.sales += s.total_amount || 0; e.orders += 1;
             });
-            setWaiterSales(Array.from(waiterMap.entries()).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.sales - a.sales));
+            setUserSales(Array.from(wMap.entries()).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.sales - a.sales).slice(0, 10));
 
-            // Load Expenses - STRICTLY filter by date range
-            const { data: expensesData } = await supabase
-                .from('expenses')
-                .select('amount, created_at')
-                .gte('expense_date', dateFrom)
-                .lte('expense_date', dateTo);
-            setTotalExpenses((expensesData || []).reduce((sum, e) => sum + (e.amount || 0), 0));
+            // ── Recent Purchases ──
+            const { data: purchasesData } = await supabase
+                .from('purchases')
+                .select('purchase_date, supplier_name, grand_total, status, purchase_no')
+                .order('purchase_date', { ascending: false })
+                .limit(8);
+            setRecentPurchases((purchasesData || []).map(p => ({
+                date: p.purchase_date, supplier: p.supplier_name || '-', total: p.grand_total || 0, status: p.status || 'Pending', items: 0,
+            })));
 
-            // Load Salary Advances - STRICTLY filter by date range
-            const { data: advancesData } = await supabase
-                .from('salary_advances')
-                .select('amount, created_at')
-                .eq('status', 'Approved')
-                .gte('created_at', `${dateFrom}T00:00:00`)
-                .lte('created_at', `${dateTo}T23:59:59`);
-            setTotalAdvances((advancesData || []).reduce((sum, a) => sum + (a.amount || 0), 0));
+            // ── Financials ──
+            const { data: expData } = await supabase.from('expenses').select('amount').gte('expense_date', dateFrom).lte('expense_date', dateTo);
+            setTotalExpenses((expData || []).reduce((s, e) => s + (e.amount || 0), 0));
 
-            // Load Vouchers - STRICTLY filter by date range
-            const { data: vouchersData } = await supabase
-                .from('vouchers')
-                .select('amount, created_at')
-                .gte('created_at', `${dateFrom}T00:00:00`)
-                .lte('created_at', `${dateTo}T23:59:59`);
-            setTotalVouchers((vouchersData || []).reduce((sum, v) => sum + (v.amount || 0), 0));
+            const { data: advData } = await supabase.from('salary_advances').select('amount').eq('status', 'Approved').gte('created_at', `${dateFrom}T00:00:00`).lte('created_at', `${dateTo}T23:59:59`);
+            setTotalAdvances((advData || []).reduce((s, a) => s + (a.amount || 0), 0));
 
-            // Load Shifts - filter by date range
-            const { data: shiftsData } = await supabase
-                .from('shifts')
-                .select('shift_id, status, shift_date')
-                .gte('shift_date', dateFrom)
-                .lte('shift_date', dateTo);
-            setActiveShifts((shiftsData || []).filter(s => s.status === 'Open').length);
-            setClosedShifts((shiftsData || []).filter(s => s.status === 'Closed').length);
+            const { data: vcData } = await supabase.from('vouchers').select('amount').gte('created_at', `${dateFrom}T00:00:00`).lte('created_at', `${dateTo}T23:59:59`);
+            setTotalVouchers((vcData || []).reduce((s, v) => s + (v.amount || 0), 0));
 
-        } catch (err) {
-            console.error('Error loading dashboard:', err);
-        }
+            const { data: shData } = await supabase.from('shifts').select('status, shift_date').gte('shift_date', dateFrom).lte('shift_date', dateTo);
+            setActiveShifts((shData || []).filter(s => s.status === 'Open').length);
+            setClosedShifts((shData || []).filter(s => s.status === 'Closed').length);
+
+        } catch (err) { console.error('Dashboard error:', err); }
         setIsLoading(false);
     }, [dateFrom, dateTo]);
 
-    useEffect(() => {
-        loadDashboardData();
-    }, [loadDashboardData]);
+    useEffect(() => { loadDashboardData(); }, [loadDashboardData]);
 
-    const salesChange = yesterdaySales > 0 ? ((todaySales - yesterdaySales) / yesterdaySales * 100).toFixed(1) : '0';
-    const ordersChange = yesterdayOrders > 0 ? ((todayOrders - yesterdayOrders) / yesterdayOrders * 100).toFixed(1) : '0';
-    const mpesaChange = mpesaYesterday > 0 ? ((mpesaToday - mpesaYesterday) / mpesaYesterday * 100).toFixed(1) : '0';
+    // ──── Computed ────
+    const salesChange = yesterdaySales > 0 ? ((todaySales - yesterdaySales) / yesterdaySales * 100) : 0;
+    const netSales = todaySales - totalExpenses - totalAdvances - totalVouchers;
+    const totalRangeSales = dailySales.reduce((s, d) => s + d.total, 0);
+    const totalRangeOrders = dailySales.reduce((s, d) => s + d.orders, 0);
+    const avgOrderValue = totalRangeOrders > 0 ? Math.round(totalRangeSales / totalRangeOrders) : 0;
 
-    // Chart calculations
-    const maxSales = Math.max(...salesData.map(d => d.total), 1);
-    const maxProduct = Math.max(...topProducts.map(p => p.qty), 1);
+    // ──── Chart Configs ────
+    const chartLabels = dailySales.map(d => {
+        const dt = new Date(d.date);
+        return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+    });
 
+    const salesLineData = {
+        labels: chartLabels,
+        datasets: [
+            {
+                label: 'Total Sales',
+                data: dailySales.map(d => d.total),
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99, 102, 241, 0.08)',
+                fill: true,
+                tension: 0.4,
+                borderWidth: 3,
+                pointRadius: dailySales.length > 14 ? 0 : 4,
+                pointHoverRadius: 6,
+                pointBackgroundColor: '#6366f1',
+            },
+            {
+                label: 'Cash',
+                data: dailySales.map(d => d.cash),
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.05)',
+                fill: false,
+                tension: 0.4,
+                borderWidth: 2,
+                pointRadius: 0,
+                pointHoverRadius: 5,
+                borderDash: [],
+            },
+            {
+                label: 'M-Pesa',
+                data: dailySales.map(d => d.mpesa),
+                borderColor: '#f59e0b',
+                backgroundColor: 'rgba(245, 158, 11, 0.05)',
+                fill: false,
+                tension: 0.4,
+                borderWidth: 2,
+                pointRadius: 0,
+                pointHoverRadius: 5,
+            },
+            {
+                label: 'Credit',
+                data: dailySales.map(d => d.credit),
+                borderColor: '#ef4444',
+                backgroundColor: 'rgba(239, 68, 68, 0.05)',
+                fill: false,
+                tension: 0.4,
+                borderWidth: 2,
+                pointRadius: 0,
+                pointHoverRadius: 5,
+                borderDash: [5, 5],
+            },
+        ],
+    };
+
+    const salesLineOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index' as const, intersect: false },
+        plugins: {
+            legend: { position: 'top' as const, labels: { usePointStyle: true, padding: 20, font: { size: 12, weight: 500 as const } } },
+            tooltip: {
+                backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                padding: 14,
+                titleFont: { size: 13, weight: 'bold' as const },
+                bodyFont: { size: 12 },
+                cornerRadius: 10,
+                callbacks: {
+                    label: (ctx: { dataset: { label?: string }; parsed: { y: number | null } }) =>
+                        `${ctx.dataset.label}: Ksh ${(ctx.parsed.y || 0).toLocaleString()}`,
+                },
+            },
+        },
+        scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 11 }, maxRotation: 45 } },
+            y: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 11 }, callback: (v: string | number) => `Ksh ${Number(v).toLocaleString()}` } },
+        },
+    };
+
+    const paymentBarData = {
+        labels: chartLabels,
+        datasets: [
+            { label: 'Cash', data: dailySales.map(d => d.cash), backgroundColor: 'rgba(16, 185, 129, 0.8)', borderRadius: 6, barPercentage: 0.7 },
+            { label: 'M-Pesa', data: dailySales.map(d => d.mpesa), backgroundColor: 'rgba(245, 158, 11, 0.8)', borderRadius: 6, barPercentage: 0.7 },
+            { label: 'Credit', data: dailySales.map(d => d.credit), backgroundColor: 'rgba(239, 68, 68, 0.7)', borderRadius: 6, barPercentage: 0.7 },
+        ],
+    };
+
+    const paymentBarOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'top' as const, labels: { usePointStyle: true, padding: 15, font: { size: 12 } } },
+            tooltip: {
+                backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                padding: 12, cornerRadius: 10,
+                callbacks: {
+                    label: (ctx: { dataset: { label?: string }; parsed: { y: number | null } }) =>
+                        `${ctx.dataset.label}: Ksh ${(ctx.parsed.y || 0).toLocaleString()}`,
+                },
+            },
+        },
+        scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 11 }, maxRotation: 45 } },
+            y: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 11 }, callback: (v: string | number) => `Ksh ${Number(v).toLocaleString()}` } },
+        },
+    };
+
+    const userBarData = {
+        labels: userSales.map(u => u.name),
+        datasets: [{
+            label: 'Revenue',
+            data: userSales.map(u => u.sales),
+            backgroundColor: userSales.map((_, i) => {
+                const colors = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#818cf8', '#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#818cf8'];
+                return colors[i % colors.length];
+            }),
+            borderRadius: 8,
+            barPercentage: 0.6,
+        }],
+    };
+
+    const userBarOptions = {
+        indexAxis: 'y' as const,
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                padding: 12, cornerRadius: 10,
+                callbacks: {
+                    label: (ctx: { parsed: { x: number | null } }) =>
+                        `Revenue: Ksh ${(ctx.parsed.x || 0).toLocaleString()}`,
+                },
+            },
+        },
+        scales: {
+            x: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 11 }, callback: (v: string | number) => `Ksh ${Number(v).toLocaleString()}` } },
+            y: { grid: { display: false }, ticks: { font: { size: 12, weight: 500 as const } } },
+        },
+    };
+
+    // Payment donut
+    const totalPayments = todayCash + todayMpesa + todayCredit;
+    const donutData = {
+        labels: ['Cash', 'M-Pesa', 'Credit'],
+        datasets: [{
+            data: [todayCash || 0.01, todayMpesa || 0.01, todayCredit || 0.01],
+            backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+            borderWidth: 0,
+            cutout: '72%',
+        }],
+    };
+    const donutOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                padding: 12, cornerRadius: 10,
+                callbacks: {
+                    label: (ctx: { label?: string; parsed: number }) =>
+                        `${ctx.label}: Ksh ${ctx.parsed.toLocaleString()}`,
+                },
+            },
+        },
+    };
+
+    // ──── Helpers ────
+    const fmt = (n: number) => n >= 1000000 ? `${(n / 1000000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}K` : n.toLocaleString();
+    const pct = (val: number) => val >= 0 ? `+${val.toFixed(1)}%` : `${val.toFixed(1)}%`;
+
+    // ──────────────── RENDER ────────────────
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
+        <div className="space-y-5 pb-8" ref={scrollRef}>
+            {/* ══════ Header ══════ */}
+            <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-3">
-                        <span className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg">📊</span>
-                        Intelligent Dashboard
+                    <h1 className="text-2xl font-extrabold text-gray-900 flex items-center gap-3">
+                        <span className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white text-lg shadow-lg shadow-indigo-200">📊</span>
+                        Analytics Dashboard
                     </h1>
-                    <p className="text-gray-500 mt-1">Real-time business intelligence & analytics</p>
+                    <p className="text-sm text-gray-500 mt-0.5">Real-time business intelligence</p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2 bg-white rounded-xl px-4 py-2 border border-gray-200">
-                        <span className="text-sm text-gray-500">From:</span>
-                        <input
-                            type="date"
-                            value={dateFrom}
-                            onChange={(e) => setDateFrom(e.target.value)}
-                            className="border-none bg-transparent focus:outline-none text-gray-800 font-medium"
-                        />
+                <div className="flex items-center gap-2 flex-wrap">
+                    {/* Date Presets */}
+                    {['1d', '7d', '14d', '30d', 'month'].map(p => (
+                        <button key={p} onClick={() => setPreset(p)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${rangePreset === p ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}>
+                            {p === '1d' ? 'Today' : p === 'month' ? 'This Month' : p.toUpperCase()}
+                        </button>
+                    ))}
+                    <div className="flex items-center gap-1.5 ml-2">
+                        <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setRangePreset('custom'); }}
+                            className="px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs bg-white focus:ring-2 focus:ring-indigo-300 focus:outline-none" />
+                        <span className="text-gray-400 text-xs">→</span>
+                        <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setRangePreset('custom'); }}
+                            className="px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs bg-white focus:ring-2 focus:ring-indigo-300 focus:outline-none" />
                     </div>
-                    <div className="flex items-center gap-2 bg-white rounded-xl px-4 py-2 border border-gray-200">
-                        <span className="text-sm text-gray-500">To:</span>
-                        <input
-                            type="date"
-                            value={dateTo}
-                            onChange={(e) => setDateTo(e.target.value)}
-                            className="border-none bg-transparent focus:outline-none text-gray-800 font-medium"
-                        />
-                    </div>
-                    <button
-                        onClick={loadDashboardData}
-                        className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all"
-                    >
-                        🔄 Refresh
+                    <button onClick={loadDashboardData}
+                        className="px-4 py-1.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg text-xs font-bold hover:shadow-lg hover:shadow-indigo-200 transition-all">
+                        {isLoading ? '⏳' : '🔄'} Refresh
                     </button>
                 </div>
             </div>
 
-            {/* Alerts Notification Bar */}
-            {(lowStockDishes.length > 0 || lowStockIngredients.length > 0 || pendingBills > 0) && (
-                <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 rounded-2xl p-4 text-white shadow-lg flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <span className="text-3xl animate-pulse">⚠️</span>
+            {/* ══════ Alert Banner ══════ */}
+            {(lowStock.filter(i => i.status === 'out').length > 0 || pendingBills > 0) && (
+                <div className="bg-gradient-to-r from-red-500 via-orange-500 to-amber-500 rounded-2xl px-5 py-3 text-white flex items-center justify-between shadow-lg shadow-orange-200/50">
+                    <div className="flex items-center gap-3">
+                        <span className="text-2xl animate-pulse">🚨</span>
                         <div>
-                            <p className="font-bold">Attention Required!</p>
-                            <p className="text-sm opacity-90">
-                                {lowStockDishes.length > 0 && `${lowStockDishes.length} dishes low on stock • `}
-                                {lowStockIngredients.length > 0 && `${lowStockIngredients.length} ingredients need reorder • `}
-                                {pendingBills > 0 && `${pendingBills} pending bills`}
+                            <p className="font-bold text-sm">Action Required</p>
+                            <p className="text-xs opacity-90">
+                                {lowStock.filter(i => i.status === 'out').length > 0 && `${lowStock.filter(i => i.status === 'out').length} items OUT OF STOCK • `}
+                                {pendingBills > 0 && `${pendingBills} unpaid bills`}
                             </p>
                         </div>
                     </div>
                     <div className="flex gap-2">
-                        <a href="/dashboard/low-stock" className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-xl font-semibold transition-all">View Low Stock</a>
-                        <a href="/dashboard/bills" className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-xl font-semibold transition-all">View Bills</a>
+                        <a href="/dashboard/low-stock" className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-bold transition">View Stock</a>
+                        <a href="/dashboard/bills" className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-bold transition">View Bills</a>
                     </div>
                 </div>
             )}
 
-            {/* Main Stats Cards */}
-            <div className="grid grid-cols-6 gap-4">
+            {/* ══════ KPI Cards Row ══════ */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 {/* Today's Sales */}
-                <div className="col-span-2 bg-gradient-to-br from-emerald-500 via-green-500 to-teal-600 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+                <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-4 text-white shadow-lg shadow-emerald-200/50 relative overflow-hidden">
+                    <div className="absolute -top-6 -right-6 w-20 h-20 bg-white/10 rounded-full" />
+                    <p className="text-xs font-medium opacity-80">Today&apos;s Sales</p>
+                    <p className="text-2xl font-extrabold mt-1">Ksh {fmt(todaySales)}</p>
+                    <div className="flex items-center gap-1 mt-1">
+                        <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${salesChange >= 0 ? 'bg-white/25' : 'bg-red-400/40'}`}>
+                            {pct(salesChange)}
+                        </span>
+                        <span className="text-xs opacity-70">vs yesterday</span>
+                    </div>
+                </div>
+                {/* Orders */}
+                <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-4 text-white shadow-lg shadow-blue-200/50 relative overflow-hidden">
+                    <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-white/10 rounded-full" />
+                    <p className="text-xs font-medium opacity-80">Orders Today</p>
+                    <p className="text-2xl font-extrabold mt-1">{todayOrders}</p>
+                    <p className="text-xs opacity-70 mt-1">Avg: Ksh {avgOrderValue.toLocaleString()}</p>
+                </div>
+                {/* Cash */}
+                <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-4 text-white shadow-lg shadow-green-200/50">
+                    <p className="text-xs font-medium opacity-80">💵 Cash Today</p>
+                    <p className="text-2xl font-extrabold mt-1">Ksh {fmt(todayCash)}</p>
+                    <p className="text-xs opacity-70 mt-1">{totalPayments > 0 ? ((todayCash / totalPayments) * 100).toFixed(0) : 0}% of total</p>
+                </div>
+                {/* M-Pesa */}
+                <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-4 text-white shadow-lg shadow-amber-200/50">
+                    <p className="text-xs font-medium opacity-80">📱 M-Pesa Today</p>
+                    <p className="text-2xl font-extrabold mt-1">Ksh {fmt(todayMpesa)}</p>
+                    <p className="text-xs opacity-70 mt-1">{totalPayments > 0 ? ((todayMpesa / totalPayments) * 100).toFixed(0) : 0}% of total</p>
+                </div>
+                {/* Credit */}
+                <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl p-4 text-white shadow-lg shadow-red-200/50">
+                    <p className="text-xs font-medium opacity-80">🏦 Credit Today</p>
+                    <p className="text-2xl font-extrabold mt-1">Ksh {fmt(todayCredit)}</p>
+                    <p className="text-xs opacity-70 mt-1">{totalPayments > 0 ? ((todayCredit / totalPayments) * 100).toFixed(0) : 0}% of total</p>
+                </div>
+                {/* Net Profit */}
+                <div className="bg-gradient-to-br from-violet-600 to-purple-700 rounded-2xl p-4 text-white shadow-lg shadow-purple-200/50 relative overflow-hidden">
+                    <div className="absolute -top-4 -left-4 w-16 h-16 bg-white/10 rounded-full" />
+                    <p className="text-xs font-medium opacity-80">📊 Net Today</p>
+                    <p className={`text-2xl font-extrabold mt-1 ${netSales < 0 ? 'text-red-300' : ''}`}>Ksh {fmt(netSales)}</p>
+                    <p className="text-xs opacity-70 mt-1">After deductions</p>
+                </div>
+            </div>
+
+            {/* ══════ Main Charts Row ══════ */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                {/* Sales Trend Line Chart */}
+                <div className="lg:col-span-2 bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                     <div className="flex items-center justify-between mb-4">
-                        <span className="text-4xl">💰</span>
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${Number(salesChange) >= 0 ? 'bg-white/30' : 'bg-red-500/50'}`}>
-                            {Number(salesChange) >= 0 ? '↑' : '↓'} {Math.abs(Number(salesChange))}%
+                        <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                            <span className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-sm">📈</span>
+                            Sales Trend
+                        </h3>
+                        <span className="text-xs text-gray-400 font-medium">
+                            Total: Ksh {totalRangeSales.toLocaleString()} • {totalRangeOrders} orders
                         </span>
                     </div>
-                    <p className="text-sm opacity-80 font-medium">Today's Sales</p>
-                    <p className="text-4xl font-bold mt-1">Ksh {todaySales.toLocaleString()}</p>
-                    <p className="text-xs opacity-70 mt-2">Yesterday: Ksh {yesterdaySales.toLocaleString()}</p>
+                    <div style={{ height: '320px' }}>
+                        {dailySales.length > 0 ? (
+                            <Line data={salesLineData} options={salesLineOptions} />
+                        ) : (
+                            <div className="h-full flex items-center justify-center text-gray-400">
+                                <div className="text-center"><span className="text-4xl">📊</span><p className="mt-2">No sales data for this period</p></div>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
-                {/* Orders */}
-                <div className="bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
-                    <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-white/10 rounded-full"></div>
-                    <span className="text-3xl">🧾</span>
-                    <p className="text-xs opacity-80 mt-2">Orders Today</p>
-                    <p className="text-3xl font-bold mt-1">{todayOrders}</p>
-                    <span className={`text-xs ${Number(ordersChange) >= 0 ? 'text-green-300' : 'text-red-300'}`}>
-                        {Number(ordersChange) >= 0 ? '↑' : '↓'} {Math.abs(Number(ordersChange))}%
-                    </span>
-                </div>
-
-                {/* M-Pesa */}
-                <div className="bg-gradient-to-br from-green-600 via-emerald-600 to-teal-700 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
-                    <div className="absolute -top-4 -left-4 w-20 h-20 bg-white/10 rounded-full"></div>
-                    <span className="text-3xl">📱</span>
-                    <p className="text-xs opacity-80 mt-2">M-Pesa Today</p>
-                    <p className="text-2xl font-bold mt-1">Ksh {mpesaToday.toLocaleString()}</p>
-                    <span className={`text-xs ${Number(mpesaChange) >= 0 ? 'text-green-300' : 'text-red-300'}`}>
-                        {Number(mpesaChange) >= 0 ? '↑' : '↓'} {Math.abs(Number(mpesaChange))}%
-                    </span>
-                </div>
-
-                {/* Pending Bills */}
-                <div className="bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-500 rounded-3xl p-6 text-white shadow-xl">
-                    <span className="text-3xl">⏳</span>
-                    <p className="text-xs opacity-80 mt-2">Pending Bills</p>
-                    <p className="text-3xl font-bold mt-1">{pendingBills}</p>
-                    <a href="/dashboard/bills" className="text-xs underline opacity-80 hover:opacity-100">View all →</a>
-                </div>
-
-                {/* Low Stock */}
-                <div className="bg-gradient-to-br from-red-500 via-rose-500 to-pink-600 rounded-3xl p-6 text-white shadow-xl">
-                    <span className="text-3xl">⚠️</span>
-                    <p className="text-xs opacity-80 mt-2">Low Stock Items</p>
-                    <p className="text-3xl font-bold mt-1">{lowStockDishes.length + lowStockIngredients.length}</p>
-                    <a href="/dashboard/low-stock" className="text-xs underline opacity-80 hover:opacity-100">Check now →</a>
-                </div>
-            </div>
-
-            {/* Financial Stats Row */}
-            <div className="grid grid-cols-6 gap-4">
-                {/* Expenses */}
-                <div className="bg-gradient-to-br from-rose-500 via-pink-500 to-fuchsia-600 rounded-3xl p-5 text-white shadow-xl">
-                    <span className="text-3xl">💸</span>
-                    <p className="text-xs opacity-80 mt-2">Total Expenses</p>
-                    <p className="text-2xl font-bold mt-1">Ksh {totalExpenses.toLocaleString()}</p>
-                    <a href="/dashboard/expenses" className="text-xs underline opacity-80 hover:opacity-100">View →</a>
-                </div>
-
-                {/* Salary Advances */}
-                <div className="bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 rounded-3xl p-5 text-white shadow-xl">
-                    <span className="text-3xl">💵</span>
-                    <p className="text-xs opacity-80 mt-2">Salary Advances</p>
-                    <p className="text-2xl font-bold mt-1">Ksh {totalAdvances.toLocaleString()}</p>
-                    <a href="/dashboard/advances" className="text-xs underline opacity-80 hover:opacity-100">View →</a>
-                </div>
-
-                {/* Vouchers */}
-                <div className="bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 rounded-3xl p-5 text-white shadow-xl">
-                    <span className="text-3xl">🎟️</span>
-                    <p className="text-xs opacity-80 mt-2">Total Vouchers</p>
-                    <p className="text-2xl font-bold mt-1">Ksh {totalVouchers.toLocaleString()}</p>
-                    <a href="/dashboard/vouchers" className="text-xs underline opacity-80 hover:opacity-100">View →</a>
-                </div>
-
-                {/* Net Sales */}
-                <div className="col-span-2 bg-gradient-to-br from-teal-500 via-cyan-500 to-blue-600 rounded-3xl p-5 text-white shadow-xl relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-                    <span className="text-3xl">📊</span>
-                    <p className="text-xs opacity-80 mt-2">Net Sales (After Deductions)</p>
-                    <p className="text-3xl font-bold mt-1">Ksh {(todaySales - totalExpenses - totalVouchers).toLocaleString()}</p>
-                    <p className="text-xs opacity-70 mt-1">Sales - Expenses - Vouchers</p>
-                </div>
-
-                {/* Shifts */}
-                <div className="bg-gradient-to-br from-cyan-500 via-sky-500 to-blue-600 rounded-3xl p-5 text-white shadow-xl">
-                    <span className="text-3xl">⏰</span>
-                    <p className="text-xs opacity-80 mt-2">Shifts</p>
-                    <div className="flex items-center gap-3 mt-2">
-                        <div>
-                            <p className="text-lg font-bold">{activeShifts}</p>
-                            <p className="text-xs opacity-70">Active</p>
-                        </div>
-                        <div className="h-8 w-px bg-white/30"></div>
-                        <div>
-                            <p className="text-lg font-bold">{closedShifts}</p>
-                            <p className="text-xs opacity-70">Closed</p>
+                {/* Payment Split Donut */}
+                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                    <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
+                        <span className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center text-sm">💳</span>
+                        Today&apos;s Payment Split
+                    </h3>
+                    <div style={{ height: '200px' }} className="flex items-center justify-center relative">
+                        <Doughnut data={donutData} options={donutOptions} />
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div className="text-center">
+                                <p className="text-2xl font-extrabold text-gray-800">Ksh {fmt(totalPayments)}</p>
+                                <p className="text-xs text-gray-500">Total</p>
+                            </div>
                         </div>
                     </div>
-                    <a href="/dashboard/shifts" className="text-xs underline opacity-80 hover:opacity-100">Manage →</a>
+                    <div className="mt-4 space-y-2">
+                        {[
+                            { label: 'Cash', value: todayCash, color: '#10b981', icon: '💵' },
+                            { label: 'M-Pesa', value: todayMpesa, color: '#f59e0b', icon: '📱' },
+                            { label: 'Credit', value: todayCredit, color: '#ef4444', icon: '🏦' },
+                        ].map(m => (
+                            <div key={m.label} className="flex items-center gap-2">
+                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: m.color }} />
+                                <span className="text-sm text-gray-600 flex-1">{m.icon} {m.label}</span>
+                                <span className="text-sm font-bold text-gray-800">Ksh {m.value.toLocaleString()}</span>
+                                <span className="text-xs text-gray-400">{totalPayments > 0 ? ((m.value / totalPayments) * 100).toFixed(0) : 0}%</span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
 
-            {/* Charts Row */}
-            <div className="grid grid-cols-3 gap-6">
-                {/* Sales Trend Chart */}
-                <div className="col-span-2 bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
-                    <div className="flex items-center justify-between mb-6">
-                        <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                            <span className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">📈</span>
-                            Sales Trend (Last 7 Days)
-                        </h3>
-                    </div>
-                    <div className="h-64 flex items-end gap-2">
-                        {salesData.map((d, i) => (
-                            <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                                <div className="w-full relative group">
-                                    <div
-                                        className="w-full bg-gradient-to-t from-blue-500 to-cyan-400 rounded-t-lg transition-all hover:from-blue-600 hover:to-cyan-500"
-                                        style={{ height: `${(d.total / maxSales) * 200}px`, minHeight: '20px' }}
-                                    >
-                                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                                            Ksh {d.total.toLocaleString()}
-                                        </div>
-                                    </div>
-                                </div>
-                                <span className="text-xs text-gray-500">{new Date(d.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>
-                            </div>
-                        ))}
-                        {salesData.length === 0 && (
-                            <div className="flex-1 flex items-center justify-center text-gray-400">
-                                <p>No sales data available</p>
-                            </div>
+            {/* ══════ Payment Comparison + User Sales ══════ */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                {/* Payment Comparison Bar Chart */}
+                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                    <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
+                        <span className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center text-sm">📊</span>
+                        Payment Method Comparison
+                    </h3>
+                    <div style={{ height: '300px' }}>
+                        {dailySales.length > 0 ? <Bar data={paymentBarData} options={paymentBarOptions} /> : (
+                            <div className="h-full flex items-center justify-center text-gray-400"><p>No data</p></div>
                         )}
                     </div>
                 </div>
 
-                {/* Payment Modes Pie */}
-                <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
-                    <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-6">
-                        <span className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">💳</span>
-                        Payment Methods
+                {/* User/Waiter Sales */}
+                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                    <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
+                        <span className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center text-sm">👥</span>
+                        Staff Sales Ranking
                     </h3>
-                    <div className="space-y-3">
-                        {paymentModes.map((mode, i) => {
-                            const total = paymentModes.reduce((sum, m) => sum + m.total, 0);
-                            const percent = total > 0 ? (mode.total / total * 100).toFixed(1) : 0;
-                            const colors = ['from-green-500 to-emerald-600', 'from-blue-500 to-indigo-600', 'from-purple-500 to-pink-600', 'from-orange-500 to-red-600'];
-                            return (
-                                <div key={i} className="flex items-center gap-3">
-                                    <div className={`w-3 h-3 rounded-full bg-gradient-to-r ${colors[i % colors.length]}`}></div>
-                                    <div className="flex-1">
-                                        <div className="flex justify-between text-sm">
-                                            <span className="font-medium text-gray-700">{mode.mode}</span>
-                                            <span className="text-gray-500">{percent}%</span>
-                                        </div>
-                                        <div className="h-2 bg-gray-100 rounded-full mt-1 overflow-hidden">
-                                            <div className={`h-full bg-gradient-to-r ${colors[i % colors.length]} rounded-full`} style={{ width: `${percent}%` }}></div>
-                                        </div>
-                                        <p className="text-xs text-gray-400 mt-1">Ksh {mode.total.toLocaleString()} ({mode.count} orders)</p>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                        {paymentModes.length === 0 && <p className="text-center text-gray-400">No payment data</p>}
+                    <div style={{ height: '300px' }}>
+                        {userSales.length > 0 ? <Bar data={userBarData} options={userBarOptions} /> : (
+                            <div className="h-full flex items-center justify-center text-gray-400"><p>No staff data</p></div>
+                        )}
                     </div>
                 </div>
             </div>
 
-            {/* Second Row */}
-            <div className="grid grid-cols-3 gap-6">
-                {/* Top Selling Products */}
-                <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
+            {/* ══════ Data Grids Row ══════ */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                {/* Best Sellers Grid */}
+                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                     <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
-                        <span className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">🔥</span>
-                        Top Selling Items
+                        <span className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center text-sm">🔥</span>
+                        Best Sellers
                     </h3>
-                    <div className="space-y-3 max-h-80 overflow-y-auto">
-                        {topProducts.map((prod, i) => (
-                            <div key={i} className="flex items-center gap-3">
-                                <span className="w-8 h-8 bg-gradient-to-br from-orange-400 to-red-500 text-white rounded-lg flex items-center justify-center text-sm font-bold">
-                                    {i + 1}
-                                </span>
-                                <div className="flex-1">
-                                    <p className="font-medium text-gray-800 text-sm">{prod.name}</p>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                                            <div
-                                                className="h-full bg-gradient-to-r from-orange-400 to-red-500 rounded-full"
-                                                style={{ width: `${(prod.qty / maxProduct) * 100}%` }}
-                                            ></div>
-                                        </div>
-                                        <span className="text-xs text-gray-500 w-12">{prod.qty} sold</span>
-                                    </div>
-                                </div>
-                                <span className="text-sm font-bold text-green-600">Ksh {prod.revenue.toLocaleString()}</span>
-                            </div>
-                        ))}
-                        {topProducts.length === 0 && <p className="text-center text-gray-400">No sales data</p>}
-                    </div>
-                </div>
-
-                {/* Waiter Performance */}
-                <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
-                    <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
-                        <span className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">👨‍🍳</span>
-                        Waiter Performance
-                    </h3>
-                    <div className="space-y-3 max-h-80 overflow-y-auto">
-                        {waiterSales.map((waiter, i) => (
-                            <div key={i} className="flex items-center gap-3 p-3 bg-gradient-to-r from-gray-50 to-indigo-50 rounded-xl">
-                                <span className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${i === 0 ? 'bg-gradient-to-br from-yellow-400 to-orange-500' :
-                                    i === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400' :
-                                        i === 2 ? 'bg-gradient-to-br from-amber-600 to-amber-700' :
-                                            'bg-gradient-to-br from-indigo-400 to-purple-500'
-                                    }`}>
-                                    {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}
-                                </span>
-                                <div className="flex-1">
-                                    <p className="font-semibold text-gray-800">{waiter.name}</p>
-                                    <p className="text-xs text-gray-500">{waiter.orders} orders</p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="font-bold text-indigo-600">Ksh {waiter.sales.toLocaleString()}</p>
-                                </div>
-                            </div>
-                        ))}
-                        {waiterSales.length === 0 && <p className="text-center text-gray-400">No waiter data</p>}
-                    </div>
-                </div>
-
-                {/* Low Stock Alerts */}
-                <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
-                    <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
-                        <span className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">⚠️</span>
-                        Low Stock Alerts
-                    </h3>
-                    <div className="space-y-2 max-h-80 overflow-y-auto">
-                        {lowStockDishes.length > 0 && (
-                            <div className="mb-3">
-                                <p className="text-xs font-semibold text-gray-500 uppercase mb-2">🍽️ Dishes</p>
-                                {lowStockDishes.map((d, i) => (
-                                    <div key={i} className="flex items-center justify-between p-2 bg-red-50 rounded-lg mb-1">
-                                        <span className="text-sm text-gray-800">{d.name}</span>
-                                        <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-bold">{d.stock} left</span>
-                                    </div>
+                    <div className="overflow-auto max-h-[400px]">
+                        <table className="w-full text-sm">
+                            <thead className="sticky top-0 bg-gray-50">
+                                <tr className="text-left text-xs font-semibold text-gray-500 uppercase">
+                                    <th className="py-2 px-2">#</th>
+                                    <th className="py-2 px-2">Product</th>
+                                    <th className="py-2 px-2 text-right">Qty</th>
+                                    <th className="py-2 px-2 text-right">Revenue</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                                {topProducts.map((p, i) => (
+                                    <tr key={i} className="hover:bg-indigo-50/50 transition">
+                                        <td className="py-2 px-2">
+                                            <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold text-white ${i === 0 ? 'bg-yellow-500' : i === 1 ? 'bg-gray-400' : i === 2 ? 'bg-amber-600' : 'bg-indigo-400'}`}>
+                                                {i + 1}
+                                            </span>
+                                        </td>
+                                        <td className="py-2 px-2 font-medium text-gray-800 max-w-[140px] truncate">{p.name}</td>
+                                        <td className="py-2 px-2 text-right font-bold text-indigo-600">{p.qty}</td>
+                                        <td className="py-2 px-2 text-right text-gray-600">Ksh {p.revenue.toLocaleString()}</td>
+                                    </tr>
                                 ))}
-                            </div>
+                                {topProducts.length === 0 && (
+                                    <tr><td colSpan={4} className="py-8 text-center text-gray-400">No sales data</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* Low Stock / Out of Stock Grid */}
+                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                    <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
+                        <span className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center text-sm">⚠️</span>
+                        Stock Alerts
+                        {lowStock.length > 0 && (
+                            <span className="ml-auto px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-bold">{lowStock.length}</span>
                         )}
-                        {lowStockIngredients.length > 0 && (
-                            <div>
-                                <p className="text-xs font-semibold text-gray-500 uppercase mb-2">🥬 Ingredients</p>
-                                {lowStockIngredients.map((ing, i) => (
-                                    <div key={i} className="flex items-center justify-between p-2 bg-orange-50 rounded-lg mb-1">
-                                        <span className="text-sm text-gray-800">{ing.name}</span>
-                                        <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-bold">
-                                            {ing.stock} / {ing.reorder}
-                                        </span>
-                                    </div>
+                    </h3>
+                    <div className="overflow-auto max-h-[400px]">
+                        <table className="w-full text-sm">
+                            <thead className="sticky top-0 bg-gray-50">
+                                <tr className="text-left text-xs font-semibold text-gray-500 uppercase">
+                                    <th className="py-2 px-2">Item</th>
+                                    <th className="py-2 px-2">Type</th>
+                                    <th className="py-2 px-2 text-right">Stock</th>
+                                    <th className="py-2 px-2 text-right">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                                {lowStock.map((item, i) => (
+                                    <tr key={i} className={`transition ${item.status === 'out' ? 'bg-red-50' : item.status === 'critical' ? 'bg-orange-50' : 'hover:bg-yellow-50/50'}`}>
+                                        <td className="py-2 px-2 font-medium text-gray-800 max-w-[130px] truncate">{item.name}</td>
+                                        <td className="py-2 px-2">
+                                            <span className={`text-xs px-1.5 py-0.5 rounded ${item.type === 'dish' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+                                                {item.type === 'dish' ? '🍽️' : '🥬'} {item.type}
+                                            </span>
+                                        </td>
+                                        <td className="py-2 px-2 text-right font-bold">{item.stock} / {item.reorder}</td>
+                                        <td className="py-2 px-2 text-right">
+                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${item.status === 'out' ? 'bg-red-200 text-red-800' :
+                                                    item.status === 'critical' ? 'bg-orange-200 text-orange-800' : 'bg-yellow-200 text-yellow-800'
+                                                }`}>
+                                                {item.status === 'out' ? '❌ OUT' : item.status === 'critical' ? '🔴 CRITICAL' : '🟡 LOW'}
+                                            </span>
+                                        </td>
+                                    </tr>
                                 ))}
-                            </div>
-                        )}
-                        {lowStockDishes.length === 0 && lowStockIngredients.length === 0 && (
-                            <div className="text-center py-8">
-                                <span className="text-4xl">✅</span>
-                                <p className="text-gray-500 mt-2">All stock levels are good!</p>
-                            </div>
-                        )}
+                                {lowStock.length === 0 && (
+                                    <tr><td colSpan={4} className="py-8 text-center text-gray-400">
+                                        <span className="text-3xl">✅</span><p className="mt-1">All stock levels good!</p>
+                                    </td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* Recent Purchases Grid */}
+                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                    <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
+                        <span className="w-8 h-8 bg-cyan-100 rounded-lg flex items-center justify-center text-sm">📦</span>
+                        Recent Purchases
+                    </h3>
+                    <div className="overflow-auto max-h-[400px]">
+                        <table className="w-full text-sm">
+                            <thead className="sticky top-0 bg-gray-50">
+                                <tr className="text-left text-xs font-semibold text-gray-500 uppercase">
+                                    <th className="py-2 px-2">Date</th>
+                                    <th className="py-2 px-2">Supplier</th>
+                                    <th className="py-2 px-2 text-right">Total</th>
+                                    <th className="py-2 px-2 text-right">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                                {recentPurchases.map((p, i) => (
+                                    <tr key={i} className="hover:bg-cyan-50/50 transition">
+                                        <td className="py-2 px-2 text-gray-600">{new Date(p.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</td>
+                                        <td className="py-2 px-2 font-medium text-gray-800 max-w-[120px] truncate">{p.supplier}</td>
+                                        <td className="py-2 px-2 text-right font-bold text-gray-700">Ksh {p.total.toLocaleString()}</td>
+                                        <td className="py-2 px-2 text-right">
+                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${p.status === 'Completed' ? 'bg-green-100 text-green-700' :
+                                                    p.status === 'Pending' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
+                                                }`}>{p.status}</span>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {recentPurchases.length === 0 && (
+                                    <tr><td colSpan={4} className="py-8 text-center text-gray-400">No purchase data</td></tr>
+                                )}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
 
-            {/* Quick Actions */}
-            <div className="bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800 rounded-3xl p-6 text-white">
-                <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                    <span>⚡</span> Quick Actions
-                </h3>
-                <div className="grid grid-cols-8 gap-3">
+            {/* ══════ Financial Cards ══════ */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                <div className="bg-gradient-to-br from-rose-500 to-pink-600 rounded-2xl p-4 text-white shadow-lg shadow-rose-200/50">
+                    <p className="text-xs opacity-80">💸 Expenses</p>
+                    <p className="text-xl font-extrabold mt-1">Ksh {fmt(totalExpenses)}</p>
+                    <a href="/dashboard/expenses" className="text-xs underline opacity-70 hover:opacity-100 mt-1 inline-block">View →</a>
+                </div>
+                <div className="bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl p-4 text-white shadow-lg shadow-violet-200/50">
+                    <p className="text-xs opacity-80">💵 Advances</p>
+                    <p className="text-xl font-extrabold mt-1">Ksh {fmt(totalAdvances)}</p>
+                    <a href="/dashboard/advances" className="text-xs underline opacity-70 hover:opacity-100 mt-1 inline-block">View →</a>
+                </div>
+                <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-4 text-white shadow-lg shadow-amber-200/50">
+                    <p className="text-xs opacity-80">🎟️ Vouchers</p>
+                    <p className="text-xl font-extrabold mt-1">Ksh {fmt(totalVouchers)}</p>
+                    <a href="/dashboard/vouchers" className="text-xs underline opacity-70 hover:opacity-100 mt-1 inline-block">View →</a>
+                </div>
+                <div className="bg-gradient-to-br from-cyan-500 to-sky-600 rounded-2xl p-4 text-white shadow-lg shadow-cyan-200/50">
+                    <p className="text-xs opacity-80">⏰ Shifts</p>
+                    <div className="flex items-center gap-3 mt-1">
+                        <div><p className="text-lg font-extrabold">{activeShifts}</p><p className="text-xs opacity-70">Active</p></div>
+                        <div className="h-6 w-px bg-white/30" />
+                        <div><p className="text-lg font-extrabold">{closedShifts}</p><p className="text-xs opacity-70">Closed</p></div>
+                    </div>
+                    <a href="/dashboard/shifts" className="text-xs underline opacity-70 hover:opacity-100 mt-1 inline-block">Manage →</a>
+                </div>
+                <div className="bg-gradient-to-br from-slate-700 to-slate-900 rounded-2xl p-4 text-white shadow-lg shadow-slate-300/50">
+                    <p className="text-xs opacity-80">⚠️ Pending Bills</p>
+                    <p className="text-xl font-extrabold mt-1">{pendingBills}</p>
+                    <a href="/dashboard/bills" className="text-xs underline opacity-70 hover:opacity-100 mt-1 inline-block">View →</a>
+                </div>
+            </div>
+
+            {/* ══════ Quick Actions ══════ */}
+            <div className="bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800 rounded-2xl p-5 text-white">
+                <h3 className="font-bold text-sm mb-3 flex items-center gap-2">⚡ Quick Actions</h3>
+                <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
                     {[
                         { icon: '🛒', label: 'POS', href: '/dashboard/pos' },
-                        { icon: '📋', label: 'Reports', href: '/dashboard/reports/pos' },
+                        { icon: '📋', label: 'Reports', href: '/dashboard/shift-reports' },
                         { icon: '📥', label: 'Purchase', href: '/dashboard/purchase' },
                         { icon: '🍳', label: 'Recipe', href: '/dashboard/recipe' },
                         { icon: '📦', label: 'Batches', href: '/dashboard/batches' },
                         { icon: '💸', label: 'Expenses', href: '/dashboard/expenses' },
                         { icon: '👥', label: 'Payroll', href: '/dashboard/payroll' },
                         { icon: '⏰', label: 'Shifts', href: '/dashboard/shifts' },
-                    ].map((action) => (
-                        <a
-                            key={action.label}
-                            href={action.href}
-                            className="flex flex-col items-center gap-2 p-4 bg-white/10 hover:bg-white/20 rounded-2xl transition-all hover:scale-105"
-                        >
-                            <span className="text-3xl">{action.icon}</span>
-                            <span className="text-xs font-medium">{action.label}</span>
+                    ].map(a => (
+                        <a key={a.label} href={a.href}
+                            className="flex flex-col items-center gap-1.5 p-3 bg-white/10 hover:bg-white/20 rounded-xl transition-all hover:scale-105">
+                            <span className="text-2xl">{a.icon}</span>
+                            <span className="text-xs font-medium">{a.label}</span>
                         </a>
                     ))}
                 </div>
