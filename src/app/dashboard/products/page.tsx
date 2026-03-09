@@ -78,6 +78,9 @@ export default function ProductsPage() {
     const [showLabelModal, setShowLabelModal] = useState(false);
     const [labelProducts, setLabelProducts] = useState<number[]>([]);
     const [labelQty, setLabelQty] = useState<Record<number, number>>({});
+    const [labelSearch, setLabelSearch] = useState('');
+    const [labelSize, setLabelSize] = useState<'small' | 'medium' | 'large'>('medium');
+    const [showLabelPreview, setShowLabelPreview] = useState(false);
     const [showLookupModal, setShowLookupModal] = useState(false);
     const [lookupQuery, setLookupQuery] = useState('');
     const [lookupResult, setLookupResult] = useState<Product | null>(null);
@@ -268,22 +271,36 @@ export default function ProductsPage() {
     };
 
     // ─── LABEL GENERATOR ───
-    const printLabels = () => {
+    const labelSizes = { small: { w: '38mm', h: '25mm', name: 11, barcode: 14, price: 13, code: 8 }, medium: { w: '50mm', h: '30mm', name: 13, barcode: 18, price: 16, code: 9 }, large: { w: '62mm', h: '35mm', name: 15, barcode: 22, price: 20, code: 10 } };
+    const getLabelHTML = () => {
         const selectedProds = products.filter(p => labelProducts.includes(p.pid));
-        if (selectedProds.length === 0) { toast.error('Select at least one product'); return; }
+        if (selectedProds.length === 0) return '';
         const labels = selectedProds.flatMap(p => Array.from({ length: labelQty[p.pid] || 1 }, () => p));
-        const html = `<!DOCTYPE html><html><head><style>
-            @page{margin:5mm;}body{font-family:Arial,sans-serif;display:flex;flex-wrap:wrap;gap:4mm;padding:0;}
-            .label{width:48mm;height:28mm;border:1px solid #000;padding:2mm;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;page-break-inside:avoid;}
-            .name{font-size:9px;font-weight:bold;text-transform:uppercase;overflow:hidden;max-height:12px;}
-            .barcode{font-size:14px;text-align:center;font-weight:bold;letter-spacing:2px;}
-            .price{font-size:12px;font-weight:bold;text-align:center;}
-            .code{font-size:7px;text-align:center;color:#666;}
-        </style></head><body>${labels.map(p => `<div class='label'><div class='name'>${p.product_name}</div><div class='barcode'>${p.barcode || p.product_code}</div><div class='price'>Ksh ${(p.sales_cost || 0).toLocaleString()}</div><div class='code'>${p.product_code}</div></div>`).join('')}</body></html>`;
+        const s = labelSizes[labelSize];
+        return `<!DOCTYPE html><html><head><style>
+            @page{margin:3mm;}*{box-sizing:border-box;margin:0;padding:0;}
+            body{font-family:'Arial',sans-serif;display:flex;flex-wrap:wrap;gap:2mm;padding:0;}
+            .label{width:${s.w};height:${s.h};border:1.5px solid #222;border-radius:3px;padding:2mm;display:flex;flex-direction:column;justify-content:space-between;page-break-inside:avoid;overflow:hidden;}
+            .company{font-size:${s.code}px;text-align:center;color:#888;text-transform:uppercase;letter-spacing:1px;}
+            .name{font-size:${s.name}px;font-weight:bold;text-transform:uppercase;text-align:center;line-height:1.1;overflow:hidden;max-height:${s.name * 2.2}px;}
+            .barcode{font-size:${s.barcode}px;text-align:center;font-weight:900;letter-spacing:3px;font-family:'Courier New',monospace;}
+            .price{font-size:${s.price}px;font-weight:900;text-align:center;background:#000;color:#fff;border-radius:2px;padding:1mm 0;}
+            .code{font-size:${s.code}px;text-align:center;color:#555;}
+        </style></head><body>${labels.map(p => `<div class='label'><div class='company'>${companyName || 'Alpha Retail'}</div><div class='name'>${p.product_name}</div><div class='barcode'>${p.barcode || p.product_code}</div><div class='price'>Ksh ${(p.sales_cost || 0).toLocaleString()}</div><div class='code'>${p.product_code} • ${p.sales_unit || 'Pc'}</div></div>`).join('')}</body></html>`;
+    };
+    const printLabels = () => {
+        const html = getLabelHTML();
+        if (!html) { toast.error('Select at least one product'); return; }
         const iframe = document.createElement('iframe'); iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:none;';
         document.body.appendChild(iframe); const doc = iframe.contentWindow?.document;
         if (doc) { doc.open(); doc.write(html); doc.close(); setTimeout(() => { iframe.contentWindow?.print(); setTimeout(() => document.body.removeChild(iframe), 2000); }, 500); }
     };
+    const filteredLabelProducts = products.filter(p => {
+        if (!p.active) return false;
+        if (!labelSearch.trim()) return true;
+        const q = labelSearch.toLowerCase();
+        return p.product_name.toLowerCase().includes(q) || p.product_code.toLowerCase().includes(q) || (p.barcode && p.barcode.includes(labelSearch));
+    });
 
     // ─── ITEM LOOKUP ───
     const doLookup = () => {
@@ -717,25 +734,91 @@ export default function ProductsPage() {
             {/* ━━━ LABEL GENERATOR MODAL ━━━ */}
             {showLabelModal && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50" onClick={() => setShowLabelModal(false)}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                        <div className="bg-gradient-to-r from-purple-500 to-purple-600 px-6 py-4 text-white sticky top-0 z-10 flex items-center justify-between rounded-t-3xl">
-                            <div className="flex items-center gap-3"><FiPrinter size={20} /><h2 className="text-lg font-bold">Label Generator</h2></div>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+                        <div className="bg-gradient-to-r from-purple-500 to-purple-600 px-6 py-4 text-white flex items-center justify-between rounded-t-3xl flex-shrink-0">
+                            <div className="flex items-center gap-3"><FiPrinter size={20} /><div><h2 className="text-lg font-bold">Label Generator</h2><p className="text-purple-100 text-xs">{labelProducts.length} selected • {labelProducts.reduce((s, id) => s + (labelQty[id] || 1), 0)} total labels</p></div></div>
                             <button onClick={() => setShowLabelModal(false)} className="p-2 hover:bg-white/20 rounded-xl"><FiX size={18} /></button>
                         </div>
-                        <div className="p-5 space-y-4">
-                            <p className="text-sm text-gray-500">Select products and set label count per product</p>
-                            <div className="max-h-[50vh] overflow-y-auto space-y-2">
-                                {products.filter(p => p.active).map(p => (
-                                    <div key={p.pid} className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${labelProducts.includes(p.pid) ? 'border-purple-400 bg-purple-50' : 'border-gray-200 hover:border-purple-300'}`}>
-                                        <input type="checkbox" checked={labelProducts.includes(p.pid)} onChange={e => { if (e.target.checked) { setLabelProducts([...labelProducts, p.pid]); setLabelQty({ ...labelQty, [p.pid]: 1 }); } else { setLabelProducts(labelProducts.filter(id => id !== p.pid)); } }} className="w-4 h-4 accent-purple-500" />
-                                        <div className="flex-1"><p className="text-sm font-semibold">{p.product_name}</p><p className="text-[10px] text-gray-400">{p.product_code} • Ksh {(p.sales_cost || 0).toLocaleString()}</p></div>
-                                        {labelProducts.includes(p.pid) && <input type="number" value={labelQty[p.pid] || 1} onChange={e => setLabelQty({ ...labelQty, [p.pid]: parseInt(e.target.value) || 1 })} min="1" max="100" className="w-16 px-2 py-1 border border-purple-300 rounded-lg text-sm text-center" />}
+                        <div className="flex flex-1 overflow-hidden">
+                            {/* LEFT: Product Selection */}
+                            <div className="flex-1 p-4 flex flex-col overflow-hidden border-r border-gray-200">
+                                {/* Search */}
+                                <div className="relative mb-3 flex-shrink-0">
+                                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                    <input type="text" value={labelSearch} onChange={e => setLabelSearch(e.target.value)} placeholder="Search or scan barcode..." autoFocus
+                                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-purple-500 outline-none" />
+                                </div>
+                                {/* Size + Select All */}
+                                <div className="flex items-center justify-between mb-3 flex-shrink-0">
+                                    <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
+                                        {(['small', 'medium', 'large'] as const).map(sz => (
+                                            <button key={sz} onClick={() => setLabelSize(sz)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${labelSize === sz ? 'bg-purple-500 text-white shadow' : 'text-gray-500 hover:text-purple-600'}`}>{sz.charAt(0).toUpperCase() + sz.slice(1)}</button>
+                                        ))}
                                     </div>
-                                ))}
+                                    <div className="flex gap-2">
+                                        <button onClick={() => { const ids = filteredLabelProducts.map(p => p.pid); setLabelProducts(ids); const q: Record<number, number> = {}; ids.forEach(id => q[id] = labelQty[id] || 1); setLabelQty(q); }} className="px-3 py-1.5 bg-purple-50 text-purple-600 rounded-lg text-xs font-bold">Select All</button>
+                                        <button onClick={() => setLabelProducts([])} className="px-3 py-1.5 bg-gray-100 text-gray-500 rounded-lg text-xs font-bold">Clear</button>
+                                    </div>
+                                </div>
+                                {/* Product List */}
+                                <div className="flex-1 overflow-y-auto space-y-1.5">
+                                    {filteredLabelProducts.map(p => (
+                                        <div key={p.pid} className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all cursor-pointer ${labelProducts.includes(p.pid) ? 'border-purple-400 bg-purple-50' : 'border-gray-100 hover:border-purple-200'}`}
+                                            onClick={() => { if (labelProducts.includes(p.pid)) { setLabelProducts(labelProducts.filter(id => id !== p.pid)); } else { setLabelProducts([...labelProducts, p.pid]); setLabelQty({ ...labelQty, [p.pid]: labelQty[p.pid] || 1 }); } }}>
+                                            <input type="checkbox" checked={labelProducts.includes(p.pid)} readOnly className="w-4 h-4 accent-purple-500 pointer-events-none" />
+                                            <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${p.button_ui_color || 'from-blue-400 to-blue-600'} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>{p.product_name.charAt(0)}</div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-semibold truncate">{p.product_name}</p>
+                                                <p className="text-[10px] text-gray-400">{p.product_code} • {p.barcode || 'No barcode'} • Ksh {(p.sales_cost || 0).toLocaleString()}</p>
+                                            </div>
+                                            {labelProducts.includes(p.pid) && (
+                                                <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                                                    <button onClick={() => setLabelQty({ ...labelQty, [p.pid]: Math.max(1, (labelQty[p.pid] || 1) - 1) })} className="w-7 h-7 rounded-lg bg-purple-200 text-purple-700 font-bold flex items-center justify-center">−</button>
+                                                    <input type="number" value={labelQty[p.pid] || 1} onChange={e => setLabelQty({ ...labelQty, [p.pid]: parseInt(e.target.value) || 1 })} min="1" max="200" className="w-12 px-1 py-1 border border-purple-300 rounded-lg text-sm text-center font-bold" />
+                                                    <button onClick={() => setLabelQty({ ...labelQty, [p.pid]: (labelQty[p.pid] || 1) + 1 })} className="w-7 h-7 rounded-lg bg-purple-200 text-purple-700 font-bold flex items-center justify-center">+</button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                    {filteredLabelProducts.length === 0 && <p className="text-center text-gray-400 py-8 text-sm">No products match &quot;{labelSearch}&quot;</p>}
+                                </div>
                             </div>
-                            <div className="flex gap-3 pt-3 border-t">
-                                <button onClick={() => setShowLabelModal(false)} className="flex-1 px-4 py-2.5 border-2 border-gray-200 text-gray-600 font-bold rounded-xl text-sm">Cancel</button>
-                                <button onClick={printLabels} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2"><FiPrinter size={14} /> Print {labelProducts.length} Labels</button>
+                            {/* RIGHT: Preview */}
+                            <div className="w-[340px] p-4 bg-gray-50 flex flex-col flex-shrink-0 overflow-hidden">
+                                <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2"><FiEye size={14} /> Live Preview</h3>
+                                <div className="flex-1 overflow-y-auto bg-white rounded-xl border border-gray-200 p-3">
+                                    {labelProducts.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center h-full text-gray-300">
+                                            <FiPrinter size={40} />
+                                            <p className="mt-2 text-sm">Select products to preview labels</p>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-wrap gap-2 justify-center">
+                                            {products.filter(p => labelProducts.includes(p.pid)).slice(0, 8).map(p => {
+                                                const s = labelSizes[labelSize];
+                                                return (
+                                                    <div key={p.pid} className="border-2 border-gray-800 rounded-sm flex flex-col justify-between overflow-hidden" style={{ width: '140px', height: labelSize === 'small' ? '80px' : labelSize === 'medium' ? '95px' : '110px', padding: '4px' }}>
+                                                        <p className="text-center text-gray-400" style={{ fontSize: `${s.code - 1}px`, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{companyName || 'Alpha Retail'}</p>
+                                                        <p className="text-center font-bold leading-tight" style={{ fontSize: `${Math.min(s.name, 11)}px`, textTransform: 'uppercase', overflow: 'hidden', maxHeight: '22px' }}>{p.product_name}</p>
+                                                        <p className="text-center font-black font-mono" style={{ fontSize: `${Math.min(s.barcode, 14)}px`, letterSpacing: '2px' }}>{p.barcode || p.product_code}</p>
+                                                        <p className="text-center font-black bg-black text-white text-xs rounded-sm" style={{ fontSize: `${Math.min(s.price, 12)}px`, padding: '1px 0' }}>Ksh {(p.sales_cost || 0).toLocaleString()}</p>
+                                                        <p className="text-center text-gray-500" style={{ fontSize: '7px' }}>{p.product_code} • ×{labelQty[p.pid] || 1}</p>
+                                                    </div>
+                                                );
+                                            })}
+                                            {labelProducts.length > 8 && <p className="text-xs text-gray-400 w-full text-center mt-1">+{labelProducts.length - 8} more...</p>}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="mt-3 space-y-2 flex-shrink-0">
+                                    <div className="text-xs text-gray-500 flex justify-between"><span>Label size:</span><span className="font-bold text-purple-600">{labelSizes[labelSize].w} × {labelSizes[labelSize].h}</span></div>
+                                    <div className="text-xs text-gray-500 flex justify-between"><span>Total labels:</span><span className="font-bold text-purple-600">{labelProducts.reduce((s, id) => s + (labelQty[id] || 1), 0)}</span></div>
+                                    <button onClick={printLabels} disabled={labelProducts.length === 0}
+                                        className="w-full py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                                        <FiPrinter size={16} /> Print Labels
+                                    </button>
+                                    <button onClick={() => setShowLabelModal(false)} className="w-full py-2.5 border-2 border-gray-200 text-gray-600 font-bold rounded-xl text-sm">Close</button>
+                                </div>
                             </div>
                         </div>
                     </div>
