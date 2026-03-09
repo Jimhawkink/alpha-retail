@@ -16,6 +16,9 @@ interface Product {
     salesPrice: number;
     color?: string;
     imageUrl?: string;
+    salesUnit?: string;
+    purchaseUnit?: string;
+    piecesPerPackage?: number;
 }
 
 interface CartItem extends Product {
@@ -113,7 +116,7 @@ const CartItemRow = ({
             <div className="flex items-center gap-3">
                 <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-800 text-sm truncate">{item.name}</p>
-                    <p className="text-xs text-gray-500">@ Ksh {item.salesPrice.toLocaleString()}</p>
+                    <p className="text-xs text-gray-500">@ Ksh {item.salesPrice.toLocaleString()} / {item.salesUnit || 'Pc'}</p>
                     {item.barcode && (
                         <p className="text-xs text-gray-400 font-mono">{item.barcode}</p>
                     )}
@@ -201,7 +204,7 @@ const ProductCard = ({ product, onAdd }: { product: Product; onAdd: () => void }
             <div className="flex items-center gap-2 mb-2">
                 <span className="text-[15px] font-bold text-gray-900">Ksh {product.salesPrice.toLocaleString()}</span>
                 <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${product.availableQty === 0 ? 'bg-red-100 text-red-600' : product.availableQty < 10 ? 'bg-amber-100 text-amber-600' : 'bg-teal-100 text-teal-600'}`}>
-                    {product.availableQty === 0 ? 'Out' : `${product.availableQty} Pcs`}
+                    {product.availableQty === 0 ? 'Out' : `${product.availableQty} ${product.salesUnit || 'Pcs'}`}
                 </span>
             </div>
             <button onClick={(e) => { e.stopPropagation(); if (product.availableQty > 0) onAdd(); }} disabled={product.availableQty === 0}
@@ -850,6 +853,9 @@ export default function RetailPOSPage() {
                 salesPrice: p.sales_cost || 0,
                 color: p.button_ui_color || 'from-blue-400 to-blue-600',
                 imageUrl: p.photo || '',
+                salesUnit: p.sales_unit || 'Piece',
+                purchaseUnit: p.purchase_unit || 'Piece',
+                piecesPerPackage: p.pieces_per_package || 1,
             }));
 
             setProducts(posProducts);

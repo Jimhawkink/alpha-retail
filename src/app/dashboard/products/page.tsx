@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
-import { FiPackage, FiPlus, FiEdit2, FiTrash2, FiShoppingCart, FiDownload, FiRefreshCw, FiSearch, FiGrid, FiList, FiChevronLeft, FiChevronRight, FiX, FiUpload, FiCheck, FiAlertTriangle, FiTag, FiDollarSign, FiLayers, FiFilter, FiTrendingUp, FiImage } from 'react-icons/fi';
+import { FiPackage, FiPlus, FiEdit2, FiTrash2, FiShoppingCart, FiDownload, FiRefreshCw, FiSearch, FiGrid, FiList, FiChevronLeft, FiChevronRight, FiX, FiUpload, FiCheck, FiAlertTriangle, FiTag, FiDollarSign, FiLayers, FiFilter, FiTrendingUp, FiImage, FiPrinter, FiZap, FiClock, FiSliders, FiEye } from 'react-icons/fi';
 
 interface Product {
     pid: number; product_code: string; product_name: string; alias: string;
@@ -11,7 +11,10 @@ interface Product {
     purchase_unit: string; sales_unit: string; purchase_cost: number; sales_cost: number;
     reorder_point: number; margin_per: number; show_ps: boolean; button_ui_color: string;
     photo: string; hscode: string; batch_no: string; supplier_name: string; active: boolean;
+    pieces_per_package: number;
 }
+interface StockHistoryRow { id: number; date: string; ref: string; type: string; qty_in: number; qty_out: number; balance: number; }
+interface PriceHistoryRow { id: number; date: string; old_buy: number; new_buy: number; old_sell: number; new_sell: number; }
 interface Category { category_id: number; category_name: string; icon: string; color: string; }
 interface Supplier { supplier_id: number; supplier_code: string; supplier_name: string; is_kitchen?: boolean; }
 interface Unit { unit_id: number; unit_name: string; abbreviation: string; }
@@ -20,7 +23,12 @@ const defaultProduct: Omit<Product, 'pid' | 'product_code'> = {
     product_name: '', alias: '', vat_commodity: 'Standard', description: '', barcode: '',
     category: '', purchase_unit: 'Piece', sales_unit: 'Piece', purchase_cost: 0, sales_cost: 0,
     reorder_point: 10, margin_per: 0, show_ps: true, button_ui_color: 'from-blue-400 to-blue-600',
-    photo: '', hscode: '', batch_no: '', supplier_name: '', active: true,
+    photo: '', hscode: '', batch_no: '', supplier_name: '', active: true, pieces_per_package: 1,
+};
+const UNIT_CONVERSIONS: Record<string, Record<string, number>> = {
+    'Box': { 'Piece': 1, 'Box': 1 }, 'Pack': { 'Piece': 1, 'Pack': 1 },
+    'Dozen': { 'Piece': 12, 'Dozen': 1 }, 'Kilogram': { 'Gram': 1000, 'Kilogram': 1 },
+    'Liter': { 'Milliliter': 1000, 'Liter': 1 },
 };
 const vatOptions = ['Standard', 'Zero Rated', 'Exempt', 'Inclusive'];
 const colorPresets = [
@@ -65,6 +73,26 @@ export default function ProductsPage() {
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
     const [page, setPage] = useState(1);
     const perPage = 12;
+
+    // New modal states
+    const [showLabelModal, setShowLabelModal] = useState(false);
+    const [labelProducts, setLabelProducts] = useState<number[]>([]);
+    const [labelQty, setLabelQty] = useState<Record<number, number>>({});
+    const [showLookupModal, setShowLookupModal] = useState(false);
+    const [lookupQuery, setLookupQuery] = useState('');
+    const [lookupResult, setLookupResult] = useState<Product | null>(null);
+    const [showStockHistoryModal, setShowStockHistoryModal] = useState(false);
+    const [stockHistoryProduct, setStockHistoryProduct] = useState<Product | null>(null);
+    const [stockHistory, setStockHistory] = useState<StockHistoryRow[]>([]);
+    const [showPriceHistoryModal, setShowPriceHistoryModal] = useState(false);
+    const [priceHistoryProduct, setPriceHistoryProduct] = useState<Product | null>(null);
+    const [priceHistory, setPriceHistory] = useState<PriceHistoryRow[]>([]);
+    const [showStockAdjustModal, setShowStockAdjustModal] = useState(false);
+    const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
+    const [adjustQty, setAdjustQty] = useState(0);
+    const [adjustUnit, setAdjustUnit] = useState('Piece');
+    const [adjustType, setAdjustType] = useState<'add' | 'remove'>('add');
+    const [adjustReason, setAdjustReason] = useState('');
 
     // ─── DATA LOADING ───
     const loadProducts = useCallback(async () => {
@@ -138,6 +166,7 @@ export default function ProductsPage() {
             purchase_cost: p.purchase_cost || 0, sales_cost: p.sales_cost || 0, reorder_point: p.reorder_point || 10,
             margin_per: p.margin_per || 0, show_ps: p.show_ps !== false, button_ui_color: p.button_ui_color || 'from-blue-400 to-blue-600',
             photo: p.photo || '', hscode: p.hscode || '', batch_no: p.batch_no || '', supplier_name: p.supplier_name || '', active: p.active !== false,
+            pieces_per_package: p.pieces_per_package || 1,
         }); setShowModal(true);
     };
 
@@ -152,16 +181,29 @@ export default function ProductsPage() {
                 sales_unit: formData.sales_unit, purchase_cost: formData.purchase_cost || 0, sales_cost: formData.sales_cost || 0,
                 reorder_point: formData.reorder_point || 10, margin_per: margin, show_in_pos: formData.show_ps !== false,
                 button_ui_color: formData.button_ui_color, photo: formData.photo || null, batch_no: formData.batch_no || null,
-                supplier_name: formData.supplier_name || null, active: formData.active !== false
+                supplier_name: formData.supplier_name || null, active: formData.active !== false,
+                pieces_per_package: formData.pieces_per_package || 1,
             };
             if (editingProduct) {
+                // Log price change if prices changed
+                if (editingProduct.purchase_cost !== formData.purchase_cost || editingProduct.sales_cost !== formData.sales_cost) {
+                    try {
+                        await supabase.from('retail_price_history').insert({
+                            pid: editingProduct.pid, product_name: editingProduct.product_name,
+                            old_buy: editingProduct.purchase_cost, new_buy: formData.purchase_cost,
+                            old_sell: editingProduct.sales_cost, new_sell: formData.sales_cost,
+                            changed_at: new Date().toISOString(),
+                        });
+                    } catch { /* silent if table doesn't exist */ }
+                }
                 const { error } = await supabase.from('retail_products').update({ ...d, updated_at: new Date().toISOString() }).eq('pid', editingProduct.pid);
                 if (error) throw new Error(error.message); toast.success('Product updated!');
             } else {
                 const code = await generateProductCode();
+                const openingPieces = openingQty * (formData.pieces_per_package || 1);
                 const { data: np, error } = await supabase.from('retail_products').insert({ ...d, product_code: code, created_at: new Date().toISOString() }).select().single();
                 if (error) throw new Error(error.message);
-                if (openingQty > 0 && np) await supabase.from('retail_stock').insert({ pid: np.pid, invoice_no: 'OPENING', qty: openingQty, storage_type: 'Store' });
+                if (openingPieces > 0 && np) await supabase.from('retail_stock').insert({ pid: np.pid, invoice_no: 'OPENING', qty: openingPieces, storage_type: 'Store' });
                 toast.success(`Product ${code} created!`);
             }
             setShowModal(false); loadProducts(); loadStockData();
@@ -180,6 +222,75 @@ export default function ProductsPage() {
         ...filtered.map(p => [p.product_code, `"${p.product_name}"`, p.category || '', p.purchase_cost, p.sales_cost, stockData[p.pid] || 0, p.margin_per?.toFixed(1), p.active ? 'Active' : 'Off'].join(','))].join('\n');
         const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'products.csv'; a.click();
         toast.success('Exported!');
+    };
+
+    // ─── STOCK HISTORY ───
+    const openStockHistory = async (p: Product) => {
+        setStockHistoryProduct(p); setShowStockHistoryModal(true);
+        try {
+            const rows: StockHistoryRow[] = [];
+            const { data: stockRows } = await supabase.from('retail_stock').select('*').eq('pid', p.pid).order('created_at', { ascending: true });
+            (stockRows || []).forEach((r: any, i: number) => rows.push({ id: i, date: new Date(r.created_at).toLocaleDateString('en-GB'), ref: r.invoice_no || 'N/A', type: 'Purchase/Opening', qty_in: r.qty || 0, qty_out: 0, balance: 0 }));
+            const { data: saleRows } = await supabase.from('retail_sales_items').select('*, retail_sales!inner(sale_datetime, receipt_no)').eq('product_id', p.pid).order('retail_sales(sale_datetime)', { ascending: true });
+            (saleRows || []).forEach((r: any, i: number) => rows.push({ id: 1000 + i, date: new Date(r.retail_sales?.sale_datetime).toLocaleDateString('en-GB'), ref: r.retail_sales?.receipt_no || 'N/A', type: 'Sale', qty_in: 0, qty_out: r.quantity || 0, balance: 0 }));
+            rows.sort((a, b) => a.date.localeCompare(b.date));
+            let bal = 0; rows.forEach(r => { bal += r.qty_in - r.qty_out; r.balance = bal; });
+            setStockHistory(rows);
+        } catch { setStockHistory([]); }
+    };
+
+    // ─── PRICE HISTORY ───
+    const openPriceHistory = async (p: Product) => {
+        setPriceHistoryProduct(p); setShowPriceHistoryModal(true);
+        try {
+            const { data } = await supabase.from('retail_price_history').select('*').eq('pid', p.pid).order('changed_at', { ascending: false });
+            setPriceHistory((data || []).map((r: any, i: number) => ({ id: i, date: new Date(r.changed_at).toLocaleString('en-GB'), old_buy: r.old_buy, new_buy: r.new_buy, old_sell: r.old_sell, new_sell: r.new_sell })));
+        } catch { setPriceHistory([]); }
+    };
+
+    // ─── STOCK ADJUSTMENT ───
+    const openStockAdjust = (p: Product) => {
+        setAdjustProduct(p); setAdjustQty(0); setAdjustUnit(p.sales_unit || 'Piece'); setAdjustType('add'); setAdjustReason(''); setShowStockAdjustModal(true);
+    };
+    const submitStockAdjust = async () => {
+        if (!adjustProduct || adjustQty <= 0) { toast.error('Enter valid quantity'); return; }
+        const ppp = adjustProduct.pieces_per_package || 1;
+        let realQty = adjustQty;
+        if (adjustUnit === adjustProduct.purchase_unit && adjustUnit !== adjustProduct.sales_unit) realQty = adjustQty * ppp;
+        if (adjustUnit === 'Kilogram' && adjustProduct.sales_unit === 'Gram') realQty = adjustQty * 1000;
+        if (adjustUnit === 'Gram' && adjustProduct.sales_unit === 'Kilogram') realQty = adjustQty / 1000;
+        const finalQty = adjustType === 'add' ? realQty : -realQty;
+        try {
+            await supabase.from('retail_stock').insert({ pid: adjustProduct.pid, invoice_no: `ADJ-${Date.now().toString(36).toUpperCase()}`, qty: finalQty, storage_type: 'Store', notes: adjustReason || 'Stock Adjustment' });
+            toast.success(`Stock ${adjustType === 'add' ? 'added' : 'removed'}: ${adjustQty} ${adjustUnit}(s) = ${Math.abs(finalQty)} ${adjustProduct.sales_unit}(s)`);
+            setShowStockAdjustModal(false); loadStockData();
+        } catch { toast.error('Adjustment failed'); }
+    };
+
+    // ─── LABEL GENERATOR ───
+    const printLabels = () => {
+        const selectedProds = products.filter(p => labelProducts.includes(p.pid));
+        if (selectedProds.length === 0) { toast.error('Select at least one product'); return; }
+        const labels = selectedProds.flatMap(p => Array.from({ length: labelQty[p.pid] || 1 }, () => p));
+        const html = `<!DOCTYPE html><html><head><style>
+            @page{margin:5mm;}body{font-family:Arial,sans-serif;display:flex;flex-wrap:wrap;gap:4mm;padding:0;}
+            .label{width:48mm;height:28mm;border:1px solid #000;padding:2mm;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;page-break-inside:avoid;}
+            .name{font-size:9px;font-weight:bold;text-transform:uppercase;overflow:hidden;max-height:12px;}
+            .barcode{font-size:14px;text-align:center;font-weight:bold;letter-spacing:2px;}
+            .price{font-size:12px;font-weight:bold;text-align:center;}
+            .code{font-size:7px;text-align:center;color:#666;}
+        </style></head><body>${labels.map(p => `<div class='label'><div class='name'>${p.product_name}</div><div class='barcode'>${p.barcode || p.product_code}</div><div class='price'>Ksh ${(p.sales_cost || 0).toLocaleString()}</div><div class='code'>${p.product_code}</div></div>`).join('')}</body></html>`;
+        const iframe = document.createElement('iframe'); iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:none;';
+        document.body.appendChild(iframe); const doc = iframe.contentWindow?.document;
+        if (doc) { doc.open(); doc.write(html); doc.close(); setTimeout(() => { iframe.contentWindow?.print(); setTimeout(() => document.body.removeChild(iframe), 2000); }, 500); }
+    };
+
+    // ─── ITEM LOOKUP ───
+    const doLookup = () => {
+        const q = lookupQuery.toLowerCase().trim();
+        const found = products.find(p => p.barcode === lookupQuery || p.product_code.toLowerCase() === q || p.product_name.toLowerCase().includes(q));
+        setLookupResult(found || null);
+        if (!found) toast.error('Product not found');
     };
 
     const filtered = products.filter(p => {
@@ -210,6 +321,12 @@ export default function ProductsPage() {
                 <div className="flex items-center gap-2">
                     <button onClick={() => { loadProducts(); loadStockData(); }} className="p-2.5 rounded-xl bg-white border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 transition-all shadow-sm" title="Refresh">
                         <FiRefreshCw size={16} />
+                    </button>
+                    <button onClick={() => { setShowLabelModal(true); setLabelProducts([]); setLabelQty({}); }} className="p-2.5 rounded-xl bg-white border border-gray-200 text-gray-500 hover:text-purple-600 hover:border-purple-300 transition-all shadow-sm" title="Label Generator">
+                        <FiPrinter size={16} />
+                    </button>
+                    <button onClick={() => { setShowLookupModal(true); setLookupQuery(''); setLookupResult(null); }} className="p-2.5 rounded-xl bg-white border border-gray-200 text-gray-500 hover:text-green-600 hover:border-green-300 transition-all shadow-sm" title="Item Lookup">
+                        <FiEye size={16} />
                     </button>
                     <button onClick={exportCSV} className="px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:text-blue-600 hover:border-blue-300 transition-all text-sm font-semibold flex items-center gap-2 shadow-sm">
                         <FiDownload size={14} /> Export
@@ -384,10 +501,12 @@ export default function ProductsPage() {
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3">
-                                                <div className="flex items-center justify-center gap-1">
-                                                    <button onClick={() => openEditModal(p)} className="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all" title="Edit"><FiEdit2 size={13} /></button>
-                                                    <button onClick={() => window.location.href = `/dashboard/purchase?product=${p.pid}`} className="p-2 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all" title="Purchase"><FiShoppingCart size={13} /></button>
-                                                    <button onClick={() => deleteProduct(p)} className="p-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-all" title="Delete"><FiTrash2 size={13} /></button>
+                                                <div className="flex items-center justify-center gap-1 flex-wrap">
+                                                    <button onClick={() => openEditModal(p)} className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all" title="Edit"><FiEdit2 size={12} /></button>
+                                                    <button onClick={() => openStockHistory(p)} className="p-1.5 rounded-lg bg-cyan-50 text-cyan-600 hover:bg-cyan-100 transition-all" title="Stock History"><FiClock size={12} /></button>
+                                                    <button onClick={() => openPriceHistory(p)} className="p-1.5 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all" title="Price History"><FiTrendingUp size={12} /></button>
+                                                    <button onClick={() => openStockAdjust(p)} className="p-1.5 rounded-lg bg-purple-50 text-purple-600 hover:bg-purple-100 transition-all" title="Stock Adjust"><FiSliders size={12} /></button>
+                                                    <button onClick={() => deleteProduct(p)} className="p-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-all" title="Delete"><FiTrash2 size={12} /></button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -495,19 +614,24 @@ export default function ProductsPage() {
                                 </div>
                             </div>
 
-                            {/* Pricing */}
+                            {/* Pricing & Units */}
                             <div className="bg-blue-50/50 rounded-2xl p-5 border border-blue-200">
-                                <h3 className="font-bold text-blue-800 mb-4 flex items-center gap-2 text-sm"><FiDollarSign size={16} /> Pricing & Units</h3>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <h3 className="font-bold text-blue-800 mb-4 flex items-center gap-2 text-sm"><FiDollarSign size={16} /> Pricing, Units & Conversion</h3>
+                                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                                     <div>
                                         <label className="block text-[10px] font-bold text-gray-600 mb-1 uppercase tracking-wider">Buy Unit</label>
-                                        <select value={formData.purchase_unit} onChange={e => setFormData({ ...formData, purchase_unit: e.target.value })}
+                                        <select value={formData.purchase_unit} onChange={e => { const pu = e.target.value; const conv = UNIT_CONVERSIONS[pu]; setFormData({ ...formData, purchase_unit: pu, pieces_per_package: conv?.[formData.sales_unit] || formData.pieces_per_package }); }}
                                             className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none">{units.map(u => <option key={u.unit_id} value={u.unit_name}>{u.unit_name}</option>)}</select>
                                     </div>
                                     <div>
                                         <label className="block text-[10px] font-bold text-gray-600 mb-1 uppercase tracking-wider">Buy Price (Ksh)</label>
                                         <input type="number" value={formData.purchase_cost} onChange={e => setFormData({ ...formData, purchase_cost: parseFloat(e.target.value) || 0 })}
                                             className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none" min="0" step="0.01" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-orange-600 mb-1 uppercase tracking-wider">Pcs/Package</label>
+                                        <input type="number" value={formData.pieces_per_package} onChange={e => setFormData({ ...formData, pieces_per_package: parseInt(e.target.value) || 1 })}
+                                            className="w-full px-3 py-2.5 bg-orange-50 border-2 border-orange-300 rounded-xl text-sm focus:border-orange-500 outline-none font-bold text-orange-700" min="1" />
                                     </div>
                                     <div>
                                         <label className="block text-[10px] font-bold text-gray-600 mb-1 uppercase tracking-wider">Sell Unit</label>
@@ -520,6 +644,13 @@ export default function ProductsPage() {
                                             className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none" min="0" step="0.01" />
                                     </div>
                                 </div>
+                                {formData.pieces_per_package > 1 && formData.purchase_cost > 0 && (
+                                    <div className="mt-3 p-3 bg-orange-50 rounded-xl border border-orange-200 text-sm">
+                                        <span className="font-bold text-orange-700">📦 Conversion:</span> 1 {formData.purchase_unit} = <span className="font-bold text-orange-800">{formData.pieces_per_package}</span> {formData.sales_unit}(s)
+                                        &bull; Cost per {formData.sales_unit}: <span className="font-bold text-blue-700">Ksh {(formData.purchase_cost / formData.pieces_per_package).toFixed(2)}</span>
+                                        {formData.sales_cost > 0 && <> &bull; Margin per {formData.sales_unit}: <span className="font-bold text-emerald-600">{calcMargin(formData.purchase_cost / formData.pieces_per_package, formData.sales_cost).toFixed(1)}%</span></>}
+                                    </div>
+                                )}
                                 {formData.purchase_cost > 0 && formData.sales_cost > 0 && (
                                     <div className="mt-3 p-3 bg-white rounded-xl border border-blue-200 text-sm">
                                         Margin: <span className="font-bold text-blue-600">{calcMargin(formData.purchase_cost, formData.sales_cost).toFixed(1)}%</span> &bull; Profit: <span className="font-bold">Ksh {(formData.sales_cost - formData.purchase_cost).toLocaleString()}</span>
@@ -579,6 +710,183 @@ export default function ProductsPage() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ━━━ LABEL GENERATOR MODAL ━━━ */}
+            {showLabelModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50" onClick={() => setShowLabelModal(false)}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                        <div className="bg-gradient-to-r from-purple-500 to-purple-600 px-6 py-4 text-white sticky top-0 z-10 flex items-center justify-between rounded-t-3xl">
+                            <div className="flex items-center gap-3"><FiPrinter size={20} /><h2 className="text-lg font-bold">Label Generator</h2></div>
+                            <button onClick={() => setShowLabelModal(false)} className="p-2 hover:bg-white/20 rounded-xl"><FiX size={18} /></button>
+                        </div>
+                        <div className="p-5 space-y-4">
+                            <p className="text-sm text-gray-500">Select products and set label count per product</p>
+                            <div className="max-h-[50vh] overflow-y-auto space-y-2">
+                                {products.filter(p => p.active).map(p => (
+                                    <div key={p.pid} className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${labelProducts.includes(p.pid) ? 'border-purple-400 bg-purple-50' : 'border-gray-200 hover:border-purple-300'}`}>
+                                        <input type="checkbox" checked={labelProducts.includes(p.pid)} onChange={e => { if (e.target.checked) { setLabelProducts([...labelProducts, p.pid]); setLabelQty({ ...labelQty, [p.pid]: 1 }); } else { setLabelProducts(labelProducts.filter(id => id !== p.pid)); } }} className="w-4 h-4 accent-purple-500" />
+                                        <div className="flex-1"><p className="text-sm font-semibold">{p.product_name}</p><p className="text-[10px] text-gray-400">{p.product_code} • Ksh {(p.sales_cost || 0).toLocaleString()}</p></div>
+                                        {labelProducts.includes(p.pid) && <input type="number" value={labelQty[p.pid] || 1} onChange={e => setLabelQty({ ...labelQty, [p.pid]: parseInt(e.target.value) || 1 })} min="1" max="100" className="w-16 px-2 py-1 border border-purple-300 rounded-lg text-sm text-center" />}
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="flex gap-3 pt-3 border-t">
+                                <button onClick={() => setShowLabelModal(false)} className="flex-1 px-4 py-2.5 border-2 border-gray-200 text-gray-600 font-bold rounded-xl text-sm">Cancel</button>
+                                <button onClick={printLabels} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2"><FiPrinter size={14} /> Print {labelProducts.length} Labels</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ━━━ ITEM LOOKUP MODAL ━━━ */}
+            {showLookupModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50" onClick={() => setShowLookupModal(false)}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+                        <div className="bg-gradient-to-r from-green-500 to-emerald-600 px-6 py-4 text-white flex items-center justify-between rounded-t-3xl">
+                            <div className="flex items-center gap-3"><FiEye size={20} /><h2 className="text-lg font-bold">Item Lookup</h2></div>
+                            <button onClick={() => setShowLookupModal(false)} className="p-2 hover:bg-white/20 rounded-xl"><FiX size={18} /></button>
+                        </div>
+                        <div className="p-5 space-y-4">
+                            <div className="flex gap-2">
+                                <input type="text" value={lookupQuery} onChange={e => setLookupQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && doLookup()} placeholder="Scan barcode or type name/code..."
+                                    className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-green-500 outline-none" autoFocus />
+                                <button onClick={doLookup} className="px-5 py-3 bg-green-500 text-white rounded-xl font-bold text-sm"><FiSearch size={16} /></button>
+                            </div>
+                            {lookupResult && (
+                                <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200">
+                                    <div className="flex items-start gap-4">
+                                        <div className={`w-16 h-16 rounded-xl flex items-center justify-center text-white text-xl font-bold bg-gradient-to-br ${lookupResult.button_ui_color || 'from-blue-400 to-blue-600'} shadow-md`}>
+                                            {lookupResult.photo ? <img src={lookupResult.photo} alt="" className="w-full h-full object-cover rounded-xl" /> : lookupResult.product_name.charAt(0)}
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="font-bold text-gray-900">{lookupResult.product_name}</p>
+                                            <p className="text-xs text-blue-600 font-medium">{lookupResult.product_code} • Barcode: {lookupResult.barcode || 'N/A'}</p>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3 mt-4">
+                                        <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Category</p><p className="font-bold text-sm">{lookupResult.category || 'N/A'}</p></div>
+                                        <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Stock</p><p className="font-bold text-sm">{stockData[lookupResult.pid] || 0} {lookupResult.sales_unit}</p></div>
+                                        <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Buy Price</p><p className="font-bold text-sm">Ksh {(lookupResult.purchase_cost || 0).toLocaleString()} / {lookupResult.purchase_unit}</p></div>
+                                        <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Sell Price</p><p className="font-bold text-sm text-green-700">Ksh {(lookupResult.sales_cost || 0).toLocaleString()} / {lookupResult.sales_unit}</p></div>
+                                        <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Pcs/Package</p><p className="font-bold text-sm">{lookupResult.pieces_per_package || 1}</p></div>
+                                        <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Margin</p><p className="font-bold text-sm">{lookupResult.margin_per?.toFixed(1) || '0'}%</p></div>
+                                    </div>
+                                    <div className="flex gap-2 mt-4">
+                                        <button onClick={() => { setShowLookupModal(false); openEditModal(lookupResult); }} className="flex-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold flex items-center justify-center gap-1"><FiEdit2 size={12} /> Edit</button>
+                                        <button onClick={() => { setShowLookupModal(false); openStockHistory(lookupResult); }} className="flex-1 px-3 py-2 bg-cyan-50 text-cyan-600 rounded-xl text-xs font-bold flex items-center justify-center gap-1"><FiClock size={12} /> Stock Hx</button>
+                                        <button onClick={() => { setShowLookupModal(false); openStockAdjust(lookupResult); }} className="flex-1 px-3 py-2 bg-purple-50 text-purple-600 rounded-xl text-xs font-bold flex items-center justify-center gap-1"><FiSliders size={12} /> Adjust</button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ━━━ STOCK HISTORY MODAL ━━━ */}
+            {showStockHistoryModal && stockHistoryProduct && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50" onClick={() => setShowStockHistoryModal(false)}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                        <div className="bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-4 text-white sticky top-0 z-10 flex items-center justify-between rounded-t-3xl">
+                            <div><h2 className="text-lg font-bold flex items-center gap-2"><FiClock size={18} /> Stock History</h2><p className="text-cyan-100 text-xs">{stockHistoryProduct.product_name} ({stockHistoryProduct.product_code})</p></div>
+                            <button onClick={() => setShowStockHistoryModal(false)} className="p-2 hover:bg-white/20 rounded-xl"><FiX size={18} /></button>
+                        </div>
+                        <div className="p-5">
+                            {stockHistory.length === 0 ? <p className="text-center text-gray-400 py-10">No stock movements found</p> : (
+                                <table className="w-full text-sm">
+                                    <thead><tr className="bg-gray-100"><th className="px-3 py-2 text-left text-xs font-bold">Date</th><th className="px-3 py-2 text-left text-xs font-bold">Reference</th><th className="px-3 py-2 text-left text-xs font-bold">Type</th><th className="px-3 py-2 text-right text-xs font-bold text-green-600">In</th><th className="px-3 py-2 text-right text-xs font-bold text-red-600">Out</th><th className="px-3 py-2 text-right text-xs font-bold">Balance</th></tr></thead>
+                                    <tbody>{stockHistory.map(r => (
+                                        <tr key={r.id} className="border-b border-gray-50 hover:bg-blue-50/30">
+                                            <td className="px-3 py-2 text-xs">{r.date}</td><td className="px-3 py-2 text-xs font-medium text-blue-600">{r.ref}</td><td className="px-3 py-2 text-xs">{r.type}</td>
+                                            <td className="px-3 py-2 text-right text-xs font-bold text-green-600">{r.qty_in > 0 ? `+${r.qty_in}` : ''}</td>
+                                            <td className="px-3 py-2 text-right text-xs font-bold text-red-600">{r.qty_out > 0 ? `-${r.qty_out}` : ''}</td>
+                                            <td className="px-3 py-2 text-right text-xs font-bold">{r.balance}</td>
+                                        </tr>
+                                    ))}</tbody>
+                                </table>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ━━━ PRICE HISTORY MODAL ━━━ */}
+            {showPriceHistoryModal && priceHistoryProduct && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50" onClick={() => setShowPriceHistoryModal(false)}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                        <div className="bg-gradient-to-r from-amber-500 to-orange-600 px-6 py-4 text-white sticky top-0 z-10 flex items-center justify-between rounded-t-3xl">
+                            <div><h2 className="text-lg font-bold flex items-center gap-2"><FiTrendingUp size={18} /> Price History</h2><p className="text-amber-100 text-xs">{priceHistoryProduct.product_name}</p></div>
+                            <button onClick={() => setShowPriceHistoryModal(false)} className="p-2 hover:bg-white/20 rounded-xl"><FiX size={18} /></button>
+                        </div>
+                        <div className="p-5">
+                            {priceHistory.length === 0 ? <p className="text-center text-gray-400 py-10">No price changes recorded yet</p> : (
+                                <table className="w-full text-sm">
+                                    <thead><tr className="bg-gray-100"><th className="px-3 py-2 text-left text-xs font-bold">Date</th><th className="px-3 py-2 text-right text-xs font-bold">Old Buy</th><th className="px-3 py-2 text-right text-xs font-bold">New Buy</th><th className="px-3 py-2 text-right text-xs font-bold">Old Sell</th><th className="px-3 py-2 text-right text-xs font-bold">New Sell</th></tr></thead>
+                                    <tbody>{priceHistory.map(r => (
+                                        <tr key={r.id} className="border-b border-gray-50 hover:bg-amber-50/30">
+                                            <td className="px-3 py-2 text-xs">{r.date}</td>
+                                            <td className="px-3 py-2 text-right text-xs text-gray-400 line-through">{r.old_buy.toLocaleString()}</td>
+                                            <td className="px-3 py-2 text-right text-xs font-bold text-blue-600">{r.new_buy.toLocaleString()}</td>
+                                            <td className="px-3 py-2 text-right text-xs text-gray-400 line-through">{r.old_sell.toLocaleString()}</td>
+                                            <td className="px-3 py-2 text-right text-xs font-bold text-green-600">{r.new_sell.toLocaleString()}</td>
+                                        </tr>
+                                    ))}</tbody>
+                                </table>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ━━━ STOCK ADJUSTMENT MODAL ━━━ */}
+            {showStockAdjustModal && adjustProduct && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50" onClick={() => setShowStockAdjustModal(false)}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+                        <div className="bg-gradient-to-r from-purple-500 to-indigo-600 px-6 py-4 text-white flex items-center justify-between rounded-t-3xl">
+                            <div><h2 className="text-lg font-bold flex items-center gap-2"><FiSliders size={18} /> Stock Adjustment</h2><p className="text-purple-100 text-xs">{adjustProduct.product_name} — Current: {stockData[adjustProduct.pid] || 0} {adjustProduct.sales_unit}(s)</p></div>
+                            <button onClick={() => setShowStockAdjustModal(false)} className="p-2 hover:bg-white/20 rounded-xl"><FiX size={18} /></button>
+                        </div>
+                        <div className="p-5 space-y-4">
+                            <div className="flex gap-2">
+                                <button onClick={() => setAdjustType('add')} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${adjustType === 'add' ? 'bg-green-500 text-white shadow-lg' : 'bg-gray-100 text-gray-500'}`}>➕ Add Stock</button>
+                                <button onClick={() => setAdjustType('remove')} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${adjustType === 'remove' ? 'bg-red-500 text-white shadow-lg' : 'bg-gray-100 text-gray-500'}`}>➖ Remove Stock</button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Quantity</label>
+                                    <input type="number" value={adjustQty} onChange={e => setAdjustQty(parseFloat(e.target.value) || 0)} min="0" step="0.01"
+                                        className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-lg font-bold text-center focus:border-purple-500 outline-none" autoFocus />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Unit</label>
+                                    <select value={adjustUnit} onChange={e => setAdjustUnit(e.target.value)}
+                                        className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm font-bold focus:border-purple-500 outline-none">
+                                        <option value={adjustProduct.sales_unit}>{adjustProduct.sales_unit} (sell unit)</option>
+                                        {adjustProduct.purchase_unit !== adjustProduct.sales_unit && <option value={adjustProduct.purchase_unit}>{adjustProduct.purchase_unit} (buy unit)</option>}
+                                    </select>
+                                </div>
+                            </div>
+                            {adjustQty > 0 && adjustUnit !== adjustProduct.sales_unit && (adjustProduct.pieces_per_package || 1) > 1 && (
+                                <div className="p-3 bg-purple-50 rounded-xl border border-purple-200 text-sm">
+                                    📦 {adjustQty} {adjustUnit}(s) = <span className="font-bold text-purple-700">{adjustQty * (adjustProduct.pieces_per_package || 1)} {adjustProduct.sales_unit}(s)</span>
+                                </div>
+                            )}
+                            <div>
+                                <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Reason (optional)</label>
+                                <input type="text" value={adjustReason} onChange={e => setAdjustReason(e.target.value)} placeholder="e.g., Damaged goods, Recount..."
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-purple-500 outline-none" />
+                            </div>
+                            <div className="flex gap-3 pt-3 border-t">
+                                <button onClick={() => setShowStockAdjustModal(false)} className="flex-1 px-4 py-3 border-2 border-gray-200 text-gray-600 font-bold rounded-xl text-sm">Cancel</button>
+                                <button onClick={submitStockAdjust} className={`flex-1 px-4 py-3 text-white font-bold rounded-xl text-sm ${adjustType === 'add' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'}`}>
+                                    {adjustType === 'add' ? '➕ Add Stock' : '➖ Remove Stock'}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
