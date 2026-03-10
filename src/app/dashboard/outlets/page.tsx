@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useOutlet, Outlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
-import { FiMapPin, FiPlus, FiEdit3, FiTrash2, FiStar, FiCheck, FiX, FiPhone, FiMail, FiHome, FiSearch } from 'react-icons/fi';
+import { FiMapPin, FiPlus, FiEdit3, FiTrash2, FiStar, FiCheck, FiX, FiPhone, FiMail, FiHome, FiSearch, FiUsers, FiUserPlus, FiUserMinus } from 'react-icons/fi';
 
 export default function OutletsPage() {
     const { outlets, reloadOutlets, activeOutlet } = useOutlet();
@@ -18,6 +18,15 @@ export default function OutletsPage() {
     const [form, setForm] = useState({ outlet_name: '', outlet_code: '', address: '', city: '', phone: '', email: '', is_main: false });
     const [isSaving, setIsSaving] = useState(false);
 
+    // Staff Assignment Modal
+    const [showStaffModal, setShowStaffModal] = useState(false);
+    const [staffOutlet, setStaffOutlet] = useState<Outlet | null>(null);
+    const [allUsers, setAllUsers] = useState<any[]>([]);
+    const [assignedUserIds, setAssignedUserIds] = useState<number[]>([]);
+    const [staffSearch, setStaffSearch] = useState('');
+    const [loadingStaff, setLoadingStaff] = useState(false);
+    const [staffCounts, setStaffCounts] = useState<Record<number, number>>({});
+
     const loadAll = useCallback(async () => {
         setIsLoading(true);
         try {
@@ -28,6 +37,20 @@ export default function OutletsPage() {
     }, []);
 
     useEffect(() => { loadAll(); }, [loadAll]);
+
+    // Load staff counts for all outlets
+    const loadStaffCounts = async () => {
+        try {
+            const { data } = await supabase.from('retail_user_outlets').select('outlet_id');
+            const counts: Record<number, number> = {};
+            (data || []).forEach((row: any) => {
+                counts[row.outlet_id] = (counts[row.outlet_id] || 0) + 1;
+            });
+            setStaffCounts(counts);
+        } catch { }
+    };
+
+    useEffect(() => { loadStaffCounts(); }, [allOutlets]);
 
     const openAdd = () => {
         setEditingOutlet(null);
@@ -82,6 +105,44 @@ export default function OutletsPage() {
         await supabase.from('retail_outlets').delete().eq('outlet_id', o.outlet_id);
         toast.success('Outlet deleted');
         loadAll(); reloadOutlets();
+    };
+
+    // ─── Staff Assignment ──────────────────────
+    const openStaffModal = async (o: Outlet) => {
+        setStaffOutlet(o);
+        setStaffSearch('');
+        setShowStaffModal(true);
+        setLoadingStaff(true);
+        try {
+            // Load all users
+            const { data: users } = await supabase.from('retail_users').select('user_id, user_name, name, user_type, email').eq('active', true).order('name');
+            setAllUsers(users || []);
+            // Load assigned user IDs for this outlet
+            const { data: links } = await supabase.from('retail_user_outlets').select('user_id').eq('outlet_id', o.outlet_id);
+            setAssignedUserIds((links || []).map((l: any) => l.user_id));
+        } catch { toast.error('Failed to load staff'); }
+        setLoadingStaff(false);
+    };
+
+    const assignUser = async (userId: number) => {
+        if (!staffOutlet) return;
+        try {
+            await supabase.from('retail_user_outlets').insert({ user_id: userId, outlet_id: staffOutlet.outlet_id });
+            setAssignedUserIds(prev => [...prev, userId]);
+            setStaffCounts(prev => ({ ...prev, [staffOutlet.outlet_id]: (prev[staffOutlet.outlet_id] || 0) + 1 }));
+            toast.success('User assigned!');
+        } catch (err: any) {
+            if (err?.code === '23505') toast.error('Already assigned');
+            else toast.error('Failed to assign');
+        }
+    };
+
+    const removeUser = async (userId: number) => {
+        if (!staffOutlet) return;
+        await supabase.from('retail_user_outlets').delete().eq('user_id', userId).eq('outlet_id', staffOutlet.outlet_id);
+        setAssignedUserIds(prev => prev.filter(id => id !== userId));
+        setStaffCounts(prev => ({ ...prev, [staffOutlet.outlet_id]: Math.max(0, (prev[staffOutlet.outlet_id] || 0) - 1) }));
+        toast.success('User removed');
     };
 
     const filtered = allOutlets.filter(o => {
@@ -158,6 +219,90 @@ export default function OutletsPage() {
                 </div>
             )}
 
+            {/* Staff Assignment Modal */}
+            {showStaffModal && staffOutlet && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4" onClick={() => setShowStaffModal(false)}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                        <div className="bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-4 text-white rounded-t-3xl flex items-center justify-between shrink-0">
+                            <div>
+                                <h2 className="text-lg font-bold flex items-center gap-2"><FiUsers size={18} /> Manage Staff</h2>
+                                <p className="text-xs text-white/70 mt-0.5">{staffOutlet.outlet_name} ({staffOutlet.outlet_code})</p>
+                            </div>
+                            <button onClick={() => setShowStaffModal(false)} className="p-1 hover:bg-white/20 rounded-lg"><FiX size={18} /></button>
+                        </div>
+                        {loadingStaff ? (
+                            <div className="flex flex-col items-center justify-center py-16">
+                                <div className="w-10 h-10 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+                                <p className="mt-3 text-sm text-gray-500">Loading staff...</p>
+                            </div>
+                        ) : (
+                            <div className="overflow-y-auto p-5 space-y-4">
+                                {/* Assigned Users */}
+                                <div>
+                                    <p className="text-xs font-bold text-gray-400 uppercase mb-2 flex items-center gap-1"><FiCheck size={12} /> Assigned Staff ({assignedUserIds.length})</p>
+                                    {assignedUserIds.length === 0 ? (
+                                        <p className="text-sm text-gray-400 italic py-3 text-center bg-gray-50 rounded-xl">No staff assigned — all users can access this outlet</p>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {allUsers.filter(u => assignedUserIds.includes(u.user_id)).map(u => (
+                                                <div key={u.user_id} className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                                                    <div className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center text-sm font-bold">
+                                                        {u.name?.charAt(0) || 'U'}
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <p className="text-sm font-bold text-gray-800">{u.name}</p>
+                                                        <p className="text-[10px] text-gray-500">{u.user_type} • {u.user_name}</p>
+                                                    </div>
+                                                    <button onClick={() => removeUser(u.user_id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Remove">
+                                                        <FiUserMinus size={14} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Unassigned Users */}
+                                <div>
+                                    <p className="text-xs font-bold text-gray-400 uppercase mb-2 flex items-center gap-1"><FiUserPlus size={12} /> Available Users</p>
+                                    <div className="relative mb-2">
+                                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                                        <input type="text" value={staffSearch} onChange={e => setStaffSearch(e.target.value)} placeholder="Search users..."
+                                            className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-emerald-500 outline-none" />
+                                    </div>
+                                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                                        {allUsers
+                                            .filter(u => !assignedUserIds.includes(u.user_id))
+                                            .filter(u => !staffSearch || u.name?.toLowerCase().includes(staffSearch.toLowerCase()) || u.user_name?.toLowerCase().includes(staffSearch.toLowerCase()))
+                                            .map(u => (
+                                                <div key={u.user_id} className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-xl hover:border-emerald-300 transition-colors">
+                                                    <div className="w-9 h-9 rounded-full bg-gray-300 text-white flex items-center justify-center text-sm font-bold">
+                                                        {u.name?.charAt(0) || 'U'}
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <p className="text-sm font-bold text-gray-700">{u.name}</p>
+                                                        <p className="text-[10px] text-gray-500">{u.user_type} • {u.user_name}</p>
+                                                    </div>
+                                                    <button onClick={() => assignUser(u.user_id)} className="px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors flex items-center gap-1">
+                                                        <FiUserPlus size={12} /> Assign
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        {allUsers.filter(u => !assignedUserIds.includes(u.user_id)).length === 0 && (
+                                            <p className="text-sm text-gray-400 italic text-center py-4">All users are assigned</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="text-center pt-3 border-t">
+                                    <p className="text-[10px] text-gray-400">💡 If no staff is assigned, all users can access this outlet</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* TOP BAR */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -221,11 +366,14 @@ export default function OutletsPage() {
                             {o.city && <p className="text-xs text-gray-400">{o.city}</p>}
                             {o.phone && <p className="text-xs text-gray-500 mt-1 flex items-center gap-1"><FiPhone size={10} /> {o.phone}</p>}
                             <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
+                                <button onClick={() => openStaffModal(o)} className="flex-1 py-2 text-xs font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-colors flex items-center justify-center gap-1">
+                                    <FiUsers size={12} /> Staff {staffCounts[o.outlet_id] ? `(${staffCounts[o.outlet_id]})` : ''}
+                                </button>
                                 <button onClick={() => openEdit(o)} className="flex-1 py-2 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-colors flex items-center justify-center gap-1">
                                     <FiEdit3 size={12} /> Edit
                                 </button>
-                                <button onClick={() => toggleActive(o)} className={`flex-1 py-2 text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1 ${o.active ? 'text-amber-600 bg-amber-50 hover:bg-amber-100' : 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100'}`}>
-                                    {o.active ? <><FiX size={12} /> Deactivate</> : <><FiCheck size={12} /> Activate</>}
+                                <button onClick={() => toggleActive(o)} className={`py-2 px-3 text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1 ${o.active ? 'text-amber-600 bg-amber-50 hover:bg-amber-100' : 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100'}`}>
+                                    {o.active ? <><FiX size={12} /></> : <><FiCheck size={12} /></>}
                                 </button>
                                 {!o.is_main && (
                                     <button onClick={() => deleteOutlet(o)} className="py-2 px-3 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors">

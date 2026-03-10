@@ -49,22 +49,25 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_column THEN NULL;
 END $$;
 
--- retail_expenses (if exists)
+-- retail_expenses (skip if table doesn't exist)
 DO $$ BEGIN
     ALTER TABLE retail_expenses ADD COLUMN outlet_id INTEGER DEFAULT 1;
 EXCEPTION WHEN duplicate_column THEN NULL;
+WHEN undefined_table THEN NULL;
 END $$;
 
--- retail_shift_instances (if exists)
+-- retail_shift_instances (skip if table doesn't exist)
 DO $$ BEGIN
     ALTER TABLE retail_shift_instances ADD COLUMN outlet_id INTEGER DEFAULT 1;
 EXCEPTION WHEN duplicate_column THEN NULL;
+WHEN undefined_table THEN NULL;
 END $$;
 
--- retail_invoices (if exists)
+-- retail_invoices (skip if table doesn't exist)
 DO $$ BEGIN
     ALTER TABLE retail_invoices ADD COLUMN outlet_id INTEGER DEFAULT 1;
 EXCEPTION WHEN duplicate_column THEN NULL;
+WHEN undefined_table THEN NULL;
 END $$;
 
 -- 3. CREATE STOCK TRANSFERS TABLE
