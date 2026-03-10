@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
-import { FiPackage, FiPlus, FiEdit2, FiTrash2, FiShoppingCart, FiDownload, FiRefreshCw, FiSearch, FiGrid, FiList, FiChevronLeft, FiChevronRight, FiX, FiUpload, FiCheck, FiAlertTriangle, FiTag, FiDollarSign, FiLayers, FiFilter, FiTrendingUp, FiImage, FiPrinter, FiZap, FiClock, FiSliders, FiEye } from 'react-icons/fi';
+import { FiPackage, FiPlus, FiEdit2, FiTrash2, FiShoppingCart, FiDownload, FiRefreshCw, FiSearch, FiGrid, FiList, FiChevronLeft, FiChevronRight, FiX, FiUpload, FiCheck, FiAlertTriangle, FiTag, FiDollarSign, FiLayers, FiFilter, FiTrendingUp, FiImage, FiPrinter, FiZap, FiClock, FiSliders, FiEye, FiChevronsLeft, FiChevronsRight, FiFileText } from 'react-icons/fi';
 
 interface Product {
     pid: number; product_code: string; product_name: string; alias: string;
@@ -72,7 +72,7 @@ export default function ProductsPage() {
     const [stockData, setStockData] = useState<Record<number, number>>({});
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
     const [page, setPage] = useState(1);
-    const perPage = 12;
+    const [perPage, setPerPage] = useState(20);
 
     // New modal states
     const [showLabelModal, setShowLabelModal] = useState(false);
@@ -96,6 +96,17 @@ export default function ProductsPage() {
     const [adjustUnit, setAdjustUnit] = useState('Piece');
     const [adjustType, setAdjustType] = useState<'add' | 'remove'>('add');
     const [adjustReason, setAdjustReason] = useState('');
+
+    // Import states
+    const [showImportModal, setShowImportModal] = useState(false);
+    const [importFile, setImportFile] = useState<File | null>(null);
+    const [importMode, setImportMode] = useState<'overwrite' | 'update' | 'add_new'>('add_new');
+    const [importProgress, setImportProgress] = useState(0);
+    const [importTotal, setImportTotal] = useState(0);
+    const [importCurrentItem, setImportCurrentItem] = useState('');
+    const [importStatus, setImportStatus] = useState<'idle' | 'parsing' | 'importing' | 'success' | 'error'>('idle');
+    const [importErrors, setImportErrors] = useState<string[]>([]);
+    const [importSuccessCount, setImportSuccessCount] = useState(0);
 
     // ─── DATA LOADING ───
     const loadProducts = useCallback(async () => {
@@ -302,6 +313,95 @@ export default function ProductsPage() {
         return p.product_name.toLowerCase().includes(q) || p.product_code.toLowerCase().includes(q) || (p.barcode && p.barcode.includes(labelSearch));
     });
 
+    // ─── IMPORT PRODUCTS ───
+    const parseCSV = (text: string): Record<string, string>[] => {
+        const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+        if (lines.length < 2) return [];
+        const headers = lines[0].split(',').map(h => h.trim().replace(/^"(.*)"$/, '$1').toLowerCase().replace(/\s+/g, '_'));
+        return lines.slice(1).map(line => {
+            const vals: string[] = []; let current = ''; let inQuotes = false;
+            for (const ch of line) {
+                if (ch === '"') { inQuotes = !inQuotes; } else if (ch === ',' && !inQuotes) { vals.push(current.trim()); current = ''; } else { current += ch; }
+            }
+            vals.push(current.trim());
+            const row: Record<string, string> = {};
+            headers.forEach((h, i) => { row[h] = (vals[i] || '').replace(/^"(.*)"$/, '$1'); });
+            return row;
+        });
+    };
+
+    const importProducts = async () => {
+        if (!importFile) { toast.error('Please select a CSV file'); return; }
+        setImportStatus('parsing'); setImportErrors([]); setImportSuccessCount(0); setImportProgress(0);
+        try {
+            const text = await importFile.text();
+            const rows = parseCSV(text);
+            if (rows.length === 0) { toast.error('No data found in file'); setImportStatus('error'); return; }
+            setImportTotal(rows.length); setImportStatus('importing');
+
+            if (importMode === 'overwrite') {
+                setImportCurrentItem('Clearing existing products...');
+                await supabase.from('retail_stock').delete().neq('pid', 0);
+                await supabase.from('retail_products').delete().neq('pid', 0);
+                setImportProgress(0);
+            }
+
+            let success = 0; const errors: string[] = [];
+            for (let i = 0; i < rows.length; i++) {
+                const r = rows[i];
+                const name = r.product_name || r.name || r.item_name || r.item || '';
+                if (!name) { errors.push(`Row ${i + 2}: Missing product name`); setImportProgress(i + 1); continue; }
+                setImportCurrentItem(name);
+                const prodData = {
+                    product_name: name,
+                    alias: r.alias || r.short_name || '',
+                    barcode: r.barcode || r.bar_code || r.upc || '',
+                    category: r.category || r.group || r.type || '',
+                    purchase_unit: r.purchase_unit || r.buy_unit || 'Piece',
+                    sales_unit: r.sales_unit || r.sell_unit || r.unit || 'Piece',
+                    purchase_cost: parseFloat(r.purchase_cost || r.buy_price || r.cost_price || r.cost || '0') || 0,
+                    sales_cost: parseFloat(r.sales_cost || r.sell_price || r.selling_price || r.price || '0') || 0,
+                    reorder_point: parseInt(r.reorder_point || r.reorder || r.min_stock || '10') || 10,
+                    vat_commodity: r.vat_commodity || r.vat || r.tax || 'Standard',
+                    supplier_name: r.supplier_name || r.supplier || '',
+                    hscode: r.hscode || r.hs_code || '',
+                    batch_no: r.batch_no || r.batch || '',
+                    description: r.description || r.desc || '',
+                    active: (r.active || r.status || 'true').toLowerCase() !== 'false',
+                    pieces_per_package: parseInt(r.pieces_per_package || r.pcs_per_pack || '1') || 1,
+                    margin_per: 0,
+                };
+                if (prodData.purchase_cost > 0) prodData.margin_per = Math.round(((prodData.sales_cost - prodData.purchase_cost) / prodData.purchase_cost) * 10000) / 100;
+
+                try {
+                    if (importMode === 'update') {
+                        const existing = products.find(ep => ep.product_name.toLowerCase() === name.toLowerCase() || (ep.barcode && ep.barcode === prodData.barcode));
+                        if (existing) {
+                            await supabase.from('retail_products').update(prodData).eq('pid', existing.pid);
+                        } else {
+                            const code = `PRD-${String(products.length + i + 1).padStart(2, '0')}`;
+                            await supabase.from('retail_products').insert({ ...prodData, product_code: code });
+                        }
+                    } else {
+                        const code = `PRD-${String(i + 1).padStart(3, '0')}`;
+                        await supabase.from('retail_products').insert({ ...prodData, product_code: code });
+                    }
+                    const qty = parseFloat(r.quantity || r.stock || r.qty || r.opening_stock || '0');
+                    if (qty > 0) {
+                        const { data: newP } = await supabase.from('retail_products').select('pid').eq('product_name', name).order('pid', { ascending: false }).limit(1);
+                        if (newP?.[0]) await supabase.from('retail_stock').insert({ pid: newP[0].pid, invoice_no: 'IMPORT', qty, storage_type: 'Store' });
+                    }
+                    success++;
+                } catch (err: any) { errors.push(`Row ${i + 2} (${name}): ${err.message || 'DB error'}`); }
+                setImportProgress(i + 1);
+                await new Promise(r => setTimeout(r, 50));
+            }
+            setImportSuccessCount(success); setImportErrors(errors);
+            setImportStatus(errors.length > 0 && success === 0 ? 'error' : 'success');
+            loadProducts(); loadStockData();
+        } catch (err: any) { setImportStatus('error'); setImportErrors([err.message || 'Failed to parse file']); }
+    };
+
     // ─── ITEM LOOKUP ───
     const doLookup = () => {
         const q = lookupQuery.toLowerCase().trim();
@@ -318,7 +418,9 @@ export default function ProductsPage() {
     const totalPages = Math.ceil(filtered.length / perPage);
     const paginated = filtered.slice((page - 1) * perPage, page * perPage);
     const lowStock = products.filter(p => (stockData[p.pid] || 0) <= (p.reorder_point || 10) && p.active).length;
-    const stockVal = products.reduce((s, p) => s + (stockData[p.pid] || 0) * (p.sales_cost || 0), 0);
+    const stockValCost = products.reduce((s, p) => s + (stockData[p.pid] || 0) * (p.purchase_cost || 0), 0);
+    const stockValSales = products.reduce((s, p) => s + (stockData[p.pid] || 0) * (p.sales_cost || 0), 0);
+    const potentialProfit = stockValSales - stockValCost;
 
     // ─── UI ───
     return (
@@ -348,42 +450,101 @@ export default function ProductsPage() {
                     <button onClick={exportCSV} className="px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:text-blue-600 hover:border-blue-300 transition-all text-sm font-semibold flex items-center gap-2 shadow-sm">
                         <FiDownload size={14} /> Export
                     </button>
+                    <button onClick={() => { setShowImportModal(true); setImportFile(null); setImportStatus('idle'); setImportErrors([]); setImportProgress(0); setImportMode('add_new'); }} className="px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:text-emerald-600 hover:border-emerald-300 transition-all text-sm font-semibold flex items-center gap-2 shadow-sm">
+                        <FiUpload size={14} /> Import
+                    </button>
                     <button onClick={openAddModal} className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold rounded-2xl shadow-lg shadow-blue-300/40 hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-300">
                         <FiPlus size={16} strokeWidth={3} /> Add Product
                     </button>
                 </div>
             </div>
 
-            {/* ━━━ STAT CARDS ━━━ */}
+            {/* ━━━ PREMIUM STAT CARDS ━━━ */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                {[
-                    { label: 'Total Products', value: products.length, icon: FiPackage, gradient: 'from-blue-500 to-blue-600', bg: 'bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200', text: 'text-blue-600' },
-                    { label: 'Active SKUs', value: products.filter(p => p.active).length, icon: FiCheck, gradient: 'from-green-500 to-green-600', bg: 'bg-gradient-to-br from-green-50 to-green-100 border-green-200', text: 'text-green-600' },
-                    { label: 'Categories', value: categories.length, icon: FiLayers, gradient: 'from-blue-500 to-purple-600', bg: 'bg-gradient-to-br from-blue-50 to-purple-100 border-purple-200', text: 'text-purple-600' },
-                    { label: 'Low Inventory', value: lowStock, icon: FiAlertTriangle, gradient: lowStock > 0 ? 'from-orange-500 to-orange-600' : 'from-teal-500 to-teal-600', bg: lowStock > 0 ? 'bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200' : 'bg-gradient-to-br from-teal-50 to-teal-100 border-teal-200', text: lowStock > 0 ? 'text-orange-600' : 'text-teal-600' },
-                ].map((s, i) => (
-                    <div key={i} className={`${s.bg} rounded-2xl p-5 border hover:shadow-lg transition-all group cursor-default`}>
-                        <div className="flex items-center gap-3">
-                            <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${s.gradient} flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform`}>
-                                <s.icon size={20} />
-                            </div>
-                            <div>
-                                <p className={`text-sm ${s.text} font-medium`}>{s.label}</p>
-                                <p className="text-2xl font-bold text-gray-800">{s.value}</p>
-                            </div>
+                {/* Total Products */}
+                <div className="relative overflow-hidden rounded-2xl bg-white border border-blue-100 p-5 shadow-sm hover:shadow-xl transition-all group">
+                    <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-gradient-to-br from-blue-100 to-blue-50 opacity-60 group-hover:scale-125 transition-transform" />
+                    <div className="relative flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-bold text-blue-500 uppercase tracking-wider">Total Products</p>
+                            <p className="text-3xl font-black text-gray-800 mt-1">{products.length}</p>
+                            <p className="text-[10px] text-gray-400 mt-1">All items in database</p>
+                        </div>
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-300/30 group-hover:scale-110 transition-transform">
+                            <FiPackage className="text-white" size={22} />
                         </div>
                     </div>
-                ))}
+                </div>
+                {/* Active SKUs */}
+                <div className="relative overflow-hidden rounded-2xl bg-white border border-emerald-100 p-5 shadow-sm hover:shadow-xl transition-all group">
+                    <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-gradient-to-br from-emerald-100 to-green-50 opacity-60 group-hover:scale-125 transition-transform" />
+                    <div className="relative flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-bold text-emerald-500 uppercase tracking-wider">Active SKUs</p>
+                            <p className="text-3xl font-black text-gray-800 mt-1">{products.filter(p => p.active).length}</p>
+                            <p className="text-[10px] text-gray-400 mt-1">Available for sale</p>
+                        </div>
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-300/30 group-hover:scale-110 transition-transform">
+                            <FiCheck className="text-white" size={22} />
+                        </div>
+                    </div>
+                </div>
+                {/* Categories */}
+                <div className="relative overflow-hidden rounded-2xl bg-white border border-purple-100 p-5 shadow-sm hover:shadow-xl transition-all group">
+                    <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-gradient-to-br from-purple-100 to-violet-50 opacity-60 group-hover:scale-125 transition-transform" />
+                    <div className="relative flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-bold text-purple-500 uppercase tracking-wider">Categories</p>
+                            <p className="text-3xl font-black text-gray-800 mt-1">{categories.length}</p>
+                            <p className="text-[10px] text-gray-400 mt-1">Product groups</p>
+                        </div>
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-purple-300/30 group-hover:scale-110 transition-transform">
+                            <FiLayers className="text-white" size={22} />
+                        </div>
+                    </div>
+                </div>
+                {/* Low Inventory */}
+                <div className={`relative overflow-hidden rounded-2xl bg-white border p-5 shadow-sm hover:shadow-xl transition-all group ${lowStock > 0 ? 'border-red-100' : 'border-teal-100'}`}>
+                    <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full opacity-60 group-hover:scale-125 transition-transform ${lowStock > 0 ? 'bg-gradient-to-br from-red-100 to-orange-50' : 'bg-gradient-to-br from-teal-100 to-cyan-50'}`} />
+                    <div className="relative flex items-center justify-between">
+                        <div>
+                            <p className={`text-xs font-bold uppercase tracking-wider ${lowStock > 0 ? 'text-red-500' : 'text-teal-500'}`}>Low Inventory</p>
+                            <p className="text-3xl font-black text-gray-800 mt-1">{lowStock}</p>
+                            <p className="text-[10px] text-gray-400 mt-1">{lowStock > 0 ? 'Items need restock' : 'All stocked well'}</p>
+                        </div>
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform ${lowStock > 0 ? 'bg-gradient-to-br from-red-500 to-orange-600 shadow-red-300/30' : 'bg-gradient-to-br from-teal-500 to-cyan-600 shadow-teal-300/30'}`}>
+                            <FiAlertTriangle className="text-white" size={22} />
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            {/* Stock value bar */}
-            <div className="flex items-center justify-between px-5 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md">
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                    <FiDollarSign size={16} />
-                    <span className="text-blue-100">Stock Value:</span>
-                    <span className="text-lg font-bold">Ksh {stockVal.toLocaleString()}</span>
+            {/* ━━━ STOCK VALUATION CARDS ━━━ */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* Stock Value - Cost */}
+                <div className="rounded-2xl bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 p-5 text-white shadow-lg shadow-blue-400/20 hover:shadow-xl transition-all relative overflow-hidden">
+                    <div className="absolute right-3 top-3 w-16 h-16 rounded-full bg-white/10 blur-lg" />
+                    <div className="absolute right-8 bottom-2 opacity-10"><FiDollarSign size={70} /></div>
+                    <p className="text-xs font-bold text-blue-200 uppercase tracking-wider">Stock Value — Purchase Cost</p>
+                    <p className="text-3xl font-black mt-2">Ksh {stockValCost.toLocaleString()}</p>
+                    <div className="flex items-center gap-2 mt-2"><FiTrendingUp size={14} className="text-blue-200" /><span className="text-xs text-blue-200">Total cost of all stock at buying price</span></div>
                 </div>
-                <span className="text-xs text-blue-100">{filtered.length} products found</span>
+                {/* Stock Value - Sales */}
+                <div className="rounded-2xl bg-gradient-to-br from-emerald-500 via-green-600 to-teal-700 p-5 text-white shadow-lg shadow-emerald-400/20 hover:shadow-xl transition-all relative overflow-hidden">
+                    <div className="absolute right-3 top-3 w-16 h-16 rounded-full bg-white/10 blur-lg" />
+                    <div className="absolute right-8 bottom-2 opacity-10"><FiTrendingUp size={70} /></div>
+                    <p className="text-xs font-bold text-emerald-200 uppercase tracking-wider">Stock Value — Sales Rate</p>
+                    <p className="text-3xl font-black mt-2">Ksh {stockValSales.toLocaleString()}</p>
+                    <div className="flex items-center gap-2 mt-2"><FiTrendingUp size={14} className="text-emerald-200" /><span className="text-xs text-emerald-200">Total value if all stock sold at sell price</span></div>
+                </div>
+                {/* Potential Profit */}
+                <div className="rounded-2xl bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 p-5 text-white shadow-lg shadow-orange-400/20 hover:shadow-xl transition-all relative overflow-hidden">
+                    <div className="absolute right-3 top-3 w-16 h-16 rounded-full bg-white/10 blur-lg" />
+                    <div className="absolute right-8 bottom-2 opacity-10"><FiZap size={70} /></div>
+                    <p className="text-xs font-bold text-amber-100 uppercase tracking-wider">Potential Profit</p>
+                    <p className="text-3xl font-black mt-2">Ksh {potentialProfit.toLocaleString()}</p>
+                    <div className="flex items-center gap-2 mt-2"><FiZap size={14} className="text-amber-100" /><span className="text-xs text-amber-100">Profit if all stock sold • Margin: {stockValCost > 0 ? ((potentialProfit / stockValCost) * 100).toFixed(1) : '0'}%</span></div>
+                </div>
             </div>
 
             {/* ━━━ SEARCH & FILTER BAR ━━━ */}
@@ -535,25 +696,33 @@ export default function ProductsPage() {
                 </div>
             )}
 
-            {/* ━━━ PAGINATION ━━━ */}
-            {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2">
-                    <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="p-2.5 rounded-xl bg-white border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 disabled:opacity-40 transition-all shadow-sm">
-                        <FiChevronLeft size={16} />
-                    </button>
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                        const start = Math.max(1, Math.min(page - 2, totalPages - 4));
-                        const pg = start + i; if (pg > totalPages) return null;
-                        return (
-                            <button key={pg} onClick={() => setPage(pg)}
-                                className={`w-10 h-10 rounded-xl text-sm font-bold transition-all ${pg === page ? 'bg-blue-500 text-white shadow-md shadow-blue-300/30' : 'bg-white border border-gray-200 text-gray-600 hover:text-blue-600 hover:border-blue-300'}`}>{pg}</button>
-                        );
-                    })}
-                    <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-2.5 rounded-xl bg-white border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 disabled:opacity-40 transition-all shadow-sm">
-                        <FiChevronRight size={16} />
-                    </button>
+            {/* ━━━ FLOATING PAGINATION FOOTER ━━━ */}
+            <div className="sticky bottom-0 z-30 bg-white/95 backdrop-blur-md border-t border-gray-200 rounded-t-2xl shadow-[0_-4px_20px_rgba(0,0,0,0.08)] px-5 py-3 -mx-5 mt-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <span className="text-sm text-gray-500">Showing</span>
+                        <select value={perPage} onChange={e => { setPerPage(parseInt(e.target.value)); setPage(1); }} className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold focus:border-blue-500 outline-none">
+                            {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
+                        </select>
+                        <span className="text-sm text-gray-500">of <span className="font-bold text-gray-800">{filtered.length}</span> products</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <button onClick={() => setPage(1)} disabled={page === 1} className="p-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 disabled:opacity-30 transition-all" title="First"><FiChevronsLeft size={14} /></button>
+                        <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="p-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 disabled:opacity-30 transition-all" title="Previous"><FiChevronLeft size={14} /></button>
+                        {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
+                            const start = Math.max(1, Math.min(page - 3, totalPages - 6));
+                            const pg = start + i; if (pg > totalPages) return null;
+                            return (
+                                <button key={pg} onClick={() => setPage(pg)}
+                                    className={`w-9 h-9 rounded-lg text-xs font-bold transition-all ${pg === page ? 'bg-blue-500 text-white shadow-md shadow-blue-300/30' : 'bg-gray-50 border border-gray-200 text-gray-600 hover:text-blue-600 hover:border-blue-300'}`}>{pg}</button>
+                            );
+                        })}
+                        <button onClick={() => setPage(p => Math.min(totalPages || 1, p + 1))} disabled={page >= totalPages} className="p-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 disabled:opacity-30 transition-all" title="Next"><FiChevronRight size={14} /></button>
+                        <button onClick={() => setPage(totalPages || 1)} disabled={page >= totalPages} className="p-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 disabled:opacity-30 transition-all" title="Last"><FiChevronsRight size={14} /></button>
+                    </div>
+                    <span className="text-sm text-gray-400">Page <span className="font-bold text-gray-700">{page}</span> of <span className="font-bold text-gray-700">{totalPages || 1}</span></span>
                 </div>
-            )}
+            </div>
 
             {/* ━━━ ADD/EDIT MODAL ━━━ */}
             {showModal && (
@@ -969,6 +1138,141 @@ export default function ProductsPage() {
                                     {adjustType === 'add' ? '➕ Add Stock' : '➖ Remove Stock'}
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ━━━ IMPORT PRODUCTS MODAL ━━━ */}
+            {showImportModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50" onClick={() => importStatus !== 'importing' && setShowImportModal(false)}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                        <div className={`px-6 py-4 text-white flex items-center justify-between rounded-t-3xl transition-all duration-700 ${importStatus === 'success' ? 'bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 animate-pulse' : importStatus === 'error' ? 'bg-gradient-to-r from-red-500 to-red-600' : 'bg-gradient-to-r from-blue-500 to-indigo-600'}`}>
+                            <div className="flex items-center gap-3"><FiUpload size={20} /><h2 className="text-lg font-bold">{importStatus === 'success' ? '🎉 Import Complete!' : importStatus === 'error' ? '❌ Import Failed' : 'Import Products'}</h2></div>
+                            {importStatus !== 'importing' && <button onClick={() => setShowImportModal(false)} className="p-2 hover:bg-white/20 rounded-xl"><FiX size={18} /></button>}
+                        </div>
+                        <div className="p-6 space-y-5">
+                            {/* Success State */}
+                            {importStatus === 'success' && (
+                                <div className="text-center py-4">
+                                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-emerald-300/40 animate-bounce">
+                                        <FiCheck className="text-white" size={36} />
+                                    </div>
+                                    <p className="text-2xl font-black text-gray-800">{importSuccessCount} Products Imported!</p>
+                                    {importErrors.length > 0 && <p className="text-sm text-amber-600 mt-2">{importErrors.length} items had errors</p>}
+                                    <div className="flex gap-3 mt-6">
+                                        <button onClick={() => { setShowImportModal(false); }} className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold rounded-xl text-sm">Done</button>
+                                    </div>
+                                    {importErrors.length > 0 && (
+                                        <div className="mt-4 bg-red-50 border border-red-200 rounded-xl p-3 text-left max-h-32 overflow-y-auto">
+                                            <p className="text-xs font-bold text-red-600 mb-1">Errors:</p>
+                                            {importErrors.map((e, i) => <p key={i} className="text-xs text-red-500">{e}</p>)}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Error State */}
+                            {importStatus === 'error' && importSuccessCount === 0 && (
+                                <div className="text-center py-4">
+                                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-red-300/40">
+                                        <FiX className="text-white" size={36} />
+                                    </div>
+                                    <p className="text-xl font-bold text-gray-800">Import Failed</p>
+                                    <div className="mt-4 bg-red-50 border border-red-200 rounded-xl p-3 text-left max-h-40 overflow-y-auto">
+                                        {importErrors.map((e, i) => <p key={i} className="text-xs text-red-500">{e}</p>)}
+                                    </div>
+                                    <button onClick={() => setImportStatus('idle')} className="mt-4 px-6 py-3 bg-blue-500 text-white font-bold rounded-xl text-sm">Try Again</button>
+                                </div>
+                            )}
+
+                            {/* Importing State */}
+                            {importStatus === 'importing' && (
+                                <div className="py-4">
+                                    <div className="text-center mb-4">
+                                        <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto" />
+                                        <p className="text-lg font-bold text-gray-800 mt-3">Importing Products...</p>
+                                        <p className="text-sm text-gray-500 mt-1">{importProgress} of {importTotal}</p>
+                                    </div>
+                                    <div className="bg-gray-100 rounded-full h-4 overflow-hidden">
+                                        <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-300 relative"
+                                            style={{ width: `${importTotal > 0 ? (importProgress / importTotal) * 100 : 0}%` }}>
+                                            <div className="absolute inset-0 bg-white/30 animate-pulse" />
+                                        </div>
+                                    </div>
+                                    <p className="text-xs text-gray-400 mt-2 text-center">{Math.round(importTotal > 0 ? (importProgress / importTotal) * 100 : 0)}%</p>
+                                    <div className="mt-3 bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-center gap-2">
+                                        <FiPackage className="text-blue-500 flex-shrink-0" size={14} />
+                                        <p className="text-xs text-blue-700 font-medium truncate">Current: <span className="font-bold">{importCurrentItem}</span></p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Idle / Parsing State */}
+                            {(importStatus === 'idle' || importStatus === 'parsing') && (
+                                <>
+                                    {/* File Upload */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wider">Upload CSV File</label>
+                                        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-blue-300 rounded-2xl bg-blue-50/50 hover:bg-blue-50 cursor-pointer transition-all group">
+                                            <FiFileText className="text-blue-400 group-hover:text-blue-600 transition-colors" size={32} />
+                                            <p className="text-sm font-semibold text-blue-500 mt-2">{importFile ? importFile.name : 'Click to select CSV file'}</p>
+                                            <p className="text-[10px] text-gray-400 mt-1">Supports .csv format</p>
+                                            <input type="file" accept=".csv,.txt" className="hidden" onChange={e => { if (e.target.files?.[0]) setImportFile(e.target.files[0]); }} />
+                                        </label>
+                                    </div>
+
+                                    {/* Import Mode */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wider">Import Mode</label>
+                                        <div className="space-y-2">
+                                            {([
+                                                { value: 'add_new' as const, label: 'Add New Items Only', desc: 'Imports only new products, skips existing ones', color: 'border-green-300 bg-green-50', icon: '➕' },
+                                                { value: 'update' as const, label: 'Update & Add', desc: 'Updates existing products by name/barcode match, adds new ones', color: 'border-blue-300 bg-blue-50', icon: '🔄' },
+                                                { value: 'overwrite' as const, label: 'Full Overwrite', desc: '⚠️ Deletes ALL existing products and imports fresh', color: 'border-red-300 bg-red-50', icon: '🗑️' },
+                                            ]).map(m => (
+                                                <label key={m.value} className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${importMode === m.value ? m.color + ' shadow-sm' : 'border-gray-200 hover:border-gray-300'}`}>
+                                                    <input type="radio" name="importMode" value={m.value} checked={importMode === m.value} onChange={() => setImportMode(m.value)} className="mt-0.5 accent-blue-500" />
+                                                    <div>
+                                                        <p className="text-sm font-bold text-gray-800">{m.icon} {m.label}</p>
+                                                        <p className="text-[11px] text-gray-500">{m.desc}</p>
+                                                    </div>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* CSV Template */}
+                                    <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">
+                                        <p className="text-xs font-bold text-gray-600 mb-1">📄 Required CSV Columns:</p>
+                                        <p className="text-[10px] text-gray-500 font-mono leading-relaxed">product_name, barcode, category, purchase_cost, sales_cost, purchase_unit, sales_unit, quantity, reorder_point, supplier_name, description, pieces_per_package</p>
+                                        <button onClick={() => {
+                                            const tpl = 'product_name,barcode,category,purchase_cost,sales_cost,purchase_unit,sales_unit,quantity,reorder_point,supplier_name,description,pieces_per_package\nSample Product,12345,Medicine,100,150,Box,Piece,10,5,Supplier A,Sample description,12\n';
+                                            const blob = new Blob([tpl], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'import_template.csv'; a.click(); URL.revokeObjectURL(url);
+                                        }} className="text-xs text-blue-600 font-bold mt-2 hover:underline">⬇️ Download Template CSV</button>
+                                    </div>
+
+                                    {/* Overwrite Warning */}
+                                    {importMode === 'overwrite' && (
+                                        <div className="bg-red-50 border-2 border-red-300 rounded-xl p-3 flex items-start gap-2">
+                                            <FiAlertTriangle className="text-red-500 flex-shrink-0 mt-0.5" size={16} />
+                                            <div>
+                                                <p className="text-xs font-bold text-red-700">⚠️ Full Overwrite Mode</p>
+                                                <p className="text-[11px] text-red-500">This will permanently DELETE all existing products and stock data before importing. This action cannot be undone.</p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Action Buttons */}
+                                    <div className="flex gap-3 pt-3 border-t">
+                                        <button onClick={() => setShowImportModal(false)} className="flex-1 px-4 py-3 border-2 border-gray-200 text-gray-600 font-bold rounded-xl text-sm">Cancel</button>
+                                        <button onClick={importProducts} disabled={!importFile || importStatus === 'parsing'}
+                                            className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                                            <FiUpload size={14} /> {importStatus === 'parsing' ? 'Parsing...' : 'Start Import'}
+                                        </button>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
