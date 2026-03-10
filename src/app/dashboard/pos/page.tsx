@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
 import { printMpesaReceipt, printCustomerReceipt, ReceiptData, loadCompanyInfo } from '@/lib/receiptPrinter';
 
@@ -776,6 +777,9 @@ const DiscountModal = ({
 
 // Main Retail POS Page
 export default function RetailPOSPage() {
+    const { activeOutlet } = useOutlet();
+    const outletId = activeOutlet?.outlet_id || 1;
+    const outletCode = activeOutlet?.outlet_code || 'RCP';
     const [products, setProducts] = useState<Product[]>([]);
     const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
@@ -822,19 +826,21 @@ export default function RetailPOSPage() {
     const loadProducts = useCallback(async () => {
         setIsLoading(true);
         try {
-            // Load products from retail_products table
+            // Load products from retail_products table - FILTERED BY OUTLET
             const { data, error } = await supabase
                 .from('retail_products')
                 .select('*')
                 .eq('active', true)
+                .eq('outlet_id', outletId)
                 .order('product_name');
 
             if (error) throw error;
 
-            // Load stock data from retail_stock table
+            // Load stock data from retail_stock table - FILTERED BY OUTLET
             const { data: stockData } = await supabase
                 .from('retail_stock')
-                .select('pid, qty');
+                .select('pid, qty')
+                .eq('outlet_id', outletId);
 
             // Build stock map
             const stockMap: Record<number, number> = {};
@@ -864,7 +870,7 @@ export default function RetailPOSPage() {
             toast.error('Failed to load products');
         }
         setIsLoading(false);
-    }, []);
+    }, [outletId]);
 
     // Load categories from database
     const loadCategories = useCallback(async () => {
@@ -873,6 +879,7 @@ export default function RetailPOSPage() {
                 .from('retail_categories')
                 .select('*')
                 .eq('active', true)
+                .eq('outlet_id', outletId)
                 .order('category_name');
 
             if (error) throw error;
@@ -881,7 +888,7 @@ export default function RetailPOSPage() {
         } catch (err) {
             console.error('Error loading categories:', err);
         }
-    }, []);
+    }, [outletId]);
 
     // Load store name
     const loadStoreName = useCallback(async () => {
@@ -902,42 +909,45 @@ export default function RetailPOSPage() {
 
     // Generate next receipt number — find max across ALL receipts to avoid duplicates
     const loadNextReceiptNo = useCallback(async () => {
+        // Each outlet has its own receipt number sequence
+        const prefix = outletCode ? `${outletCode}-` : 'RCP-';
         try {
             const { data, error } = await supabase
                 .from('retail_sales')
                 .select('receipt_no')
-                .like('receipt_no', 'RCP-%')
+                .eq('outlet_id', outletId)
+                .like('receipt_no', `${prefix}%`)
                 .order('sale_id', { ascending: false })
                 .limit(500);
 
             if (error) {
                 console.error('Error loading receipt number:', error);
-                setReceiptNo(`RCP-${Date.now().toString(36).toUpperCase()}`);
+                setReceiptNo(`${prefix}${Date.now().toString(36).toUpperCase()}`);
                 return;
             }
 
             if (data && data.length > 0) {
                 let maxNum = 0;
+                const regex = new RegExp(`${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\d+)`);
                 for (const row of data) {
-                    const match = row.receipt_no?.match(/RCP-(\d+)/);
+                    const match = row.receipt_no?.match(regex);
                     if (match) {
                         const num = parseInt(match[1]);
                         if (num > maxNum) maxNum = num;
                     }
                 }
                 if (maxNum > 0) {
-                    setReceiptNo(`RCP-${String(maxNum + 1).padStart(5, '0')}`);
+                    setReceiptNo(`${prefix}${String(maxNum + 1).padStart(5, '0')}`);
                     return;
                 }
             }
 
-            // Fallback for first receipt or if parsing fails
-            setReceiptNo('RCP-00001');
+            setReceiptNo(`${prefix}00001`);
         } catch (err) {
             console.error('Exception loading receipt number:', err);
-            setReceiptNo(`RCP-${Date.now().toString(36).toUpperCase()}`);
+            setReceiptNo(`${prefix}${Date.now().toString(36).toUpperCase()}`);
         }
-    }, []);
+    }, [outletId, outletCode]);
 
     // Load credit customers for dropdown
     const loadCreditCustomers = useCallback(async () => {
@@ -1079,23 +1089,26 @@ export default function RetailPOSPage() {
 
             // Generate a FRESH receipt number right before insert to avoid duplicates
             let freshReceiptNo = receiptNo;
+            const prefix = outletCode ? `${outletCode}-` : 'RCP-';
             try {
                 const { data: latestSales } = await supabase
                     .from('retail_sales')
                     .select('receipt_no')
-                    .like('receipt_no', 'RCP-%')
+                    .eq('outlet_id', outletId)
+                    .like('receipt_no', `${prefix}%`)
                     .order('sale_id', { ascending: false })
                     .limit(1);
 
                 if (latestSales && latestSales.length > 0) {
-                    const match = latestSales[0].receipt_no?.match(/RCP-(\d+)/);
+                    const regex = new RegExp(`${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\d+)`);
+                    const match = latestSales[0].receipt_no?.match(regex);
                     if (match) {
-                        freshReceiptNo = `RCP-${String(parseInt(match[1]) + 1).padStart(5, '0')}`;
+                        freshReceiptNo = `${prefix}${String(parseInt(match[1]) + 1).padStart(5, '0')}`;
                     }
                 }
             } catch {
                 // If fresh generation fails, add timestamp suffix to make it unique
-                freshReceiptNo = `RCP-${Date.now().toString(36).toUpperCase()}`;
+                freshReceiptNo = `${prefix}${Date.now().toString(36).toUpperCase()}`;
             }
 
             // Create sale record in retail_sales table
@@ -1116,7 +1129,8 @@ export default function RetailPOSPage() {
                     change_amount: Math.max(0, amountPaid - grandTotal),
                     mpesa_code: mpesaReceipt || null,
                     checkout_request_id: checkoutRequestId || null,
-                    status: 'Completed'
+                    status: 'Completed',
+                    outlet_id: outletId
                 }])
                 .select()
                 .single();

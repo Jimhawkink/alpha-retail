@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
 import { FiShoppingBag, FiRefreshCw, FiSearch, FiFilter, FiCalendar, FiChevronLeft, FiChevronRight, FiChevronsLeft, FiChevronsRight, FiX, FiEye, FiTrash2, FiTruck, FiDollarSign, FiCheckCircle, FiClock, FiAlertTriangle, FiDownload, FiPlus, FiTrendingUp, FiPackage, FiPrinter, FiFileText } from 'react-icons/fi';
 
@@ -19,6 +20,8 @@ interface Supplier { supplier_id: number; supplier_name: string; }
 interface Category { category_id: number; category_name: string; }
 
 export default function PurchasesPage() {
+    const { activeOutlet } = useOutlet();
+    const outletId = activeOutlet?.outlet_id || 1;
     const [purchases, setPurchases] = useState<Purchase[]>([]);
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
@@ -42,7 +45,7 @@ export default function PurchasesPage() {
     const loadPurchases = useCallback(async () => {
         setIsLoading(true);
         try {
-            let query = supabase.from('retail_purchases').select('*').order('purchase_id', { ascending: false });
+            let query = supabase.from('retail_purchases').select('*').eq('outlet_id', outletId).order('purchase_id', { ascending: false });
             if (dateFrom) query = query.gte('purchase_date', dateFrom);
             if (dateTo) query = query.lte('purchase_date', dateTo);
             const { data, error } = await query;

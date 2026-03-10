@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
 import { FiShoppingBag, FiPackage, FiX, FiPlus, FiTrash2, FiDollarSign, FiTruck, FiCalendar, FiHash, FiSave, FiCheckCircle, FiAlertTriangle, FiTrendingUp, FiSearch, FiRefreshCw, FiEdit3, FiArrowRight } from 'react-icons/fi';
 
@@ -34,6 +35,8 @@ interface PurchaseItem {
 }
 
 export default function PurchaseEntryPage() {
+    const { activeOutlet } = useOutlet();
+    const outletId = activeOutlet?.outlet_id || 1;
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -74,7 +77,7 @@ export default function PurchaseEntryPage() {
             try {
                 const [{ data: suppData }, { data: prodData }] = await Promise.all([
                     supabase.from('retail_suppliers').select('supplier_id, supplier_code, supplier_name, phone, contact_person').eq('active', true).order('supplier_name'),
-                    supabase.from('retail_products').select('pid, product_code, product_name, purchase_unit, sales_unit, purchase_cost, sales_cost, category, pieces_per_package, barcode').eq('active', true).order('product_name'),
+                    supabase.from('retail_products').select('pid, product_code, product_name, purchase_unit, sales_unit, purchase_cost, sales_cost, category, pieces_per_package, barcode').eq('active', true).eq('outlet_id', outletId).order('product_name'),
                 ]);
                 setSuppliers(suppData || []); setProducts(prodData || []);
                 await generateInvoiceNo();
@@ -82,11 +85,11 @@ export default function PurchaseEntryPage() {
             setIsLoading(false);
         };
         loadData();
-    }, []);
+    }, [outletId]);
 
     const generateInvoiceNo = async () => {
         try {
-            const { data } = await supabase.from('retail_purchases').select('purchase_no').order('purchase_id', { ascending: false }).limit(1);
+            const { data } = await supabase.from('retail_purchases').select('purchase_no').eq('outlet_id', outletId).order('purchase_id', { ascending: false }).limit(1);
             let n = 1;
             if (data?.[0]) { const m = data[0].purchase_no.match(/INV-(\d+)/); if (m) n = parseInt(m[1]) + 1; }
             setInvoiceNo(`INV-${String(n).padStart(3, '0')}`);
@@ -104,8 +107,8 @@ export default function PurchaseEntryPage() {
         setShouldUpdatePrices(false);
         setPriceChanged(false);
         setQty(1);
-        // Load stock
-        const { data: stockData } = await supabase.from('retail_stock').select('qty').eq('pid', product.pid);
+        // Load stock for this outlet
+        const { data: stockData } = await supabase.from('retail_stock').select('qty').eq('pid', product.pid).eq('outlet_id', outletId);
         setAvailableQty(stockData?.reduce((s, r) => s + (r.qty || 0), 0) || 0);
     };
 
@@ -230,7 +233,8 @@ export default function PurchaseEntryPage() {
                 purchase_no: invoiceNo, purchase_date: purchaseDate,
                 supplier_id: selectedSupplier, supplier_name: supplier?.supplier_name || '',
                 supplier_invoice: supplierInvoiceNo, sub_total: subtotal, discount: 0, vat: 0, grand_total: total,
-                status: 'Completed', payment_status: paymentStatus, created_by: user?.name || 'Unknown'
+                status: 'Completed', payment_status: paymentStatus, created_by: user?.name || 'Unknown',
+                outlet_id: outletId
             }).select().single();
             if (pErr) throw pErr;
             const pid = purchaseData.purchase_id;
@@ -250,11 +254,11 @@ export default function PurchaseEntryPage() {
                 const stockQty = product ? getStockQty(item.qty, item.purchaseUnit, product) : item.qty;
 
                 // Update stock
-                const { data: sData } = await supabase.from('retail_stock').select('st_id, qty').eq('pid', item.productId).single();
+                const { data: sData } = await supabase.from('retail_stock').select('st_id, qty').eq('pid', item.productId).eq('outlet_id', outletId).single();
                 if (sData) {
                     await supabase.from('retail_stock').update({ qty: (sData.qty || 0) + stockQty, invoice_no: invoiceNo, updated_at: new Date().toISOString() }).eq('st_id', sData.st_id);
                 } else {
-                    await supabase.from('retail_stock').insert({ pid: item.productId, invoice_no: invoiceNo, qty: stockQty, storage_type: 'Store' });
+                    await supabase.from('retail_stock').insert({ pid: item.productId, invoice_no: invoiceNo, qty: stockQty, storage_type: 'Store', outlet_id: outletId });
                 }
 
                 // Update product prices if flagged

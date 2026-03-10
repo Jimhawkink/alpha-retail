@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useCompanyName } from '@/context/SettingsContext';
 import { supabase } from '@/lib/supabase';
+import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
 
 interface Sale {
@@ -24,6 +25,8 @@ interface Sale {
 }
 
 export default function SalesPage() {
+    const { activeOutlet } = useOutlet();
+    const outletId = activeOutlet?.outlet_id || 1;
     const [sales, setSales] = useState<Sale[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -40,6 +43,7 @@ export default function SalesPage() {
             const { data, error } = await supabase
                 .from('retail_sales')
                 .select('*')
+                .eq('outlet_id', outletId)
                 .eq('sale_date', filterDate)
                 .order('sale_datetime', { ascending: false });
 
@@ -55,7 +59,7 @@ export default function SalesPage() {
 
     useEffect(() => {
         loadSales();
-    }, [filterDate]);
+    }, [filterDate, outletId]);
 
     const filteredSales = sales.filter(s => {
         const matchesSearch =

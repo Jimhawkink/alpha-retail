@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
 import { FiPackage, FiPlus, FiEdit2, FiTrash2, FiShoppingCart, FiDownload, FiRefreshCw, FiSearch, FiGrid, FiList, FiChevronLeft, FiChevronRight, FiX, FiUpload, FiCheck, FiAlertTriangle, FiTag, FiDollarSign, FiLayers, FiFilter, FiTrendingUp, FiImage, FiPrinter, FiZap, FiClock, FiSliders, FiEye, FiChevronsLeft, FiChevronsRight, FiFileText } from 'react-icons/fi';
 
@@ -56,6 +57,8 @@ const defUnits: Unit[] = [
 ];
 
 export default function ProductsPage() {
+    const { activeOutlet } = useOutlet();
+    const outletId = activeOutlet?.outlet_id || 1;
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -111,22 +114,22 @@ export default function ProductsPage() {
     // ─── DATA LOADING ───
     const loadProducts = useCallback(async () => {
         setIsLoading(true);
-        try { const { data, error } = await supabase.from('retail_products').select('*').order('pid', { ascending: false }); if (error) throw error; setProducts(data || []); }
+        try { const { data, error } = await supabase.from('retail_products').select('*').eq('outlet_id', outletId).order('pid', { ascending: false }); if (error) throw error; setProducts(data || []); }
         catch { toast.error('Failed to load products'); }
         setIsLoading(false);
-    }, []);
+    }, [outletId]);
 
     const loadStockData = useCallback(async () => {
         try {
-            const { data, error } = await supabase.from('retail_stock').select('pid, qty'); if (error) throw error;
+            const { data, error } = await supabase.from('retail_stock').select('pid, qty').eq('outlet_id', outletId); if (error) throw error;
             const m: Record<number, number> = {}; (data || []).forEach((s: { pid: number; qty: number }) => { m[s.pid] = (m[s.pid] || 0) + (s.qty || 0); }); setStockData(m);
         } catch { /* silent */ }
-    }, []);
+    }, [outletId]);
 
     const loadCategories = useCallback(async () => {
-        try { const { data, error } = await supabase.from('retail_categories').select('*').eq('active', true).order('category_name'); if (error) throw error; setCategories(data || []); }
+        try { const { data, error } = await supabase.from('retail_categories').select('*').eq('active', true).eq('outlet_id', outletId).order('category_name'); if (error) throw error; setCategories(data || []); }
         catch { /* silent */ }
-    }, []);
+    }, [outletId]);
 
     const loadSuppliers = useCallback(async () => {
         try { const { data, error } = await supabase.from('retail_suppliers').select('supplier_id, supplier_code, supplier_name').eq('active', true).order('supplier_name'); if (error) throw error; setSuppliers(data || []); }
@@ -152,14 +155,14 @@ export default function ProductsPage() {
 
     const generateBarcode = async (): Promise<string> => {
         try {
-            const { data } = await supabase.from('retail_products').select('barcode').like('barcode', '1%').order('barcode', { ascending: false }).limit(1);
+            const { data } = await supabase.from('retail_products').select('barcode').eq('outlet_id', outletId).like('barcode', '1%').order('barcode', { ascending: false }).limit(1);
             if (data?.length && data[0].barcode) return String((parseInt(data[0].barcode) || 100) + 1); return '101';
         } catch { return '101'; }
     };
 
     const generateProductCode = async (): Promise<string> => {
         try {
-            const { data } = await supabase.from('retail_products').select('product_code').like('product_code', 'PRD-%').order('product_code', { ascending: false }).limit(1);
+            const { data } = await supabase.from('retail_products').select('product_code').eq('outlet_id', outletId).like('product_code', 'PRD-%').order('product_code', { ascending: false }).limit(1);
             if (data?.length) return `PRD-${String((parseInt(data[0].product_code.replace('PRD-', '')) || 0) + 1).padStart(2, '0')}`; return 'PRD-01';
         } catch { return 'PRD-01'; }
     };
@@ -215,9 +218,9 @@ export default function ProductsPage() {
             } else {
                 const code = await generateProductCode();
                 const openingPieces = openingQty * (formData.pieces_per_package || 1);
-                const { data: np, error } = await supabase.from('retail_products').insert({ ...d, product_code: code, created_at: new Date().toISOString() }).select().single();
+                const { data: np, error } = await supabase.from('retail_products').insert({ ...d, product_code: code, outlet_id: outletId, created_at: new Date().toISOString() }).select().single();
                 if (error) throw new Error(error.message);
-                if (openingPieces > 0 && np) await supabase.from('retail_stock').insert({ pid: np.pid, invoice_no: 'OPENING', qty: openingPieces, storage_type: 'Store' });
+                if (openingPieces > 0 && np) await supabase.from('retail_stock').insert({ pid: np.pid, invoice_no: 'OPENING', qty: openingPieces, storage_type: 'Store', outlet_id: outletId });
                 toast.success(`Product ${code} created!`);
             }
             setShowModal(false); loadProducts(); loadStockData();
@@ -341,8 +344,8 @@ export default function ProductsPage() {
 
             if (importMode === 'overwrite') {
                 setImportCurrentItem('Clearing existing products...');
-                await supabase.from('retail_stock').delete().neq('pid', 0);
-                await supabase.from('retail_products').delete().neq('pid', 0);
+                await supabase.from('retail_stock').delete().eq('outlet_id', outletId);
+                await supabase.from('retail_products').delete().eq('outlet_id', outletId);
                 setImportProgress(0);
             }
 
@@ -388,8 +391,8 @@ export default function ProductsPage() {
                     }
                     const qty = parseFloat(r.quantity || r.stock || r.qty || r.opening_stock || '0');
                     if (qty > 0) {
-                        const { data: newP } = await supabase.from('retail_products').select('pid').eq('product_name', name).order('pid', { ascending: false }).limit(1);
-                        if (newP?.[0]) await supabase.from('retail_stock').insert({ pid: newP[0].pid, invoice_no: 'IMPORT', qty, storage_type: 'Store' });
+                        const { data: newP } = await supabase.from('retail_products').select('pid').eq('product_name', name).eq('outlet_id', outletId).order('pid', { ascending: false }).limit(1);
+                        if (newP?.[0]) await supabase.from('retail_stock').insert({ pid: newP[0].pid, invoice_no: 'IMPORT', qty, storage_type: 'Store', outlet_id: outletId });
                     }
                     success++;
                 } catch (err: any) { errors.push(`Row ${i + 2} (${name}): ${err.message || 'DB error'}`); }
