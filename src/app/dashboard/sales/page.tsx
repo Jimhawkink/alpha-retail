@@ -38,16 +38,27 @@ export default function SalesPage() {
 
     // Load sales from database
     const loadSales = async () => {
+        if (!activeOutlet) return; // Wait for outlet context
         setLoading(true);
         try {
-            const { data, error } = await supabase
+            // Try with outlet_id filter, fallback without
+            let data: any[] | null = null;
+            const r1 = await supabase
                 .from('retail_sales')
                 .select('*')
                 .eq('outlet_id', outletId)
                 .eq('sale_date', filterDate)
                 .order('sale_datetime', { ascending: false });
-
-            if (error) throw error;
+            if (r1.error) {
+                const r2 = await supabase
+                    .from('retail_sales')
+                    .select('*')
+                    .eq('sale_date', filterDate)
+                    .order('sale_datetime', { ascending: false });
+                data = r2.data;
+            } else {
+                data = r1.data;
+            }
             setSales(data || []);
         } catch (err) {
             console.error('Error loading sales:', err);
@@ -59,7 +70,7 @@ export default function SalesPage() {
 
     useEffect(() => {
         loadSales();
-    }, [filterDate, outletId]);
+    }, [filterDate, outletId, activeOutlet]);
 
     const filteredSales = sales.filter(s => {
         const matchesSearch =

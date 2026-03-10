@@ -73,11 +73,21 @@ export default function PurchaseEntryPage() {
 
     useEffect(() => {
         const loadData = async () => {
+            if (!activeOutlet) return; // Wait for outlet context
             setIsLoading(true);
             try {
-                const [{ data: suppData }, { data: prodData }] = await Promise.all([
+                // Products: try with outlet_id, fallback without
+                let prodData: any[] | null = null;
+                const r1 = await supabase.from('retail_products').select('pid, product_code, product_name, purchase_unit, sales_unit, purchase_cost, sales_cost, category, pieces_per_package, barcode').eq('active', true).eq('outlet_id', outletId).order('product_name');
+                if (r1.error) {
+                    const r2 = await supabase.from('retail_products').select('pid, product_code, product_name, purchase_unit, sales_unit, purchase_cost, sales_cost, category, pieces_per_package, barcode').eq('active', true).order('product_name');
+                    prodData = r2.data;
+                } else {
+                    prodData = r1.data;
+                }
+
+                const [{ data: suppData }] = await Promise.all([
                     supabase.from('retail_suppliers').select('supplier_id, supplier_code, supplier_name, phone, contact_person').eq('active', true).order('supplier_name'),
-                    supabase.from('retail_products').select('pid, product_code, product_name, purchase_unit, sales_unit, purchase_cost, sales_cost, category, pieces_per_package, barcode').eq('active', true).eq('outlet_id', outletId).order('product_name'),
                 ]);
                 setSuppliers(suppData || []); setProducts(prodData || []);
                 await generateInvoiceNo();
@@ -85,7 +95,7 @@ export default function PurchaseEntryPage() {
             setIsLoading(false);
         };
         loadData();
-    }, [outletId]);
+    }, [activeOutlet, outletId]);
 
     const generateInvoiceNo = async () => {
         try {

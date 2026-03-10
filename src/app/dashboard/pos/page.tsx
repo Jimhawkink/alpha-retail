@@ -824,6 +824,7 @@ export default function RetailPOSPage() {
 
     // Load products from database
     const loadProducts = useCallback(async () => {
+        if (!activeOutlet) return; // Wait for outlet context to load
         setIsLoading(true);
         try {
             // Load products from retail_products table - FILTERED BY OUTLET
@@ -870,25 +871,35 @@ export default function RetailPOSPage() {
             toast.error('Failed to load products');
         }
         setIsLoading(false);
-    }, [outletId]);
+    }, [activeOutlet, outletId]);
 
     // Load categories from database
     const loadCategories = useCallback(async () => {
+        if (!activeOutlet) return; // Wait for outlet context
         try {
-            const { data, error } = await supabase
+            // Try loading with outlet_id filter first
+            let { data, error } = await supabase
                 .from('retail_categories')
                 .select('*')
                 .eq('active', true)
                 .eq('outlet_id', outletId)
                 .order('category_name');
 
-            if (error) throw error;
+            // If outlet_id filter fails (column doesn't exist), load ALL categories
+            if (error) {
+                const fallback = await supabase
+                    .from('retail_categories')
+                    .select('*')
+                    .eq('active', true)
+                    .order('category_name');
+                data = fallback.data;
+            }
 
             setCategories(data || []);
         } catch (err) {
             console.error('Error loading categories:', err);
         }
-    }, [outletId]);
+    }, [activeOutlet, outletId]);
 
     // Load store name
     const loadStoreName = useCallback(async () => {
@@ -909,6 +920,7 @@ export default function RetailPOSPage() {
 
     // Generate next receipt number — find max across ALL receipts to avoid duplicates
     const loadNextReceiptNo = useCallback(async () => {
+        if (!activeOutlet) return; // Wait for outlet context
         // Each outlet has its own receipt number sequence: MAIN-RCP01, BMS-RCP01
         const prefix = outletCode ? `${outletCode}-RCP` : 'RCP';
         try {
@@ -921,8 +933,9 @@ export default function RetailPOSPage() {
                 .limit(500);
 
             if (error) {
-                console.error('Error loading receipt number:', error);
-                setReceiptNo(`${prefix}${Date.now().toString(36).toUpperCase()}`);
+                console.error('Receipt query error:', error);
+                // ALWAYS fall back to clean format, never timestamps
+                setReceiptNo(`${prefix}01`);
                 return;
             }
 
@@ -945,9 +958,10 @@ export default function RetailPOSPage() {
             setReceiptNo(`${prefix}01`);
         } catch (err) {
             console.error('Exception loading receipt number:', err);
-            setReceiptNo(`${prefix}${Date.now().toString(36).toUpperCase()}`);
+            // ALWAYS fall back to clean format, never timestamps
+            setReceiptNo(`${prefix}01`);
         }
-    }, [outletId, outletCode]);
+    }, [activeOutlet, outletId, outletCode]);
 
     // Load credit customers for dropdown
     const loadCreditCustomers = useCallback(async () => {
@@ -1107,8 +1121,7 @@ export default function RetailPOSPage() {
                     }
                 }
             } catch {
-                // If fresh generation fails, add timestamp suffix to make it unique
-                freshReceiptNo = `${prefix}${Date.now().toString(36).toUpperCase()}`;
+                // Keep the current receipt number as-is, don't generate timestamps
             }
 
             // Create sale record in retail_sales table

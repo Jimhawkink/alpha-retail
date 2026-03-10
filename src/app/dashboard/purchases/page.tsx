@@ -43,13 +43,21 @@ export default function PurchasesPage() {
 
     // ─── DATA LOADING ───
     const loadPurchases = useCallback(async () => {
+        if (!activeOutlet) return; // Wait for outlet context
         setIsLoading(true);
         try {
+            // Try with outlet_id, fallback without
             let query = supabase.from('retail_purchases').select('*').eq('outlet_id', outletId).order('purchase_id', { ascending: false });
             if (dateFrom) query = query.gte('purchase_date', dateFrom);
             if (dateTo) query = query.lte('purchase_date', dateTo);
-            const { data, error } = await query;
-            if (error) throw error;
+            let { data, error } = await query;
+            if (error) {
+                let fb = supabase.from('retail_purchases').select('*').order('purchase_id', { ascending: false });
+                if (dateFrom) fb = fb.gte('purchase_date', dateFrom);
+                if (dateTo) fb = fb.lte('purchase_date', dateTo);
+                const r2 = await fb;
+                data = r2.data;
+            }
             setPurchases(data || []);
         } catch { toast.error('Failed to load purchases'); }
         setIsLoading(false);

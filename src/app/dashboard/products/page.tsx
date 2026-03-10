@@ -113,23 +113,48 @@ export default function ProductsPage() {
 
     // ─── DATA LOADING ───
     const loadProducts = useCallback(async () => {
+        if (!activeOutlet) return; // Wait for outlet context to load on refresh
         setIsLoading(true);
-        try { const { data, error } = await supabase.from('retail_products').select('*').eq('outlet_id', outletId).order('pid', { ascending: false }); if (error) throw error; setProducts(data || []); }
+        try {
+            // Try with outlet_id filter first
+            let { data, error } = await supabase.from('retail_products').select('*').eq('outlet_id', outletId).order('pid', { ascending: false });
+            // Fallback if outlet_id column doesn't exist
+            if (error) {
+                const fb = await supabase.from('retail_products').select('*').order('pid', { ascending: false });
+                data = fb.data; error = fb.error;
+            }
+            if (error) throw error;
+            setProducts(data || []);
+        }
         catch { toast.error('Failed to load products'); }
         setIsLoading(false);
-    }, [outletId]);
+    }, [activeOutlet, outletId]);
 
     const loadStockData = useCallback(async () => {
+        if (!activeOutlet) return;
         try {
-            const { data, error } = await supabase.from('retail_stock').select('pid, qty').eq('outlet_id', outletId); if (error) throw error;
+            let { data, error } = await supabase.from('retail_stock').select('pid, qty').eq('outlet_id', outletId);
+            if (error) {
+                const fb = await supabase.from('retail_stock').select('pid, qty');
+                data = fb.data;
+            }
             const m: Record<number, number> = {}; (data || []).forEach((s: { pid: number; qty: number }) => { m[s.pid] = (m[s.pid] || 0) + (s.qty || 0); }); setStockData(m);
         } catch { /* silent */ }
-    }, [outletId]);
+    }, [activeOutlet, outletId]);
 
     const loadCategories = useCallback(async () => {
-        try { const { data, error } = await supabase.from('retail_categories').select('*').eq('active', true).eq('outlet_id', outletId).order('category_name'); if (error) throw error; setCategories(data || []); }
+        if (!activeOutlet) return;
+        try {
+            let { data, error } = await supabase.from('retail_categories').select('*').eq('active', true).eq('outlet_id', outletId).order('category_name');
+            // Fallback: if outlet_id filter fails or returns empty, load ALL categories
+            if (error || !data || data.length === 0) {
+                const fb = await supabase.from('retail_categories').select('*').eq('active', true).order('category_name');
+                data = fb.data;
+            }
+            setCategories(data || []);
+        }
         catch { /* silent */ }
-    }, [outletId]);
+    }, [activeOutlet, outletId]);
 
     const loadSuppliers = useCallback(async () => {
         try { const { data, error } = await supabase.from('retail_suppliers').select('supplier_id, supplier_code, supplier_name').eq('active', true).order('supplier_name'); if (error) throw error; setSuppliers(data || []); }
