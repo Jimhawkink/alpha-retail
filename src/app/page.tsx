@@ -15,6 +15,11 @@ export default function LoginPage() {
     const [currentDate, setCurrentDate] = useState('');
     const [storeName, setStoreName] = useState('Alpha Retail');
 
+    // Outlet selection
+    const [showOutletPicker, setShowOutletPicker] = useState(false);
+    const [userOutlets, setUserOutlets] = useState<{ outlet_id: number; outlet_name: string; outlet_code: string; is_main: boolean }[]>([]);
+    const [pendingUser, setPendingUser] = useState<any>(null);
+
     useEffect(() => {
         const updateDateTime = () => {
             const now = new Date();
@@ -72,14 +77,38 @@ export default function LoginPage() {
 
             // Check password
             if (data.password_hash === password || data.pin === password) {
-                localStorage.setItem('user', JSON.stringify({
-                    userId: data.user_id,
-                    userName: data.user_name,
-                    name: data.name,
-                    userType: data.user_type,
-                    email: data.email
-                }));
-                router.push('/dashboard');
+                // Load user's outlets
+                const { data: outletLinks } = await supabase
+                    .from('retail_user_outlets')
+                    .select('outlet_id')
+                    .eq('user_id', data.user_id);
+
+                let availableOutlets: { outlet_id: number; outlet_name: string; outlet_code: string; is_main: boolean }[] = [];
+                if (outletLinks && outletLinks.length > 0) {
+                    const outletIds = outletLinks.map(l => l.outlet_id);
+                    const { data: outletsData } = await supabase
+                        .from('retail_outlets')
+                        .select('outlet_id, outlet_name, outlet_code, is_main')
+                        .in('outlet_id', outletIds)
+                        .eq('active', true);
+                    availableOutlets = outletsData || [];
+                } else {
+                    // No mapping — load all active outlets (legacy)
+                    const { data: allOutlets } = await supabase
+                        .from('retail_outlets')
+                        .select('outlet_id, outlet_name, outlet_code, is_main')
+                        .eq('active', true);
+                    availableOutlets = allOutlets || [];
+                }
+
+                if (availableOutlets.length > 1) {
+                    setPendingUser(data);
+                    setUserOutlets(availableOutlets);
+                    setShowOutletPicker(true);
+                } else {
+                    const outlet = availableOutlets[0] || { outlet_id: 1, outlet_name: 'Main Outlet' };
+                    completeLogin(data, outlet.outlet_id, outlet.outlet_name);
+                }
             } else {
                 setError('Invalid username or password');
             }
@@ -91,6 +120,19 @@ export default function LoginPage() {
         setIsLoading(false);
     };
 
+    const completeLogin = (userData: any, outletId: number, outletName: string) => {
+        localStorage.setItem('user', JSON.stringify({
+            userId: userData.user_id,
+            userName: userData.user_name,
+            name: userData.name,
+            userType: userData.user_type,
+            email: userData.email,
+        }));
+        localStorage.setItem('activeOutletId', String(outletId));
+        localStorage.setItem('activeOutletName', outletName);
+        router.push('/dashboard');
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-green-50 to-teal-100 flex items-center justify-center p-4 relative overflow-hidden">
             {/* Animated Background */}
@@ -98,151 +140,186 @@ export default function LoginPage() {
                 <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-green-400/20 to-emerald-400/20 rounded-full blur-3xl animate-pulse"></div>
                 <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-gradient-to-br from-teal-400/20 to-cyan-400/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-br from-green-300/10 to-emerald-300/10 rounded-full blur-3xl"></div>
-
-                {/* Floating Shopping Icons */}
                 <div className="absolute top-20 left-[10%] text-4xl opacity-20 animate-bounce" style={{ animationDuration: '3s' }}>🛒</div>
                 <div className="absolute top-40 right-[15%] text-3xl opacity-20 animate-bounce" style={{ animationDuration: '4s', animationDelay: '0.5s' }}>🛍️</div>
                 <div className="absolute bottom-32 left-[20%] text-3xl opacity-20 animate-bounce" style={{ animationDuration: '3.5s', animationDelay: '1s' }}>📦</div>
                 <div className="absolute bottom-48 right-[10%] text-4xl opacity-20 animate-bounce" style={{ animationDuration: '4.5s', animationDelay: '0.3s' }}>🏪</div>
-                <div className="absolute top-1/3 left-[5%] text-2xl opacity-15 animate-bounce" style={{ animationDuration: '5s', animationDelay: '0.7s' }}>💳</div>
-                <div className="absolute bottom-1/4 right-[25%] text-2xl opacity-15 animate-bounce" style={{ animationDuration: '3.8s', animationDelay: '1.2s' }}>🧾</div>
             </div>
+
+            {/* OUTLET PICKER SCREEN */}
+            {showOutletPicker && (
+                <div className="relative z-10 w-full max-w-lg">
+                    <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-green-500/10 border border-white/50 overflow-hidden">
+                        <div className="bg-gradient-to-r from-indigo-500 via-purple-600 to-indigo-600 px-8 py-8 text-center relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+                            <div className="relative inline-flex items-center justify-center w-20 h-20 bg-white/20 backdrop-blur-sm rounded-3xl mb-4">
+                                <span className="text-5xl">📍</span>
+                            </div>
+                            <h1 className="text-2xl font-bold text-white mb-1">Select Outlet</h1>
+                            <p className="text-indigo-200 text-sm">Welcome {pendingUser?.name}! Choose your outlet:</p>
+                        </div>
+                        <div className="p-6 space-y-3">
+                            {userOutlets.map(outlet => (
+                                <button key={outlet.outlet_id}
+                                    onClick={() => completeLogin(pendingUser, outlet.outlet_id, outlet.outlet_name)}
+                                    className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-gray-200 hover:border-indigo-500 hover:bg-indigo-50 transition-all group"
+                                >
+                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white text-xl font-bold shadow-md ${outlet.is_main ? 'bg-gradient-to-br from-amber-500 to-orange-600' : 'bg-gradient-to-br from-indigo-500 to-purple-600'}`}>
+                                        {outlet.is_main ? '⭐' : '🏪'}
+                                    </div>
+                                    <div className="text-left flex-1">
+                                        <p className="font-bold text-gray-800 group-hover:text-indigo-700">{outlet.outlet_name}</p>
+                                        <p className="text-xs text-gray-400 font-mono">{outlet.outlet_code}{outlet.is_main ? ' • Head Office' : ''}</p>
+                                    </div>
+                                    <span className="text-gray-300 group-hover:text-indigo-500 text-xl">→</span>
+                                </button>
+                            ))}
+                            <button onClick={() => { setShowOutletPicker(false); setPendingUser(null); }}
+                                className="w-full py-3 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-xl mt-2">
+                                ← Back to Login
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Main Login Card */}
-            <div className="relative z-10 w-full max-w-md">
-                {/* Glass Card */}
-                <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-green-500/10 border border-white/50 overflow-hidden">
-                    {/* Header with Shopping Basket */}
-                    <div className="bg-gradient-to-r from-emerald-500 via-green-600 to-teal-600 px-8 py-8 text-center relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-                        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2"></div>
+            {!showOutletPicker && (
+                <div className="relative z-10 w-full max-w-md">
+                    {/* Glass Card */}
+                    <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-green-500/10 border border-white/50 overflow-hidden">
+                        {/* Header with Shopping Basket */}
+                        <div className="bg-gradient-to-r from-emerald-500 via-green-600 to-teal-600 px-8 py-8 text-center relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+                            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2"></div>
 
-                        {/* Shopping Basket Icon */}
-                        <div className="relative inline-flex items-center justify-center w-24 h-24 bg-white/20 backdrop-blur-sm rounded-3xl mb-4 shadow-lg border border-white/30">
-                            <span className="text-6xl">🛒</span>
-                        </div>
-
-                        <h1 className="text-2xl md:text-3xl font-bold text-white mb-1">
-                            {storeName}
-                        </h1>
-                        <p className="text-green-100 text-sm font-medium">
-                            ✨ Retail Point of Sale System ✨
-                        </p>
-
-                        {/* Time */}
-                        <div className="mt-4 flex items-center justify-center gap-4 text-white/80 text-xs">
-                            <span className="flex items-center gap-1"><span>🕐</span> {currentTime}</span>
-                            <span className="w-1 h-1 rounded-full bg-white/50"></span>
-                            <span className="flex items-center gap-1"><span>📅</span> {currentDate}</span>
-                        </div>
-                    </div>
-
-                    {/* Form Section */}
-                    <div className="px-8 py-8">
-                        <form onSubmit={handleLogin} className="space-y-5">
-                            {/* Username */}
-                            <div className="space-y-2">
-                                <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                    <span className="text-lg">👤</span> Username
-                                </label>
-                                <div className="relative group">
-                                    <input
-                                        type="text"
-                                        value={username}
-                                        onChange={(e) => setUsername(e.target.value)}
-                                        placeholder="Enter your username"
-                                        className="w-full px-5 py-4 pl-14 bg-gray-50/80 border-2 border-gray-200 rounded-2xl text-gray-800 placeholder-gray-400 focus:outline-none focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-500/10 transition-all duration-300 text-base font-medium"
-                                    />
-                                    <span className="absolute left-5 top-1/2 -translate-y-1/2 text-2xl opacity-60 group-focus-within:opacity-100 transition-opacity">🆔</span>
-                                </div>
+                            {/* Shopping Basket Icon */}
+                            <div className="relative inline-flex items-center justify-center w-24 h-24 bg-white/20 backdrop-blur-sm rounded-3xl mb-4 shadow-lg border border-white/30">
+                                <span className="text-6xl">🛒</span>
                             </div>
 
-                            {/* Password */}
-                            <div className="space-y-2">
-                                <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                    <span className="text-lg">🔐</span> Password
-                                </label>
-                                <div className="relative group">
-                                    <input
-                                        type={showPassword ? 'text' : 'password'}
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        placeholder="Enter your password"
-                                        className="w-full px-5 py-4 pl-14 pr-14 bg-gray-50/80 border-2 border-gray-200 rounded-2xl text-gray-800 placeholder-gray-400 focus:outline-none focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-500/10 transition-all duration-300 text-base font-medium"
-                                    />
-                                    <span className="absolute left-5 top-1/2 -translate-y-1/2 text-2xl opacity-60 group-focus-within:opacity-100 transition-opacity">🔑</span>
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-2xl hover:scale-110 active:scale-95 transition-transform p-1"
-                                    >
-                                        {showPassword ? '🙈' : '👁️'}
-                                    </button>
-                                </div>
+                            <h1 className="text-2xl md:text-3xl font-bold text-white mb-1">
+                                {storeName}
+                            </h1>
+                            <p className="text-green-100 text-sm font-medium">
+                                ✨ Retail Point of Sale System ✨
+                            </p>
+
+                            {/* Time */}
+                            <div className="mt-4 flex items-center justify-center gap-4 text-white/80 text-xs">
+                                <span className="flex items-center gap-1"><span>🕐</span> {currentTime}</span>
+                                <span className="w-1 h-1 rounded-full bg-white/50"></span>
+                                <span className="flex items-center gap-1"><span>📅</span> {currentDate}</span>
                             </div>
+                        </div>
 
-                            {/* Error */}
-                            {error && (
-                                <div className="flex items-center gap-3 p-4 rounded-2xl bg-red-50 border border-red-200 text-red-600 text-sm font-medium animate-shake">
-                                    <span className="text-xl">⚠️</span>
-                                    <span>{error}</span>
+                        {/* Form Section */}
+                        <div className="px-8 py-8">
+                            <form onSubmit={handleLogin} className="space-y-5">
+                                {/* Username */}
+                                <div className="space-y-2">
+                                    <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                        <span className="text-lg">👤</span> Username
+                                    </label>
+                                    <div className="relative group">
+                                        <input
+                                            type="text"
+                                            value={username}
+                                            onChange={(e) => setUsername(e.target.value)}
+                                            placeholder="Enter your username"
+                                            className="w-full px-5 py-4 pl-14 bg-gray-50/80 border-2 border-gray-200 rounded-2xl text-gray-800 placeholder-gray-400 focus:outline-none focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-500/10 transition-all duration-300 text-base font-medium"
+                                        />
+                                        <span className="absolute left-5 top-1/2 -translate-y-1/2 text-2xl opacity-60 group-focus-within:opacity-100 transition-opacity">🆔</span>
+                                    </div>
                                 </div>
-                            )}
 
-                            {/* Login Button */}
-                            <button
-                                type="submit"
-                                disabled={isLoading}
-                                className="w-full py-4 px-6 bg-gradient-to-r from-emerald-500 via-green-600 to-teal-600 hover:from-emerald-600 hover:via-green-700 hover:to-teal-700 text-white text-lg font-bold rounded-2xl shadow-lg shadow-green-500/30 hover:shadow-xl hover:shadow-green-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-3"
-                            >
-                                {isLoading ? (
-                                    <>
-                                        <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                        <span>Signing in...</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <span>🛒</span>
-                                        <span>Sign In to POS</span>
-                                        <span>→</span>
-                                    </>
+                                {/* Password */}
+                                <div className="space-y-2">
+                                    <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                        <span className="text-lg">🔐</span> Password
+                                    </label>
+                                    <div className="relative group">
+                                        <input
+                                            type={showPassword ? 'text' : 'password'}
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            placeholder="Enter your password"
+                                            className="w-full px-5 py-4 pl-14 pr-14 bg-gray-50/80 border-2 border-gray-200 rounded-2xl text-gray-800 placeholder-gray-400 focus:outline-none focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-500/10 transition-all duration-300 text-base font-medium"
+                                        />
+                                        <span className="absolute left-5 top-1/2 -translate-y-1/2 text-2xl opacity-60 group-focus-within:opacity-100 transition-opacity">🔑</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-2xl hover:scale-110 active:scale-95 transition-transform p-1"
+                                        >
+                                            {showPassword ? '🙈' : '👁️'}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Error */}
+                                {error && (
+                                    <div className="flex items-center gap-3 p-4 rounded-2xl bg-red-50 border border-red-200 text-red-600 text-sm font-medium animate-shake">
+                                        <span className="text-xl">⚠️</span>
+                                        <span>{error}</span>
+                                    </div>
                                 )}
-                            </button>
-                        </form>
 
-                        {/* Security Badge */}
-                        <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-500">
-                            <span className="text-lg">🔒</span>
-                            <span>Secure Retail Management System</span>
+                                {/* Login Button */}
+                                <button
+                                    type="submit"
+                                    disabled={isLoading}
+                                    className="w-full py-4 px-6 bg-gradient-to-r from-emerald-500 via-green-600 to-teal-600 hover:from-emerald-600 hover:via-green-700 hover:to-teal-700 text-white text-lg font-bold rounded-2xl shadow-lg shadow-green-500/30 hover:shadow-xl hover:shadow-green-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-3"
+                                >
+                                    {isLoading ? (
+                                        <>
+                                            <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                            <span>Signing in...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span>🛒</span>
+                                            <span>Sign In to POS</span>
+                                            <span>→</span>
+                                        </>
+                                    )}
+                                </button>
+                            </form>
+
+                            {/* Security Badge */}
+                            <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-500">
+                                <span className="text-lg">🔒</span>
+                                <span>Secure Retail Management System</span>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                {/* Footer */}
-                <div className="mt-6 text-center space-y-2">
-                    <div className="flex items-center justify-center gap-2">
-                        <div className="h-px w-12 bg-gradient-to-r from-transparent to-gray-300"></div>
-                        <span className="text-gray-400 text-xs">Powered by</span>
-                        <div className="h-px w-12 bg-gradient-to-l from-transparent to-gray-300"></div>
+                    {/* Footer */}
+                    <div className="mt-6 text-center space-y-2">
+                        <div className="flex items-center justify-center gap-2">
+                            <div className="h-px w-12 bg-gradient-to-r from-transparent to-gray-300"></div>
+                            <span className="text-gray-400 text-xs">Powered by</span>
+                            <div className="h-px w-12 bg-gradient-to-l from-transparent to-gray-300"></div>
+                        </div>
+
+                        <div className="bg-white/60 backdrop-blur-sm rounded-2xl px-6 py-4 border border-white/50 shadow-sm">
+                            <p className="text-gray-700 font-semibold text-sm flex items-center justify-center gap-2">
+                                <span className="text-lg">💎</span> Alpha Solutions
+                            </p>
+                            <p className="text-gray-500 text-xs mt-1">
+                                System developed & maintained by <span className="font-semibold text-green-600">Jimhawkins Korir</span>
+                            </p>
+                            <p className="text-gray-400 text-xs mt-1 flex items-center justify-center gap-2">
+                                <span>📞</span> 0720316175
+                            </p>
+                        </div>
+
+                        <p className="text-gray-400 text-xs">
+                            © 2025 Alpha Retail POS • v1.0 🛒
+                        </p>
                     </div>
-
-                    <div className="bg-white/60 backdrop-blur-sm rounded-2xl px-6 py-4 border border-white/50 shadow-sm">
-                        <p className="text-gray-700 font-semibold text-sm flex items-center justify-center gap-2">
-                            <span className="text-lg">💎</span> Alpha Solutions
-                        </p>
-                        <p className="text-gray-500 text-xs mt-1">
-                            System developed & maintained by <span className="font-semibold text-green-600">Jimhawkins Korir</span>
-                        </p>
-                        <p className="text-gray-400 text-xs mt-1 flex items-center justify-center gap-2">
-                            <span>📞</span> 0720316175
-                        </p>
-                    </div>
-
-                    <p className="text-gray-400 text-xs">
-                        © 2025 Alpha Retail POS • v1.0 🛒
-                    </p>
                 </div>
-            </div>
+            )}
 
             {/* Animations */}
             <style jsx>{`
