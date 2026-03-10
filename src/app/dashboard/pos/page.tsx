@@ -909,8 +909,8 @@ export default function RetailPOSPage() {
 
     // Generate next receipt number — find max across ALL receipts to avoid duplicates
     const loadNextReceiptNo = useCallback(async () => {
-        // Each outlet has its own receipt number sequence
-        const prefix = outletCode ? `${outletCode}-` : 'RCP-';
+        // Each outlet has its own receipt number sequence: MAIN-RCP01, BMS-RCP01
+        const prefix = outletCode ? `${outletCode}-RCP` : 'RCP';
         try {
             const { data, error } = await supabase
                 .from('retail_sales')
@@ -937,12 +937,12 @@ export default function RetailPOSPage() {
                     }
                 }
                 if (maxNum > 0) {
-                    setReceiptNo(`${prefix}${String(maxNum + 1).padStart(5, '0')}`);
+                    setReceiptNo(`${prefix}${String(maxNum + 1).padStart(2, '0')}`);
                     return;
                 }
             }
 
-            setReceiptNo(`${prefix}00001`);
+            setReceiptNo(`${prefix}01`);
         } catch (err) {
             console.error('Exception loading receipt number:', err);
             setReceiptNo(`${prefix}${Date.now().toString(36).toUpperCase()}`);
@@ -1089,7 +1089,7 @@ export default function RetailPOSPage() {
 
             // Generate a FRESH receipt number right before insert to avoid duplicates
             let freshReceiptNo = receiptNo;
-            const prefix = outletCode ? `${outletCode}-` : 'RCP-';
+            const prefix = outletCode ? `${outletCode}-RCP` : 'RCP';
             try {
                 const { data: latestSales } = await supabase
                     .from('retail_sales')
@@ -1103,7 +1103,7 @@ export default function RetailPOSPage() {
                     const regex = new RegExp(`${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\d+)`);
                     const match = latestSales[0].receipt_no?.match(regex);
                     if (match) {
-                        freshReceiptNo = `${prefix}${String(parseInt(match[1]) + 1).padStart(5, '0')}`;
+                        freshReceiptNo = `${prefix}${String(parseInt(match[1]) + 1).padStart(2, '0')}`;
                     }
                 }
             } catch {
