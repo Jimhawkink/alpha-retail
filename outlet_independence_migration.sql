@@ -48,5 +48,24 @@ CREATE INDEX IF NOT EXISTS idx_sales_outlet ON retail_sales(outlet_id);
 CREATE INDEX IF NOT EXISTS idx_purchases_outlet ON retail_purchases(outlet_id);
 CREATE INDEX IF NOT EXISTS idx_stock_outlet ON retail_stock(outlet_id);
 
--- Done! Each outlet now has independent data.
+-- 8. FIX UNIQUE CONSTRAINTS: Allow same product_code in different outlets
+-- Drop the old global unique constraint on product_code
+ALTER TABLE retail_products DROP CONSTRAINT IF EXISTS retail_products_product_code_key;
+ALTER TABLE retail_products DROP CONSTRAINT IF EXISTS retail_products_product_code_unique;
+-- Create new composite unique: product_code must be unique PER OUTLET only
+DO $$ BEGIN
+    ALTER TABLE retail_products ADD CONSTRAINT retail_products_product_code_outlet_unique UNIQUE (product_code, outlet_id);
+EXCEPTION WHEN duplicate_table THEN NULL;
+END $$;
+
+-- Same for barcode if it has a unique constraint
+ALTER TABLE retail_products DROP CONSTRAINT IF EXISTS retail_products_barcode_key;
+ALTER TABLE retail_products DROP CONSTRAINT IF EXISTS retail_products_barcode_unique;
+
+-- Same for category_name
+ALTER TABLE retail_categories DROP CONSTRAINT IF EXISTS retail_categories_category_name_key;
+ALTER TABLE retail_categories DROP CONSTRAINT IF EXISTS retail_categories_category_name_unique;
+
+-- Done! Each outlet now has fully independent data.
+-- Product codes, barcodes, and category names can be reused across outlets.
 -- This is SAFE to re-run — won't duplicate or break anything.
