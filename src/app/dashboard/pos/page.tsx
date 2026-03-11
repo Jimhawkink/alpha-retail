@@ -105,13 +105,15 @@ const CartItemRow = ({
     onIncrease,
     onDecrease,
     onRemove,
-    onEditDiscount
+    onEditDiscount,
+    canDiscount = true
 }: {
     item: CartItem;
     onIncrease: () => void;
     onDecrease: () => void;
     onRemove: () => void;
     onEditDiscount: () => void;
+    canDiscount?: boolean;
 }) => {
     const itemTotal = (item.effectivePrice * item.qty) - item.discount;
 
@@ -153,12 +155,14 @@ const CartItemRow = ({
                     ✕
                 </button>
             </div>
-            <button
-                onClick={onEditDiscount}
-                className="w-full py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600 transition-colors font-medium"
-            >
-                💰 Discount
-            </button>
+            {canDiscount && (
+                <button
+                    onClick={onEditDiscount}
+                    className="w-full py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600 transition-colors font-medium"
+                >
+                    💰 Discount
+                </button>
+            )}
         </div>
     );
 };
@@ -834,6 +838,19 @@ export default function RetailPOSPage() {
     const [isLoadingRegister, setIsLoadingRegister] = useState(false);
 
     const searchInputRef = useRef<HTMLInputElement>(null);
+
+    // User role for discount permission
+    const [userType, setUserType] = useState<string>('');
+    useEffect(() => {
+        try {
+            const userData = localStorage.getItem('user');
+            if (userData) {
+                const parsed = JSON.parse(userData);
+                setUserType(parsed.userType || '');
+            }
+        } catch { /* ignore */ }
+    }, []);
+    const canDiscount = ['Admin', 'SuperAdmin', 'Super User', 'admin', 'superadmin', 'super user'].includes(userType);
 
     // Toggle fullscreen mode
     const toggleFullscreen = () => {
@@ -1736,6 +1753,7 @@ export default function RetailPOSPage() {
                                     onDecrease={() => decreaseQty(item.id, item.sellingUnit)}
                                     onRemove={() => removeFromCart(item.id, item.sellingUnit)}
                                     onEditDiscount={() => openDiscountModal(item)}
+                                    canDiscount={canDiscount}
                                 />
                             ))
                         )}

@@ -71,8 +71,11 @@ export default function ProductsPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [filterCategory, setFilterCategory] = useState('All');
     const [isSaving, setIsSaving] = useState(false);
-    const [openingQty, setOpeningQty] = useState(0);
+    const [openingBags, setOpeningBags] = useState(0);
+    const [openingPieces, setOpeningPieces] = useState(0);
     const [stockData, setStockData] = useState<Record<number, number>>({});
+    const [bagStockData, setBagStockData] = useState<Record<number, number>>({});
+    const [pieceStockData, setPieceStockData] = useState<Record<number, number>>({});
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
     const [page, setPage] = useState(1);
     const [perPage, setPerPage] = useState(20);
@@ -133,12 +136,24 @@ export default function ProductsPage() {
     const loadStockData = useCallback(async () => {
         if (!activeOutlet) return;
         try {
-            let { data, error } = await supabase.from('retail_stock').select('pid, qty').eq('outlet_id', outletId);
+            let { data, error } = await supabase.from('retail_stock').select('pid, qty, storage_type').eq('outlet_id', outletId);
             if (error) {
-                const fb = await supabase.from('retail_stock').select('pid, qty');
+                const fb = await supabase.from('retail_stock').select('pid, qty, storage_type');
                 data = fb.data;
             }
-            const m: Record<number, number> = {}; (data || []).forEach((s: { pid: number; qty: number }) => { m[s.pid] = (m[s.pid] || 0) + (s.qty || 0); }); setStockData(m);
+            const total: Record<number, number> = {};
+            const bags: Record<number, number> = {};
+            const pcs: Record<number, number> = {};
+            (data || []).forEach((s: any) => {
+                const q = s.qty || 0;
+                if (s.storage_type === 'Bags') {
+                    bags[s.pid] = (bags[s.pid] || 0) + q;
+                } else {
+                    pcs[s.pid] = (pcs[s.pid] || 0) + q;
+                }
+                total[s.pid] = (total[s.pid] || 0) + q;
+            });
+            setStockData(total); setBagStockData(bags); setPieceStockData(pcs);
         } catch { /* silent */ }
     }, [activeOutlet, outletId]);
 
@@ -196,7 +211,7 @@ export default function ProductsPage() {
 
     const openAddModal = async () => {
         setEditingProduct(null); const bc = await generateBarcode();
-        setFormData({ ...defaultProduct, barcode: bc, supplier_name: getKitchenSupplier() }); setOpeningQty(0); setShowModal(true);
+        setFormData({ ...defaultProduct, barcode: bc, supplier_name: getKitchenSupplier() }); setOpeningBags(0); setOpeningPieces(0); setShowModal(true);
     };
 
     const openEditModal = (p: Product) => {
@@ -242,10 +257,14 @@ export default function ProductsPage() {
                 if (error) throw new Error(error.message); toast.success('Product updated!');
             } else {
                 const code = await generateProductCode();
-                const openingPieces = openingQty * (formData.pieces_per_package || 1);
                 const { data: np, error } = await supabase.from('retail_products').insert({ ...d, product_code: code, outlet_id: outletId, created_at: new Date().toISOString() }).select().single();
                 if (error) throw new Error(error.message);
-                if (openingPieces > 0 && np) await supabase.from('retail_stock').insert({ pid: np.pid, invoice_no: 'OPENING', qty: openingPieces, storage_type: 'Store', outlet_id: outletId });
+                if (np) {
+                    const stockRecords: any[] = [];
+                    if (openingBags > 0) stockRecords.push({ pid: np.pid, invoice_no: 'OPENING', qty: openingBags, storage_type: 'Bags', outlet_id: outletId });
+                    if (openingPieces > 0) stockRecords.push({ pid: np.pid, invoice_no: 'OPENING', qty: openingPieces, storage_type: 'Pieces', outlet_id: outletId });
+                    if (stockRecords.length > 0) await supabase.from('retail_stock').insert(stockRecords);
+                }
                 toast.success(`Product ${code} created!`);
             }
             setShowModal(false); loadProducts(); loadStockData();
@@ -296,15 +315,13 @@ export default function ProductsPage() {
     };
     const submitStockAdjust = async () => {
         if (!adjustProduct || adjustQty <= 0) { toast.error('Enter valid quantity'); return; }
-        const ppp = adjustProduct.pieces_per_package || 1;
-        let realQty = adjustQty;
-        if (adjustUnit === adjustProduct.purchase_unit && adjustUnit !== adjustProduct.sales_unit) realQty = adjustQty * ppp;
-        if (adjustUnit === 'Kilogram' && adjustProduct.sales_unit === 'Gram') realQty = adjustQty * 1000;
-        if (adjustUnit === 'Gram' && adjustProduct.sales_unit === 'Kilogram') realQty = adjustQty / 1000;
-        const finalQty = adjustType === 'add' ? realQty : -realQty;
+        const isPurchaseUnit = adjustUnit === adjustProduct.purchase_unit && adjustUnit !== adjustProduct.sales_unit;
+        const storageType = isPurchaseUnit ? 'Bags' : 'Pieces';
+        const finalQty = adjustType === 'add' ? adjustQty : -adjustQty;
+        const unitLabel = isPurchaseUnit ? adjustProduct.purchase_unit : adjustProduct.sales_unit;
         try {
-            await supabase.from('retail_stock').insert({ pid: adjustProduct.pid, invoice_no: `ADJ-${Date.now().toString(36).toUpperCase()}`, qty: finalQty, storage_type: 'Store', notes: adjustReason || 'Stock Adjustment' });
-            toast.success(`Stock ${adjustType === 'add' ? 'added' : 'removed'}: ${adjustQty} ${adjustUnit}(s) = ${Math.abs(finalQty)} ${adjustProduct.sales_unit}(s)`);
+            await supabase.from('retail_stock').insert({ pid: adjustProduct.pid, invoice_no: `ADJ-${Date.now().toString(36).toUpperCase()}`, qty: finalQty, storage_type: storageType, notes: adjustReason || 'Stock Adjustment', outlet_id: outletId });
+            toast.success(`Stock ${adjustType === 'add' ? 'added' : 'removed'}: ${adjustQty} ${unitLabel}(s)`);
             setShowStockAdjustModal(false); loadStockData();
         } catch { toast.error('Adjustment failed'); }
     };
@@ -447,8 +464,19 @@ export default function ProductsPage() {
     const totalPages = Math.ceil(filtered.length / perPage);
     const paginated = filtered.slice((page - 1) * perPage, page * perPage);
     const lowStock = products.filter(p => (stockData[p.pid] || 0) <= (p.reorder_point || 10) && p.active).length;
-    const stockValCost = products.reduce((s, p) => s + (stockData[p.pid] || 0) * (p.purchase_cost || 0), 0);
-    const stockValSales = products.reduce((s, p) => s + (stockData[p.pid] || 0) * (p.sales_cost || 0), 0);
+    const stockValCost = products.reduce((s, p) => {
+        const b = bagStockData[p.pid] || 0;
+        const pc = pieceStockData[p.pid] || 0;
+        const ppp = p.pieces_per_package || 1;
+        return s + (b * (p.purchase_cost || 0)) + (pc * ((p.purchase_cost || 0) / ppp));
+    }, 0);
+    const stockValSales = products.reduce((s, p) => {
+        const b = bagStockData[p.pid] || 0;
+        const pc = pieceStockData[p.pid] || 0;
+        const ppp = p.pieces_per_package || 1;
+        const wsPrice = (p as any).wholesale_price || p.sales_cost || 0;
+        return s + (b * ppp * wsPrice) + (pc * wsPrice);
+    }, 0);
     const potentialProfit = stockValSales - stockValCost;
 
     // ─── UI ───
@@ -640,7 +668,10 @@ export default function ProductsPage() {
                                     </div>
                                     <div className="flex items-center justify-between mt-3">
                                         <p className="text-base font-bold text-gray-900">Ksh {(p.sales_cost || 0).toLocaleString()}</p>
-                                        <span className={`text-xs font-bold px-2 py-0.5 rounded-lg ${stk > 10 ? 'bg-emerald-100 text-emerald-700' : stk > 0 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>{stk} pcs</span>
+                                        <div className="flex flex-col items-end gap-0.5">
+                                            {(bagStockData[p.pid] || 0) > 0 && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">📦 {bagStockData[p.pid]} {p.purchase_unit}</span>}
+                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${(pieceStockData[p.pid] || 0) > 0 ? 'bg-emerald-100 text-emerald-700' : stk <= 0 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>🔢 {pieceStockData[p.pid] || 0} {p.sales_unit}</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -696,7 +727,12 @@ export default function ProductsPage() {
                                             <td className="px-4 py-3 text-right text-sm font-bold text-gray-900">Ksh {(p.sales_cost || 0).toLocaleString()}</td>
                                             <td className="px-4 py-3 text-right text-xs text-purple-600 font-semibold hidden lg:table-cell">{(p as any).wholesale_price ? `Ksh ${((p as any).wholesale_price || 0).toLocaleString()}` : '-'}</td>
                                             <td className="px-4 py-3 text-center">
-                                                <span className={`inline-block min-w-[36px] px-2 py-1 rounded-lg text-xs font-bold ${stk > 10 ? 'bg-emerald-100 text-emerald-700' : stk > 0 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>{stk}</span>
+                                                <div className="flex flex-col items-center gap-0.5">
+                                                    {(bagStockData[p.pid] || 0) > 0 && (
+                                                        <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-100 text-indigo-700">📦 {bagStockData[p.pid]} {p.purchase_unit}</span>
+                                                    )}
+                                                    <span className={`inline-block min-w-[36px] px-2 py-0.5 rounded-md text-[10px] font-bold ${(pieceStockData[p.pid] || 0) > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>🔢 {pieceStockData[p.pid] || 0} {p.sales_unit}</span>
+                                                </div>
                                             </td>
                                             <td className="px-4 py-3 text-center hidden lg:table-cell">
                                                 <div className="flex items-center justify-center gap-1">
@@ -800,10 +836,31 @@ export default function ProductsPage() {
                                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-500 outline-none text-sm" />
                                 </div>
                                 {!editingProduct && (
+                                    <>
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Opening Qty</label>
-                                        <input type="number" value={openingQty} onChange={e => setOpeningQty(Number(e.target.value))} min="0"
-                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-500 outline-none text-sm" />
+                                        <label className="block text-xs font-bold text-indigo-600 mb-1.5 uppercase tracking-wider">📦 Opening {formData.purchase_unit}s (Big Qty)</label>
+                                        <input type="number" value={openingBags} onChange={e => setOpeningBags(Number(e.target.value))} min="0" placeholder="e.g. 5"
+                                            className="w-full px-4 py-3 bg-indigo-50 border-2 border-indigo-200 rounded-xl focus:border-indigo-500 outline-none text-sm font-bold text-indigo-700" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-emerald-600 mb-1.5 uppercase tracking-wider">🔢 Opening {formData.sales_unit}s (Pieces)</label>
+                                        <input type="number" value={openingPieces} onChange={e => setOpeningPieces(Number(e.target.value))} min="0" placeholder="e.g. 20"
+                                            className="w-full px-4 py-3 bg-emerald-50 border-2 border-emerald-200 rounded-xl focus:border-emerald-500 outline-none text-sm font-bold text-emerald-700" />
+                                    </div>
+                                    </>
+                                )}
+                                {editingProduct && (
+                                    <div className="md:col-span-2">
+                                        <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Current Stock</label>
+                                        <div className="flex gap-3">
+                                            <div className="flex-1 px-4 py-3 bg-indigo-50 border-2 border-indigo-200 rounded-xl text-sm font-bold text-indigo-700">
+                                                📦 {bagStockData[editingProduct.pid] || 0} {editingProduct.purchase_unit}(s)
+                                            </div>
+                                            <div className="flex-1 px-4 py-3 bg-emerald-50 border-2 border-emerald-200 rounded-xl text-sm font-bold text-emerald-700">
+                                                🔢 {pieceStockData[editingProduct.pid] || 0} {editingProduct.sales_unit}(s)
+                                            </div>
+                                        </div>
+                                        <p className="text-[10px] text-gray-400 mt-1">Use Stock Adjust button in the products list to modify stock quantities</p>
                                     </div>
                                 )}
                                 {/* Image */}
@@ -1057,7 +1114,7 @@ export default function ProductsPage() {
                                     </div>
                                     <div className="grid grid-cols-2 gap-3 mt-4">
                                         <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Category</p><p className="font-bold text-sm">{lookupResult.category || 'N/A'}</p></div>
-                                        <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Stock</p><p className="font-bold text-sm">{stockData[lookupResult.pid] || 0} {lookupResult.sales_unit}</p></div>
+                                        <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Stock</p><div className="space-y-0.5">{(bagStockData[lookupResult.pid] || 0) > 0 && <p className="font-bold text-xs text-indigo-700">📦 {bagStockData[lookupResult.pid]} {lookupResult.purchase_unit}(s)</p>}<p className="font-bold text-xs text-emerald-700">🔢 {pieceStockData[lookupResult.pid] || 0} {lookupResult.sales_unit}(s)</p></div></div>
                                         <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Buy Price</p><p className="font-bold text-sm">Ksh {(lookupResult.purchase_cost || 0).toLocaleString()} / {lookupResult.purchase_unit}</p></div>
                                         <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Sell Price</p><p className="font-bold text-sm text-green-700">Ksh {(lookupResult.sales_cost || 0).toLocaleString()} / {lookupResult.sales_unit}</p></div>
                                         <div className="bg-white p-3 rounded-xl border border-purple-100"><p className="text-[10px] text-purple-500 uppercase">Wholesale</p><p className="font-bold text-sm text-purple-700">{(lookupResult as any).wholesale_price ? `Ksh ${((lookupResult as any).wholesale_price || 0).toLocaleString()}` : 'N/A'}</p></div>
@@ -1136,7 +1193,7 @@ export default function ProductsPage() {
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50" onClick={() => setShowStockAdjustModal(false)}>
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
                         <div className="bg-gradient-to-r from-purple-500 to-indigo-600 px-6 py-4 text-white flex items-center justify-between rounded-t-3xl">
-                            <div><h2 className="text-lg font-bold flex items-center gap-2"><FiSliders size={18} /> Stock Adjustment</h2><p className="text-purple-100 text-xs">{adjustProduct.product_name} — Current: {stockData[adjustProduct.pid] || 0} {adjustProduct.sales_unit}(s)</p></div>
+                            <div><h2 className="text-lg font-bold flex items-center gap-2"><FiSliders size={18} /> Stock Adjustment</h2><p className="text-purple-100 text-xs">{adjustProduct.product_name} — 📦 {bagStockData[adjustProduct.pid] || 0} {adjustProduct.purchase_unit}(s) • 🔢 {pieceStockData[adjustProduct.pid] || 0} {adjustProduct.sales_unit}(s)</p></div>
                             <button onClick={() => setShowStockAdjustModal(false)} className="p-2 hover:bg-white/20 rounded-xl"><FiX size={18} /></button>
                         </div>
                         <div className="p-5 space-y-4">
@@ -1159,9 +1216,12 @@ export default function ProductsPage() {
                                     </select>
                                 </div>
                             </div>
-                            {adjustQty > 0 && adjustUnit !== adjustProduct.sales_unit && (adjustProduct.pieces_per_package || 1) > 1 && (
+                            {adjustQty > 0 && (
                                 <div className="p-3 bg-purple-50 rounded-xl border border-purple-200 text-sm">
-                                    📦 {adjustQty} {adjustUnit}(s) = <span className="font-bold text-purple-700">{adjustQty * (adjustProduct.pieces_per_package || 1)} {adjustProduct.sales_unit}(s)</span>
+                                    {adjustUnit === adjustProduct.purchase_unit && adjustUnit !== adjustProduct.sales_unit
+                                        ? <>📦 {adjustQty} {adjustUnit}(s) → saves as <span className="font-bold text-indigo-700">Bags</span></>
+                                        : <>🔢 {adjustQty} {adjustProduct.sales_unit}(s) → saves as <span className="font-bold text-emerald-700">Pieces</span></>
+                                    }
                                 </div>
                             )}
                             <div>
