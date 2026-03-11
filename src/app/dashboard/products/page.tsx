@@ -10,7 +10,7 @@ interface Product {
     pid: number; product_code: string; product_name: string; alias: string;
     vat_commodity: string; description: string; barcode: string; category: string;
     purchase_unit: string; sales_unit: string; purchase_cost: number; sales_cost: number;
-    reorder_point: number; margin_per: number; show_ps: boolean; button_ui_color: string;
+    wholesale_price: number; reorder_point: number; margin_per: number; show_ps: boolean; button_ui_color: string;
     photo: string; hscode: string; batch_no: string; supplier_name: string; active: boolean;
     pieces_per_package: number;
 }
@@ -23,7 +23,7 @@ interface Unit { unit_id: number; unit_name: string; abbreviation: string; }
 const defaultProduct: Omit<Product, 'pid' | 'product_code'> = {
     product_name: '', alias: '', vat_commodity: 'Standard', description: '', barcode: '',
     category: '', purchase_unit: 'Piece', sales_unit: 'Piece', purchase_cost: 0, sales_cost: 0,
-    reorder_point: 10, margin_per: 0, show_ps: true, button_ui_color: 'from-blue-400 to-blue-600',
+    wholesale_price: 0, reorder_point: 10, margin_per: 0, show_ps: true, button_ui_color: 'from-blue-400 to-blue-600',
     photo: '', hscode: '', batch_no: '', supplier_name: '', active: true, pieces_per_package: 1,
 };
 const UNIT_CONVERSIONS: Record<string, Record<string, number>> = {
@@ -205,7 +205,7 @@ export default function ProductsPage() {
             product_name: p.product_name, alias: p.alias || '', vat_commodity: p.vat_commodity || 'Standard',
             description: p.description || '', barcode: p.barcode || '', category: p.category || '',
             purchase_unit: p.purchase_unit || 'Piece', sales_unit: p.sales_unit || 'Piece',
-            purchase_cost: p.purchase_cost || 0, sales_cost: p.sales_cost || 0, reorder_point: p.reorder_point || 10,
+            purchase_cost: p.purchase_cost || 0, sales_cost: p.sales_cost || 0, wholesale_price: (p as any).wholesale_price || 0, reorder_point: p.reorder_point || 10,
             margin_per: p.margin_per || 0, show_ps: p.show_ps !== false, button_ui_color: p.button_ui_color || 'from-blue-400 to-blue-600',
             photo: p.photo || '', hscode: p.hscode || '', batch_no: p.batch_no || '', supplier_name: p.supplier_name || '', active: p.active !== false,
             pieces_per_package: p.pieces_per_package || 1,
@@ -221,7 +221,7 @@ export default function ProductsPage() {
                 product_name: formData.product_name, alias: formData.alias || null, description: formData.description || null,
                 barcode: formData.barcode || null, category: formData.category || null, purchase_unit: formData.purchase_unit,
                 sales_unit: formData.sales_unit, purchase_cost: formData.purchase_cost || 0, sales_cost: formData.sales_cost || 0,
-                reorder_point: formData.reorder_point || 10, margin_per: margin, show_in_pos: formData.show_ps !== false,
+                wholesale_price: formData.wholesale_price || 0, reorder_point: formData.reorder_point || 10, margin_per: margin, show_in_pos: formData.show_ps !== false,
                 button_ui_color: formData.button_ui_color, photo: formData.photo || null, batch_no: formData.batch_no || null,
                 supplier_name: formData.supplier_name || null, active: formData.active !== false,
                 pieces_per_package: formData.pieces_per_package || 1,
@@ -260,8 +260,8 @@ export default function ProductsPage() {
     };
 
     const exportCSV = () => {
-        const csv = [['Code', 'Name', 'Category', 'Buy', 'Sell', 'Stock', 'Margin%', 'Status'].join(','),
-        ...filtered.map(p => [p.product_code, `"${p.product_name}"`, p.category || '', p.purchase_cost, p.sales_cost, stockData[p.pid] || 0, p.margin_per?.toFixed(1), p.active ? 'Active' : 'Off'].join(','))].join('\n');
+        const csv = [['Code', 'Name', 'Category', 'Buy', 'Sell', 'Wholesale', 'Stock', 'Margin%', 'Status'].join(','),
+        ...filtered.map(p => [p.product_code, `"${p.product_name}"`, p.category || '', p.purchase_cost, p.sales_cost, (p as any).wholesale_price || 0, stockData[p.pid] || 0, p.margin_per?.toFixed(1), p.active ? 'Active' : 'Off'].join(','))].join('\n');
         const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'products.csv'; a.click();
         toast.success('Exported!');
     };
@@ -657,6 +657,7 @@ export default function ProductsPage() {
                                     <th className="px-4 py-3.5 text-left text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden md:table-cell">Category</th>
                                     <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Buy Price</th>
                                     <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Sell Price</th>
+                                    <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden lg:table-cell">Wholesale</th>
                                     <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Stock</th>
                                     <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden lg:table-cell">Margin</th>
                                     <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Status</th>
@@ -692,6 +693,7 @@ export default function ProductsPage() {
                                             </td>
                                             <td className="px-4 py-3 text-right text-xs text-gray-500 font-medium">Ksh {(p.purchase_cost || 0).toLocaleString()}</td>
                                             <td className="px-4 py-3 text-right text-sm font-bold text-gray-900">Ksh {(p.sales_cost || 0).toLocaleString()}</td>
+                                            <td className="px-4 py-3 text-right text-xs text-purple-600 font-semibold hidden lg:table-cell">{(p as any).wholesale_price ? `Ksh ${((p as any).wholesale_price || 0).toLocaleString()}` : '-'}</td>
                                             <td className="px-4 py-3 text-center">
                                                 <span className={`inline-block min-w-[36px] px-2 py-1 rounded-lg text-xs font-bold ${stk > 10 ? 'bg-emerald-100 text-emerald-700' : stk > 0 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>{stk}</span>
                                             </td>
@@ -831,7 +833,7 @@ export default function ProductsPage() {
                             {/* Pricing & Units */}
                             <div className="bg-blue-50/50 rounded-2xl p-5 border border-blue-200">
                                 <h3 className="font-bold text-blue-800 mb-4 flex items-center gap-2 text-sm"><FiDollarSign size={16} /> Pricing, Units & Conversion</h3>
-                                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                                     <div>
                                         <label className="block text-[10px] font-bold text-gray-600 mb-1 uppercase tracking-wider">Buy Unit</label>
                                         <select value={formData.purchase_unit} onChange={e => { const pu = e.target.value; const conv = UNIT_CONVERSIONS[pu]; setFormData({ ...formData, purchase_unit: pu, pieces_per_package: conv?.[formData.sales_unit] || formData.pieces_per_package }); }}
@@ -856,6 +858,11 @@ export default function ProductsPage() {
                                         <label className="block text-[10px] font-bold text-gray-600 mb-1 uppercase tracking-wider">Sell Price (Ksh)</label>
                                         <input type="number" value={formData.sales_cost} onChange={e => setFormData({ ...formData, sales_cost: parseFloat(e.target.value) || 0 })}
                                             className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none" min="0" step="0.01" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-purple-600 mb-1 uppercase tracking-wider">Wholesale (Ksh)</label>
+                                        <input type="number" value={formData.wholesale_price} onChange={e => setFormData({ ...formData, wholesale_price: parseFloat(e.target.value) || 0 })}
+                                            className="w-full px-3 py-2.5 bg-purple-50 border-2 border-purple-200 rounded-xl text-sm focus:border-purple-500 outline-none font-semibold text-purple-700" min="0" step="0.01" placeholder="0" />
                                     </div>
                                 </div>
                                 {formData.pieces_per_package > 1 && formData.purchase_cost > 0 && (
@@ -1052,6 +1059,7 @@ export default function ProductsPage() {
                                         <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Stock</p><p className="font-bold text-sm">{stockData[lookupResult.pid] || 0} {lookupResult.sales_unit}</p></div>
                                         <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Buy Price</p><p className="font-bold text-sm">Ksh {(lookupResult.purchase_cost || 0).toLocaleString()} / {lookupResult.purchase_unit}</p></div>
                                         <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Sell Price</p><p className="font-bold text-sm text-green-700">Ksh {(lookupResult.sales_cost || 0).toLocaleString()} / {lookupResult.sales_unit}</p></div>
+                                        <div className="bg-white p-3 rounded-xl border border-purple-100"><p className="text-[10px] text-purple-500 uppercase">Wholesale</p><p className="font-bold text-sm text-purple-700">{(lookupResult as any).wholesale_price ? `Ksh ${((lookupResult as any).wholesale_price || 0).toLocaleString()}` : 'N/A'}</p></div>
                                         <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Pcs/Package</p><p className="font-bold text-sm">{lookupResult.pieces_per_package || 1}</p></div>
                                         <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Margin</p><p className="font-bold text-sm">{lookupResult.margin_per?.toFixed(1) || '0'}%</p></div>
                                     </div>
