@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useOutlet } from '@/context/OutletContext';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -28,6 +29,8 @@ interface RecentPurchase { date: string; supplier: string; total: number; status
 
 // ────────────────── Dashboard ──────────────────
 export default function DashboardPage() {
+    const { activeOutlet } = useOutlet();
+    const outletId = activeOutlet?.outlet_id || 1;
     const [isLoading, setIsLoading] = useState(true);
     const [dateFrom, setDateFrom] = useState(() => {
         const d = new Date(); d.setDate(d.getDate() - 7);
@@ -81,8 +84,8 @@ export default function DashboardPage() {
         const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
         try {
-            // ── Today's Sales by payment method ── (using retail_sales)
-            const { data: todayData } = await supabase.from('retail_sales').select('total_amount, payment_method').eq('sale_date', today);
+            // ── Today's Sales by payment method ── (using retail_sales, filtered by outlet)
+            const { data: todayData } = await supabase.from('retail_sales').select('total_amount, payment_method').eq('sale_date', today).eq('outlet_id', outletId);
             const tData = todayData || [];
             setTodaySales(tData.reduce((s, r) => s + (r.total_amount || 0), 0));
             setTodayOrders(tData.length);
@@ -91,12 +94,12 @@ export default function DashboardPage() {
             setTodayCredit(tData.filter(r => (r.payment_method || '').toLowerCase().includes('credit')).reduce((s, r) => s + (r.total_amount || 0), 0));
 
             // ── Yesterday's Sales ──
-            const { data: yData } = await supabase.from('retail_sales').select('total_amount').eq('sale_date', yesterday);
+            const { data: yData } = await supabase.from('retail_sales').select('total_amount').eq('sale_date', yesterday).eq('outlet_id', outletId);
             setYesterdaySales((yData || []).reduce((s, r) => s + (r.total_amount || 0), 0));
             setYesterdayOrders((yData || []).length);
 
             // ── Pending Bills ──
-            const { data: pBills } = await supabase.from('retail_sales').select('sale_id').eq('status', 'Pending');
+            const { data: pBills } = await supabase.from('retail_sales').select('sale_id').eq('status', 'Pending').eq('outlet_id', outletId);
             setPendingBills(pBills?.length || 0);
 
             // ── Daily Sales Trend (by date range, broken by payment method) ──
@@ -105,6 +108,7 @@ export default function DashboardPage() {
                 .select('sale_date, total_amount, payment_method')
                 .gte('sale_date', dateFrom)
                 .lte('sale_date', dateTo)
+                .eq('outlet_id', outletId)
                 .order('sale_date');
 
             const salesMap = new Map<string, DailySales>();
@@ -151,9 +155,9 @@ export default function DashboardPage() {
                     .slice(0, 15)
             );
 
-            // ── Low Stock Items ── (using retail_products + retail_stock)
-            const { data: retailProds } = await supabase.from('retail_products').select('pid, product_name, reorder_point').eq('active', true).order('product_name');
-            const { data: retailStock } = await supabase.from('retail_stock').select('pid, qty');
+            // ── Low Stock Items ── (using retail_products + retail_stock, filtered by outlet)
+            const { data: retailProds } = await supabase.from('retail_products').select('pid, product_name, reorder_point').eq('active', true).eq('outlet_id', outletId).order('product_name');
+            const { data: retailStock } = await supabase.from('retail_stock').select('pid, qty').eq('outlet_id', outletId);
             const stockMap: Record<number, number> = {};
             (retailStock || []).forEach((s: { pid: number; qty: number }) => { stockMap[s.pid] = (stockMap[s.pid] || 0) + (s.qty || 0); });
 
@@ -167,47 +171,48 @@ export default function DashboardPage() {
             });
             setLowStock(lowItems.sort((a, b) => a.stock - b.stock));
 
-            // ── User/Waiter Sales ──
-            const { data: waiterData } = await supabase
-                .from('sales')
-                .select('waiter_name, created_by, total_amount')
-                .gte('sale_date', dateFrom).lte('sale_date', dateTo);
+            // ── Cashier Sales (retail_sales by user) ──
+            const { data: cashierData } = await supabase
+                .from('retail_sales')
+                .select('created_by, total_amount')
+                .gte('sale_date', dateFrom).lte('sale_date', dateTo)
+                .eq('outlet_id', outletId);
             const wMap = new Map<string, { sales: number; orders: number }>();
-            (waiterData || []).forEach(s => {
-                const name = s.waiter_name || s.created_by || 'Unknown';
+            (cashierData || []).forEach(s => {
+                const name = s.created_by || 'Unknown';
                 if (!wMap.has(name)) wMap.set(name, { sales: 0, orders: 0 });
                 const e = wMap.get(name)!;
                 e.sales += s.total_amount || 0; e.orders += 1;
             });
             setUserSales(Array.from(wMap.entries()).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.sales - a.sales).slice(0, 10));
 
-            // ── Recent Purchases ──
+            // ── Recent Purchases (retail_purchases) ──
             const { data: purchasesData } = await supabase
-                .from('purchases')
+                .from('retail_purchases')
                 .select('purchase_date, supplier_name, grand_total, status, purchase_no')
+                .eq('outlet_id', outletId)
                 .order('purchase_date', { ascending: false })
                 .limit(8);
             setRecentPurchases((purchasesData || []).map(p => ({
                 date: p.purchase_date, supplier: p.supplier_name || '-', total: p.grand_total || 0, status: p.status || 'Pending', items: 0,
             })));
 
-            // ── Financials ──
-            const { data: expData } = await supabase.from('expenses').select('amount').gte('expense_date', dateFrom).lte('expense_date', dateTo);
+            // ── Financials (expenses, filtered by outlet) ──
+            const { data: expData } = await supabase.from('expenses').select('amount').gte('expense_date', dateFrom).lte('expense_date', dateTo).eq('outlet_id', outletId);
             setTotalExpenses((expData || []).reduce((s, e) => s + (e.amount || 0), 0));
 
-            const { data: advData } = await supabase.from('salary_advances').select('amount').eq('status', 'Approved').gte('created_at', `${dateFrom}T00:00:00`).lte('created_at', `${dateTo}T23:59:59`);
-            setTotalAdvances((advData || []).reduce((s, a) => s + (a.amount || 0), 0));
-
-            const { data: vcData } = await supabase.from('vouchers').select('amount').gte('created_at', `${dateFrom}T00:00:00`).lte('created_at', `${dateTo}T23:59:59`);
-            setTotalVouchers((vcData || []).reduce((s, v) => s + (v.amount || 0), 0));
-
-            const { data: shData } = await supabase.from('shifts').select('status, shift_date').gte('shift_date', dateFrom).lte('shift_date', dateTo);
+            // ── Shifts (retail_shifts) ──
+            const { data: shData } = await supabase.from('retail_shifts').select('status, shift_date').gte('shift_date', dateFrom).lte('shift_date', dateTo);
             setActiveShifts((shData || []).filter(s => s.status === 'Open').length);
             setClosedShifts((shData || []).filter(s => s.status === 'Closed').length);
 
+            // Reset unused hotel-only fields
+            setTotalAdvances(0);
+            setTotalVouchers(0);
+
         } catch (err) { console.error('Dashboard error:', err); }
         setIsLoading(false);
-    }, [dateFrom, dateTo]);
+    }, [dateFrom, dateTo, outletId]);
 
     useEffect(() => { loadDashboardData(); }, [loadDashboardData]);
 

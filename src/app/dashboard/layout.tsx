@@ -67,6 +67,11 @@ const menuItems = [
             { name: 'Sales Report', icon: '📈', href: '/dashboard/reports/sales', badge: null },
             { name: 'Profit Report', icon: '💹', href: '/dashboard/reports/profit', badge: null },
             { name: 'Stock Report', icon: '📊', href: '/dashboard/reports/stock', badge: null },
+            { name: 'P&L Report', icon: '📉', href: '/dashboard/reports/profit-loss', badge: null },
+            { name: 'Trial Balance', icon: '⚖️', href: '/dashboard/reports/trial-balance', badge: null },
+            { name: 'Balance Sheet', icon: '📋', href: '/dashboard/reports/balance-sheet', badge: null },
+            { name: 'Cash Book', icon: '💵', href: '/dashboard/reports/cash-book', badge: null },
+            { name: 'M-Pesa Report', icon: '📱', href: '/dashboard/reports/mpesa', badge: null },
         ]
     },
     {
