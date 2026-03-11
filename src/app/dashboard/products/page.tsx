@@ -98,8 +98,8 @@ export default function ProductsPage() {
     const [priceHistory, setPriceHistory] = useState<PriceHistoryRow[]>([]);
     const [showStockAdjustModal, setShowStockAdjustModal] = useState(false);
     const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
-    const [adjustQty, setAdjustQty] = useState(0);
-    const [adjustUnit, setAdjustUnit] = useState('Piece');
+    const [adjustBags, setAdjustBags] = useState(0);
+    const [adjustPieces, setAdjustPieces] = useState(0);
     const [adjustType, setAdjustType] = useState<'add' | 'remove'>('add');
     const [adjustReason, setAdjustReason] = useState('');
 
@@ -311,17 +311,24 @@ export default function ProductsPage() {
 
     // ─── STOCK ADJUSTMENT ───
     const openStockAdjust = (p: Product) => {
-        setAdjustProduct(p); setAdjustQty(0); setAdjustUnit(p.sales_unit || 'Piece'); setAdjustType('add'); setAdjustReason(''); setShowStockAdjustModal(true);
+        setAdjustProduct(p); setAdjustBags(0); setAdjustPieces(0); setAdjustType('add'); setAdjustReason(''); setShowStockAdjustModal(true);
     };
     const submitStockAdjust = async () => {
-        if (!adjustProduct || adjustQty <= 0) { toast.error('Enter valid quantity'); return; }
-        const isPurchaseUnit = adjustUnit === adjustProduct.purchase_unit && adjustUnit !== adjustProduct.sales_unit;
-        const storageType = isPurchaseUnit ? 'Bags' : 'Pieces';
-        const finalQty = adjustType === 'add' ? adjustQty : -adjustQty;
-        const unitLabel = isPurchaseUnit ? adjustProduct.purchase_unit : adjustProduct.sales_unit;
+        if (!adjustProduct || (adjustBags <= 0 && adjustPieces <= 0)) { toast.error('Enter valid quantity'); return; }
         try {
-            await supabase.from('retail_stock').insert({ pid: adjustProduct.pid, invoice_no: `ADJ-${Date.now().toString(36).toUpperCase()}`, qty: finalQty, storage_type: storageType, notes: adjustReason || 'Stock Adjustment', outlet_id: outletId });
-            toast.success(`Stock ${adjustType === 'add' ? 'added' : 'removed'}: ${adjustQty} ${unitLabel}(s)`);
+            const ref = `ADJ-${Date.now().toString(36).toUpperCase()}`;
+            const stockRecords: any[] = [];
+            if (adjustBags > 0) {
+                stockRecords.push({ pid: adjustProduct.pid, invoice_no: ref, qty: adjustType === 'add' ? adjustBags : -adjustBags, storage_type: 'Bags', notes: adjustReason || 'Stock Adjustment', outlet_id: outletId });
+            }
+            if (adjustPieces > 0) {
+                stockRecords.push({ pid: adjustProduct.pid, invoice_no: ref, qty: adjustType === 'add' ? adjustPieces : -adjustPieces, storage_type: 'Pieces', notes: adjustReason || 'Stock Adjustment', outlet_id: outletId });
+            }
+            if (stockRecords.length > 0) await supabase.from('retail_stock').insert(stockRecords);
+            const parts: string[] = [];
+            if (adjustBags > 0) parts.push(`${adjustBags} ${adjustProduct.purchase_unit}(s)`);
+            if (adjustPieces > 0) parts.push(`${adjustPieces} ${adjustProduct.sales_unit}(s)`);
+            toast.success(`Stock ${adjustType === 'add' ? 'added' : 'removed'}: ${parts.join(' + ')}`);
             setShowStockAdjustModal(false); loadStockData();
         } catch { toast.error('Adjustment failed'); }
     };
@@ -926,13 +933,46 @@ export default function ProductsPage() {
                                 {formData.pieces_per_package > 1 && formData.purchase_cost > 0 && (
                                     <div className="mt-3 p-3 bg-orange-50 rounded-xl border border-orange-200 text-sm">
                                         <span className="font-bold text-orange-700">📦 Conversion:</span> 1 {formData.purchase_unit} = <span className="font-bold text-orange-800">{formData.pieces_per_package}</span> {formData.sales_unit}(s)
-                                        &bull; Cost per {formData.sales_unit}: <span className="font-bold text-blue-700">Ksh {(formData.purchase_cost / formData.pieces_per_package).toFixed(2)}</span>
-                                        {formData.sales_cost > 0 && <> &bull; Margin per {formData.sales_unit}: <span className="font-bold text-emerald-600">{calcMargin(formData.purchase_cost / formData.pieces_per_package, formData.sales_cost).toFixed(1)}%</span></>}
                                     </div>
                                 )}
-                                {formData.purchase_cost > 0 && formData.sales_cost > 0 && (
-                                    <div className="mt-3 p-3 bg-white rounded-xl border border-blue-200 text-sm">
-                                        Margin: <span className="font-bold text-blue-600">{calcMargin(formData.purchase_cost, formData.sales_cost).toFixed(1)}%</span> &bull; Profit: <span className="font-bold">Ksh {(formData.sales_cost - formData.purchase_cost).toLocaleString()}</span>
+                                {/* Cost Per Piece + Profit Breakdown */}
+                                {formData.purchase_cost > 0 && (
+                                    <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
+                                        {/* Cost Per Piece - editable input */}
+                                        <div className="bg-blue-50 rounded-xl p-3 border border-blue-200">
+                                            <label className="block text-[10px] font-bold text-blue-600 mb-1 uppercase tracking-wider">Cost / {formData.sales_unit}</label>
+                                            <input type="number" value={Number((formData.purchase_cost / (formData.pieces_per_package || 1)).toFixed(2))}
+                                                onChange={e => { const cpp = parseFloat(e.target.value) || 0; setFormData({ ...formData, purchase_cost: Math.round(cpp * (formData.pieces_per_package || 1) * 100) / 100 }); }}
+                                                className="w-full px-2 py-1.5 bg-white border border-blue-300 rounded-lg text-sm font-bold text-blue-800 focus:border-blue-500 outline-none" min="0" step="0.01" />
+                                        </div>
+                                        {/* Profit Per Piece (Wholesale) */}
+                                        {formData.wholesale_price > 0 && (
+                                            <div className={`rounded-xl p-3 border ${(formData.wholesale_price - formData.purchase_cost / (formData.pieces_per_package || 1)) > 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
+                                                <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Profit / {formData.sales_unit}</p>
+                                                <p className={`text-lg font-black mt-0.5 ${(formData.wholesale_price - formData.purchase_cost / (formData.pieces_per_package || 1)) > 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                                                    Ksh {(formData.wholesale_price - formData.purchase_cost / (formData.pieces_per_package || 1)).toFixed(2)}
+                                                </p>
+                                                <p className="text-[10px] text-gray-400">Wholesale − Cost/Pc</p>
+                                            </div>
+                                        )}
+                                        {/* Profit Per Bag (Wholesale) */}
+                                        {formData.wholesale_price > 0 && formData.pieces_per_package > 1 && (
+                                            <div className={`rounded-xl p-3 border ${(formData.wholesale_price * formData.pieces_per_package - formData.purchase_cost) > 0 ? 'bg-indigo-50 border-indigo-200' : 'bg-red-50 border-red-200'}`}>
+                                                <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Profit / {formData.purchase_unit}</p>
+                                                <p className={`text-lg font-black mt-0.5 ${(formData.wholesale_price * formData.pieces_per_package - formData.purchase_cost) > 0 ? 'text-indigo-700' : 'text-red-700'}`}>
+                                                    Ksh {(formData.wholesale_price * formData.pieces_per_package - formData.purchase_cost).toLocaleString()}
+                                                </p>
+                                                <p className="text-[10px] text-gray-400">(WS × {formData.pieces_per_package}) − Buy</p>
+                                            </div>
+                                        )}
+                                        {/* Margin % */}
+                                        <div className="bg-white rounded-xl p-3 border border-gray-200">
+                                            <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Margin %</p>
+                                            <p className={`text-lg font-black mt-0.5 ${calcMargin(formData.purchase_cost / (formData.pieces_per_package || 1), formData.wholesale_price || formData.sales_cost) >= 20 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                                {calcMargin(formData.purchase_cost / (formData.pieces_per_package || 1), formData.wholesale_price || formData.sales_cost).toFixed(1)}%
+                                            </p>
+                                            <p className="text-[10px] text-gray-400">On {formData.wholesale_price > 0 ? 'wholesale' : 'sell'} price</p>
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -1203,25 +1243,22 @@ export default function ProductsPage() {
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Quantity</label>
-                                    <input type="number" value={adjustQty} onChange={e => setAdjustQty(parseFloat(e.target.value) || 0)} min="0" step="0.01"
-                                        className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-lg font-bold text-center focus:border-purple-500 outline-none" autoFocus />
+                                    <label className="block text-xs font-bold text-indigo-600 mb-1 uppercase">📦 {adjustProduct.purchase_unit}s (Big Qty)</label>
+                                    <input type="number" value={adjustBags} onChange={e => setAdjustBags(parseFloat(e.target.value) || 0)} min="0" step="1" placeholder="0"
+                                        className="w-full px-4 py-3 bg-indigo-50 border-2 border-indigo-200 rounded-xl text-lg font-bold text-center text-indigo-700 focus:border-indigo-500 outline-none" autoFocus />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Unit</label>
-                                    <select value={adjustUnit} onChange={e => setAdjustUnit(e.target.value)}
-                                        className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm font-bold focus:border-purple-500 outline-none">
-                                        <option value={adjustProduct.sales_unit}>{adjustProduct.sales_unit} (sell unit)</option>
-                                        {adjustProduct.purchase_unit !== adjustProduct.sales_unit && <option value={adjustProduct.purchase_unit}>{adjustProduct.purchase_unit} (buy unit)</option>}
-                                    </select>
+                                    <label className="block text-xs font-bold text-emerald-600 mb-1 uppercase">🔢 {adjustProduct.sales_unit}s (Pieces)</label>
+                                    <input type="number" value={adjustPieces} onChange={e => setAdjustPieces(parseFloat(e.target.value) || 0)} min="0" step="1" placeholder="0"
+                                        className="w-full px-4 py-3 bg-emerald-50 border-2 border-emerald-200 rounded-xl text-lg font-bold text-center text-emerald-700 focus:border-emerald-500 outline-none" />
                                 </div>
                             </div>
-                            {adjustQty > 0 && (
+                            {(adjustBags > 0 || adjustPieces > 0) && (
                                 <div className="p-3 bg-purple-50 rounded-xl border border-purple-200 text-sm">
-                                    {adjustUnit === adjustProduct.purchase_unit && adjustUnit !== adjustProduct.sales_unit
-                                        ? <>📦 {adjustQty} {adjustUnit}(s) → saves as <span className="font-bold text-indigo-700">Bags</span></>
-                                        : <>🔢 {adjustQty} {adjustProduct.sales_unit}(s) → saves as <span className="font-bold text-emerald-700">Pieces</span></>
-                                    }
+                                    {adjustType === 'add' ? '➕' : '➖'}{' '}
+                                    {adjustBags > 0 && <><span className="font-bold text-indigo-700">{adjustBags}</span> {adjustProduct.purchase_unit}(s) </>}
+                                    {adjustBags > 0 && adjustPieces > 0 && <span className="text-gray-400">+ </span>}
+                                    {adjustPieces > 0 && <><span className="font-bold text-emerald-700">{adjustPieces}</span> {adjustProduct.sales_unit}(s)</>}
                                 </div>
                             )}
                             <div>
