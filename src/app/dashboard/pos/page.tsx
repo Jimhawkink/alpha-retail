@@ -887,7 +887,7 @@ export default function RetailPOSPage() {
                 category: p.category || 'Uncategorized',
                 availableQty: stockMap[p.pid] || 0,
                 costPrice: p.purchase_cost || 0,
-                salesPrice: p.sales_cost || 0,
+                salesPrice: p.wholesale_price || p.sales_cost || 0,
                 color: p.button_ui_color || 'from-blue-400 to-blue-600',
                 imageUrl: p.photo || '',
                 salesUnit: p.sales_unit || 'Piece',
