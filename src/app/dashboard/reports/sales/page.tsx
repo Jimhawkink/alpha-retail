@@ -111,19 +111,26 @@ ${filtered.map(s => `<tr><td>${s.sale_date}</td><td>${s.receipt_no}</td><td>${s.
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-6 gap-4">
+            <div className="grid grid-cols-3 lg:grid-cols-6 gap-4">
                 {[
-                    { label: 'Total Sales', value: totalSales, icon: '💰', gradient: 'from-blue-500 to-indigo-600' },
-                    { label: 'Cash Sales', value: totalCash, icon: '💵', gradient: 'from-green-500 to-emerald-600' },
-                    { label: 'M-Pesa Sales', value: totalMpesa, icon: '📱', gradient: 'from-teal-500 to-cyan-600' },
-                    { label: 'Credit Sales', value: totalCredit, icon: '📋', gradient: 'from-orange-500 to-amber-600' },
-                    { label: 'Total Orders', value: filtered.length, icon: '📦', gradient: 'from-purple-500 to-violet-600', isCurrency: false },
-                    { label: 'Avg Order', value: avgOrder, icon: '📊', gradient: 'from-pink-500 to-rose-600' },
-                ].map((card: any, i) => (
-                    <div key={i} className={`bg-gradient-to-br ${card.gradient} rounded-2xl p-5 text-white shadow-lg`}>
-                        <span className="text-3xl">{card.icon}</span>
-                        <p className="text-sm opacity-80 mt-2">{card.label}</p>
-                        <p className="text-2xl font-bold">{card.isCurrency === false ? card.value.toLocaleString() : `Ksh ${card.value.toLocaleString()}`}</p>
+                    { label: 'Sales Report', sub: 'Total Sales', value: `Ksh ${totalSales.toLocaleString()}`, border: 'border-l-blue-500', bg: 'bg-blue-50/40', iconBg: 'bg-blue-100', iconColor: 'text-blue-600', icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/><path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd"/></svg> },
+                    { label: 'Cash Collections', sub: 'Cash Sales', value: `Ksh ${totalCash.toLocaleString()}`, border: 'border-l-green-500', bg: 'bg-green-50/40', iconBg: 'bg-green-100', iconColor: 'text-green-600', icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 100-2 1 1 0 000 2zm7-1a1 1 0 11-2 0 1 1 0 012 0zm-7.536 5.879a1 1 0 001.415 0A3 3 0 0110 13a3 3 0 011.95.69 1 1 0 001.414-1.413A5 5 0 0010 11a5 5 0 00-3.535 1.466 1 1 0 000 1.413z" clipRule="evenodd"/></svg> },
+                    { label: 'M-Pesa Collections', sub: 'M-Pesa Sales', value: `Ksh ${totalMpesa.toLocaleString()}`, border: 'border-l-teal-500', bg: 'bg-teal-50/40', iconBg: 'bg-teal-100', iconColor: 'text-teal-600', icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/></svg> },
+                    { label: 'Credit Sales', sub: 'On Account', value: `Ksh ${totalCredit.toLocaleString()}`, border: 'border-l-orange-500', bg: 'bg-orange-50/40', iconBg: 'bg-orange-100', iconColor: 'text-orange-600', icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd"/></svg> },
+                    { label: 'Order Count', sub: 'Total Orders', value: filtered.length.toLocaleString(), border: 'border-l-purple-500', bg: 'bg-purple-50/40', iconBg: 'bg-purple-100', iconColor: 'text-purple-600', icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5z" clipRule="evenodd"/></svg> },
+                    { label: 'Average Value', sub: 'Avg Order', value: `Ksh ${avgOrder.toLocaleString()}`, border: 'border-l-pink-500', bg: 'bg-pink-50/40', iconBg: 'bg-pink-100', iconColor: 'text-pink-600', icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 0l-2 2a1 1 0 101.414 1.414L8 10.414l1.293 1.293a1 1 0 001.414 0l4-4z" clipRule="evenodd"/></svg> },
+                ].map((card, i) => (
+                    <div key={i} className={`bg-white rounded-xl border border-gray-100 border-l-4 ${card.border} ${card.bg} p-4 shadow-sm hover:shadow-md transition-all group`}>
+                        <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{card.label}</p>
+                                <p className="text-lg font-extrabold text-gray-800 mt-1">{card.value}</p>
+                                <p className="text-[11px] text-gray-500 mt-0.5">{card.sub}</p>
+                            </div>
+                            <div className={`w-9 h-9 rounded-lg ${card.iconBg} ${card.iconColor} flex items-center justify-center group-hover:scale-110 transition-transform`}>
+                                {card.icon}
+                            </div>
+                        </div>
                     </div>
                 ))}
             </div>

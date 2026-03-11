@@ -161,22 +161,27 @@ ${expenseCategories.map(c => `<div class="row indent"><span>${c.name}</span><spa
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-5 gap-4">
-                <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-5 text-white shadow-lg">
-                    <span className="text-2xl">💰</span><p className="text-xs opacity-80 mt-1">Net Revenue</p><p className="text-2xl font-bold">Ksh {netRevenue.toLocaleString()}</p>
-                </div>
-                <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl p-5 text-white shadow-lg">
-                    <span className="text-2xl">📦</span><p className="text-xs opacity-80 mt-1">COGS</p><p className="text-2xl font-bold">Ksh {totalCOGS.toLocaleString()}</p>
-                </div>
-                <div className={`bg-gradient-to-br ${grossProfit >= 0 ? 'from-green-500 to-emerald-600' : 'from-red-600 to-red-700'} rounded-2xl p-5 text-white shadow-lg`}>
-                    <span className="text-2xl">📈</span><p className="text-xs opacity-80 mt-1">Gross Profit ({grossMargin}%)</p><p className="text-2xl font-bold">Ksh {grossProfit.toLocaleString()}</p>
-                </div>
-                <div className="bg-gradient-to-br from-orange-500 to-amber-600 rounded-2xl p-5 text-white shadow-lg">
-                    <span className="text-2xl">💸</span><p className="text-xs opacity-80 mt-1">Total Expenses</p><p className="text-2xl font-bold">Ksh {totalExpenses.toLocaleString()}</p>
-                </div>
-                <div className={`bg-gradient-to-br ${netProfit >= 0 ? 'from-teal-500 to-cyan-600' : 'from-red-700 to-red-800'} rounded-2xl p-5 text-white shadow-lg`}>
-                    <span className="text-2xl">{netProfit >= 0 ? '🎯' : '⚠️'}</span><p className="text-xs opacity-80 mt-1">Net {netProfit >= 0 ? 'Profit' : 'Loss'} ({netMargin}%)</p><p className="text-2xl font-bold">Ksh {Math.abs(netProfit).toLocaleString()}</p>
-                </div>
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                {[
+                    { label: 'Income Statement', sub: 'Net Revenue', value: `Ksh ${netRevenue.toLocaleString()}`, border: 'border-l-blue-500', bg: 'bg-blue-50/40', iconBg: 'bg-blue-100', iconColor: 'text-blue-600', icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/><path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd"/></svg> },
+                    { label: 'Cost Analysis', sub: 'COGS', value: `Ksh ${totalCOGS.toLocaleString()}`, border: 'border-l-red-500', bg: 'bg-red-50/40', iconBg: 'bg-red-100', iconColor: 'text-red-600', icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd"/></svg> },
+                    { label: 'Gross Analysis', sub: `Gross Profit (${grossMargin}%)`, value: `Ksh ${grossProfit.toLocaleString()}`, border: grossProfit >= 0 ? 'border-l-green-500' : 'border-l-red-500', bg: grossProfit >= 0 ? 'bg-green-50/40' : 'bg-red-50/40', iconBg: grossProfit >= 0 ? 'bg-green-100' : 'bg-red-100', iconColor: grossProfit >= 0 ? 'text-green-600' : 'text-red-600', icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clipRule="evenodd"/></svg> },
+                    { label: 'Operating Costs', sub: 'Total Expenses', value: `Ksh ${totalExpenses.toLocaleString()}`, border: 'border-l-orange-500', bg: 'bg-orange-50/40', iconBg: 'bg-orange-100', iconColor: 'text-orange-600', icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd"/></svg> },
+                    { label: netProfit >= 0 ? 'Net Earnings' : 'Net Deficit', sub: `Net ${netProfit >= 0 ? 'Profit' : 'Loss'} (${netMargin}%)`, value: `Ksh ${Math.abs(netProfit).toLocaleString()}`, border: netProfit >= 0 ? 'border-l-teal-500' : 'border-l-red-500', bg: netProfit >= 0 ? 'bg-teal-50/40' : 'bg-red-50/40', iconBg: netProfit >= 0 ? 'bg-teal-100' : 'bg-red-100', iconColor: netProfit >= 0 ? 'text-teal-600' : 'text-red-600', icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clipRule="evenodd"/></svg> },
+                ].map((card, i) => (
+                    <div key={i} className={`bg-white rounded-xl border border-gray-100 border-l-4 ${card.border} ${card.bg} p-4 shadow-sm hover:shadow-md transition-all group`}>
+                        <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 truncate">{card.label}</p>
+                                <p className="text-lg font-extrabold text-gray-800 mt-1">{card.value}</p>
+                                <p className="text-[11px] text-gray-500 mt-0.5">{card.sub}</p>
+                            </div>
+                            <div className={`w-9 h-9 rounded-lg ${card.iconBg} ${card.iconColor} flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}>
+                                {card.icon}
+                            </div>
+                        </div>
+                    </div>
+                ))}
             </div>
 
             {/* Date Filters */}

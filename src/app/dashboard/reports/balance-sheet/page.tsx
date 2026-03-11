@@ -136,15 +136,24 @@ h2{font-size:13px;border-bottom:2px solid #333;padding-bottom:3px;margin-top:14p
 
             {/* Summary Cards */}
             <div className="grid grid-cols-3 gap-4">
-                <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-5 text-white shadow-lg">
-                    <span className="text-3xl">🏦</span><p className="text-sm opacity-80 mt-2">Total Assets</p><p className="text-3xl font-bold">Ksh {totalAssets.toLocaleString()}</p>
-                </div>
-                <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl p-5 text-white shadow-lg">
-                    <span className="text-3xl">📋</span><p className="text-sm opacity-80 mt-2">Total Liabilities</p><p className="text-3xl font-bold">Ksh {totalLiabilities.toLocaleString()}</p>
-                </div>
-                <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-5 text-white shadow-lg">
-                    <span className="text-3xl">💎</span><p className="text-sm opacity-80 mt-2">Total Equity</p><p className="text-3xl font-bold">Ksh {totalEquity.toLocaleString()}</p>
-                </div>
+                {[
+                    { label: 'Asset Position', sub: 'Total Assets', value: `Ksh ${totalAssets.toLocaleString()}`, border: 'border-l-blue-500', bg: 'bg-blue-50/40', iconBg: 'bg-blue-100', iconColor: 'text-blue-600', icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/><path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd"/></svg> },
+                    { label: 'Debt Position', sub: 'Total Liabilities', value: `Ksh ${totalLiabilities.toLocaleString()}`, border: 'border-l-red-500', bg: 'bg-red-50/40', iconBg: 'bg-red-100', iconColor: 'text-red-600', icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd"/></svg> },
+                    { label: 'Net Worth', sub: 'Total Equity', value: `Ksh ${totalEquity.toLocaleString()}`, border: 'border-l-green-500', bg: 'bg-green-50/40', iconBg: 'bg-green-100', iconColor: 'text-green-600', icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clipRule="evenodd"/></svg> },
+                ].map((card, i) => (
+                    <div key={i} className={`bg-white rounded-xl border border-gray-100 border-l-4 ${card.border} ${card.bg} p-4 shadow-sm hover:shadow-md transition-all group`}>
+                        <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{card.label}</p>
+                                <p className="text-xl font-extrabold text-gray-800 mt-1">{card.value}</p>
+                                <p className="text-[11px] text-gray-500 mt-0.5">{card.sub}</p>
+                            </div>
+                            <div className={`w-9 h-9 rounded-lg ${card.iconBg} ${card.iconColor} flex items-center justify-center group-hover:scale-110 transition-transform`}>
+                                {card.icon}
+                            </div>
+                        </div>
+                    </div>
+                ))}
             </div>
 
             {/* Date Filter */}

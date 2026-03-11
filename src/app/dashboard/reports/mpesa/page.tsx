@@ -135,19 +135,26 @@ ${filtered.map(e => `<tr><td>${e.date}</td><td>${e.time || '-'}</td><td class="$
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-4 gap-4">
-                <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-5 text-white shadow-lg">
-                    <span className="text-3xl">📱</span><p className="text-sm opacity-80 mt-2">M-Pesa Income</p><p className="text-3xl font-bold">Ksh {totalMpesaIncome.toLocaleString()}</p>
-                </div>
-                <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl p-5 text-white shadow-lg">
-                    <span className="text-3xl">💸</span><p className="text-sm opacity-80 mt-2">M-Pesa Expenses</p><p className="text-3xl font-bold">Ksh {totalMpesaExpenses.toLocaleString()}</p>
-                </div>
-                <div className={`bg-gradient-to-br ${netMpesa >= 0 ? 'from-teal-500 to-cyan-600' : 'from-red-600 to-red-700'} rounded-2xl p-5 text-white shadow-lg`}>
-                    <span className="text-3xl">🏦</span><p className="text-sm opacity-80 mt-2">Net M-Pesa</p><p className="text-3xl font-bold">Ksh {netMpesa.toLocaleString()}</p>
-                </div>
-                <div className="bg-gradient-to-br from-purple-500 to-violet-600 rounded-2xl p-5 text-white shadow-lg">
-                    <span className="text-3xl">📊</span><p className="text-sm opacity-80 mt-2">Transactions</p><p className="text-3xl font-bold">{transactionCount}</p>
-                </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                    { label: 'M-Pesa Collections', sub: 'M-Pesa Income', value: `Ksh ${totalMpesaIncome.toLocaleString()}`, border: 'border-l-green-500', bg: 'bg-green-50/40', iconBg: 'bg-green-100', iconColor: 'text-green-600', icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/></svg> },
+                    { label: 'M-Pesa Disbursements', sub: 'M-Pesa Expenses', value: `Ksh ${totalMpesaExpenses.toLocaleString()}`, border: 'border-l-red-500', bg: 'bg-red-50/40', iconBg: 'bg-red-100', iconColor: 'text-red-600', icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z" clipRule="evenodd"/></svg> },
+                    { label: 'Net M-Pesa Position', sub: 'Net M-Pesa', value: `Ksh ${netMpesa.toLocaleString()}`, border: netMpesa >= 0 ? 'border-l-teal-500' : 'border-l-red-500', bg: netMpesa >= 0 ? 'bg-teal-50/40' : 'bg-red-50/40', iconBg: netMpesa >= 0 ? 'bg-teal-100' : 'bg-red-100', iconColor: netMpesa >= 0 ? 'text-teal-600' : 'text-red-600', icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/><path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd"/></svg> },
+                    { label: 'Transaction Volume', sub: 'Transactions', value: transactionCount.toLocaleString(), border: 'border-l-purple-500', bg: 'bg-purple-50/40', iconBg: 'bg-purple-100', iconColor: 'text-purple-600', icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 0l-2 2a1 1 0 101.414 1.414L8 10.414l1.293 1.293a1 1 0 001.414 0l4-4z" clipRule="evenodd"/></svg> },
+                ].map((card, i) => (
+                    <div key={i} className={`bg-white rounded-xl border border-gray-100 border-l-4 ${card.border} ${card.bg} p-4 shadow-sm hover:shadow-md transition-all group`}>
+                        <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 truncate">{card.label}</p>
+                                <p className="text-xl font-extrabold text-gray-800 mt-1">{card.value}</p>
+                                <p className="text-[11px] text-gray-500 mt-0.5">{card.sub}</p>
+                            </div>
+                            <div className={`w-9 h-9 rounded-lg ${card.iconBg} ${card.iconColor} flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}>
+                                {card.icon}
+                            </div>
+                        </div>
+                    </div>
+                ))}
             </div>
 
             {/* Filters */}

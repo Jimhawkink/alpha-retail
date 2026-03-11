@@ -1044,27 +1044,6 @@ export default function RetailPOSPage() {
     }, [products]);
 
     // Add product to cart
-    const addToCart = useCallback((product: Product) => {
-        if (product.availableQty === 0) {
-            toast.error('Out of stock!');
-            return;
-        }
-
-        // Check if product has different purchase/sales units
-        const ppp = product.piecesPerPackage || 1;
-        const hasDifferentUnits = ppp > 1 && product.purchaseUnit && product.salesUnit && product.purchaseUnit !== product.salesUnit;
-
-        if (hasDifferentUnits) {
-            // Show unit picker modal
-            setUnitPickerProduct(product);
-            setShowUnitPicker(true);
-            return;
-        }
-
-        // Normal add — single unit type
-        addToCartWithUnit(product, product.salesUnit || 'Piece', 1, product.salesPrice);
-    }, []);
-
     // Add to cart with specific unit selection
     const addToCartWithUnit = useCallback((product: Product, sellingUnit: string, unitMultiplier: number, effectivePrice: number) => {
         setCart(prev => {
@@ -1084,6 +1063,30 @@ export default function RetailPOSPage() {
         setSearchQuery('');
         searchInputRef.current?.focus();
     }, []);
+
+    // Add product to cart (checks for unit picker)
+    const addToCart = useCallback((product: Product) => {
+        if (product.availableQty === 0) {
+            toast.error('Out of stock!');
+            return;
+        }
+
+        // Check if product has different purchase/sales units
+        const ppp = product.piecesPerPackage || 1;
+        const pu = (product.purchaseUnit || '').trim().toLowerCase();
+        const su = (product.salesUnit || '').trim().toLowerCase();
+        const hasDifferentUnits = (pu && su && pu !== su) || (ppp > 1 && pu && su && pu !== su);
+
+        if (hasDifferentUnits) {
+            // Show unit picker modal
+            setUnitPickerProduct(product);
+            setShowUnitPicker(true);
+            return;
+        }
+
+        // Normal add — single unit type
+        addToCartWithUnit(product, product.salesUnit || 'Piece', 1, product.salesPrice);
+    }, [addToCartWithUnit]);
 
     // Handle keyboard navigation in search results
     const handleSearchKeyDown = (e: React.KeyboardEvent) => {

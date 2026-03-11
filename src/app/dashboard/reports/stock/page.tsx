@@ -115,22 +115,27 @@ ${filtered.map(i => `<tr><td>${i.name}</td><td>${i.category}</td><td>${i.salesUn
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-5 gap-4">
-                <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-5 text-white shadow-lg">
-                    <span className="text-3xl">📦</span><p className="text-sm opacity-80 mt-2">Total Products</p><p className="text-3xl font-bold">{totalProducts}</p>
-                </div>
-                <div className="bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl p-5 text-white shadow-lg">
-                    <span className="text-3xl">💰</span><p className="text-sm opacity-80 mt-2">Stock Value (Cost)</p><p className="text-2xl font-bold">Ksh {totalStockValue.toLocaleString()}</p>
-                </div>
-                <div className="bg-gradient-to-br from-teal-500 to-cyan-600 rounded-2xl p-5 text-white shadow-lg">
-                    <span className="text-3xl">🏷️</span><p className="text-sm opacity-80 mt-2">Retail Value</p><p className="text-2xl font-bold">Ksh {totalRetailValue.toLocaleString()}</p>
-                </div>
-                <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-5 text-white shadow-lg">
-                    <span className="text-3xl">⚠️</span><p className="text-sm opacity-80 mt-2">Low Stock</p><p className="text-3xl font-bold">{lowStockCount}</p>
-                </div>
-                <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl p-5 text-white shadow-lg">
-                    <span className="text-3xl">🚫</span><p className="text-sm opacity-80 mt-2">Out of Stock</p><p className="text-3xl font-bold">{outOfStockCount}</p>
-                </div>
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                {[
+                    { label: 'Product Catalog', sub: 'Total Products', value: totalProducts.toLocaleString(), border: 'border-l-blue-500', bg: 'bg-blue-50/40', iconBg: 'bg-blue-100', iconColor: 'text-blue-600', icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd"/></svg> },
+                    { label: 'Stock Valuation - Purchase Cost', sub: 'Stock Value (Cost)', value: `Ksh ${totalStockValue.toLocaleString()}`, border: 'border-l-green-500', bg: 'bg-green-50/40', iconBg: 'bg-green-100', iconColor: 'text-green-600', icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/><path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd"/></svg> },
+                    { label: 'Stock Valuation - Sales Rate', sub: 'Retail Value', value: `Ksh ${totalRetailValue.toLocaleString()}`, border: 'border-l-teal-500', bg: 'bg-teal-50/40', iconBg: 'bg-teal-100', iconColor: 'text-teal-600', icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd"/></svg> },
+                    { label: 'Low Stock Alert', sub: 'Low Stock Items', value: lowStockCount.toLocaleString(), border: 'border-l-amber-500', bg: 'bg-amber-50/40', iconBg: 'bg-amber-100', iconColor: 'text-amber-600', icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"/></svg> },
+                    { label: 'Out of Stock', sub: 'Needs Restock', value: outOfStockCount.toLocaleString(), border: 'border-l-red-500', bg: 'bg-red-50/40', iconBg: 'bg-red-100', iconColor: 'text-red-600', icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clipRule="evenodd"/></svg> },
+                ].map((card, i) => (
+                    <div key={i} className={`bg-white rounded-xl border border-gray-100 border-l-4 ${card.border} ${card.bg} p-4 shadow-sm hover:shadow-md transition-all group`}>
+                        <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 truncate">{card.label}</p>
+                                <p className="text-lg font-extrabold text-gray-800 mt-1">{card.value}</p>
+                                <p className="text-[11px] text-gray-500 mt-0.5">{card.sub}</p>
+                            </div>
+                            <div className={`w-9 h-9 rounded-lg ${card.iconBg} ${card.iconColor} flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}>
+                                {card.icon}
+                            </div>
+                        </div>
+                    </div>
+                ))}
             </div>
 
             {/* Filters */}

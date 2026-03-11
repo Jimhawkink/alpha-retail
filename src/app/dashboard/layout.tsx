@@ -131,7 +131,7 @@ function OutletBadge() {
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
-    const [user, setUser] = useState<{ userId: string; name: string } | null>(null);
+    const [user, setUser] = useState<{ userId: string; name: string; userType: string } | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [currentTime, setCurrentTime] = useState(new Date());
     const [activeMenu, setActiveMenu] = useState('/dashboard');
@@ -209,14 +209,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                         {/* Navigation */}
                         <nav className="flex-1 overflow-y-auto px-3 py-2">
-                            {menuItems.map((section, idx) => (
+                            {menuItems.map((section, idx) => {
+                                // Filter items based on user role
+                                const isSuperAdmin = user?.userType?.toLowerCase() === 'superadmin' || user?.userType?.toLowerCase() === 'superuser';
+                                const filteredItems = section.items.filter(item => {
+                                    // Only superadmin/superuser can see Outlets
+                                    if (item.href === '/dashboard/outlets' && !isSuperAdmin) return false;
+                                    return true;
+                                });
+                                if (filteredItems.length === 0) return null;
+                                return (
                                 <div key={idx} className="mb-4">
                                     {sidebarOpen && (
                                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 mb-2">
                                             {section.category}
                                         </p>
                                     )}
-                                    {section.items.map((item) => (
+                                    {filteredItems.map((item) => (
                                         <Link
                                             key={item.href}
                                             href={item.href}
@@ -244,7 +253,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                         </Link>
                                     ))}
                                 </div>
-                            ))}
+                                );
+                            })}
                         </nav>
 
                         {/* User Profile */}
@@ -256,7 +266,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 {sidebarOpen && (
                                     <div className="flex-1">
                                         <p className="font-semibold text-gray-800 text-sm">{user.name}</p>
-                                        <p className="text-xs text-gray-500">Cashier</p>
+                                        <p className="text-xs text-gray-500">{user.userType || 'Cashier'}</p>
                                     </div>
                                 )}
                                 {sidebarOpen && (
