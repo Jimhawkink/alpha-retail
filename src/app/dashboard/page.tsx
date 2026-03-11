@@ -22,7 +22,7 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarEleme
 // ────────────────── Types ──────────────────
 interface DailySales { date: string; cash: number; mpesa: number; credit: number; total: number; orders: number; }
 interface TopProduct { name: string; qty: number; revenue: number; avgPrice: number; }
-interface LowStockItem { name: string; stock: number; reorder: number; type: 'dish' | 'ingredient'; status: 'out' | 'critical' | 'low'; }
+interface LowStockItem { name: string; stock: number; reorder: number; type: 'dish' | 'ingredient' | 'product'; status: 'out' | 'critical' | 'low'; }
 interface UserSalesData { name: string; sales: number; orders: number; }
 interface RecentPurchase { date: string; supplier: string; total: number; status: string; items: number; }
 
@@ -81,8 +81,8 @@ export default function DashboardPage() {
         const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
         try {
-            // ── Today's Sales by payment method ──
-            const { data: todayData } = await supabase.from('sales').select('total_amount, payment_method').eq('sale_date', today);
+            // ── Today's Sales by payment method ── (using retail_sales)
+            const { data: todayData } = await supabase.from('retail_sales').select('total_amount, payment_method').eq('sale_date', today);
             const tData = todayData || [];
             setTodaySales(tData.reduce((s, r) => s + (r.total_amount || 0), 0));
             setTodayOrders(tData.length);
@@ -91,17 +91,17 @@ export default function DashboardPage() {
             setTodayCredit(tData.filter(r => (r.payment_method || '').toLowerCase().includes('credit')).reduce((s, r) => s + (r.total_amount || 0), 0));
 
             // ── Yesterday's Sales ──
-            const { data: yData } = await supabase.from('sales').select('total_amount').eq('sale_date', yesterday);
+            const { data: yData } = await supabase.from('retail_sales').select('total_amount').eq('sale_date', yesterday);
             setYesterdaySales((yData || []).reduce((s, r) => s + (r.total_amount || 0), 0));
             setYesterdayOrders((yData || []).length);
 
             // ── Pending Bills ──
-            const { data: pBills } = await supabase.from('sales').select('sale_id').eq('status', 'Pending');
+            const { data: pBills } = await supabase.from('retail_sales').select('sale_id').eq('status', 'Pending');
             setPendingBills(pBills?.length || 0);
 
             // ── Daily Sales Trend (by date range, broken by payment method) ──
             const { data: rangeSales } = await supabase
-                .from('sales')
+                .from('retail_sales')
                 .select('sale_date, total_amount, payment_method')
                 .gte('sale_date', dateFrom)
                 .lte('sale_date', dateTo)
@@ -128,9 +128,9 @@ export default function DashboardPage() {
             });
             setDailySales(Array.from(salesMap.values()).sort((a, b) => a.date.localeCompare(b.date)));
 
-            // ── Top Selling Products ──
+            // ── Top Selling Products ── (using retail_sales_items)
             const { data: salesItems } = await supabase
-                .from('sales_items')
+                .from('retail_sales_items')
                 .select('product_name, quantity, subtotal, created_at')
                 .gte('created_at', `${dateFrom}T00:00:00`)
                 .lte('created_at', `${dateTo}T23:59:59`)
@@ -151,20 +151,19 @@ export default function DashboardPage() {
                     .slice(0, 15)
             );
 
-            // ── Low Stock Items ──
-            const { data: lowDishes } = await supabase.from('products').select('product_name, stock, reorder_point').eq('active', true).order('stock').limit(20);
-            const { data: lowIngredients } = await supabase.from('products_ingredients').select('product_name, current_stock, reorder_point').eq('active', true).order('current_stock').limit(20);
+            // ── Low Stock Items ── (using retail_products + retail_stock)
+            const { data: retailProds } = await supabase.from('retail_products').select('pid, product_name, reorder_point').eq('active', true).order('product_name');
+            const { data: retailStock } = await supabase.from('retail_stock').select('pid, qty');
+            const stockMap: Record<number, number> = {};
+            (retailStock || []).forEach((s: { pid: number; qty: number }) => { stockMap[s.pid] = (stockMap[s.pid] || 0) + (s.qty || 0); });
 
             const lowItems: LowStockItem[] = [];
-            (lowDishes || []).filter(d => (d.stock || 0) <= (d.reorder_point || 10)).forEach(d => {
-                const stock = d.stock || 0;
-                const reorder = d.reorder_point || 10;
-                lowItems.push({ name: d.product_name, stock, reorder, type: 'dish', status: stock === 0 ? 'out' : stock <= reorder * 0.3 ? 'critical' : 'low' });
-            });
-            (lowIngredients || []).filter(i => (i.current_stock || 0) <= (i.reorder_point || 10)).forEach(i => {
-                const stock = i.current_stock || 0;
-                const reorder = i.reorder_point || 10;
-                lowItems.push({ name: i.product_name, stock, reorder, type: 'ingredient', status: stock === 0 ? 'out' : stock <= reorder * 0.3 ? 'critical' : 'low' });
+            (retailProds || []).forEach(p => {
+                const stock = stockMap[p.pid] || 0;
+                const reorder = p.reorder_point || 5;
+                if (stock <= reorder) {
+                    lowItems.push({ name: p.product_name, stock, reorder, type: 'product', status: stock === 0 ? 'out' : stock <= reorder * 0.3 ? 'critical' : 'low' });
+                }
             });
             setLowStock(lowItems.sort((a, b) => a.stock - b.stock));
 

@@ -25,6 +25,9 @@ interface Product {
 interface CartItem extends Product {
     qty: number;
     discount: number;
+    sellingUnit: string;       // Which unit the cashier chose (Kg, Bag, Piece, etc.)
+    unitMultiplier: number;    // How many sales units per selling unit (1 for Kg, 50 for Bag)
+    effectivePrice: number;    // Price per selling unit (140 for Kg, 7000 for Bag)
 }
 
 interface Category {
@@ -110,16 +113,16 @@ const CartItemRow = ({
     onRemove: () => void;
     onEditDiscount: () => void;
 }) => {
-    const itemTotal = (item.salesPrice * item.qty) - item.discount;
+    const itemTotal = (item.effectivePrice * item.qty) - item.discount;
 
     return (
         <div className="bg-white rounded-xl p-3 space-y-2 border border-gray-100 shadow-sm">
             <div className="flex items-center gap-3">
                 <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-800 text-sm truncate">{item.name}</p>
-                    <p className="text-xs text-gray-500">@ Ksh {item.salesPrice.toLocaleString()} / {item.salesUnit || 'Pc'}</p>
-                    {item.barcode && (
-                        <p className="text-xs text-gray-400 font-mono">{item.barcode}</p>
+                    <p className="text-xs text-gray-500">@ Ksh {item.effectivePrice.toLocaleString()} / {item.sellingUnit || item.salesUnit || 'Pc'}</p>
+                    {item.unitMultiplier > 1 && (
+                        <p className="text-[10px] text-purple-500 font-medium">📦 1 {item.sellingUnit} = {item.unitMultiplier} {item.salesUnit}</p>
                     )}
                 </div>
                 <div className="flex items-center gap-1">
@@ -803,6 +806,10 @@ export default function RetailPOSPage() {
     const [customerSearch, setCustomerSearch] = useState('');
     const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
 
+    // Unit picker state
+    const [showUnitPicker, setShowUnitPicker] = useState(false);
+    const [unitPickerProduct, setUnitPickerProduct] = useState<Product | null>(null);
+
     const searchInputRef = useRef<HTMLInputElement>(null);
 
     // Toggle fullscreen mode
@@ -1020,19 +1027,37 @@ export default function RetailPOSPage() {
             return;
         }
 
+        // Check if product has different purchase/sales units
+        const ppp = product.piecesPerPackage || 1;
+        const hasDifferentUnits = ppp > 1 && product.purchaseUnit && product.salesUnit && product.purchaseUnit !== product.salesUnit;
+
+        if (hasDifferentUnits) {
+            // Show unit picker modal
+            setUnitPickerProduct(product);
+            setShowUnitPicker(true);
+            return;
+        }
+
+        // Normal add — single unit type
+        addToCartWithUnit(product, product.salesUnit || 'Piece', 1, product.salesPrice);
+    }, []);
+
+    // Add to cart with specific unit selection
+    const addToCartWithUnit = useCallback((product: Product, sellingUnit: string, unitMultiplier: number, effectivePrice: number) => {
         setCart(prev => {
-            const existing = prev.find(item => item.id === product.id);
+            // Check for existing item with SAME product AND SAME selling unit
+            const existing = prev.find(item => item.id === product.id && item.sellingUnit === sellingUnit);
             if (existing) {
                 return prev.map(item =>
-                    item.id === product.id
+                    item.id === product.id && item.sellingUnit === sellingUnit
                         ? { ...item, qty: item.qty + 1 }
                         : item
                 );
             }
-            return [...prev, { ...product, qty: 1, discount: 0 }];
+            return [...prev, { ...product, qty: 1, discount: 0, sellingUnit, unitMultiplier, effectivePrice }];
         });
 
-        toast.success(`${product.name} added`);
+        toast.success(`${product.name} (${sellingUnit}) added`);
         setSearchQuery('');
         searchInputRef.current?.focus();
     }, []);
@@ -1053,21 +1078,21 @@ export default function RetailPOSPage() {
         }
     };
 
-    // Cart operations
-    const increaseQty = (id: number) => {
+    // Cart operations — use sellingUnit as part of key (same product can be in cart with different units)
+    const increaseQty = (id: number, sellingUnit: string) => {
         setCart(prev => prev.map(item =>
-            item.id === id ? { ...item, qty: item.qty + 1 } : item
+            item.id === id && item.sellingUnit === sellingUnit ? { ...item, qty: item.qty + 1 } : item
         ));
     };
 
-    const decreaseQty = (id: number) => {
+    const decreaseQty = (id: number, sellingUnit: string) => {
         setCart(prev => prev.map(item =>
-            item.id === id && item.qty > 1 ? { ...item, qty: item.qty - 1 } : item
+            item.id === id && item.sellingUnit === sellingUnit && item.qty > 1 ? { ...item, qty: item.qty - 1 } : item
         ).filter(item => item.qty > 0));
     };
 
-    const removeFromCart = (id: number) => {
-        setCart(prev => prev.filter(item => item.id !== id));
+    const removeFromCart = (id: number, sellingUnit: string) => {
+        setCart(prev => prev.filter(item => !(item.id === id && item.sellingUnit === sellingUnit)));
     };
 
     const clearCart = () => {
@@ -1083,13 +1108,13 @@ export default function RetailPOSPage() {
     const saveItemDiscount = (discount: number) => {
         if (editingCartItem) {
             setCart(prev => prev.map(item =>
-                item.id === editingCartItem.id ? { ...item, discount } : item
+                item.id === editingCartItem.id && item.sellingUnit === editingCartItem.sellingUnit ? { ...item, discount } : item
             ));
         }
     };
 
     // Calculate totals
-    const subtotal = cart.reduce((sum, item) => sum + (item.salesPrice * item.qty), 0);
+    const subtotal = cart.reduce((sum, item) => sum + (item.effectivePrice * item.qty), 0);
     const totalDiscount = cart.reduce((sum, item) => sum + item.discount, 0);
     const grandTotal = subtotal - totalDiscount;
 
@@ -1157,19 +1182,22 @@ export default function RetailPOSPage() {
                 product_name: item.name,
                 barcode: item.barcode,
                 quantity: item.qty,
-                unit_price: item.salesPrice,
+                unit_price: item.effectivePrice,
+                selling_unit: item.sellingUnit,
+                unit_multiplier: item.unitMultiplier,
                 cost_price: item.costPrice,
                 discount: item.discount,
-                subtotal: (item.salesPrice * item.qty) - item.discount
+                subtotal: (item.effectivePrice * item.qty) - item.discount
             }));
 
             await supabase.from('retail_sales_items').insert(saleItems);
 
-            // Update stock (decrease) using retail function
+            // Update stock (decrease) using retail function — multiply by unitMultiplier
             for (const item of cart) {
+                const stockQty = item.qty * (item.unitMultiplier || 1);
                 await supabase.rpc('retail_decrease_stock', {
                     p_product_id: item.id,
-                    p_qty: item.qty
+                    p_qty: stockQty
                 });
             }
 
@@ -1185,10 +1213,10 @@ export default function RetailPOSPage() {
                         time: now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
                         cashier: 'Cashier',
                         items: cart.map(item => ({
-                            name: item.name,
+                            name: `${item.name}${item.unitMultiplier > 1 ? ` (${item.sellingUnit})` : ''}`,
                             qty: item.qty,
-                            price: item.salesPrice,
-                            total: item.salesPrice * item.qty
+                            price: item.effectivePrice,
+                            total: item.effectivePrice * item.qty
                         })),
                         subtotal: subtotal,
                         discount: totalDiscount,
@@ -1482,11 +1510,11 @@ export default function RetailPOSPage() {
                         ) : (
                             cart.map(item => (
                                 <CartItemRow
-                                    key={item.id}
+                                    key={`${item.id}-${item.sellingUnit}`}
                                     item={item}
-                                    onIncrease={() => increaseQty(item.id)}
-                                    onDecrease={() => decreaseQty(item.id)}
-                                    onRemove={() => removeFromCart(item.id)}
+                                    onIncrease={() => increaseQty(item.id, item.sellingUnit)}
+                                    onDecrease={() => decreaseQty(item.id, item.sellingUnit)}
+                                    onRemove={() => removeFromCart(item.id, item.sellingUnit)}
                                     onEditDiscount={() => openDiscountModal(item)}
                                 />
                             ))
@@ -1540,6 +1568,64 @@ export default function RetailPOSPage() {
                 item={editingCartItem}
                 onSave={saveItemDiscount}
             />
+
+            {/* Unit Picker Modal */}
+            {showUnitPicker && unitPickerProduct && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowUnitPicker(false)}>
+                    <div className="bg-white rounded-2xl shadow-2xl p-6 w-[380px] max-w-[95vw]" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-lg font-bold text-gray-800 mb-1">📦 Select Selling Unit</h3>
+                        <p className="text-sm text-gray-500 mb-4">{unitPickerProduct.name}</p>
+                        <div className="space-y-3">
+                            {/* Sales unit (e.g., Kg) */}
+                            <button
+                                onClick={() => {
+                                    addToCartWithUnit(unitPickerProduct, unitPickerProduct.salesUnit || 'Piece', 1, unitPickerProduct.salesPrice);
+                                    setShowUnitPicker(false);
+                                    setUnitPickerProduct(null);
+                                }}
+                                className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 transition-all group"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <span className="text-2xl">📏</span>
+                                    <div className="text-left">
+                                        <p className="font-bold text-gray-800">Per {unitPickerProduct.salesUnit}</p>
+                                        <p className="text-xs text-gray-500">Sell individual {unitPickerProduct.salesUnit}</p>
+                                    </div>
+                                </div>
+                                <span className="text-lg font-bold text-blue-700">Ksh {unitPickerProduct.salesPrice.toLocaleString()}</span>
+                            </button>
+
+                            {/* Purchase unit (e.g., Bag) */}
+                            <button
+                                onClick={() => {
+                                    const ppp = unitPickerProduct.piecesPerPackage || 1;
+                                    const bagPrice = unitPickerProduct.salesPrice * ppp;
+                                    addToCartWithUnit(unitPickerProduct, unitPickerProduct.purchaseUnit || 'Bag', ppp, bagPrice);
+                                    setShowUnitPicker(false);
+                                    setUnitPickerProduct(null);
+                                }}
+                                className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-purple-200 bg-purple-50 hover:bg-purple-100 transition-all group"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <span className="text-2xl">📦</span>
+                                    <div className="text-left">
+                                        <p className="font-bold text-gray-800">Per {unitPickerProduct.purchaseUnit}</p>
+                                        <p className="text-xs text-gray-500">1 {unitPickerProduct.purchaseUnit} = {unitPickerProduct.piecesPerPackage} {unitPickerProduct.salesUnit}</p>
+                                    </div>
+                                </div>
+                                <span className="text-lg font-bold text-purple-700">Ksh {((unitPickerProduct.salesPrice) * (unitPickerProduct.piecesPerPackage || 1)).toLocaleString()}</span>
+                            </button>
+                        </div>
+
+                        <button
+                            onClick={() => { setShowUnitPicker(false); setUnitPickerProduct(null); }}
+                            className="w-full mt-4 py-2 text-sm text-gray-500 hover:text-gray-700 font-medium"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
