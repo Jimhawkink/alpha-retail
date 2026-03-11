@@ -397,6 +397,7 @@ export default function ProductsPage() {
                     description: r.description || r.desc || '',
                     active: (r.active || r.status || 'true').toLowerCase() !== 'false',
                     pieces_per_package: parseInt(r.pieces_per_package || r.pcs_per_pack || '1') || 1,
+                    wholesale_price: parseFloat(r.wholesale_price || r.wholesale || r.ws_price || '0') || 0,
                     margin_per: 0,
                 };
                 if (prodData.purchase_cost > 0) prodData.margin_per = Math.round(((prodData.sales_cost - prodData.purchase_cost) / prodData.purchase_cost) * 10000) / 100;
@@ -1281,11 +1282,20 @@ export default function ProductsPage() {
                                     {/* CSV Template */}
                                     <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">
                                         <p className="text-xs font-bold text-gray-600 mb-1">📄 Required CSV Columns:</p>
-                                        <p className="text-[10px] text-gray-500 font-mono leading-relaxed">product_name, barcode, category, purchase_cost, sales_cost, purchase_unit, sales_unit, quantity, reorder_point, supplier_name, description, pieces_per_package</p>
+                                        <div className="flex flex-wrap gap-1 mt-1 mb-2">
+                                            {['product_name', 'barcode', 'category', 'purchase_cost', 'sales_cost', 'wholesale_price', 'purchase_unit', 'sales_unit', 'quantity', 'reorder_point', 'pieces_per_package', 'supplier_name', 'description'].map(col => (
+                                                <span key={col} className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold ${col === 'wholesale_price' ? 'bg-purple-100 text-purple-700 border border-purple-200' : col === 'product_name' ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-blue-50 text-blue-700 border border-blue-100'}`}>{col}{col === 'product_name' && ' *'}</span>
+                                            ))}
+                                        </div>
                                         <button onClick={() => {
-                                            const tpl = 'product_name,barcode,category,purchase_cost,sales_cost,purchase_unit,sales_unit,quantity,reorder_point,supplier_name,description,pieces_per_package\nSample Product,12345,Medicine,100,150,Box,Piece,10,5,Supplier A,Sample description,12\n';
-                                            const blob = new Blob([tpl], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'import_template.csv'; a.click(); URL.revokeObjectURL(url);
-                                        }} className="text-xs text-blue-600 font-bold mt-2 hover:underline">⬇️ Download Template CSV</button>
+                                            const tpl = 'product_name,barcode,category,purchase_cost,sales_cost,wholesale_price,purchase_unit,sales_unit,quantity,reorder_point,pieces_per_package,supplier_name,description\n'
+                                                + '"Coca Cola 500ml",10001,Beverages,35,50,45,Crate,Piece,48,10,24,Coca Cola Distributor,Soft drink 500ml bottle\n'
+                                                + '"Bread - White Sliced",10002,Bakery,40,55,50,Piece,Piece,20,5,1,Alpha Bakery,White sliced bread loaf\n'
+                                                + '"Sugar 2kg Mumias",10003,Groceries,180,220,200,Bale,Piece,30,10,12,Mumias Sugar,2kg sugar pack\n'
+                                                + '"Cooking Oil 5L",10004,Cooking,950,1100,1050,Carton,Piece,15,5,4,Bidco Kenya,5 liter cooking oil\n'
+                                                + '"Maize Flour 2kg",10005,Flour,120,145,135,Bale,Piece,50,15,12,Unga Ltd,2kg maize flour\n';
+                                            const blob = new Blob([tpl], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'alpha_retail_import_template.csv'; a.click(); URL.revokeObjectURL(url);
+                                        }} className="text-xs text-blue-600 font-bold mt-2 hover:underline flex items-center gap-1">⬇️ Download Template CSV (with 5 sample products)</button>
                                     </div>
 
                                     {/* Overwrite Warning */}
