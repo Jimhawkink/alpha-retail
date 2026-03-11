@@ -416,7 +416,7 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
 
   <!-- Header -->
   <div class="header">
-    <div class="company-logo">🍽️</div>
+    <div class="company-logo">🛒</div>
     <div class="company-name">${company.name}</div>
     <div class="company-details">
       📍 ${company.address}<br>
@@ -552,7 +552,7 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
 
   <!-- Footer -->
   <div class="footer">
-    <div class="thank-you">★ THANK YOU FOR DINING WITH US! ★</div>
+    <div class="thank-you">★ THANK YOU FOR SHOPPING WITH US! ★</div>
     <div style="font-size:10px;">We appreciate your business</div>
     <div class="footer-note">
       ${isPaid ? 'This serves as your official tax invoice' : 'This is not a tax invoice until payment is complete'}
