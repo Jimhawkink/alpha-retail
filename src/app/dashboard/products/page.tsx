@@ -621,9 +621,9 @@ export default function ProductsPage() {
                                 {/* Card image/color */}
                                 <div className={`h-32 bg-gradient-to-br ${p.button_ui_color || 'from-blue-400 to-blue-600'} relative flex items-center justify-center`}>
                                     {p.photo ? (
-                                        <img src={p.photo} alt={p.product_name} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                        <img src={p.photo} alt={p.product_name} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).src = '/no-image.png'; }} />
                                     ) : (
-                                        <span className="text-white text-4xl font-black opacity-40">{p.product_name.charAt(0)}</span>
+                                        <img src="/no-image.png" alt="No image" className="max-h-[80px] max-w-[80px] object-contain opacity-50" />
                                     )}
                                     <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <button onClick={() => openEditModal(p)} className="p-1.5 bg-white/90 rounded-lg text-blue-600 hover:bg-white shadow-sm"><FiEdit2 size={12} /></button>
@@ -673,11 +673,11 @@ export default function ProductsPage() {
                                                 <div className="flex items-center gap-3">
                                                     {p.photo ? (
                                                         <div className="w-10 h-10 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0 shadow-sm">
-                                                            <img src={p.photo} alt="" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                                            <img src={p.photo} alt="" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).src = '/no-image.png'; }} />
                                                         </div>
                                                     ) : (
-                                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold bg-gradient-to-br ${p.button_ui_color || 'from-blue-400 to-blue-600'} shadow-sm`}>
-                                                            {p.product_name.charAt(0)}
+                                                        <div className="w-10 h-10 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0 bg-gray-50">
+                                                            <img src="/no-image.png" alt="No image" className="w-full h-full object-contain opacity-60" />
                                                         </div>
                                                     )}
                                                     <div>

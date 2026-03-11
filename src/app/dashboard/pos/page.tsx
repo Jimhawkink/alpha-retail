@@ -192,9 +192,9 @@ const ProductCard = ({ product, onAdd }: { product: Product; onAdd: () => void }
         {/* Image - Fixed 110px */}
         <div className="h-[110px] bg-gray-50 flex items-center justify-center flex-shrink-0">
             {product.imageUrl ? (
-                <img src={product.imageUrl} alt={product.name} className="max-h-[100px] max-w-[100px] object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                <img src={product.imageUrl} alt={product.name} className="max-h-[100px] max-w-[100px] object-contain" onError={(e) => { (e.target as HTMLImageElement).src = '/no-image.png'; }} />
             ) : (
-                <div className="w-14 h-14 bg-gray-100 rounded-lg flex items-center justify-center"><span className="text-xl" title="No image">📦</span></div>
+                <img src="/no-image.png" alt="No image" className="max-h-[90px] max-w-[90px] object-contain opacity-60" />
             )}
         </div>
         {/* Content */}
