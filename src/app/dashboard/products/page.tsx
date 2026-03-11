@@ -623,7 +623,7 @@ export default function ProductsPage() {
                                     {p.photo ? (
                                         <img src={p.photo} alt={p.product_name} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).src = '/no-image.png'; }} />
                                     ) : (
-                                        <img src="/no-image.png" alt="No image" className="max-h-[80px] max-w-[80px] object-contain opacity-50" />
+                                        <img src="/no-image.png" alt="No image" className="h-[110px] w-[110px] object-contain" />
                                     )}
                                     <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <button onClick={() => openEditModal(p)} className="p-1.5 bg-white/90 rounded-lg text-blue-600 hover:bg-white shadow-sm"><FiEdit2 size={12} /></button>
@@ -677,7 +677,7 @@ export default function ProductsPage() {
                                                         </div>
                                                     ) : (
                                                         <div className="w-10 h-10 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0 bg-gray-50">
-                                                            <img src="/no-image.png" alt="No image" className="w-full h-full object-contain opacity-60" />
+                                                            <img src="/no-image.png" alt="No image" className="w-full h-full object-contain" />
                                                         </div>
                                                     )}
                                                     <div>

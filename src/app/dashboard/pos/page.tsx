@@ -194,7 +194,7 @@ const ProductCard = ({ product, onAdd }: { product: Product; onAdd: () => void }
             {product.imageUrl ? (
                 <img src={product.imageUrl} alt={product.name} className="max-h-[100px] max-w-[100px] object-contain" onError={(e) => { (e.target as HTMLImageElement).src = '/no-image.png'; }} />
             ) : (
-                <img src="/no-image.png" alt="No image" className="max-h-[90px] max-w-[90px] object-contain opacity-60" />
+                <img src="/no-image.png" alt="No image" className="h-[100px] w-[100px] object-contain" />
             )}
         </div>
         {/* Content */}
