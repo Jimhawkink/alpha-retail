@@ -1494,7 +1494,7 @@ export default function RetailPOSPage() {
     };
 
     return (
-        <div className="h-screen flex flex-col bg-gray-50">
+        <div className="h-[calc(100vh-64px)] flex flex-col bg-gray-50">
             {/* Top Bar - Breadcrumb & Session */}
             <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -1742,7 +1742,7 @@ export default function RetailPOSPage() {
                     </div>
 
                     {/* Cart Summary */}
-                    <div className="border-t border-gray-200 p-4 bg-gray-50 space-y-2">
+                    <div className="border-t border-gray-200 p-3 bg-gray-50 space-y-1 shrink-0">
                         <div className="flex justify-between text-sm text-gray-600">
                             <span>Subtotal</span>
                             <span>Ksh {subtotal.toLocaleString()}</span>
@@ -1760,11 +1760,11 @@ export default function RetailPOSPage() {
                     </div>
 
                     {/* Pay Button */}
-                    <div className="p-4 border-t border-gray-200">
+                    <div className="p-3 border-t border-gray-200 shrink-0">
                         <button
                             onClick={() => setShowPayment(true)}
                             disabled={cart.length === 0}
-                            className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-2xl font-bold text-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold text-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
                             <span>💳</span>
                             <span>PAY Ksh {grandTotal.toLocaleString()}</span>
