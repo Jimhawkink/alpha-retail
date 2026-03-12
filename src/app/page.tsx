@@ -61,11 +61,11 @@ export default function LoginPage() {
         }
 
         try {
-            // Query retail_users table
+            // Query retail_users table (case-insensitive username match)
             const { data, error: dbError } = await supabase
                 .from('retail_users')
                 .select('*')
-                .eq('user_name', username)
+                .ilike('user_name', username)
                 .eq('active', true)
                 .single();
 
