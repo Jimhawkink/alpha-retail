@@ -7,18 +7,13 @@ import toast from 'react-hot-toast';
 
 interface User {
     user_id: number;
-    user_code: string;
     user_name: string;
     name: string;
     user_type: string;
     email: string;
     phone: string;
-    national_id: string;
-    salary_type: 'Monthly' | 'Weekly';
-    salary_amount: number;
     pin: string;
     active: boolean;
-    is_super_admin: boolean;
     created_at: string;
 }
 
@@ -47,15 +42,11 @@ export default function UsersPage() {
 
     // Form state
     const [formData, setFormData] = useState({
-        user_code: '',
         user_name: '',
         name: '',
         user_type: 'Cashier',
         email: '',
         phone: '',
-        national_id: '',
-        salary_type: 'Monthly' as 'Monthly' | 'Weekly',
-        salary_amount: 0,
         password: '',
         pin: '',
         active: true,
@@ -92,17 +83,12 @@ export default function UsersPage() {
     }, [loadUsers]);
 
     const openAddModal = async () => {
-        const newCode = await generateUserCode();
         setFormData({
-            user_code: newCode,
             user_name: '',
             name: '',
             user_type: 'Cashier',
             email: '',
             phone: '',
-            national_id: '',
-            salary_type: 'Monthly',
-            salary_amount: 0,
             password: '',
             pin: '',
             active: true,
@@ -112,22 +98,12 @@ export default function UsersPage() {
     };
 
     const openEditModal = (user: User) => {
-        // Block editing super admin
-        if (user.is_super_admin) {
-            toast.error('🔒 Super Admin account cannot be edited!');
-            return;
-        }
-
         setFormData({
-            user_code: user.user_code,
             user_name: user.user_name,
             name: user.name,
             user_type: user.user_type,
-            email: user.email,
-            phone: user.phone,
-            national_id: user.national_id,
-            salary_type: user.salary_type,
-            salary_amount: user.salary_amount,
+            email: user.email || '',
+            phone: user.phone || '',
             password: '',
             pin: user.pin || '',
             active: user.active,
@@ -162,12 +138,9 @@ export default function UsersPage() {
                     user_name: formData.user_name,
                     name: formData.name,
                     user_type: formData.user_type,
-                    email: formData.email,
-                    phone: formData.phone,
-                    national_id: formData.national_id,
-                    salary_type: formData.salary_type,
-                    salary_amount: formData.salary_amount,
-                    pin: formData.pin,
+                    email: formData.email || null,
+                    phone: formData.phone || null,
+                    pin: formData.pin || null,
                     active: formData.active,
                 };
 
@@ -184,37 +157,23 @@ export default function UsersPage() {
                 toast.success('User updated successfully! ✅');
                 logActivity('Update', `Updated user: ${formData.name}`, `Username: ${formData.user_name}, Role: ${formData.user_type}`);
             } else {
-                // Create new user - user_code will be set to null initially
+                // Create new user
                 const { data, error } = await supabase
                     .from('retail_users')
                     .insert([{
-                        user_code: null, // Let database handle or update after insert
                         user_name: formData.user_name,
                         password_hash: formData.password || formData.pin,
                         name: formData.name,
                         user_type: formData.user_type,
                         email: formData.email || null,
                         phone: formData.phone || null,
-                        national_id: formData.national_id || null,
-                        salary_type: formData.salary_type,
-                        salary_amount: formData.salary_amount || 0,
                         pin: formData.pin || null,
                         active: formData.active,
-                        is_super_admin: false,
                     }])
                     .select()
                     .single();
 
                 if (error) throw error;
-
-                // Update user_code based on user_id
-                if (data) {
-                    const userCode = `US-${String(data.user_id).padStart(4, '0')}`;
-                    await supabase
-                        .from('retail_users')
-                        .update({ user_code: userCode })
-                        .eq('user_id', data.user_id);
-                }
 
                 toast.success('User created successfully! 🎉');
                 logActivity('Create', `Created user: ${formData.name}`, `Username: ${formData.user_name}, Role: ${formData.user_type}`);
@@ -231,11 +190,6 @@ export default function UsersPage() {
     };
 
     const toggleUserStatus = async (user: User) => {
-        if (user.is_super_admin) {
-            toast.error('Cannot deactivate Super Admin');
-            return;
-        }
-
         try {
             const { error } = await supabase
                 .from('retail_users')
@@ -253,11 +207,6 @@ export default function UsersPage() {
     };
 
     const deleteUser = async (user: User) => {
-        if (user.is_super_admin) {
-            toast.error('Cannot delete Super Admin');
-            return;
-        }
-
         if (!confirm(`Are you sure you want to delete ${user.name}?`)) return;
 
         try {
@@ -281,7 +230,6 @@ export default function UsersPage() {
         const matchesSearch =
             user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             user.user_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            user.user_code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             user.phone?.includes(searchQuery);
 
         const matchesRole = filterRole === 'All' || user.user_type === filterRole;
@@ -458,10 +406,8 @@ export default function UsersPage() {
                                                 <div>
                                                     <p className="font-semibold text-gray-800 flex items-center gap-2">
                                                         {user.name}
-                                                        {user.is_super_admin && <span title="Super Admin">👑</span>}
                                                     </p>
                                                     <p className="text-sm text-gray-500">@{user.user_name}</p>
-                                                    <p className="text-xs text-indigo-600 font-mono">{user.user_code}</p>
                                                 </div>
                                             </div>
                                         </td>
@@ -482,48 +428,37 @@ export default function UsersPage() {
                                         </td>
                                         <td className="px-4 py-4 hidden lg:table-cell">
                                             <div>
-                                                <p className="text-sm font-semibold text-gray-800">
-                                                    KES {user.salary_amount?.toLocaleString() || '0'}
-                                                </p>
-                                                <p className="text-xs text-gray-500">{user.salary_type || 'Monthly'}</p>
+                                                <p className="text-sm text-gray-600">{user.email || '-'}</p>
+                                                <p className="text-xs text-gray-400">{user.phone || '-'}</p>
                                             </div>
                                         </td>
                                         <td className="px-4 py-4 text-center">
                                             <button
                                                 onClick={() => toggleUserStatus(user)}
-                                                disabled={user.is_super_admin}
-                                                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${user.active
+                                                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${user.active
                                                     ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
                                                     : 'bg-red-100 text-red-700 hover:bg-red-200'
-                                                    } ${user.is_super_admin ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                                                    }`}
                                             >
                                                 {user.active ? '✅ Active' : '❌ Inactive'}
                                             </button>
                                         </td>
                                         <td className="px-4 py-4">
                                             <div className="flex items-center justify-center gap-2">
-                                                {user.is_super_admin ? (
-                                                    <span className="px-3 py-2 bg-purple-100 text-purple-700 rounded-xl text-xs font-semibold">
-                                                        🔒 Protected
-                                                    </span>
-                                                ) : (
-                                                    <>
-                                                        <button
-                                                            onClick={() => openEditModal(user)}
-                                                            className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-xl transition-all hover:scale-110"
-                                                            title="Edit User"
-                                                        >
-                                                            ✏️
-                                                        </button>
-                                                        <button
-                                                            onClick={() => deleteUser(user)}
-                                                            className="p-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-xl transition-all hover:scale-110"
-                                                            title="Delete User"
-                                                        >
+                                                <button
+                                                    onClick={() => openEditModal(user)}
+                                                    className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-xl transition-all hover:scale-110"
+                                                    title="Edit User"
+                                                >
+                                                    ✏️
+                                                </button>
+                                                <button
+                                                    onClick={() => deleteUser(user)}
+                                                    className="p-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-xl transition-all hover:scale-110"
+                                                    title="Delete User"
+                                                >
                                                             🗑️
-                                                        </button>
-                                                    </>
-                                                )}
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -555,19 +490,8 @@ export default function UsersPage() {
 
                         {/* Modal Body */}
                         <form onSubmit={handleSubmit} className="p-6 space-y-5">
-                            {/* User Code & Username */}
+                            {/* Username & Full Name */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        🆔 User Code
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={formData.user_code}
-                                        disabled
-                                        className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-600 font-mono"
-                                    />
-                                </div>
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                                         👤 Username <span className="text-red-500">*</span>
@@ -598,7 +522,7 @@ export default function UsersPage() {
                                 />
                             </div>
 
-                            {/* Role & National ID */}
+                            {/* Role */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -614,18 +538,6 @@ export default function UsersPage() {
                                         <option value="Cashier">💰 Cashier</option>
                                         <option value="Waiter">🍽️ Waiter / Waitress</option>
                                     </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        🪪 National ID
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={formData.national_id}
-                                        onChange={(e) => setFormData({ ...formData, national_id: e.target.value })}
-                                        placeholder="Enter national ID"
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-400/20"
-                                    />
                                 </div>
                             </div>
 
@@ -652,36 +564,6 @@ export default function UsersPage() {
                                         value={formData.phone}
                                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                                         placeholder="0712345678"
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-400/20"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Salary Type & Amount */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        💰 Salary Type
-                                    </label>
-                                    <select
-                                        value={formData.salary_type}
-                                        onChange={(e) => setFormData({ ...formData, salary_type: e.target.value as 'Monthly' | 'Weekly' })}
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-400/20 cursor-pointer"
-                                    >
-                                        <option value="Monthly">📅 Monthly</option>
-                                        <option value="Weekly">📆 Weekly</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        💵 Salary Amount (KES)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={formData.salary_amount}
-                                        onChange={(e) => setFormData({ ...formData, salary_amount: parseFloat(e.target.value) || 0 })}
-                                        placeholder="0.00"
-                                        min="0"
                                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-400/20"
                                     />
                                 </div>
