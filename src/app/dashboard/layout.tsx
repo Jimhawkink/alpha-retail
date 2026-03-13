@@ -89,13 +89,19 @@ const menuItems = [
     },
 ];
 
-// Component to display company name dynamically
+// Component to display company name and outlet name dynamically
 function CompanyNameDisplay() {
     const companyName = useCompanyName();
+    const { activeOutlet } = useOutlet();
     return (
-        <h1 className="font-bold text-gray-800 text-sm leading-tight max-w-[140px] break-words">
-            {companyName || 'Alpha Retail'}
-        </h1>
+        <>
+            <h1 className="font-bold text-gray-800 text-sm leading-tight max-w-[140px] break-words">
+                {companyName || 'Alpha Retail'}
+            </h1>
+            {activeOutlet && (
+                <span className="text-xs text-indigo-600 font-semibold">📍 {activeOutlet.outlet_name}</span>
+            )}
+        </>
     );
 }
 
@@ -169,11 +175,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     if (!user) return null;
 
+    const isCashier = ['cashier', 'waiter'].includes((user?.userType || '').toLowerCase());
+
     return (
         <SettingsProvider>
             <OutletProvider>
                 <div className="min-h-screen bg-[#f8fafc] flex">
-                    {/* Sidebar */}
+                    {/* Sidebar — hidden for Cashier/Waiter */}
+                    {!isCashier && (
                     <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-white border-r border-gray-200 flex flex-col transition-all duration-300 fixed h-full z-50`}>
                         {/* Logo Section */}
                         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100">
@@ -287,9 +296,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             </div>
                         </div>
                     </aside>
+                    )}
 
                     {/* Main Content */}
-                    <main className={`flex-1 ${sidebarOpen ? 'ml-64' : 'ml-20'} transition-all duration-300`}>
+                    <main className={`flex-1 ${isCashier ? 'ml-0' : (sidebarOpen ? 'ml-64' : 'ml-20')} transition-all duration-300`}>
                         {/* Top Header */}
                         <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 sticky top-0 z-40">
                             <div className="flex items-center gap-4">
