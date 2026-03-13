@@ -80,6 +80,7 @@ const menuItems = [
             { name: 'Outlets', icon: '📍', href: '/dashboard/outlets', badge: null },
             { name: 'Users', icon: '👥', href: '/dashboard/users', badge: null },
             { name: 'User Roles', icon: '🛡️', href: '/dashboard/user-roles', badge: null },
+            { name: 'Activity Log', icon: '📜', href: '/dashboard/activity-log', badge: null },
             { name: 'Company', icon: '🏪', href: '/dashboard/company', badge: null },
             { name: 'Tax Settings', icon: '📊', href: '/dashboard/tax-settings', badge: null },
             { name: 'Units', icon: '📏', href: '/dashboard/units', badge: null },
@@ -211,10 +212,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <nav className="flex-1 overflow-y-auto px-3 py-2">
                             {menuItems.map((section, idx) => {
                                 // Filter items based on user role
-                                const isSuperAdmin = user?.userType?.toLowerCase() === 'superadmin' || user?.userType?.toLowerCase() === 'superuser';
+                                const isSuperAdmin = user?.userType?.toLowerCase() === 'superadmin' || user?.userType?.toLowerCase() === 'superuser' || user?.userType?.toLowerCase() === 'super admin';
+                                const isAdmin = isSuperAdmin || user?.userType?.toLowerCase() === 'admin' || user?.userType?.toLowerCase() === 'manager';
                                 const filteredItems = section.items.filter(item => {
                                     // Only superadmin/superuser can see Outlets
                                     if (item.href === '/dashboard/outlets' && !isSuperAdmin) return false;
+                                    // Only admin+ can see Activity Log
+                                    if (item.href === '/dashboard/activity-log' && !isAdmin) return false;
                                     return true;
                                 });
                                 if (filteredItems.length === 0) return null;

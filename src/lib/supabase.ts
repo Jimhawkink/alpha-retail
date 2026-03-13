@@ -1128,3 +1128,43 @@ export async function getPendingSales() {
     if (error) throw error;
     return data || [];
 }
+
+// ============================================
+// ACTIVITY LOG
+// ============================================
+
+/**
+ * Log a system activity to retail_activity_log table
+ * Call this from any page to track user actions
+ */
+export async function logActivity(
+    actionType: string,
+    description: string,
+    details?: string
+) {
+    try {
+        // Get current user from localStorage
+        let userName = 'System';
+        let userType = '';
+        if (typeof window !== 'undefined') {
+            const userData = localStorage.getItem('user');
+            if (userData) {
+                const u = JSON.parse(userData);
+                userName = u.name || u.userId || 'Unknown';
+                userType = u.userType || '';
+            }
+        }
+
+        await supabase.from('retail_activity_log').insert({
+            action_type: actionType,
+            description: description,
+            details: details || null,
+            user_name: userName,
+            user_type: userType,
+            created_at: new Date().toISOString(),
+        });
+    } catch {
+        // Silently fail - don't break the main operation
+        console.log('Activity log: table may not exist yet');
+    }
+}
