@@ -203,9 +203,15 @@ export default function ProductsPage() {
 
     const generateProductCode = async (): Promise<string> => {
         try {
-            const { data } = await supabase.from('retail_products').select('product_code').eq('outlet_id', outletId).like('product_code', 'PRD-%').order('product_code', { ascending: false }).limit(1);
-            if (data?.length) return `PRD-${String((parseInt(data[0].product_code.replace('PRD-', '')) || 0) + 1).padStart(2, '0')}`; return 'PRD-01';
-        } catch { return 'PRD-01'; }
+            // Use max pid to generate a unique product code
+            const { data } = await supabase.from('retail_products').select('pid').eq('outlet_id', outletId).order('pid', { ascending: false }).limit(1);
+            const maxPid = data?.[0]?.pid || 0;
+            const nextNum = maxPid + 1;
+            return `PRD-${String(nextNum).padStart(4, '0')}`;
+        } catch {
+            // Fallback: use timestamp to guarantee uniqueness
+            return `PRD-${Date.now().toString().slice(-6)}`;
+        }
     };
 
     const calcMargin = (pc: number, sc: number) => pc <= 0 ? 0 : Math.round(((sc - pc) / pc) * 10000) / 100;
@@ -633,6 +639,14 @@ export default function ProductsPage() {
                         <button onClick={() => setViewMode('list')} className={`p-3 transition-all ${viewMode === 'list' ? 'bg-blue-500 text-white' : 'text-gray-400 hover:text-blue-500'}`}><FiList size={16} /></button>
                         <button onClick={() => setViewMode('grid')} className={`p-3 transition-all ${viewMode === 'grid' ? 'bg-blue-500 text-white' : 'text-gray-400 hover:text-blue-500'}`}><FiGrid size={16} /></button>
                     </div>
+                    <button
+                        onClick={() => setShowValuation(!showValuation)}
+                        className={`flex items-center gap-2 px-4 py-3 rounded-xl border-2 font-semibold text-sm transition-all ${showValuation ? 'bg-indigo-500 text-white border-indigo-500 shadow-md shadow-indigo-300/30' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-400 hover:text-indigo-600'}`}
+                        title={showValuation ? 'Hide Valuation Columns' : 'Show Valuation Columns'}
+                    >
+                        <FiEye size={16} />
+                        {showValuation ? 'Hide Values' : 'Show Values'}
+                    </button>
                 </div>
             </div>
 
