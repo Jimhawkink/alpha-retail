@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { SettingsProvider, useCompanyName } from '@/context/SettingsContext';
 import { OutletProvider, useOutlet } from '@/context/OutletContext';
+import { logActivity } from '@/lib/supabase';
 
 // Menu Items for Retail Store System
 const menuItems = [
@@ -160,7 +161,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     const greeting = getGreeting();
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        await logActivity('Logout', `${user?.name || 'Unknown'} logged out`);
         localStorage.removeItem('user');
         router.push('/');
     };

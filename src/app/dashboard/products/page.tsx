@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { logActivity } from '@/lib/supabase';
 import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
 import { FiPackage, FiPlus, FiEdit2, FiTrash2, FiShoppingCart, FiDownload, FiRefreshCw, FiSearch, FiGrid, FiList, FiChevronLeft, FiChevronRight, FiX, FiUpload, FiCheck, FiAlertTriangle, FiTag, FiDollarSign, FiLayers, FiFilter, FiTrendingUp, FiImage, FiPrinter, FiZap, FiClock, FiSliders, FiEye, FiChevronsLeft, FiChevronsRight, FiFileText } from 'react-icons/fi';
@@ -262,6 +263,7 @@ export default function ProductsPage() {
                 }
                 const { error } = await supabase.from('retail_products').update({ ...d, updated_at: new Date().toISOString() }).eq('pid', editingProduct.pid);
                 if (error) throw new Error(error.message); toast.success('Product updated!');
+                logActivity('Update', `Updated product: ${formData.product_name}`, `PID: ${editingProduct.pid}, Buy: ${formData.purchase_cost}, Sell: ${formData.sales_cost}`);
             } else {
                 const code = await generateProductCode();
                 const { data: np, error } = await supabase.from('retail_products').insert({ ...d, product_code: code, outlet_id: outletId, created_at: new Date().toISOString() }).select().single();
@@ -273,6 +275,7 @@ export default function ProductsPage() {
                     if (stockRecords.length > 0) await supabase.from('retail_stock').insert(stockRecords);
                 }
                 toast.success(`Product ${code} created!`);
+                logActivity('Create', `Created product: ${formData.product_name}`, `Code: ${code}, Buy: ${formData.purchase_cost}, Sell: ${formData.sales_cost}`);
             }
             setShowModal(false); loadProducts(); loadStockData();
         } catch (err: unknown) { toast.error(`Failed: ${err instanceof Error ? err.message : 'Unknown'}`); }
@@ -281,7 +284,7 @@ export default function ProductsPage() {
 
     const deleteProduct = async (p: Product) => {
         if (!confirm(`Delete "${p.product_name}"?`)) return;
-        try { const { error } = await supabase.from('retail_products').delete().eq('pid', p.pid); if (error) throw error; toast.success('Deleted'); loadProducts(); }
+        try { const { error } = await supabase.from('retail_products').delete().eq('pid', p.pid); if (error) throw error; toast.success('Deleted'); logActivity('Delete', `Deleted product: ${p.product_name}`, `PID: ${p.pid}, Code: ${p.product_code}`); loadProducts(); }
         catch { toast.error('Failed'); }
     };
 

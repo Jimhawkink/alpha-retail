@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { logActivity } from '@/lib/supabase';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -71,6 +72,7 @@ export default function LoginPage() {
 
             if (dbError || !data) {
                 setError('Invalid username or password');
+                logActivity('Login', `Failed login attempt for username: ${username}`, 'Invalid credentials');
                 setIsLoading(false);
                 return;
             }
@@ -130,6 +132,7 @@ export default function LoginPage() {
         }));
         localStorage.setItem('activeOutletId', String(outletId));
         localStorage.setItem('activeOutletName', outletName);
+        logActivity('Login', `${userData.name} logged in`, `User: ${userData.user_name}, Role: ${userData.user_type}, Outlet: ${outletName}`);
         router.push('/dashboard');
     };
 

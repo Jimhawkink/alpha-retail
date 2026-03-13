@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { logActivity } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
 interface User {
@@ -181,6 +182,7 @@ export default function UsersPage() {
 
                 if (error) throw error;
                 toast.success('User updated successfully! ✅');
+                logActivity('Update', `Updated user: ${formData.name}`, `Username: ${formData.user_name}, Role: ${formData.user_type}`);
             } else {
                 // Create new user - user_code will be set to null initially
                 const { data, error } = await supabase
@@ -215,6 +217,7 @@ export default function UsersPage() {
                 }
 
                 toast.success('User created successfully! 🎉');
+                logActivity('Create', `Created user: ${formData.name}`, `Username: ${formData.user_name}, Role: ${formData.user_type}`);
             }
 
             setShowModal(false);
@@ -241,6 +244,7 @@ export default function UsersPage() {
 
             if (error) throw error;
             toast.success(user.active ? 'User deactivated' : 'User activated');
+            logActivity('Update', `${user.active ? 'Deactivated' : 'Activated'} user: ${user.name}`, `Username: ${user.user_name}`);
             loadUsers();
         } catch (err) {
             console.error('Error toggling user status:', err);
@@ -264,6 +268,7 @@ export default function UsersPage() {
 
             if (error) throw error;
             toast.success('User deleted successfully');
+            logActivity('Delete', `Deleted user: ${user.name}`, `Username: ${user.user_name}, Role: ${user.user_type}`);
             loadUsers();
         } catch (err) {
             console.error('Error deleting user:', err);
