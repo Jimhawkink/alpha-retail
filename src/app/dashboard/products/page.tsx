@@ -77,6 +77,7 @@ export default function ProductsPage() {
     const [bagStockData, setBagStockData] = useState<Record<number, number>>({});
     const [pieceStockData, setPieceStockData] = useState<Record<number, number>>({});
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+    const [showValuation, setShowValuation] = useState(true);
     const [page, setPage] = useState(1);
     const [perPage, setPerPage] = useState(20);
 
@@ -694,13 +695,20 @@ export default function ProductsPage() {
                                 <tr className="bg-gradient-to-r from-blue-500 to-blue-600">
                                     <th className="px-4 py-3.5 text-left text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Product</th>
                                     <th className="px-4 py-3.5 text-left text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden md:table-cell">Category</th>
-                                    <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Buy Price</th>
+                                    {showValuation && <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Buy Price</th>}
                                     <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Sell Price</th>
-                                    <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden lg:table-cell">Wholesale</th>
+                                    {showValuation && <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden lg:table-cell">Wholesale</th>}
                                     <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Stock</th>
-                                    <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden lg:table-cell">Margin</th>
+                                    {showValuation && <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden lg:table-cell">Margin</th>}
                                     <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Status</th>
-                                    <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider w-28">Actions</th>
+                                    <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider w-28">
+                                        <div className="flex items-center justify-center gap-2">
+                                            <span>Actions</span>
+                                            <button onClick={() => setShowValuation(!showValuation)} className="p-1 rounded-md bg-white/20 hover:bg-white/30 transition-all" title={showValuation ? 'Hide Valuation' : 'Show Valuation'}>
+                                                <FiEye size={11} />
+                                            </button>
+                                        </div>
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -730,9 +738,9 @@ export default function ProductsPage() {
                                                     <FiTag size={10} /> {p.category || 'N/A'}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-3 text-right text-xs text-gray-500 font-medium">Ksh {(p.purchase_cost || 0).toLocaleString()}</td>
+                                            {showValuation && <td className="px-4 py-3 text-right text-xs text-gray-500 font-medium">Ksh {(p.purchase_cost || 0).toLocaleString()}</td>}
                                             <td className="px-4 py-3 text-right text-sm font-bold text-gray-900">Ksh {(p.sales_cost || 0).toLocaleString()}</td>
-                                            <td className="px-4 py-3 text-right text-xs text-purple-600 font-semibold hidden lg:table-cell">{(p as any).wholesale_price ? `Ksh ${((p as any).wholesale_price || 0).toLocaleString()}` : '-'}</td>
+                                            {showValuation && <td className="px-4 py-3 text-right text-xs text-purple-600 font-semibold hidden lg:table-cell">{(p as any).wholesale_price ? `Ksh ${((p as any).wholesale_price || 0).toLocaleString()}` : '-'}</td>}
                                             <td className="px-4 py-3 text-center">
                                                 <div className="flex flex-col items-center gap-0.5">
                                                     {(bagStockData[p.pid] || 0) > 0 && (
@@ -741,12 +749,12 @@ export default function ProductsPage() {
                                                     <span className={`inline-block min-w-[36px] px-2 py-0.5 rounded-md text-[10px] font-bold ${(pieceStockData[p.pid] || 0) > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>🔢 {pieceStockData[p.pid] || 0} {p.sales_unit}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-3 text-center hidden lg:table-cell">
+                                            {showValuation && <td className="px-4 py-3 text-center hidden lg:table-cell">
                                                 <div className="flex items-center justify-center gap-1">
                                                     <FiTrendingUp size={11} className={(p.margin_per || 0) >= 20 ? 'text-emerald-500' : 'text-red-400'} />
                                                     <span className={`text-xs font-bold ${(p.margin_per || 0) >= 30 ? 'text-emerald-600' : (p.margin_per || 0) >= 15 ? 'text-amber-600' : 'text-red-600'}`}>{p.margin_per?.toFixed(1) || '0'}%</span>
                                                 </div>
-                                            </td>
+                                            </td>}
                                             <td className="px-4 py-3 text-center">
                                                 <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${p.active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-500'}`}>
                                                     <span className={`w-1.5 h-1.5 rounded-full ${p.active ? 'bg-emerald-500' : 'bg-gray-400'}`} />{p.active ? 'Live' : 'Off'}

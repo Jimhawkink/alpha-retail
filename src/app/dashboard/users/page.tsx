@@ -64,7 +64,7 @@ export default function UsersPage() {
         setIsLoading(true);
         try {
             const { data, error } = await supabase
-                .from('users')
+                .from('retail_users')
                 .select('*')
                 .order('created_at', { ascending: false });
 
@@ -79,7 +79,7 @@ export default function UsersPage() {
 
     const generateUserCode = useCallback(async () => {
         const { count } = await supabase
-            .from('users')
+            .from('retail_users')
             .select('*', { count: 'exact', head: true });
 
         const nextNum = (count || 0) + 1;
@@ -175,7 +175,7 @@ export default function UsersPage() {
                 }
 
                 const { error } = await supabase
-                    .from('users')
+                    .from('retail_users')
                     .update(updateData)
                     .eq('user_id', editingUser.user_id);
 
@@ -184,7 +184,7 @@ export default function UsersPage() {
             } else {
                 // Create new user - user_code will be set to null initially
                 const { data, error } = await supabase
-                    .from('users')
+                    .from('retail_users')
                     .insert([{
                         user_code: null, // Let database handle or update after insert
                         user_name: formData.user_name,
@@ -209,7 +209,7 @@ export default function UsersPage() {
                 if (data) {
                     const userCode = `US-${String(data.user_id).padStart(4, '0')}`;
                     await supabase
-                        .from('users')
+                        .from('retail_users')
                         .update({ user_code: userCode })
                         .eq('user_id', data.user_id);
                 }
@@ -235,7 +235,7 @@ export default function UsersPage() {
 
         try {
             const { error } = await supabase
-                .from('users')
+                .from('retail_users')
                 .update({ active: !user.active })
                 .eq('user_id', user.user_id);
 
@@ -258,7 +258,7 @@ export default function UsersPage() {
 
         try {
             const { error } = await supabase
-                .from('users')
+                .from('retail_users')
                 .delete()
                 .eq('user_id', user.user_id);
 
