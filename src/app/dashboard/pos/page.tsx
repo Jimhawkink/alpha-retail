@@ -1331,6 +1331,10 @@ export default function RetailPOSPage() {
     <span style="font-size:10px;font-weight:900;">EXPECTED IN DRAWER</span>
     <span style="font-size:13px;font-weight:900;">Ksh ${(d.openingCash + d.totalCash - d.totalExpenses).toLocaleString()}</span>
   </div>
+  <div style="background:#000;color:#fff;padding:6px 8px;margin:4px 0;display:flex;justify-content:space-between;">
+    <span style="font-size:12px;font-weight:900;">📈 PROFIT</span>
+    <span style="font-size:16px;font-weight:900;">Ksh ${(d.profit || 0).toLocaleString()}</span>
+  </div>
   <hr class="d">
   <div class="c" style="padding:4px 0;">
     <div style="font-size:8px;">Printed: ${now.toLocaleDateString('en-GB')} ${now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
