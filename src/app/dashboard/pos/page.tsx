@@ -20,6 +20,8 @@ interface Product {
     salesUnit?: string;
     purchaseUnit?: string;
     piecesPerPackage?: number;
+    bagQty?: number;
+    pieceQty?: number;
 }
 
 interface CartItem extends Product {
@@ -73,16 +75,12 @@ const ProductRow = ({
             {product.barcode || '-'}
         </td>
         <td className="px-4 py-3 text-center">
-            {(product.piecesPerPackage || 1) > 1 ? (
-                <div className="flex flex-col items-center gap-0.5">
-                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-600">🟢 {Math.floor(product.availableQty / (product.piecesPerPackage || 1))} Carton</span>
-                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-600">🟦 {product.availableQty % (product.piecesPerPackage || 1)} Piece</span>
-                </div>
-            ) : (
-            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${product.availableQty > 0 ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'}`}>
-                🟦 {product.availableQty} Piece
-            </span>
-            )}
+            <div className="flex flex-col items-center gap-0.5">
+                {(product.bagQty || 0) > 0 && (
+                    <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-100 text-indigo-700">📦 {product.bagQty} {product.purchaseUnit}</span>
+                )}
+                <span className={`inline-block min-w-[36px] px-2 py-0.5 rounded-md text-[10px] font-bold ${(product.pieceQty || 0) > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>🔢 {product.pieceQty || 0} {product.salesUnit}</span>
+            </div>
         </td>
         <td className="px-4 py-3 text-right text-gray-600">
             {product.costPrice.toLocaleString()}
@@ -213,16 +211,12 @@ const ProductCard = ({ product, onAdd }: { product: Product; onAdd: () => void }
             <div className="flex-1"></div>
             <div className="flex items-center gap-2 mb-2">
                 <span className="text-[15px] font-bold text-gray-900">Ksh {product.salesPrice.toLocaleString()}</span>
-                {(product.piecesPerPackage || 1) > 1 ? (
-                    <div className="flex flex-col gap-0.5">
-                        <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-green-100 text-green-600"> {Math.floor(product.availableQty / (product.piecesPerPackage || 1))} Carton</span>
-                        <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-blue-100 text-blue-600"> {product.availableQty % (product.piecesPerPackage || 1)} Piece</span>
-                    </div>
-                ) : (
-                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${product.availableQty === 0 ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
-                         {product.availableQty} Piece
-                    </span>
-                )}
+                <div className="flex flex-col gap-0.5">
+                    {(product.bagQty || 0) > 0 && (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-100 text-indigo-700">📦 {product.bagQty} {product.purchaseUnit}</span>
+                    )}
+                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${(product.pieceQty || 0) > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>🔢 {product.pieceQty || 0} {product.salesUnit}</span>
+                </div>
             </div>
             <button onClick={(e) => { e.stopPropagation(); if (product.availableQty > 0) onAdd(); }} disabled={product.availableQty === 0}
                 className={`w-full py-1.5 rounded-lg text-[11px] font-medium flex items-center justify-center gap-1 ${product.availableQty === 0 ? 'bg-gray-100 text-gray-400' : 'bg-emerald-500 text-white hover:bg-emerald-600 active:scale-[0.98]'}`}>
@@ -896,13 +890,21 @@ export default function RetailPOSPage() {
             // Load stock data from retail_stock table - FILTERED BY OUTLET
             const { data: stockData } = await supabase
                 .from('retail_stock')
-                .select('pid, qty')
+                .select('pid, qty, storage_type')
                 .eq('outlet_id', outletId);
 
-            // Build stock map
+            // Build stock maps by storage_type (same as products list page)
             const stockMap: Record<number, number> = {};
-            (stockData || []).forEach((s) => {
-                stockMap[s.pid] = (stockMap[s.pid] || 0) + (s.qty || 0);
+            const bagMap: Record<number, number> = {};
+            const pieceMap: Record<number, number> = {};
+            (stockData || []).forEach((s: any) => {
+                const q = s.qty || 0;
+                if (s.storage_type === 'Bags') {
+                    bagMap[s.pid] = (bagMap[s.pid] || 0) + q;
+                } else {
+                    pieceMap[s.pid] = (pieceMap[s.pid] || 0) + q;
+                }
+                stockMap[s.pid] = (stockMap[s.pid] || 0) + q;
             });
 
             // Transform to POS format
@@ -919,6 +921,8 @@ export default function RetailPOSPage() {
                 salesUnit: p.sales_unit || 'Piece',
                 purchaseUnit: p.purchase_unit || 'Piece',
                 piecesPerPackage: p.pieces_per_package || 1,
+                bagQty: bagMap[p.pid] || 0,
+                pieceQty: pieceMap[p.pid] || 0,
             }));
 
             setProducts(posProducts);
