@@ -73,14 +73,16 @@ const ProductRow = ({
             {product.barcode || '-'}
         </td>
         <td className="px-4 py-3 text-center">
-            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${product.availableQty > 10
-                ? 'bg-green-100 text-green-700'
-                : product.availableQty > 0
-                    ? 'bg-yellow-100 text-yellow-700'
-                    : 'bg-red-100 text-red-700'
-                }`}>
+            {(product.piecesPerPackage || 1) > 1 ? (
+                <div className="flex items-center justify-center gap-1">
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700"> {Math.floor(product.availableQty / (product.piecesPerPackage || 1))}</span>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700"> {product.availableQty % (product.piecesPerPackage || 1)}</span>
+                </div>
+            ) : (
+            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${product.availableQty > 10 ? 'bg-green-100 text-green-700' : product.availableQty > 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
                 {product.availableQty}
             </span>
+            )}
         </td>
         <td className="px-4 py-3 text-right text-gray-600">
             {product.costPrice.toLocaleString()}
