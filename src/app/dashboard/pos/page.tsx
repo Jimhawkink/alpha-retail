@@ -836,7 +836,7 @@ export default function RetailPOSPage() {
     const [closeRegisterData, setCloseRegisterData] = useState<{
         totalSales: number; totalCash: number; totalMpesa: number;
         totalCredit: number; totalExpenses: number; openingCash: number;
-        netSales: number; orderCount: number;
+        netSales: number; orderCount: number; profit: number;
     } | null>(null);
     const [isLoadingRegister, setIsLoadingRegister] = useState(false);
 
@@ -1037,6 +1037,23 @@ export default function RetailPOSPage() {
         }
     }, []);
 
+    // Load active shift (persists across sessions)
+    const loadActiveShift = useCallback(async () => {
+        try {
+            const { data } = await supabase
+                .from('retail_shifts')
+                .select('*')
+                .eq('status', 'Open')
+                .order('shift_id', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+            if (data) {
+                setCurrentShiftId(data.shift_id);
+                setRegisterOpen(true);
+            }
+        } catch (err) { console.error('Load shift error:', err); }
+    }, []);
+
     // Initial load
     useEffect(() => {
         loadProducts();
@@ -1044,6 +1061,7 @@ export default function RetailPOSPage() {
         loadStoreName();
         loadNextReceiptNo();
         loadCreditCustomers();
+        loadActiveShift();
     }, [loadProducts, loadCategories, loadStoreName, loadNextReceiptNo, loadCreditCustomers]);
 
     // Search products when query changes
@@ -1203,7 +1221,7 @@ export default function RetailPOSPage() {
             // Get all sales today
             const { data: salesData } = await supabase
                 .from('retail_sales')
-                .select('total_amount, payment_method')
+                .select('sale_id, total_amount, payment_method')
                 .eq('sale_date', today)
                 .eq('outlet_id', outletId);
 
@@ -1233,9 +1251,21 @@ export default function RetailPOSPage() {
             const totalExpenses = (expData || []).reduce((s, e) => s + (e.amount || 0), 0);
             const netSales = totalSales - totalExpenses - totalCredit;
 
+            // Calculate profit (revenue - purchase cost)
+            const saleIds = (salesData || []).map((s: any) => s.sale_id);
+            let totalCostPrice = 0;
+            if (saleIds.length > 0) {
+                const { data: itemsData } = await supabase
+                    .from('retail_sale_items')
+                    .select('quantity, unit_cost')
+                    .in('sale_id', saleIds);
+                totalCostPrice = (itemsData || []).reduce((sum: number, item: any) => sum + ((item.unit_cost || 0) * (item.quantity || 0)), 0);
+            }
+            const profit = totalSales - totalCostPrice;
+
             setCloseRegisterData({
                 totalSales, totalCash, totalMpesa, totalCredit,
-                totalExpenses, openingCash, netSales, orderCount: sales.length
+                totalExpenses, openingCash, netSales, orderCount: sales.length, profit
             });
             setShowCloseRegister(true);
         } catch (err: any) {
@@ -1997,6 +2027,14 @@ export default function RetailPOSPage() {
                             <div className="flex justify-between items-center">
                                 <span className="font-bold text-lg">NET SALES</span>
                                 <span className="text-3xl font-bold">Ksh {closeRegisterData.netSales.toLocaleString()}</span>
+                            </div>
+                        </div>
+
+                        {/* Profit */}
+                        <div className={`rounded-xl p-4 mb-6 ${(closeRegisterData?.profit || 0) >= 0 ? 'bg-gradient-to-r from-amber-400 to-yellow-500' : 'bg-gradient-to-r from-red-500 to-red-600'} text-white`}>
+                            <div className="flex justify-between items-center">
+                                <span className="font-bold text-lg">📈 PROFIT</span>
+                                <span className="text-3xl font-bold">Ksh {(closeRegisterData?.profit || 0).toLocaleString()}</span>
                             </div>
                         </div>
 
