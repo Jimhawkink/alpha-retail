@@ -1457,13 +1457,59 @@ export default function RetailPOSPage() {
 
             await supabase.from('retail_sales_items').insert(saleItems);
 
-            // Update stock (decrease) using retail function — multiply by unitMultiplier
+            // Update stock — LEDGER-BASED: INSERT negative qty rows for Pieces, then auto-convert Bags
             for (const item of cart) {
                 const stockQty = item.qty * (item.unitMultiplier || 1);
-                await supabase.rpc('retail_decrease_stock', {
-                    p_product_id: item.id,
-                    p_qty: stockQty
-                });
+                try {
+                    // 1. INSERT a negative qty row for Pieces (not Bags)
+                    const { error: insertErr } = await supabase.from('retail_stock').insert({
+                        pid: item.id,
+                        invoice_no: 'SALE',
+                        qty: -stockQty,
+                        storage_type: 'Pieces',
+                        outlet_id: outletId,
+                    });
+
+                    if (insertErr) {
+                        // Fallback: use old RPC
+                        await supabase.rpc('retail_decrease_stock', { p_product_id: item.id, p_qty: stockQty });
+                    }
+
+                    // 2. Auto-convert: SUM stock by storage_type, if Pieces ≤ 0 and Bags > 0, convert
+                    const { data: allStockRows } = await supabase
+                        .from('retail_stock')
+                        .select('qty, storage_type')
+                        .eq('pid', item.id)
+                        .eq('outlet_id', outletId);
+
+                    if (allStockRows && allStockRows.length > 0) {
+                        let totalBags = 0, totalPieces = 0;
+                        allStockRows.forEach((r: any) => {
+                            if ((r.storage_type || '') === 'Bags') totalBags += (r.qty || 0);
+                            else totalPieces += (r.qty || 0);
+                        });
+
+                        const piecesPerPkg = item.piecesPerPackage || 1;
+                        if (totalPieces <= 0 && totalBags > 0 && piecesPerPkg > 1) {
+                            console.log(`🔄 Auto-converting 1 Bag → ${piecesPerPkg} pieces for product ${item.id}`);
+
+                            // INSERT -1 Bags (remove 1 bag)
+                            await supabase.from('retail_stock').insert({
+                                pid: item.id, invoice_no: 'AUTO-CONVERT', qty: -1,
+                                storage_type: 'Bags', outlet_id: outletId,
+                            });
+                            // INSERT +piecesPerPkg Pieces (add pieces from that bag)
+                            await supabase.from('retail_stock').insert({
+                                pid: item.id, invoice_no: 'AUTO-CONVERT', qty: piecesPerPkg,
+                                storage_type: 'Pieces', outlet_id: outletId,
+                            });
+                            console.log(`✅ Bags: ${totalBags} → ${totalBags - 1}, Pieces: ${totalPieces} → ${totalPieces + piecesPerPkg}`);
+                        }
+                    }
+                } catch (stockErr) {
+                    console.warn('Stock update error (non-critical):', stockErr);
+                    try { await supabase.rpc('retail_decrease_stock', { p_product_id: item.id, p_qty: stockQty }); } catch {}
+                }
             }
 
             // Auto-print receipt for M-Pesa payments
