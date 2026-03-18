@@ -15,6 +15,7 @@ interface Product {
     availableQty: number;
     costPrice: number;
     salesPrice: number;
+    retailPrice?: number;
     color?: string;
     imageUrl?: string;
     salesUnit?: string;
@@ -916,6 +917,7 @@ export default function RetailPOSPage() {
                 availableQty: stockMap[p.pid] || 0,
                 costPrice: p.purchase_cost || 0,
                 salesPrice: p.wholesale_price || p.sales_cost || 0,
+                retailPrice: p.sales_cost || p.wholesale_price || 0,
                 color: p.button_ui_color || 'from-blue-400 to-blue-600',
                 imageUrl: p.photo || '',
                 salesUnit: p.sales_unit || 'Piece',
@@ -1900,51 +1902,78 @@ export default function RetailPOSPage() {
                 onSave={saveItemDiscount}
             />
 
-            {/* Unit Picker Modal */}
-            {showUnitPicker && unitPickerProduct && (
+                 {/* Unit Picker Modal — shows Retail, Wholesale, Big Qty prices */}
+            {showUnitPicker && unitPickerProduct && (() => {
+                const ppp = unitPickerProduct.piecesPerPackage || 1;
+                const retailPrice = unitPickerProduct.retailPrice || unitPickerProduct.salesPrice;
+                const wholesalePrice = unitPickerProduct.salesPrice;
+                const bigQtyPrice = wholesalePrice * ppp;
+                return (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowUnitPicker(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl p-6 w-[380px] max-w-[95vw]" onClick={e => e.stopPropagation()}>
-                        <h3 className="text-lg font-bold text-gray-800 mb-1">📦 Select Selling Unit</h3>
+                    <div className="bg-white rounded-2xl shadow-2xl p-6 w-[420px] max-w-[95vw]" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-lg font-bold text-gray-800 mb-1">📦 Select Selling Unit & Price</h3>
                         <p className="text-sm text-gray-500 mb-4">{unitPickerProduct.name}</p>
-                        <div className="space-y-3">
-                            {/* Sales unit (e.g., Kg) */}
+
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Per {unitPickerProduct.salesUnit}</p>
+                        <div className="space-y-2 mb-4">
+                            {/* Retail Price */}
                             <button
                                 onClick={() => {
-                                    addToCartWithUnit(unitPickerProduct, unitPickerProduct.salesUnit || 'Piece', 1, unitPickerProduct.salesPrice);
+                                    addToCartWithUnit(unitPickerProduct, unitPickerProduct.salesUnit || 'Piece', 1, retailPrice);
                                     setShowUnitPicker(false);
                                     setUnitPickerProduct(null);
                                 }}
-                                className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 transition-all group"
+                                className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 transition-all"
                             >
                                 <div className="flex items-center gap-3">
-                                    <span className="text-2xl">📏</span>
+                                    <span className="text-2xl">🏷️</span>
                                     <div className="text-left">
-                                        <p className="font-bold text-gray-800">Per {unitPickerProduct.salesUnit}</p>
-                                        <p className="text-xs text-gray-500">Sell individual {unitPickerProduct.salesUnit}</p>
+                                        <p className="font-bold text-gray-800">Retail Price</p>
+                                        <p className="text-xs text-gray-500">Per {unitPickerProduct.salesUnit}</p>
                                     </div>
                                 </div>
-                                <span className="text-lg font-bold text-blue-700">Ksh {unitPickerProduct.salesPrice.toLocaleString()}</span>
+                                <span className="text-lg font-bold text-blue-700">Ksh {retailPrice.toLocaleString()}</span>
                             </button>
 
-                            {/* Purchase unit (e.g., Bag) */}
+                            {/* Wholesale Price */}
                             <button
                                 onClick={() => {
-                                    const ppp = unitPickerProduct.piecesPerPackage || 1;
-                                    const bagPrice = unitPickerProduct.salesPrice * ppp;
-                                    addToCartWithUnit(unitPickerProduct, unitPickerProduct.purchaseUnit || 'Bag', ppp, bagPrice);
+                                    addToCartWithUnit(unitPickerProduct, unitPickerProduct.salesUnit || 'Piece', 1, wholesalePrice);
                                     setShowUnitPicker(false);
                                     setUnitPickerProduct(null);
                                 }}
-                                className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-purple-200 bg-purple-50 hover:bg-purple-100 transition-all group"
+                                className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-green-200 bg-green-50 hover:bg-green-100 transition-all"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <span className="text-2xl">💰</span>
+                                    <div className="text-left">
+                                        <p className="font-bold text-gray-800">Wholesale Price</p>
+                                        <p className="text-xs text-gray-500">Per {unitPickerProduct.salesUnit}</p>
+                                    </div>
+                                </div>
+                                <span className="text-lg font-bold text-green-700">Ksh {wholesalePrice.toLocaleString()}</span>
+                            </button>
+                        </div>
+
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Per {unitPickerProduct.purchaseUnit}</p>
+                        <div className="space-y-2">
+                            {/* Big Quantity / Bag Price */}
+                            <button
+                                onClick={() => {
+                                    addToCartWithUnit(unitPickerProduct, unitPickerProduct.purchaseUnit || 'Bag', ppp, bigQtyPrice);
+                                    setShowUnitPicker(false);
+                                    setUnitPickerProduct(null);
+                                }}
+                                className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-purple-200 bg-purple-50 hover:bg-purple-100 transition-all"
                             >
                                 <div className="flex items-center gap-3">
                                     <span className="text-2xl">📦</span>
                                     <div className="text-left">
                                         <p className="font-bold text-gray-800">Per {unitPickerProduct.purchaseUnit}</p>
-                                        <p className="text-xs text-gray-500">1 {unitPickerProduct.purchaseUnit} = {unitPickerProduct.piecesPerPackage} {unitPickerProduct.salesUnit}</p>
+                                        <p className="text-xs text-gray-500">1 {unitPickerProduct.purchaseUnit} = {ppp} {unitPickerProduct.salesUnit}</p>
                                     </div>
                                 </div>
-                                <span className="text-lg font-bold text-purple-700">Ksh {((unitPickerProduct.salesPrice) * (unitPickerProduct.piecesPerPackage || 1)).toLocaleString()}</span>
+                                <span className="text-lg font-bold text-purple-700">Ksh {bigQtyPrice.toLocaleString()}</span>
                             </button>
                         </div>
 
@@ -1956,7 +1985,8 @@ export default function RetailPOSPage() {
                         </button>
                     </div>
                 </div>
-            )}
+                );
+            })()}
 
             {/* Opening Drop Modal */}
             {showOpeningDrop && (
