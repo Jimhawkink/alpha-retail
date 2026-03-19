@@ -878,6 +878,47 @@ export default function RetailPOSPage() {
         if (!activeOutlet) return; // Wait for outlet context to load
         setIsLoading(true);
         try {
+            // ── AUTO-CONVERT Bags→Pieces BEFORE loading products ──
+            try {
+                const { data: convertProducts } = await supabase
+                    .from('retail_products')
+                    .select('pid, pieces_per_package')
+                    .gt('pieces_per_package', 1)
+                    .eq('active', true)
+                    .eq('outlet_id', outletId);
+                if (convertProducts && convertProducts.length > 0) {
+                    const { data: allStockRows } = await supabase
+                        .from('retail_stock')
+                        .select('pid, qty, storage_type')
+                        .eq('outlet_id', outletId);
+                    const sMap: Record<number, { bags: number; pieces: number }> = {};
+                    (allStockRows || []).forEach((s: any) => {
+                        if (!sMap[s.pid]) sMap[s.pid] = { bags: 0, pieces: 0 };
+                        if ((s.storage_type || '').toLowerCase() === 'bags') {
+                            sMap[s.pid].bags += (s.qty || 0);
+                        } else {
+                            sMap[s.pid].pieces += (s.qty || 0);
+                        }
+                    });
+                    for (const cp of convertProducts) {
+                        const st = sMap[cp.pid];
+                        if (!st) continue;
+                        const ppp = cp.pieces_per_package || 1;
+                        if (st.pieces <= 0 && st.bags > 0) {
+                            console.log(`🔄 Auto-converting product ${cp.pid}: 1 Bag → ${ppp} Pieces`);
+                            await supabase.from('retail_stock').insert({
+                                pid: cp.pid, invoice_no: 'AUTO-CONVERT', qty: -1, storage_type: 'Bags', outlet_id: outletId,
+                            });
+                            await supabase.from('retail_stock').insert({
+                                pid: cp.pid, invoice_no: 'AUTO-CONVERT', qty: ppp, storage_type: 'Pieces', outlet_id: outletId,
+                            });
+                        }
+                    }
+                }
+            } catch (acErr) {
+                console.warn('Auto-convert check failed (non-critical):', acErr);
+            }
+
             // Load products from retail_products table - FILTERED BY OUTLET
             const { data, error } = await supabase
                 .from('retail_products')
