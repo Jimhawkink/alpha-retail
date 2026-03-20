@@ -1612,7 +1612,7 @@ export default function RetailPOSPage() {
                         discount: totalDiscount,
                         tax: 0,
                         total: grandTotal,
-                        paymentMethod: 'CASH',
+        paymentMethod: 'CASH',
                         amountPaid: amountPaid,
                         change: Math.max(0, amountPaid - grandTotal),
                         customerName: custName,
@@ -1624,12 +1624,24 @@ export default function RetailPOSPage() {
                 }
             }
 
-            // If credit sale, update customer balance
+            // If credit sale, update customer balance + insert credit payment record
             if (method.toUpperCase() === 'CREDIT' && selectedCustomer) {
                 const newBalance = (selectedCustomer.current_balance || 0) + grandTotal;
                 await supabase.from('retail_credit_customers')
                     .update({ current_balance: newBalance })
                     .eq('customer_id', selectedCustomer.customer_id);
+
+                // Insert credit payment record for statement/history
+                await supabase.from('retail_credit_payments').insert({
+                    customer_id: selectedCustomer.customer_id,
+                    amount: grandTotal,
+                    payment_type: 'CREDIT_SALE',
+                    payment_method: 'Credit',
+                    reference: freshReceiptNo,
+                    notes: `Credit sale - ${freshReceiptNo}`,
+                    outlet_id: outletId,
+                    balance_after: newBalance,
+                });
             }
 
             toast.success('Sale completed successfully!');
