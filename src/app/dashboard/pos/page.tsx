@@ -1491,14 +1491,14 @@ export default function RetailPOSPage() {
                 barcode: item.barcode,
                 quantity: item.qty,
                 unit_price: item.effectivePrice,
-                selling_unit: item.sellingUnit,
-                unit_multiplier: item.unitMultiplier,
                 cost_price: item.costPrice,
                 discount: item.discount,
-                subtotal: (item.effectivePrice * item.qty) - item.discount
+                subtotal: (item.effectivePrice * item.qty) - item.discount,
+                notes: item.unitMultiplier > 1 ? `Sold as ${item.sellingUnit} (x${item.unitMultiplier})` : null
             }));
 
-            await supabase.from('retail_sales_items').insert(saleItems);
+            const { error: itemsError } = await supabase.from('retail_sales_items').insert(saleItems);
+            if (itemsError) console.error('❌ Failed to save sale items:', itemsError);
 
             // Update stock — LEDGER-BASED: INSERT negative qty rows for Pieces, then auto-convert Bags
             for (const item of cart) {
