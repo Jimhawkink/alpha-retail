@@ -254,19 +254,31 @@ const PaymentModal = ({
     onClose,
     total,
     onComplete,
-    receiptNo
+    receiptNo,
+    creditCustomers,
+    selectedCustomer,
+    setSelectedCustomer,
+    loadCreditCustomers,
 }: {
     isOpen: boolean;
     onClose: () => void;
     total: number;
     onComplete: (method: string, amountPaid: number, mpesaReceipt?: string, customerName?: string, checkoutRequestId?: string, customerPhone?: string) => void;
     receiptNo: string;
+    creditCustomers: CreditCustomer[];
+    selectedCustomer: CreditCustomer | null;
+    setSelectedCustomer: (c: CreditCustomer | null) => void;
+    loadCreditCustomers: () => void;
 }) => {
     const [paymentMethod, setPaymentMethod] = useState('cash');
     const [amountPaid, setAmountPaid] = useState('');
     const [mpesaPhone, setMpesaPhone] = useState('');
     const [mpesaReceipt, setMpesaReceipt] = useState('');
     const [customerName, setCustomerName] = useState('');
+    const [creditSearch, setCreditSearch] = useState('');
+    const [newCreditName, setNewCreditName] = useState('');
+    const [newCreditPhone, setNewCreditPhone] = useState('');
+    const [addingCustomer, setAddingCustomer] = useState(false);
 
     // M-Pesa STK Push State
     const [mpesaStatus, setMpesaStatus] = useState<'idle' | 'sending' | 'waiting' | 'success' | 'failed'>('idle');
@@ -686,22 +698,112 @@ const PaymentModal = ({
                     </div>
                 )}
 
-                {/* Credit Customer */}
+                {/* Credit Customer Selection */}
                 {paymentMethod === 'credit' && (
-                    <div className="space-y-4 mb-6">
-                        <div>
-                            <label className="text-sm font-medium text-gray-600 mb-2 block">Customer Name</label>
-                            <input
-                                type="text"
-                                value={customerName}
-                                onChange={(e) => setCustomerName(e.target.value)}
-                                placeholder="Enter customer name..."
-                                className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-orange-500 focus:outline-none text-lg"
-                            />
+                    <div className="space-y-3 mb-6">
+                        <div className="p-3 bg-orange-50 rounded-xl border border-orange-200">
+                            <p className="text-orange-700 text-sm font-medium">Select a credit customer to proceed with credit sale</p>
                         </div>
-                        <div className="p-4 bg-orange-50 rounded-xl border border-orange-200">
-                            <p className="text-orange-700 text-sm">⚠️ This sale will be recorded as credit</p>
+                        {/* Search */}
+                        <input
+                            type="text"
+                            value={creditSearch}
+                            onChange={(e) => setCreditSearch(e.target.value)}
+                            placeholder="Search customer name or phone..."
+                            className="w-full p-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-orange-400 focus:outline-none text-sm"
+                        />
+                        {/* Customer List */}
+                        <div className="max-h-44 overflow-y-auto rounded-xl border border-gray-200 bg-white">
+                            {creditCustomers.filter(c =>
+                                !creditSearch ||
+                                c.customer_name?.toLowerCase().includes(creditSearch.toLowerCase()) ||
+                                c.phone?.includes(creditSearch)
+                            ).length === 0 ? (
+                                <p className="p-4 text-center text-gray-400 text-sm">No customers found</p>
+                            ) : (
+                                creditCustomers.filter(c =>
+                                    !creditSearch ||
+                                    c.customer_name?.toLowerCase().includes(creditSearch.toLowerCase()) ||
+                                    c.phone?.includes(creditSearch)
+                                ).map(c => (
+                                    <button
+                                        key={c.customer_id}
+                                        onClick={() => { setSelectedCustomer(c); setCustomerName(c.customer_name); setCreditSearch(''); }}
+                                        className={`w-full text-left px-4 py-3 border-b border-gray-100 last:border-0 transition-colors ${
+                                            selectedCustomer?.customer_id === c.customer_id
+                                            ? 'bg-orange-50 border-l-4 border-l-orange-500'
+                                            : 'hover:bg-gray-50'
+                                        }`}
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="font-semibold text-gray-800 text-sm">{c.customer_name}</p>
+                                                <p className="text-xs text-gray-500">{c.phone || 'No phone'}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className={`text-sm font-bold ${(c.current_balance || 0) > 0 ? 'text-red-500' : 'text-green-600'}`}>
+                                                    Ksh {(c.current_balance || 0).toLocaleString()}
+                                                </p>
+                                                <p className="text-[10px] text-gray-400">Balance</p>
+                                            </div>
+                                        </div>
+                                    </button>
+                                ))
+                            )}
                         </div>
+                        {/* Selected Customer */}
+                        {selectedCustomer && (
+                            <div className="flex items-center gap-3 p-3 bg-green-50 rounded-xl border border-green-200">
+                                <div className="flex-1">
+                                    <p className="font-bold text-green-800 text-sm">{selectedCustomer.customer_name}</p>
+                                    <p className="text-xs text-green-600">
+                                        Current: Ksh {(selectedCustomer.current_balance || 0).toLocaleString()} →
+                                        After: Ksh {((selectedCustomer.current_balance || 0) + total).toLocaleString()}
+                                    </p>
+                                </div>
+                                <button onClick={() => { setSelectedCustomer(null); setCustomerName(''); }}
+                                    className="text-red-400 hover:text-red-600 text-xs font-bold px-2">Clear</button>
+                            </div>
+                        )}
+                        {/* Add New Customer */}
+                        {!selectedCustomer && (
+                            <div className="border-t border-gray-200 pt-3">
+                                <p className="text-xs text-gray-500 mb-2 text-center">Or add a new credit customer</p>
+                                <div className="flex gap-2">
+                                    <input type="text" value={newCreditName} onChange={(e) => setNewCreditName(e.target.value)}
+                                        placeholder="Name" className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-orange-400" />
+                                    <input type="text" value={newCreditPhone} onChange={(e) => setNewCreditPhone(e.target.value)}
+                                        placeholder="Phone" className="w-28 p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-orange-400" />
+                                    <button
+                                        disabled={addingCustomer || !newCreditName.trim()}
+                                        onClick={async () => {
+                                            if (!newCreditName.trim()) return;
+                                            setAddingCustomer(true);
+                                            try {
+                                                const { data, error } = await supabase.from('retail_credit_customers').insert({
+                                                    customer_name: newCreditName.trim(),
+                                                    phone: newCreditPhone.trim() || null,
+                                                    current_balance: 0,
+                                                    credit_limit: 0,
+                                                    active: true,
+                                                }).select().single();
+                                                if (error) throw error;
+                                                toast.success(`Added ${newCreditName}`);
+                                                setSelectedCustomer(data);
+                                                setCustomerName(data.customer_name);
+                                                setNewCreditName('');
+                                                setNewCreditPhone('');
+                                                loadCreditCustomers();
+                                            } catch (err: any) {
+                                                toast.error(err?.message || 'Failed to add');
+                                            }
+                                            setAddingCustomer(false);
+                                        }}
+                                        className="px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                                    >+ Add</button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -716,21 +818,29 @@ const PaymentModal = ({
                     </button>
                     {mpesaStatus !== 'waiting' && mpesaStatus !== 'sending' && (
                         <button
-                            onClick={() => onComplete(
-                                paymentMethod === 'mpesa' ? 'MPESA' : paymentMethod.toUpperCase(),
-                                Number(amountPaid) || total,
-                                mpesaReceipt,
-                                customerName,
-                                checkoutRequestId
-                            )}
-                            disabled={paymentMethod === 'mpesa' && !mpesaReceipt && mpesaStatus !== 'success'}
-                            className={`flex-1 py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 ${paymentMethod === 'mpesa' && !mpesaReceipt && mpesaStatus !== 'success'
+                            onClick={() => {
+                                if (paymentMethod === 'credit' && !selectedCustomer) {
+                                    toast.error('Please select a credit customer first');
+                                    return;
+                                }
+                                onComplete(
+                                    paymentMethod === 'mpesa' ? 'MPESA' : paymentMethod.toUpperCase(),
+                                    Number(amountPaid) || total,
+                                    mpesaReceipt,
+                                    selectedCustomer ? selectedCustomer.customer_name : customerName,
+                                    checkoutRequestId,
+                                    selectedCustomer ? (selectedCustomer.phone || undefined) : undefined
+                                );
+                            }}
+                            disabled={(paymentMethod === 'mpesa' && !mpesaReceipt && mpesaStatus !== 'success') || (paymentMethod === 'credit' && !selectedCustomer)}
+                            className={`flex-1 py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 ${
+                                (paymentMethod === 'mpesa' && !mpesaReceipt && mpesaStatus !== 'success') || (paymentMethod === 'credit' && !selectedCustomer)
                                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                 : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-lg'
                                 }`}
                         >
                             <span>✅</span>
-                            <span>Complete Sale</span>
+                            <span>{paymentMethod === 'credit' && !selectedCustomer ? 'Select Customer' : 'Complete Sale'}</span>
                         </button>
                     )}
                 </div>
@@ -1946,6 +2056,10 @@ export default function RetailPOSPage() {
                 total={grandTotal}
                 onComplete={completeSale}
                 receiptNo={receiptNo}
+                creditCustomers={creditCustomers}
+                selectedCustomer={selectedCustomer}
+                setSelectedCustomer={setSelectedCustomer}
+                loadCreditCustomers={loadCreditCustomers}
             />
 
             <DiscountModal
