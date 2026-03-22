@@ -2122,6 +2122,7 @@ export default function RetailPOSPage() {
                             </button>
                         </div>
 
+                        {ppp > 1 && (<>
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Per {unitPickerProduct.purchaseUnit}</p>
                         <div className="space-y-2">
                             {/* Big Quantity / Bag Price */}
@@ -2143,6 +2144,7 @@ export default function RetailPOSPage() {
                                 <span className="text-lg font-bold text-purple-700">Ksh {bigQtyPrice.toLocaleString()}</span>
                             </button>
                         </div>
+                        </>)}
 
                         <button
                             onClick={() => { setShowUnitPicker(false); setUnitPickerProduct(null); }}
