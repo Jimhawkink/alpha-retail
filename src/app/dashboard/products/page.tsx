@@ -239,7 +239,8 @@ export default function ProductsPage() {
         e.preventDefault(); if (!formData.product_name.trim()) { toast.error('Product name required!'); return; }
         setIsSaving(true);
         try {
-            const margin = calcMargin(formData.purchase_cost, formData.sales_cost);
+            const costPerPiece = formData.purchase_cost / (formData.pieces_per_package || 1);
+            const margin = calcMargin(costPerPiece, formData.wholesale_price || formData.sales_cost);
             const d = {
                 product_name: formData.product_name, alias: formData.alias || null, description: formData.description || null,
                 barcode: formData.barcode || null, category: formData.category || null, purchase_unit: formData.purchase_unit,
@@ -434,7 +435,11 @@ export default function ProductsPage() {
                     wholesale_price: parseFloat(r.wholesale_price || r.wholesale || r.ws_price || '0') || 0,
                     margin_per: 0,
                 };
-                if (prodData.purchase_cost > 0) prodData.margin_per = Math.round(((prodData.sales_cost - prodData.purchase_cost) / prodData.purchase_cost) * 10000) / 100;
+                if (prodData.purchase_cost > 0) {
+                    const cpp = prodData.purchase_cost / (prodData.pieces_per_package || 1);
+                    const sp = prodData.wholesale_price || prodData.sales_cost;
+                    prodData.margin_per = Math.round(((sp - cpp) / cpp) * 10000) / 100;
+                }
 
                 try {
                     if (importMode === 'update') {
@@ -923,7 +928,7 @@ export default function ProductsPage() {
                                             className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none">{units.map(u => <option key={u.unit_id} value={u.unit_name}>{u.unit_name}</option>)}</select>
                                     </div>
                                     <div>
-                                        <label className="block text-[10px] font-bold text-gray-600 mb-1 uppercase tracking-wider">Buy Price (Ksh)</label>
+                                        <label className="block text-[10px] font-bold text-gray-600 mb-1 uppercase tracking-wider">Buy Price / {formData.purchase_unit} (Ksh)</label>
                                         <input type="number" value={formData.purchase_cost} onChange={e => setFormData({ ...formData, purchase_cost: parseFloat(e.target.value) || 0 })}
                                             className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none" min="0" step="0.01" />
                                     </div>
