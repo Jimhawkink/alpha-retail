@@ -1285,8 +1285,9 @@ export default function RetailPOSPage() {
             return;
         }
 
-        // Normal add — single unit type
-        addToCartWithUnit(product, product.salesUnit || 'Piece', 1, product.salesPrice);
+        // Same unit — always show Retail vs Wholesale picker
+        setUnitPickerProduct(product);
+        setShowUnitPicker(true);
     }, [addToCartWithUnit]);
 
     // Handle keyboard navigation in search results
