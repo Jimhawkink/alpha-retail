@@ -10,9 +10,13 @@ interface ProfitItem {
     costPrice: number; totalCost: number; profit: number; margin: number;
 }
 
+interface Outlet {
+    outlet_id: number;
+    outlet_name: string;
+}
+
 export default function ProfitReportPage() {
     const { activeOutlet } = useOutlet();
-    const outletId = activeOutlet?.outlet_id || 1;
     const [items, setItems] = useState<ProfitItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [dateFrom, setDateFrom] = useState(new Date().toISOString().split('T')[0]);
@@ -22,6 +26,29 @@ export default function ProfitReportPage() {
     const [categories, setCategories] = useState<string[]>([]);
     const [preset, setPreset] = useState('today');
     const [sortBy, setSortBy] = useState<'profit' | 'margin' | 'revenue'>('profit');
+
+    // Outlet filter
+    const [outlets, setOutlets] = useState<Outlet[]>([]);
+    const [selectedOutletId, setSelectedOutletId] = useState<number | 'all'>('all');
+
+    // Load outlets
+    useEffect(() => {
+        const loadOutlets = async () => {
+            const { data } = await supabase
+                .from('retail_outlets')
+                .select('outlet_id, outlet_name')
+                .eq('active', true)
+                .order('outlet_name');
+            if (data && data.length > 0) {
+                setOutlets(data);
+                // Default to active outlet
+                if (activeOutlet) {
+                    setSelectedOutletId(activeOutlet.outlet_id);
+                }
+            }
+        };
+        loadOutlets();
+    }, [activeOutlet]);
 
     const setDatePreset = (p: string) => {
         setPreset(p);
@@ -38,35 +65,67 @@ export default function ProfitReportPage() {
         if (!activeOutlet) return;
         setLoading(true);
         try {
-            // Get sales items in date range (include unit_cost if stored)
+            // Step 1: Get sale IDs in date range, optionally filtered by outlet
+            let salesQuery = supabase
+                .from('retail_sales')
+                .select('sale_id')
+                .gte('sale_datetime', `${dateFrom}T00:00:00`)
+                .lte('sale_datetime', `${dateTo}T23:59:59`);
+
+            if (selectedOutletId !== 'all') {
+                salesQuery = salesQuery.eq('outlet_id', selectedOutletId);
+            }
+
+            const { data: salesData } = await salesQuery;
+            const saleIds = (salesData || []).map(s => s.sale_id);
+
+            if (saleIds.length === 0) {
+                setItems([]);
+                setCategories([]);
+                setLoading(false);
+                return;
+            }
+
+            // Step 2: Get sales items for those sales (using columns that EXIST in the schema)
             const { data: salesItems } = await supabase
                 .from('retail_sales_items')
-                .select('product_id, product_name, quantity, unit_price, unit_cost, subtotal, created_at')
-                .gte('created_at', `${dateFrom}T00:00:00`)
-                .lte('created_at', `${dateTo}T23:59:59`);
+                .select('product_id, product_name, quantity, unit_price, cost_price, subtotal, notes')
+                .in('sale_id', saleIds);
 
-            // Get product costs + pieces_per_package for per-piece cost calculation
-            const { data: products } = await supabase
+            // Step 3: Get product data for cost calculation
+            let productsQuery = supabase
                 .from('retail_products')
-                .select('pid, product_name, purchase_cost, sales_cost, category, pieces_per_package')
-                .eq('outlet_id', outletId);
+                .select('pid, product_name, purchase_cost, sales_cost, category, pieces_per_package');
 
-            const costMap: Record<number, { cost: number; category: string; piecesPerPackage: number }> = {};
+            if (selectedOutletId !== 'all') {
+                productsQuery = productsQuery.eq('outlet_id', selectedOutletId);
+            }
+            const { data: products } = await productsQuery;
+
+            const costMap: Record<number, { purchaseCost: number; costPerPiece: number; category: string; piecesPerPackage: number }> = {};
             (products || []).forEach(p => {
                 const ppp = p.pieces_per_package || 1;
-                // Cost per piece = purchase_cost / pieces_per_package
-                const costPerPiece = ppp > 0 ? (p.purchase_cost || 0) / ppp : (p.purchase_cost || 0);
-                costMap[p.pid] = { cost: costPerPiece, category: p.category || 'Uncategorized', piecesPerPackage: ppp };
+                const purchaseCost = p.purchase_cost || 0;
+                const costPerPiece = ppp > 0 ? purchaseCost / ppp : purchaseCost;
+                costMap[p.pid] = { purchaseCost, costPerPiece, category: p.category || 'Uncategorized', piecesPerPackage: ppp };
             });
 
-            // Aggregate by product
+            // Step 4: Aggregate by product
             const profitMap = new Map<string, ProfitItem>();
             (salesItems || []).forEach(item => {
                 const key = item.product_name || 'Unknown';
                 const pid = item.product_id;
-                const info = costMap[pid] || { cost: 0, category: 'Uncategorized', piecesPerPackage: 1 };
-                // Use unit_cost from sale item if available (most accurate), otherwise use calculated per-piece cost
-                const unitCost = (item.unit_cost && item.unit_cost > 0) ? item.unit_cost : info.cost;
+                const info = costMap[pid] || { purchaseCost: 0, costPerPiece: 0, category: 'Uncategorized', piecesPerPackage: 1 };
+
+                // Detect if sold as bag/package from notes (e.g. "Sold as Bag (x50)")
+                let unitCost = info.costPerPiece; // Default: per-piece cost
+                const notes = item.notes || '';
+                const multiplierMatch = notes.match(/\(x(\d+)\)/);
+                if (multiplierMatch) {
+                    // Sold as package — cost = full purchase cost
+                    unitCost = info.purchaseCost;
+                }
+
                 if (!profitMap.has(key)) {
                     profitMap.set(key, { name: key, category: info.category, qtySold: 0, revenue: 0, costPrice: unitCost, totalCost: 0, profit: 0, margin: 0 });
                 }
@@ -90,7 +149,7 @@ export default function ProfitReportPage() {
             toast.error('Failed to load profit data');
         }
         setLoading(false);
-    }, [dateFrom, dateTo, outletId, activeOutlet]);
+    }, [dateFrom, dateTo, selectedOutletId, activeOutlet]);
 
     useEffect(() => { loadData(); }, [loadData]);
 
@@ -115,12 +174,16 @@ export default function ProfitReportPage() {
         toast.success('CSV exported!');
     };
 
+    const outletName = selectedOutletId === 'all'
+        ? 'All Outlets'
+        : outlets.find(o => o.outlet_id === selectedOutletId)?.outlet_name || activeOutlet?.outlet_name || 'Alpha Retail';
+
     const printReport = () => {
         const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Profit Report</title>
 <style>@page{margin:8mm;size:A4;}body{font-family:Arial,sans-serif;font-size:11px;}h1{font-size:16px;}
 table{width:100%;border-collapse:collapse;margin-top:8px;}th,td{border:1px solid #ddd;padding:4px 6px;font-size:10px;}
 th{background:#f5f5f5;font-weight:700;}.r{text-align:right;}.b{font-weight:700;}.g{color:green;}.rd{color:red;}</style></head><body>
-<h1>💹 Profit Report</h1><p style="font-size:10px;color:#555;">${activeOutlet?.outlet_name || 'Alpha Retail'} | ${dateFrom} to ${dateTo}</p>
+<h1>💹 Profit Report</h1><p style="font-size:10px;color:#555;">${outletName} | ${dateFrom} to ${dateTo}</p>
 <p><strong>Revenue:</strong> Ksh ${totalRevenue.toLocaleString()} | <strong>COGS:</strong> Ksh ${totalCOGS.toLocaleString()} | <strong>Gross Profit:</strong> Ksh ${grossProfit.toLocaleString()} (${overallMargin}%)</p>
 <table><tr><th>Product</th><th>Category</th><th class="r">Qty</th><th class="r">Revenue</th><th class="r">COGS</th><th class="r">Profit</th><th class="r">Margin</th></tr>
 ${filtered.map(i => `<tr><td>${i.name}</td><td>${i.category}</td><td class="r">${i.qtySold}</td><td class="r">Ksh ${i.revenue.toLocaleString()}</td><td class="r">Ksh ${i.totalCost.toLocaleString()}</td><td class="r ${i.profit >= 0 ? 'g' : 'rd'} b">Ksh ${i.profit.toLocaleString()}</td><td class="r">${i.margin}%</td></tr>`).join('')}
@@ -166,6 +229,18 @@ ${filtered.map(i => `<tr><td>${i.name}</td><td>${i.category}</td><td class="r">$
 
             {/* Filters */}
             <div className="bg-white rounded-2xl border p-4 flex items-center gap-4 flex-wrap">
+                {/* Outlet Filter */}
+                <select
+                    value={selectedOutletId}
+                    onChange={e => setSelectedOutletId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                    className="px-3 py-1.5 border-2 border-emerald-300 rounded-lg text-sm font-semibold bg-emerald-50 text-emerald-700 focus:outline-none focus:border-emerald-500"
+                >
+                    <option value="all">🏪 All Outlets</option>
+                    {outlets.map(o => (
+                        <option key={o.outlet_id} value={o.outlet_id}>🏪 {o.outlet_name}</option>
+                    ))}
+                </select>
+                <div className="w-px h-8 bg-gray-200" />
                 <div className="flex gap-1">
                     {[{ l: 'Today', v: 'today' }, { l: '7 Days', v: '7d' }, { l: '30 Days', v: '30d' }, { l: 'Month', v: 'month' }].map(p => (
                         <button key={p.v} onClick={() => setDatePreset(p.v)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${preset === p.v ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>{p.l}</button>
@@ -209,10 +284,10 @@ ${filtered.map(i => `<tr><td>${i.name}</td><td>${i.category}</td><td class="r">$
                                 <td className="py-3 px-4 text-sm"><span className="px-2 py-1 bg-gray-100 rounded-full text-xs">{item.category}</span></td>
                                 <td className="py-3 px-4 text-right text-sm">{item.qtySold}</td>
                                 <td className="py-3 px-4 text-right text-sm font-medium">Ksh {item.revenue.toLocaleString()}</td>
-                                <td className="py-3 px-4 text-right text-sm text-gray-500">Ksh {item.costPrice.toLocaleString()}</td>
-                                <td className="py-3 px-4 text-right text-sm text-red-500">Ksh {item.totalCost.toLocaleString()}</td>
+                                <td className="py-3 px-4 text-right text-sm text-gray-500">Ksh {Math.round(item.costPrice).toLocaleString()}</td>
+                                <td className="py-3 px-4 text-right text-sm text-red-500">Ksh {Math.round(item.totalCost).toLocaleString()}</td>
                                 <td className={`py-3 px-4 text-right font-bold text-sm ${item.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    Ksh {item.profit.toLocaleString()}
+                                    Ksh {Math.round(item.profit).toLocaleString()}
                                 </td>
                                 <td className="py-3 px-4 text-right">
                                     <span className={`px-2 py-1 rounded-full text-xs font-bold ${item.margin >= 30 ? 'bg-green-100 text-green-700' : item.margin >= 15 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
@@ -229,8 +304,8 @@ ${filtered.map(i => `<tr><td>${i.name}</td><td>${i.category}</td><td class="r">$
                                 <td className="py-3 px-4 text-right text-sm">{filtered.reduce((s, i) => s + i.qtySold, 0)}</td>
                                 <td className="py-3 px-4 text-right text-sm">Ksh {totalRevenue.toLocaleString()}</td>
                                 <td className="py-3 px-4 text-right text-sm" />
-                                <td className="py-3 px-4 text-right text-sm text-red-500">Ksh {totalCOGS.toLocaleString()}</td>
-                                <td className={`py-3 px-4 text-right text-sm ${grossProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>Ksh {grossProfit.toLocaleString()}</td>
+                                <td className="py-3 px-4 text-right text-sm text-red-500">Ksh {Math.round(totalCOGS).toLocaleString()}</td>
+                                <td className={`py-3 px-4 text-right text-sm ${grossProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>Ksh {Math.round(grossProfit).toLocaleString()}</td>
                                 <td className="py-3 px-4 text-right text-sm">{overallMargin}%</td>
                             </tr>
                         </tfoot>
