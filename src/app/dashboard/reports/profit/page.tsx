@@ -38,35 +38,42 @@ export default function ProfitReportPage() {
         if (!activeOutlet) return;
         setLoading(true);
         try {
-            // Get sales items in date range
+            // Get sales items in date range (include unit_cost if stored)
             const { data: salesItems } = await supabase
                 .from('retail_sales_items')
-                .select('product_id, product_name, quantity, unit_price, subtotal, created_at')
+                .select('product_id, product_name, quantity, unit_price, unit_cost, subtotal, created_at')
                 .gte('created_at', `${dateFrom}T00:00:00`)
                 .lte('created_at', `${dateTo}T23:59:59`);
 
-            // Get product costs
+            // Get product costs + pieces_per_package for per-piece cost calculation
             const { data: products } = await supabase
                 .from('retail_products')
-                .select('pid, product_name, purchase_cost, sales_cost, category')
+                .select('pid, product_name, purchase_cost, sales_cost, category, pieces_per_package')
                 .eq('outlet_id', outletId);
 
-            const costMap: Record<number, { cost: number; category: string }> = {};
-            (products || []).forEach(p => { costMap[p.pid] = { cost: p.purchase_cost || 0, category: p.category || 'Uncategorized' }; });
+            const costMap: Record<number, { cost: number; category: string; piecesPerPackage: number }> = {};
+            (products || []).forEach(p => {
+                const ppp = p.pieces_per_package || 1;
+                // Cost per piece = purchase_cost / pieces_per_package
+                const costPerPiece = ppp > 0 ? (p.purchase_cost || 0) / ppp : (p.purchase_cost || 0);
+                costMap[p.pid] = { cost: costPerPiece, category: p.category || 'Uncategorized', piecesPerPackage: ppp };
+            });
 
             // Aggregate by product
             const profitMap = new Map<string, ProfitItem>();
             (salesItems || []).forEach(item => {
                 const key = item.product_name || 'Unknown';
                 const pid = item.product_id;
-                const info = costMap[pid] || { cost: 0, category: 'Uncategorized' };
+                const info = costMap[pid] || { cost: 0, category: 'Uncategorized', piecesPerPackage: 1 };
+                // Use unit_cost from sale item if available (most accurate), otherwise use calculated per-piece cost
+                const unitCost = (item.unit_cost && item.unit_cost > 0) ? item.unit_cost : info.cost;
                 if (!profitMap.has(key)) {
-                    profitMap.set(key, { name: key, category: info.category, qtySold: 0, revenue: 0, costPrice: info.cost, totalCost: 0, profit: 0, margin: 0 });
+                    profitMap.set(key, { name: key, category: info.category, qtySold: 0, revenue: 0, costPrice: unitCost, totalCost: 0, profit: 0, margin: 0 });
                 }
                 const e = profitMap.get(key)!;
                 e.qtySold += item.quantity || 0;
                 e.revenue += item.subtotal || 0;
-                e.totalCost += (info.cost * (item.quantity || 0));
+                e.totalCost += (unitCost * (item.quantity || 0));
             });
 
             const result: ProfitItem[] = Array.from(profitMap.values()).map(p => ({
