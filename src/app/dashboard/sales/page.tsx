@@ -112,6 +112,41 @@ export default function SalesPage() {
         }
     };
 
+    // Print receipt
+    const printReceipt = (sale: Sale, items: SaleItem[]) => {
+        const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Receipt ${sale.receipt_no}</title>
+<style>
+@page{margin:5mm;size:80mm auto;}
+body{font-family:'Courier New',monospace;font-size:11px;margin:0;padding:8px;max-width:280px;}
+.center{text-align:center;}.bold{font-weight:700;}.line{border-top:1px dashed #000;margin:6px 0;}
+table{width:100%;border-collapse:collapse;}td{padding:2px 0;font-size:10px;}
+.right{text-align:right;}.total-row td{border-top:1px solid #000;font-weight:700;padding-top:4px;}
+</style></head><body>
+<div class="center bold" style="font-size:14px;">${companyName}</div>
+<div class="center" style="font-size:9px;color:#666;">Sales Receipt</div>
+<div class="line"></div>
+<div style="font-size:10px;">
+<div>Receipt: <strong>${sale.receipt_no}</strong></div>
+<div>Date: ${new Date(sale.sale_datetime).toLocaleString('en-KE')}</div>
+<div>Customer: ${sale.customer_name || 'Walk-in'}</div>
+${sale.customer_phone ? `<div>Phone: ${sale.customer_phone}</div>` : ''}
+<div>Payment: ${sale.payment_method || '-'}</div>
+${sale.mpesa_code ? `<div>M-Pesa: <strong>${sale.mpesa_code}</strong></div>` : ''}
+</div>
+<div class="line"></div>
+<table>
+<tr><td class="bold">Item</td><td class="center bold">Qty</td><td class="right bold">Price</td><td class="right bold">Total</td></tr>
+${items.map(i => `<tr><td>${i.product_name}</td><td class="center">${i.quantity}</td><td class="right">${(i.unit_price||0).toLocaleString()}</td><td class="right">${(i.subtotal||(i.unit_price*i.quantity)).toLocaleString()}</td></tr>`).join('')}
+<tr class="total-row"><td colspan="3" class="right">TOTAL:</td><td class="right">Ksh ${(sale.total_amount||0).toLocaleString()}</td></tr>
+</table>
+${(sale.discount||0) > 0 ? `<div style="font-size:10px;">Discount: -Ksh ${sale.discount.toLocaleString()}</div>` : ''}
+<div class="line"></div>
+<div class="center" style="font-size:9px;color:#888;">Thank you for your business!</div>
+</body></html>`;
+        const w = window.open('', '_blank');
+        if (w) { w.document.write(html); w.document.close(); w.print(); }
+    };
+
     // Toggle expanded row
     const toggleRow = async (saleId: number) => {
         const next = new Set(expandedRows);
@@ -499,7 +534,10 @@ export default function SalesPage() {
                             >
                                 Close
                             </button>
-                            <button className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-blue-700 text-white rounded-xl font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2">
+                            <button
+                                onClick={() => printReceipt(selectedSale, selectedSaleItems)}
+                                className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-blue-700 text-white rounded-xl font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                            >
                                 <span>🖨️</span> Print
                             </button>
                         </div>
