@@ -293,7 +293,7 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
     .items-table td {
       font-size: 10px;
       padding: 2px 2px;
-      border-bottom: 1px dotted #ccc;
+      border-bottom: 1px dotted #000;
       vertical-align: top;
       color: #000;
       word-wrap: break-word;
@@ -551,7 +551,7 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
   ` : ''}
 
   <!-- Receipt No -->
-  <div style="text-align:center;margin:4px 0 2px 0;padding:2px 0;border-top:1px dashed #ccc;">
+  <div style="text-align:center;margin:4px 0 2px 0;padding:2px 0;border-top:1px dashed #000;">
     <div style="font-size:9px;font-weight:bold;letter-spacing:1px;">${data.invoiceNo}</div>
   </div>
 

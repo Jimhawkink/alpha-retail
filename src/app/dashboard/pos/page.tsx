@@ -1625,8 +1625,9 @@ export default function RetailPOSPage() {
                     });
 
                     if (insertErr) {
-                        // Fallback: use old RPC
-                        await supabase.rpc('retail_decrease_stock', { p_product_id: item.id, p_qty: stockQty });
+                        // Fallback: insert with explicit outlet_id (never use RPC — it lacks outlet_id)
+                        console.warn('Primary stock insert failed, retrying:', insertErr.message);
+                        await supabase.from('retail_stock').insert({ pid: item.id, invoice_no: 'SALE-FALLBACK', qty: -stockQty, storage_type: 'Pieces', outlet_id: outletId });
                     }
 
                     // 2. Auto-convert: SUM stock by storage_type, if Pieces ≤ 0 and Bags > 0, convert
@@ -1662,7 +1663,7 @@ export default function RetailPOSPage() {
                     }
                 } catch (stockErr) {
                     console.warn('Stock update error (non-critical):', stockErr);
-                    try { await supabase.rpc('retail_decrease_stock', { p_product_id: item.id, p_qty: stockQty }); } catch {}
+                    try { await supabase.from('retail_stock').insert({ pid: item.id, invoice_no: 'SALE-FALLBACK', qty: -stockQty, storage_type: 'Pieces', outlet_id: outletId }); } catch {}
                 }
             }
 
