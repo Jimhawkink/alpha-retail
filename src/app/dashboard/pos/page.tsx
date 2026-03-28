@@ -906,6 +906,43 @@ const DiscountModal = ({
     );
 };
 
+// Helper: Fetch ALL retail_stock rows by paginating (Supabase caps at 1000 per request)
+async function fetchAllStock(outletId: number): Promise<Array<{pid: number; qty: number; storage_type: string}>> {
+    const PAGE_SIZE = 1000;
+    let allRows: Array<{pid: number; qty: number; storage_type: string}> = [];
+    let page = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+        const from = page * PAGE_SIZE;
+        const to = from + PAGE_SIZE - 1;
+        const { data, error } = await supabase
+            .from('retail_stock')
+            .select('pid, qty, storage_type')
+            .eq('outlet_id', outletId)
+            .range(from, to);
+
+        if (error) {
+            console.error('Stock fetch error on page', page, error.message);
+            break;
+        }
+
+        if (data && data.length > 0) {
+            allRows = allRows.concat(data);
+        }
+
+        // If we got fewer than PAGE_SIZE rows, we've reached the end
+        if (!data || data.length < PAGE_SIZE) {
+            hasMore = false;
+        } else {
+            page++;
+        }
+    }
+
+    console.log(`📊 Fetched ${allRows.length} total stock rows for outlet ${outletId} (${page + 1} pages)`);
+    return allRows;
+}
+
 // Main Retail POS Page
 export default function RetailPOSPage() {
     const { activeOutlet } = useOutlet();
@@ -997,11 +1034,7 @@ export default function RetailPOSPage() {
                     .eq('active', true)
                     .eq('outlet_id', outletId);
                 if (convertProducts && convertProducts.length > 0) {
-                    const { data: allStockRows } = await supabase
-                        .from('retail_stock')
-                        .select('pid, qty, storage_type')
-                        .eq('outlet_id', outletId)
-                        .range(0, 9999);
+                    const allStockRows = await fetchAllStock(outletId);
                     const sMap: Record<number, { bags: number; pieces: number }> = {};
                     (allStockRows || []).forEach((s: any) => {
                         if (!sMap[s.pid]) sMap[s.pid] = { bags: 0, pieces: 0 };
@@ -1040,12 +1073,9 @@ export default function RetailPOSPage() {
 
             if (error) throw error;
 
-            // Load stock data from retail_stock table - FILTERED BY OUTLET
-            const { data: stockData } = await supabase
-                .from('retail_stock')
-                .select('pid, qty, storage_type')
-                .eq('outlet_id', outletId)
-                .range(0, 9999);
+            // Load stock data from retail_stock table - PAGINATED TO GET ALL ROWS
+            // Supabase enforces 1000-row server limit, so we must paginate
+            const stockData = await fetchAllStock(outletId);
 
             // Build stock maps by storage_type (same as products list page)
             const stockMap: Record<number, number> = {};

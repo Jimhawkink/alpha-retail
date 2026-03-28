@@ -57,6 +57,29 @@ const defUnits: Unit[] = [
     { unit_id: 9, unit_name: 'Bottle', abbreviation: 'Btl' }, { unit_id: 10, unit_name: 'Plate', abbreviation: 'Plt' },
 ];
 
+// Helper: Fetch ALL retail_stock rows by paginating (Supabase caps at 1000 per request)
+async function fetchAllStock(outletId: number): Promise<Array<{pid: number; qty: number; storage_type: string}>> {
+    const PAGE_SIZE = 1000;
+    let allRows: Array<{pid: number; qty: number; storage_type: string}> = [];
+    let page = 0;
+    let hasMore = true;
+    while (hasMore) {
+        const from = page * PAGE_SIZE;
+        const to = from + PAGE_SIZE - 1;
+        const { data, error } = await supabase
+            .from('retail_stock')
+            .select('pid, qty, storage_type')
+            .eq('outlet_id', outletId)
+            .range(from, to);
+        if (error) { console.error('Stock fetch page error:', page, error.message); break; }
+        if (data && data.length > 0) allRows = allRows.concat(data);
+        if (!data || data.length < PAGE_SIZE) hasMore = false;
+        else page++;
+    }
+    console.log(`📊 Products: Fetched ${allRows.length} stock rows (${page + 1} pages)`);
+    return allRows;
+}
+
 export default function ProductsPage() {
     const { activeOutlet } = useOutlet();
     const outletId = activeOutlet?.outlet_id || 1;
@@ -138,11 +161,8 @@ export default function ProductsPage() {
     const loadStockData = useCallback(async () => {
         if (!activeOutlet) return;
         try {
-            let { data, error } = await supabase.from('retail_stock').select('pid, qty, storage_type').eq('outlet_id', outletId).range(0, 9999);
-            if (error) {
-                const fb = await supabase.from('retail_stock').select('pid, qty, storage_type');
-                data = fb.data;
-            }
+            // Use paginated fetch to get ALL stock rows (Supabase caps at 1000/request)
+            const data = await fetchAllStock(outletId);
             const total: Record<number, number> = {};
             const bags: Record<number, number> = {};
             const pcs: Record<number, number> = {};
