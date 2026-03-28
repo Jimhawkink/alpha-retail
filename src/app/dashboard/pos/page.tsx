@@ -1611,59 +1611,95 @@ export default function RetailPOSPage() {
             const { error: itemsError } = await supabase.from('retail_sales_items').insert(saleItems);
             if (itemsError) console.error('❌ Failed to save sale items:', itemsError);
 
-            // Update stock — LEDGER-BASED: INSERT negative qty rows for Pieces, then auto-convert Bags
+            // ═══════════════════════════════════════════════════════════════
+            // STOCK DEDUCTION — BULLETPROOF, OUTLET-AWARE, UNIT-AWARE
+            // ═══════════════════════════════════════════════════════════════
+            // retail_stock is a LEDGER: each row has +/- qty.
+            // Total stock = SUM(qty) WHERE pid=X AND outlet_id=Y
+            // We INSERT a new row with NEGATIVE qty for every sale item.
+            // ═══════════════════════════════════════════════════════════════
             for (const item of cart) {
-                const stockQty = item.qty * (item.unitMultiplier || 1);
-                try {
-                    // 1. INSERT a negative qty row for Pieces (not Bags)
-                    const { error: insertErr } = await supabase.from('retail_stock').insert({
+                const sellingUnit = (item.sellingUnit || 'Piece').toLowerCase();
+                const isBagSale = ['bag', 'bags', 'box', 'carton', 'crate', 'pack', 'dozen'].includes(sellingUnit);
+
+                // Determine what storage_type to deduct from and how much
+                let deductStorageType: string;
+                let deductQty: number;
+
+                if (isBagSale) {
+                    // Selling by Bag/Box/Carton — deduct from "Bags" storage
+                    deductStorageType = 'Bags';
+                    deductQty = item.qty; // 1 bag sold = -1 from Bags
+                } else {
+                    // Selling by Piece/Kg/Unit — deduct from "Pieces" storage
+                    deductStorageType = 'Pieces';
+                    deductQty = item.qty * (item.unitMultiplier || 1); // e.g. 2 items × 1 = 2 pieces
+                }
+
+                // ATTEMPT 1: Primary insert
+                console.log(`📦 Stock deduct: product=${item.id} (${item.name}), qty=-${deductQty}, type=${deductStorageType}, outlet=${outletId}`);
+                const { error: stockErr1 } = await supabase.from('retail_stock').insert({
+                    pid: item.id,
+                    invoice_no: `SALE-${freshReceiptNo}`,
+                    qty: -deductQty,
+                    storage_type: deductStorageType,
+                    outlet_id: outletId,
+                });
+
+                if (stockErr1) {
+                    // ATTEMPT 2: Retry once (maybe transient network error)
+                    console.warn(`⚠️ Stock deduct attempt 1 failed for ${item.name}:`, stockErr1.message);
+                    const { error: stockErr2 } = await supabase.from('retail_stock').insert({
                         pid: item.id,
-                        invoice_no: 'SALE',
-                        qty: -stockQty,
-                        storage_type: 'Pieces',
+                        invoice_no: `SALE-RETRY-${freshReceiptNo}`,
+                        qty: -deductQty,
+                        storage_type: deductStorageType,
                         outlet_id: outletId,
                     });
-
-                    if (insertErr) {
-                        // Fallback: insert with explicit outlet_id (never use RPC — it lacks outlet_id)
-                        console.warn('Primary stock insert failed, retrying:', insertErr.message);
-                        await supabase.from('retail_stock').insert({ pid: item.id, invoice_no: 'SALE-FALLBACK', qty: -stockQty, storage_type: 'Pieces', outlet_id: outletId });
+                    if (stockErr2) {
+                        console.error(`❌ Stock deduct FAILED for ${item.name} after 2 attempts:`, stockErr2.message);
+                    } else {
+                        console.log(`✅ Stock deducted on retry: ${item.name} -${deductQty} ${deductStorageType}`);
                     }
+                } else {
+                    console.log(`✅ Stock deducted: ${item.name} -${deductQty} ${deductStorageType}`);
+                }
 
-                    // 2. Auto-convert: SUM stock by storage_type, if Pieces ≤ 0 and Bags > 0, convert
-                    const { data: allStockRows } = await supabase
-                        .from('retail_stock')
-                        .select('qty, storage_type')
-                        .eq('pid', item.id)
-                        .eq('outlet_id', outletId);
+                // AUTO-CONVERT: If Pieces ran out and Bags available, convert 1 Bag → pieces
+                if (!isBagSale) {
+                    const piecesPerPkg = item.piecesPerPackage || 1;
+                    if (piecesPerPkg > 1) {
+                        try {
+                            const { data: allStockRows } = await supabase
+                                .from('retail_stock')
+                                .select('qty, storage_type')
+                                .eq('pid', item.id)
+                                .eq('outlet_id', outletId);
 
-                    if (allStockRows && allStockRows.length > 0) {
-                        let totalBags = 0, totalPieces = 0;
-                        allStockRows.forEach((r: any) => {
-                            if ((r.storage_type || '') === 'Bags') totalBags += (r.qty || 0);
-                            else totalPieces += (r.qty || 0);
-                        });
+                            if (allStockRows && allStockRows.length > 0) {
+                                let totalBags = 0, totalPieces = 0;
+                                allStockRows.forEach((r: any) => {
+                                    if ((r.storage_type || '') === 'Bags') totalBags += (r.qty || 0);
+                                    else totalPieces += (r.qty || 0);
+                                });
 
-                        const piecesPerPkg = item.piecesPerPackage || 1;
-                        if (totalPieces <= 0 && totalBags > 0 && piecesPerPkg > 1) {
-                            console.log(`🔄 Auto-converting 1 Bag → ${piecesPerPkg} pieces for product ${item.id}`);
-
-                            // INSERT -1 Bags (remove 1 bag)
-                            await supabase.from('retail_stock').insert({
-                                pid: item.id, invoice_no: 'AUTO-CONVERT', qty: -1,
-                                storage_type: 'Bags', outlet_id: outletId,
-                            });
-                            // INSERT +piecesPerPkg Pieces (add pieces from that bag)
-                            await supabase.from('retail_stock').insert({
-                                pid: item.id, invoice_no: 'AUTO-CONVERT', qty: piecesPerPkg,
-                                storage_type: 'Pieces', outlet_id: outletId,
-                            });
-                            console.log(`✅ Bags: ${totalBags} → ${totalBags - 1}, Pieces: ${totalPieces} → ${totalPieces + piecesPerPkg}`);
+                                if (totalPieces <= 0 && totalBags > 0) {
+                                    console.log(`🔄 Auto-converting 1 Bag → ${piecesPerPkg} pieces for ${item.name}`);
+                                    await supabase.from('retail_stock').insert({
+                                        pid: item.id, invoice_no: 'AUTO-CONVERT', qty: -1,
+                                        storage_type: 'Bags', outlet_id: outletId,
+                                    });
+                                    await supabase.from('retail_stock').insert({
+                                        pid: item.id, invoice_no: 'AUTO-CONVERT', qty: piecesPerPkg,
+                                        storage_type: 'Pieces', outlet_id: outletId,
+                                    });
+                                    console.log(`✅ Converted: Bags ${totalBags}→${totalBags - 1}, Pieces ${totalPieces}→${totalPieces + piecesPerPkg}`);
+                                }
+                            }
+                        } catch (convertErr) {
+                            console.warn('Auto-convert bags→pieces error (non-critical):', convertErr);
                         }
                     }
-                } catch (stockErr) {
-                    console.warn('Stock update error (non-critical):', stockErr);
-                    try { await supabase.from('retail_stock').insert({ pid: item.id, invoice_no: 'SALE-FALLBACK', qty: -stockQty, storage_type: 'Pieces', outlet_id: outletId }); } catch {}
                 }
             }
 
