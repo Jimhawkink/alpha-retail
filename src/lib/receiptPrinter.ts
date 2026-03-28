@@ -184,7 +184,7 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
   <style>
     @page {
       margin: 0;
-      size: 80mm auto;
+      size: 72mm auto;
     }
     * {
       margin: 0;
@@ -192,11 +192,11 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
       box-sizing: border-box;
     }
     body {
-      font-family: 'Segoe UI', 'Arial', sans-serif;
-      font-size: 11px;
-      width: 80mm;
-      max-width: 80mm;
-      padding: 2mm;
+      font-family: 'Arial', sans-serif;
+      font-size: 10px;
+      width: 72mm;
+      max-width: 72mm;
+      padding: 1.5mm;
       background: #fff;
       color: #000;
       position: relative;
@@ -213,15 +213,15 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
       margin-bottom: 2px;
     }
     .company-name {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: bold;
       text-transform: uppercase;
-      letter-spacing: 1px;
+      letter-spacing: 0.5px;
       margin-bottom: 2px;
       color: #000;
     }
     .company-details {
-      font-size: 10px;
+      font-size: 9px;
       color: #000;
       line-height: 1.4;
     }
@@ -332,7 +332,7 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
       display: flex;
       justify-content: space-between;
       padding: 1px 0;
-      font-size: 11px;
+      font-size: 10px;
       color: #000;
     }
     .grand-total {
@@ -343,7 +343,7 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
       border-radius: 3px;
     }
     .grand-total .total-row {
-      font-size: 14px;
+      font-size: 12px;
       font-weight: bold;
       color: #fff;
     }
@@ -411,7 +411,7 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
       margin-top: 3px;
     }
     @media print {
-      body { width: 80mm; max-width: 80mm; }
+      body { width: 72mm; max-width: 72mm; }
       .no-print { display: none; }
     }
   </style>
@@ -437,21 +437,18 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
     ${isPaid ? '✓ TAX INVOICE ✓' : '⚠ CUSTOMER BILL ⚠'}
   </div>
 
-  <!-- Invoice Info with QR Code -->
-  <div style="display:flex;align-items:center;gap:2px;padding:3px;background:#f5f5f5;border-radius:3px;margin:4px 0;overflow:hidden;">
-    <div style="flex:1;min-width:0;">
-      <div style="margin-bottom:3px;"><span style="font-size:8px;color:#000;">Invoice No:</span><br/><span style="font-size:10px;font-weight:bold;color:#000;">${data.invoiceNo}</span></div>
-      <div><span style="font-size:8px;color:#000;">Time:</span><br/><span style="font-size:9px;font-weight:bold;color:#000;">${data.time}</span></div>
-    </div>
-    <div style="text-align:center;flex-shrink:0;">
-      <img src="https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent(data.invoiceNo + '|' + company.name + '|Ksh' + data.total + '|' + data.date)}" 
-        style="width:38px;height:38px;display:block;" alt="QR" />
-    </div>
-    <div style="flex:1;min-width:0;text-align:right;">
-      <div style="margin-bottom:3px;"><span style="font-size:8px;color:#000;">Date:</span><br/><span style="font-size:9px;font-weight:bold;color:#000;">${data.date}</span></div>
-      <div><span style="font-size:8px;color:#000;">Cashier:</span><br/><span style="font-size:9px;font-weight:bold;color:#000;">${data.cashier}</span></div>
-    </div>
-  </div>
+  <!-- Invoice Info -->
+  <table style="width:100%;border-collapse:collapse;background:#f5f5f5;margin:4px 0;font-size:9px;">
+    <tr>
+      <td style="padding:2px 3px;"><span style="font-size:7px;">Invoice No:</span><br/><b>${data.invoiceNo}</b></td>
+      <td style="padding:2px;text-align:center;" rowspan="2"><img src="https://api.qrserver.com/v1/create-qr-code/?size=50x50&data=${encodeURIComponent(data.invoiceNo)}" style="width:32px;height:32px;" alt="QR"/></td>
+      <td style="padding:2px 3px;text-align:right;"><span style="font-size:7px;">Date:</span><br/><b>${data.date}</b></td>
+    </tr>
+    <tr>
+      <td style="padding:2px 3px;"><span style="font-size:7px;">Time:</span><br/><b>${data.time}</b></td>
+      <td style="padding:2px 3px;text-align:right;"><span style="font-size:7px;">Cashier:</span><br/><b>${data.cashier}</b></td>
+    </tr>
+  </table>
 
   ${data.tableNo ? `
   <div style="text-align:center;">
@@ -460,8 +457,8 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
   ` : ''}
 
   ${data.customerName ? `
-  <div style="text-align:center;margin:5px 0;">
-    <span style="font-size:12px;color:#000;">👤 Customer: <strong>${data.customerName}</strong></span>
+  <div style="text-align:center;margin:3px 0;">
+    <span style="font-size:10px;color:#000;">👤 Customer: <b>${data.customerName}</b></span>
   </div>
   ` : ''}
 
@@ -469,10 +466,10 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
   <table class="items-table">
     <thead>
       <tr>
-        <th style="width:40%">ITEM</th>
+        <th style="width:42%">ITEM</th>
         <th style="width:10%">QTY</th>
         <th style="width:22%">PRICE</th>
-        <th style="width:28%">TOT.</th>
+        <th style="width:26%">TOT.
       </tr>
     </thead>
     <tbody>
@@ -514,12 +511,12 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
       <span class="payment-badge ${isPaid ? 'paid' : 'unpaid'}">
         ${isPaid ? '✓ PAID' : '✗ NOT PAID'}
       </span>
-      <span style="font-weight:bold;font-size:11px;color:#000;">
+      <span style="font-weight:bold;font-size:10px;color:#000;">
         ${isPaid ? data.paymentMethod.toUpperCase() : 'PENDING'}
       </span>
     </div>
     ${isPaid ? `
-    <div style="margin-top:8px;font-size:11px;">
+    <div style="margin-top:5px;font-size:10px;">
       <div class="total-row">
         <span>Amount Paid:</span>
         <span style="font-weight:bold;">Ksh ${data.amountPaid.toLocaleString()}</span>
@@ -557,8 +554,8 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
 
   <!-- Footer -->
   <div class="footer">
-    <div class="thank-you">★ THANK YOU FOR SHOPPING WITH US! ★</div>
-    <div style="font-size:10px;color:#000;">We appreciate your business</div>
+    <div class="thank-you">★ THANK YOU! ★</div>
+    <div style="font-size:9px;color:#000;">We appreciate your business</div>
     <div class="footer-note">
       ${isPaid ? 'This serves as your official tax invoice' : 'This is not a tax invoice until payment is complete'}
     </div>
