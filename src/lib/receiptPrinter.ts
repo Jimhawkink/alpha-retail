@@ -438,14 +438,14 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
   </div>
 
   <!-- Invoice Info with QR Code -->
-  <div style="display:flex;align-items:center;gap:4px;padding:4px;background:#f5f5f5;border-radius:3px;margin:4px 0;overflow:hidden;">
+  <div style="display:flex;align-items:center;gap:2px;padding:3px;background:#f5f5f5;border-radius:3px;margin:4px 0;overflow:hidden;">
     <div style="flex:1;min-width:0;">
       <div style="margin-bottom:3px;"><span style="font-size:8px;color:#000;">Invoice No:</span><br/><span style="font-size:10px;font-weight:bold;color:#000;">${data.invoiceNo}</span></div>
       <div><span style="font-size:8px;color:#000;">Time:</span><br/><span style="font-size:9px;font-weight:bold;color:#000;">${data.time}</span></div>
     </div>
     <div style="text-align:center;flex-shrink:0;">
-      <img src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=${encodeURIComponent(data.invoiceNo + '|' + company.name + '|Ksh' + data.total + '|' + data.date)}" 
-        style="width:45px;height:45px;display:block;" alt="QR" />
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent(data.invoiceNo + '|' + company.name + '|Ksh' + data.total + '|' + data.date)}" 
+        style="width:38px;height:38px;display:block;" alt="QR" />
     </div>
     <div style="flex:1;min-width:0;text-align:right;">
       <div style="margin-bottom:3px;"><span style="font-size:8px;color:#000;">Date:</span><br/><span style="font-size:9px;font-weight:bold;color:#000;">${data.date}</span></div>
@@ -469,10 +469,10 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
   <table class="items-table">
     <thead>
       <tr>
-        <th style="width:38%">ITEM</th>
+        <th style="width:40%">ITEM</th>
         <th style="width:10%">QTY</th>
-        <th style="width:24%">PRICE</th>
-        <th style="width:28%">TOTAL</th>
+        <th style="width:22%">PRICE</th>
+        <th style="width:28%">TOT.</th>
       </tr>
     </thead>
     <tbody>
@@ -514,7 +514,7 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
       <span class="payment-badge ${isPaid ? 'paid' : 'unpaid'}">
         ${isPaid ? '✓ PAID' : '✗ NOT PAID'}
       </span>
-      <span style="font-weight:bold;font-size:12px;color:#000;">
+      <span style="font-weight:bold;font-size:11px;color:#000;">
         ${isPaid ? data.paymentMethod.toUpperCase() : 'PENDING'}
       </span>
     </div>
@@ -686,7 +686,7 @@ export function generateKOTHTML(data: KOTData, company: CompanyInfo = defaultCom
       text-align: center;
       margin-top: 15px;
       font-size: 10px;
-      color: #666;
+      color: #000;
     }
     .time-stamp {
       font-size: 16px;

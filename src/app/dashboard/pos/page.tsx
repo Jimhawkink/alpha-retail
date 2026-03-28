@@ -272,6 +272,7 @@ const PaymentModal = ({
 }) => {
     const [paymentMethod, setPaymentMethod] = useState('cash');
     const [amountPaid, setAmountPaid] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
     const [mpesaPhone, setMpesaPhone] = useState('');
     const [mpesaReceipt, setMpesaReceipt] = useState('');
     const [customerName, setCustomerName] = useState('');
@@ -818,29 +819,37 @@ const PaymentModal = ({
                     </button>
                     {mpesaStatus !== 'waiting' && mpesaStatus !== 'sending' && (
                         <button
-                            onClick={() => {
+                            onClick={async () => {
+                                if (isSaving) return; // Prevent double-click
                                 if (paymentMethod === 'credit' && !selectedCustomer) {
                                     toast.error('Please select a credit customer first');
                                     return;
                                 }
-                                onComplete(
-                                    paymentMethod === 'mpesa' ? 'MPESA' : paymentMethod.toUpperCase(),
-                                    Number(amountPaid) || total,
-                                    mpesaReceipt,
-                                    selectedCustomer ? selectedCustomer.customer_name : customerName,
-                                    checkoutRequestId,
-                                    selectedCustomer ? (selectedCustomer.phone || undefined) : undefined
-                                );
+                                setIsSaving(true);
+                                try {
+                                    await onComplete(
+                                        paymentMethod === 'mpesa' ? 'MPESA' : paymentMethod.toUpperCase(),
+                                        Number(amountPaid) || total,
+                                        mpesaReceipt,
+                                        selectedCustomer ? selectedCustomer.customer_name : customerName,
+                                        checkoutRequestId,
+                                        selectedCustomer ? (selectedCustomer.phone || undefined) : undefined
+                                    );
+                                } catch (err) {
+                                    console.error('Complete sale error:', err);
+                                } finally {
+                                    setIsSaving(false);
+                                }
                             }}
-                            disabled={(paymentMethod === 'mpesa' && !mpesaReceipt && mpesaStatus !== 'success') || (paymentMethod === 'credit' && !selectedCustomer)}
+                            disabled={isSaving || (paymentMethod === 'mpesa' && !mpesaReceipt && mpesaStatus !== 'success') || (paymentMethod === 'credit' && !selectedCustomer)}
                             className={`flex-1 py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 ${
-                                (paymentMethod === 'mpesa' && !mpesaReceipt && mpesaStatus !== 'success') || (paymentMethod === 'credit' && !selectedCustomer)
+                                isSaving || (paymentMethod === 'mpesa' && !mpesaReceipt && mpesaStatus !== 'success') || (paymentMethod === 'credit' && !selectedCustomer)
                                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                 : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-lg'
                                 }`}
                         >
-                            <span>✅</span>
-                            <span>{paymentMethod === 'credit' && !selectedCustomer ? 'Select Customer' : 'Complete Sale'}</span>
+                            <span>{isSaving ? '⏳' : '✅'}</span>
+                            <span>{isSaving ? 'Processing...' : (paymentMethod === 'credit' && !selectedCustomer ? 'Select Customer' : 'Complete Sale')}</span>
                         </button>
                     )}
                 </div>
@@ -1524,7 +1533,7 @@ export default function RetailPOSPage() {
   <hr class="d">
   <div class="c" style="padding:4px 0;">
     <div style="font-size:8px;">Printed: ${now.toLocaleDateString('en-GB')} ${now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
-    <div style="font-size:7px;margin-top:2px;color:#666;">Powered by Alpha Retail POS</div>
+    <div style="font-size:7px;margin-top:2px;color:#000;">Powered by Alpha Retail POS</div>
   </div>
 </body></html>`;
 
