@@ -138,7 +138,7 @@ export default function ProductsPage() {
     const loadStockData = useCallback(async () => {
         if (!activeOutlet) return;
         try {
-            let { data, error } = await supabase.from('retail_stock').select('pid, qty, storage_type').eq('outlet_id', outletId);
+            let { data, error } = await supabase.from('retail_stock').select('pid, qty, storage_type').eq('outlet_id', outletId).range(0, 9999);
             if (error) {
                 const fb = await supabase.from('retail_stock').select('pid, qty, storage_type');
                 data = fb.data;

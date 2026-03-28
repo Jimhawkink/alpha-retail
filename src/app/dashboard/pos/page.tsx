@@ -1000,7 +1000,8 @@ export default function RetailPOSPage() {
                     const { data: allStockRows } = await supabase
                         .from('retail_stock')
                         .select('pid, qty, storage_type')
-                        .eq('outlet_id', outletId);
+                        .eq('outlet_id', outletId)
+                        .range(0, 9999);
                     const sMap: Record<number, { bags: number; pieces: number }> = {};
                     (allStockRows || []).forEach((s: any) => {
                         if (!sMap[s.pid]) sMap[s.pid] = { bags: 0, pieces: 0 };
@@ -1043,7 +1044,8 @@ export default function RetailPOSPage() {
             const { data: stockData } = await supabase
                 .from('retail_stock')
                 .select('pid, qty, storage_type')
-                .eq('outlet_id', outletId);
+                .eq('outlet_id', outletId)
+                .range(0, 9999);
 
             // Build stock maps by storage_type (same as products list page)
             const stockMap: Record<number, number> = {};
@@ -1617,55 +1619,88 @@ export default function RetailPOSPage() {
             // retail_stock is a LEDGER: each row has +/- qty.
             // Total stock = SUM(qty) WHERE pid=X AND outlet_id=Y
             // We INSERT a new row with NEGATIVE qty for every sale item.
+            //
+            // STRATEGY: BATCH INSERT all deductions in ONE call to prevent
+            // partial deductions from network errors interrupting a loop.
+            // If batch fails, fall back to individual inserts with isolation.
             // ═══════════════════════════════════════════════════════════════
+
+            // Step 1: Build ALL stock deduction rows upfront
+            const stockDeductionRows: Array<{
+                pid: number; invoice_no: string; qty: number;
+                storage_type: string; outlet_id: number;
+                itemName: string; // for logging only, not inserted
+            }> = [];
+
             for (const item of cart) {
                 const sellingUnit = (item.sellingUnit || 'Piece').toLowerCase();
                 const isBagSale = ['bag', 'bags', 'box', 'carton', 'crate', 'pack', 'dozen'].includes(sellingUnit);
 
-                // Determine what storage_type to deduct from and how much
                 let deductStorageType: string;
                 let deductQty: number;
 
                 if (isBagSale) {
-                    // Selling by Bag/Box/Carton — deduct from "Bags" storage
                     deductStorageType = 'Bags';
-                    deductQty = item.qty; // 1 bag sold = -1 from Bags
+                    deductQty = item.qty;
                 } else {
-                    // Selling by Piece/Kg/Unit — deduct from "Pieces" storage
                     deductStorageType = 'Pieces';
-                    deductQty = item.qty * (item.unitMultiplier || 1); // e.g. 2 items × 1 = 2 pieces
+                    deductQty = item.qty * (item.unitMultiplier || 1);
                 }
 
-                // ATTEMPT 1: Primary insert
-                console.log(`📦 Stock deduct: product=${item.id} (${item.name}), qty=-${deductQty}, type=${deductStorageType}, outlet=${outletId}`);
-                const { error: stockErr1 } = await supabase.from('retail_stock').insert({
+                stockDeductionRows.push({
                     pid: item.id,
                     invoice_no: `SALE-${freshReceiptNo}`,
                     qty: -deductQty,
                     storage_type: deductStorageType,
                     outlet_id: outletId,
+                    itemName: item.name,
                 });
+                console.log(`📦 Stock deduct planned: product=${item.id} (${item.name}), qty=-${deductQty}, type=${deductStorageType}, outlet=${outletId}`);
+            }
 
-                if (stockErr1) {
-                    // ATTEMPT 2: Retry once (maybe transient network error)
-                    console.warn(`⚠️ Stock deduct attempt 1 failed for ${item.name}:`, stockErr1.message);
-                    const { error: stockErr2 } = await supabase.from('retail_stock').insert({
-                        pid: item.id,
-                        invoice_no: `SALE-RETRY-${freshReceiptNo}`,
-                        qty: -deductQty,
-                        storage_type: deductStorageType,
-                        outlet_id: outletId,
-                    });
-                    if (stockErr2) {
-                        console.error(`❌ Stock deduct FAILED for ${item.name} after 2 attempts:`, stockErr2.message);
-                    } else {
-                        console.log(`✅ Stock deducted on retry: ${item.name} -${deductQty} ${deductStorageType}`);
+            // Step 2: BATCH INSERT all deductions in ONE Supabase call
+            if (stockDeductionRows.length > 0) {
+                // Remove itemName before inserting (it's for logging only)
+                const dbRows = stockDeductionRows.map(({ itemName, ...row }) => row);
+                const { error: batchStockErr } = await supabase.from('retail_stock').insert(dbRows);
+
+                if (batchStockErr) {
+                    // BATCH FAILED — fall back to individual inserts with isolation
+                    console.warn('⚠️ Batch stock deduction failed, falling back to individual inserts:', batchStockErr.message);
+
+                    for (const row of stockDeductionRows) {
+                        try {
+                            const { itemName, ...dbRow } = row;
+                            const { error: err1 } = await supabase.from('retail_stock').insert(dbRow);
+                            if (err1) {
+                                // Retry once with different invoice_no
+                                console.warn(`⚠️ Individual deduct failed for ${itemName}, retrying:`, err1.message);
+                                const { error: err2 } = await supabase.from('retail_stock').insert({
+                                    ...dbRow,
+                                    invoice_no: `SALE-RETRY-${freshReceiptNo}`,
+                                });
+                                if (err2) {
+                                    console.error(`❌ Stock deduct FAILED for ${itemName} after 2 attempts:`, err2.message);
+                                } else {
+                                    console.log(`✅ Stock deducted on retry: ${itemName}`);
+                                }
+                            } else {
+                                console.log(`✅ Stock deducted individually: ${itemName}`);
+                            }
+                        } catch (itemErr) {
+                            // Catch ANY error (network timeout, etc.) — continue to next item
+                            console.error(`❌ Exception deducting stock for ${row.itemName}:`, itemErr);
+                        }
                     }
                 } else {
-                    console.log(`✅ Stock deducted: ${item.name} -${deductQty} ${deductStorageType}`);
+                    console.log(`✅ Batch stock deduction successful: ${stockDeductionRows.length} items deducted in 1 call`);
                 }
+            }
 
-                // AUTO-CONVERT: If Pieces ran out and Bags available, convert 1 Bag → pieces
+            // Step 3: AUTO-CONVERT Bags→Pieces if Pieces ran out
+            for (const item of cart) {
+                const sellingUnit = (item.sellingUnit || 'Piece').toLowerCase();
+                const isBagSale = ['bag', 'bags', 'box', 'carton', 'crate', 'pack', 'dozen'].includes(sellingUnit);
                 if (!isBagSale) {
                     const piecesPerPkg = item.piecesPerPackage || 1;
                     if (piecesPerPkg > 1) {
