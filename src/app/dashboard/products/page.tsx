@@ -738,6 +738,7 @@ export default function ProductsPage() {
                                     <th className="px-4 py-3.5 text-left text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Product</th>
                                     <th className="px-4 py-3.5 text-left text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden md:table-cell">Category</th>
                                     <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Buy Price</th>
+                                    <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden lg:table-cell">Cost/Pc</th>
                                     <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Sell Price</th>
                                     <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden lg:table-cell">Wholesale</th>
                                     <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Stock</th>
@@ -774,6 +775,10 @@ export default function ProductsPage() {
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3 text-right text-xs text-gray-500 font-medium">Ksh {(p.purchase_cost || 0).toLocaleString()}</td>
+                                            <td className="px-4 py-3 text-right text-xs font-bold text-orange-600 hidden lg:table-cell">
+                                                Ksh {Math.round((p.purchase_cost || 0) / (p.pieces_per_package || 1)).toLocaleString()}
+                                                {(p.pieces_per_package || 1) > 1 && <span className="text-[9px] text-gray-400 block">÷{p.pieces_per_package}pcs</span>}
+                                            </td>
                                             <td className="px-4 py-3 text-right text-sm font-bold text-gray-900">Ksh {(p.sales_cost || 0).toLocaleString()}</td>
                                             <td className="px-4 py-3 text-right text-xs text-purple-600 font-semibold hidden lg:table-cell">{(p as any).wholesale_price ? `Ksh ${((p as any).wholesale_price || 0).toLocaleString()}` : '-'}</td>
                                             <td className="px-4 py-3 text-center">
