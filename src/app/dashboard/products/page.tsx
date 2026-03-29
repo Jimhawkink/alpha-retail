@@ -235,7 +235,7 @@ export default function ProductsPage() {
         }
     };
 
-    const calcMargin = (pc: number, sc: number) => pc <= 0 ? 0 : Math.round(((sc - pc) / pc) * 10000) / 100;
+    const calcMargin = (pc: number, sc: number) => pc <= 0 ? sc : Math.round((sc - pc) * 100) / 100;
 
     const openAddModal = async () => {
         setEditingProduct(null); const bc = await generateBarcode();
@@ -310,8 +310,8 @@ export default function ProductsPage() {
     };
 
     const exportCSV = () => {
-        const csv = [['Code', 'Name', 'Category', 'Buy', 'Sell', 'Wholesale', 'Stock', 'Margin%', 'Status'].join(','),
-        ...filtered.map(p => [p.product_code, `"${p.product_name}"`, p.category || '', p.purchase_cost, p.sales_cost, (p as any).wholesale_price || 0, stockData[p.pid] || 0, p.margin_per?.toFixed(1), p.active ? 'Active' : 'Off'].join(','))].join('\n');
+        const csv = [['Code', 'Name', 'Category', 'Buy', 'Sell', 'Wholesale', 'Stock', 'Margin', 'Status'].join(','),
+        ...filtered.map(p => { const cpp = (p.purchase_cost || 0) / (p.pieces_per_package || 1); const sp = (p as any).wholesale_price || p.sales_cost || 0; return [p.product_code, `"${p.product_name}"`, p.category || '', p.purchase_cost, p.sales_cost, (p as any).wholesale_price || 0, stockData[p.pid] || 0, (sp - cpp).toFixed(0), p.active ? 'Active' : 'Off'].join(','); })].join('\n');
         const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'products.csv'; a.click();
         toast.success('Exported!');
     };
@@ -458,7 +458,7 @@ export default function ProductsPage() {
                 if (prodData.purchase_cost > 0) {
                     const cpp = prodData.purchase_cost / (prodData.pieces_per_package || 1);
                     const sp = prodData.wholesale_price || prodData.sales_cost;
-                    prodData.margin_per = Math.round(((sp - cpp) / cpp) * 10000) / 100;
+                    prodData.margin_per = Math.round((sp - cpp) * 100) / 100;
                 }
 
                 try {
@@ -741,7 +741,7 @@ export default function ProductsPage() {
                                     <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Sell Price</th>
                                     <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden lg:table-cell">Wholesale</th>
                                     <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Stock</th>
-                                    <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden lg:table-cell">Margin</th>
+                                    <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden lg:table-cell">Profit</th>
                                     <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Status</th>
                                     <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider w-28">Actions</th>
                                 </tr>
@@ -785,10 +785,17 @@ export default function ProductsPage() {
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3 text-center hidden lg:table-cell">
-                                                <div className="flex items-center justify-center gap-1">
-                                                    <FiTrendingUp size={11} className={(p.margin_per || 0) >= 20 ? 'text-emerald-500' : 'text-red-400'} />
-                                                    <span className={`text-xs font-bold ${(p.margin_per || 0) >= 30 ? 'text-emerald-600' : (p.margin_per || 0) >= 15 ? 'text-amber-600' : 'text-red-600'}`}>{p.margin_per?.toFixed(1) || '0'}%</span>
-                                                </div>
+                                                {(() => {
+                                                    const cpp = (p.purchase_cost || 0) / (p.pieces_per_package || 1);
+                                                    const sp = (p as any).wholesale_price || p.sales_cost || 0;
+                                                    const margin = Math.round((sp - cpp) * 100) / 100;
+                                                    return (
+                                                        <div className="flex items-center justify-center gap-1">
+                                                            <FiTrendingUp size={11} className={margin >= 0 ? 'text-emerald-500' : 'text-red-400'} />
+                                                            <span className={`text-xs font-bold ${margin > 0 ? 'text-emerald-600' : margin === 0 ? 'text-gray-500' : 'text-red-600'}`}>Ksh {margin.toLocaleString()}</span>
+                                                        </div>
+                                                    );
+                                                })()}
                                             </td>
                                             <td className="px-4 py-3 text-center">
                                                 <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${p.active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-500'}`}>
@@ -1008,13 +1015,22 @@ export default function ProductsPage() {
                                                 <p className="text-[10px] text-gray-400">(WS × {formData.pieces_per_package}) − Buy</p>
                                             </div>
                                         )}
-                                        {/* Margin % */}
+                                        {/* Margin / Profit per piece */}
                                         <div className="bg-white rounded-xl p-3 border border-gray-200">
-                                            <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Margin %</p>
-                                            <p className={`text-lg font-black mt-0.5 ${calcMargin(formData.purchase_cost / (formData.pieces_per_package || 1), formData.wholesale_price || formData.sales_cost) >= 20 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                                                {calcMargin(formData.purchase_cost / (formData.pieces_per_package || 1), formData.wholesale_price || formData.sales_cost).toFixed(1)}%
-                                            </p>
-                                            <p className="text-[10px] text-gray-400">On {formData.wholesale_price > 0 ? 'wholesale' : 'sell'} price</p>
+                                            <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Profit/Piece</p>
+                                            {(() => {
+                                                const cpp = formData.purchase_cost / (formData.pieces_per_package || 1);
+                                                const sp = formData.wholesale_price || formData.sales_cost;
+                                                const margin = Math.round((sp - cpp) * 100) / 100;
+                                                return (
+                                                    <>
+                                                        <p className={`text-lg font-black mt-0.5 ${margin >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                                            Ksh {margin.toLocaleString()}
+                                                        </p>
+                                                        <p className="text-[10px] text-gray-400">{formData.wholesale_price > 0 ? 'Wholesale' : 'Sell'} − Cost/piece</p>
+                                                    </>
+                                                );
+                                            })()}
                                         </div>
                                     </div>
                                 )}
@@ -1202,7 +1218,7 @@ export default function ProductsPage() {
                                         <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Sell Price</p><p className="font-bold text-sm text-green-700">Ksh {(lookupResult.sales_cost || 0).toLocaleString()} / {lookupResult.sales_unit}</p></div>
                                         <div className="bg-white p-3 rounded-xl border border-purple-100"><p className="text-[10px] text-purple-500 uppercase">Wholesale</p><p className="font-bold text-sm text-purple-700">{(lookupResult as any).wholesale_price ? `Ksh ${((lookupResult as any).wholesale_price || 0).toLocaleString()}` : 'N/A'}</p></div>
                                         <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Pcs/Package</p><p className="font-bold text-sm">{lookupResult.pieces_per_package || 1}</p></div>
-                                        <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Margin</p><p className="font-bold text-sm">{lookupResult.margin_per?.toFixed(1) || '0'}%</p></div>
+                                        <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Profit/Piece</p><p className={`font-bold text-sm ${(() => { const cpp = (lookupResult.purchase_cost || 0) / (lookupResult.pieces_per_package || 1); const sp = (lookupResult as any).wholesale_price || lookupResult.sales_cost || 0; return (sp - cpp) >= 0 ? 'text-emerald-700' : 'text-red-600'; })()}`}>Ksh {(() => { const cpp = (lookupResult.purchase_cost || 0) / (lookupResult.pieces_per_package || 1); const sp = (lookupResult as any).wholesale_price || lookupResult.sales_cost || 0; return Math.round((sp - cpp) * 100) / 100; })().toLocaleString()}</p></div>
                                     </div>
                                     <div className="flex gap-2 mt-4">
                                         <button onClick={() => { setShowLookupModal(false); openEditModal(lookupResult); }} className="flex-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold flex items-center justify-center gap-1"><FiEdit2 size={12} /> Edit</button>

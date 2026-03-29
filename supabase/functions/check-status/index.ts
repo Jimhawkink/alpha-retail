@@ -132,15 +132,56 @@ serve(async (req) => {
 
         // Parse result
         if (queryData.ResultCode !== undefined) {
-            return new Response(
-                JSON.stringify({
-                    success: queryData.ResultCode === "0" || queryData.ResultCode === 0,
-                    ResultCode: parseInt(queryData.ResultCode),
-                    ResultDesc: queryData.ResultDesc,
-                    MpesaReceiptNumber: queryData.ResultCode === "0" ? null : null, // Receipt comes via callback
-                }),
-                { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
+            const rc = parseInt(queryData.ResultCode);
+            
+            // ResultCode 0 = success, 1032 = cancelled by user,
+            // 1037 = timeout, 2001 = wrong PIN, 1 = insufficient funds
+            // BUT: If the M-Pesa STK query returns immediately while user is
+            // still entering PIN, Safaricom sometimes returns error codes
+            // like 1032 prematurely. Only treat as truly failed if
+            // the result description clearly indicates a terminal failure.
+            
+            if (rc === 0) {
+                // Success! (receipt comes via callback)
+                return new Response(
+                    JSON.stringify({
+                        success: true,
+                        ResultCode: 0,
+                        resultCode: 0,
+                        ResultDesc: queryData.ResultDesc,
+                        resultDesc: queryData.ResultDesc,
+                        status: 'completed',
+                    }),
+                    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                );
+            } else {
+                // Non-zero result code — could be a real failure OR
+                // the query was made before user completed PIN entry.
+                // Return both resultCode AND status:'pending' to let client
+                // decide whether to keep polling.
+                const desc = queryData.ResultDesc || '';
+                const isClearFailure = (
+                    rc === 1 || // Insufficient balance
+                    rc === 2001 || // Wrong PIN
+                    desc.toLowerCase().includes('insufficient') ||
+                    desc.toLowerCase().includes('wrong pin')
+                );
+                
+                return new Response(
+                    JSON.stringify({
+                        success: false,
+                        ResultCode: rc,
+                        resultCode: rc,
+                        ResultDesc: desc,
+                        resultDesc: desc,
+                        // If it's a clear failure (insufficient/wrong pin), mark as failed.
+                        // Otherwise keep as pending so the client continues polling
+                        // until the callback arrives or the client times out.
+                        status: isClearFailure ? 'failed' : 'pending',
+                    }),
+                    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                );
+            }
         } else {
             return new Response(
                 JSON.stringify({
