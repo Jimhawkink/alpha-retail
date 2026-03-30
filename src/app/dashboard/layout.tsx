@@ -42,6 +42,7 @@ const menuItems = [
             { name: 'Stock Adjustment', icon: '⚖️', href: '/dashboard/stock-adjustment', badge: null },
             { name: 'Low Stock', icon: '⚠️', href: '/dashboard/low-stock', badge: '5' },
             { name: 'Stock Valuation', icon: '💰', href: '/dashboard/stock-valuation', badge: null },
+            { name: 'Expiry Register', icon: '⏰', href: '/dashboard/expiry-register', badge: null },
         ]
     },
     {

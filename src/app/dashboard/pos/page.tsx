@@ -954,7 +954,7 @@ async function fetchAllStock(outletId: number): Promise<Array<{pid: number; qty:
 
 // Main Retail POS Page
 export default function RetailPOSPage() {
-    const { activeOutlet } = useOutlet();
+    const { activeOutlet, expiryEnabled } = useOutlet();
     const outletId = activeOutlet?.outlet_id || 1;
     const outletCode = activeOutlet?.outlet_code || 'RCP';
     const [products, setProducts] = useState<Product[]>([]);
@@ -983,6 +983,16 @@ export default function RetailPOSPage() {
     // Unit picker state
     const [showUnitPicker, setShowUnitPicker] = useState(false);
     const [unitPickerProduct, setUnitPickerProduct] = useState<Product | null>(null);
+
+    // ─── EXPIRY BATCH MODAL (only for expiry-enabled outlets) ───
+    const [showBatchModal, setShowBatchModal] = useState(false);
+    const [batchModalProduct, setBatchModalProduct] = useState<Product | null>(null);
+    const [productBatches, setProductBatches] = useState<Array<{
+        batch_id: number; batch_number: string; expiry_date: string;
+        qty_remaining: number; cost_price: number; selling_price: number;
+        daysLeft: number; status: string;
+    }>>([]);
+    const [loadingBatches, setLoadingBatches] = useState(false);
 
     // Opening Drop / Close Register state
     const [showOpeningDrop, setShowOpeningDrop] = useState(false);
@@ -1313,6 +1323,42 @@ export default function RetailPOSPage() {
             return;
         }
 
+        // ─── EXPIRY CHECK (ONLY for expiry-enabled outlets) ───
+        // Normal outlets skip this entirely and go straight to unit picker
+        if (expiryEnabled) {
+            // Fetch batches for this product and show batch selector
+            setBatchModalProduct(product);
+            setShowBatchModal(true);
+            setLoadingBatches(true);
+            supabase
+                .from('retail_product_batches')
+                .select('*')
+                .eq('pid', product.id)
+                .eq('outlet_id', outletId)
+                .eq('status', 'Active')
+                .gt('qty_remaining', 0)
+                .order('expiry_date', { ascending: true })
+                .then(({ data, error }) => {
+                    if (error) {
+                        console.error('Batch fetch error:', error);
+                        setProductBatches([]);
+                    } else {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const batches = (data || []).map(b => {
+                            const exp = new Date(b.expiry_date);
+                            exp.setHours(0, 0, 0, 0);
+                            const daysLeft = Math.ceil((exp.getTime() - today.getTime()) / 86400000);
+                            return { ...b, daysLeft };
+                        });
+                        setProductBatches(batches);
+                    }
+                    setLoadingBatches(false);
+                });
+            return; // Don't proceed to normal add-to-cart
+        }
+
+        // ─── NORMAL FLOW (unchanged for non-expiry outlets) ───
         // Check if product has different purchase/sales units
         const ppp = product.piecesPerPackage || 1;
         const pu = (product.purchaseUnit || '').trim().toLowerCase();
@@ -1329,7 +1375,41 @@ export default function RetailPOSPage() {
         // Same unit — always show Retail vs Wholesale picker
         setUnitPickerProduct(product);
         setShowUnitPicker(true);
-    }, [addToCartWithUnit]);
+    }, [addToCartWithUnit, expiryEnabled, outletId]);
+
+    // Handle batch selection from expiry modal
+    const handleBatchSelect = useCallback((batch: typeof productBatches[0]) => {
+        if (!batchModalProduct) return;
+
+        // Block expired or expiring tomorrow
+        if (batch.daysLeft <= 1) {
+            toast.error(`🚫 ${batchModalProduct.name} (Batch ${batch.batch_number || ''}) has expired or expires tomorrow! Cannot sell.`);
+            return;
+        }
+
+        // Warn if expiring in 2 days
+        if (batch.daysLeft <= 2) {
+            toast(`⚠️ ${batchModalProduct.name} expires in ${batch.daysLeft} day(s)!`, { icon: '⚠️', duration: 4000 });
+        }
+
+        setShowBatchModal(false);
+
+        // Now proceed to normal unit picker flow
+        const product = batchModalProduct;
+        const ppp = product.piecesPerPackage || 1;
+        const pu = (product.purchaseUnit || '').trim().toLowerCase();
+        const su = (product.salesUnit || '').trim().toLowerCase();
+        const hasDifferentUnits = (pu && su && pu !== su) || (ppp > 1 && pu && su && pu !== su);
+
+        if (hasDifferentUnits) {
+            setUnitPickerProduct(product);
+            setShowUnitPicker(true);
+            return;
+        }
+
+        setUnitPickerProduct(product);
+        setShowUnitPicker(true);
+    }, [batchModalProduct]);
 
     // Handle keyboard navigation in search results
     const handleSearchKeyDown = (e: React.KeyboardEvent) => {
@@ -2418,6 +2498,126 @@ export default function RetailPOSPage() {
                                 className="flex-1 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-bold hover:shadow-lg transition-all"
                             >
                                 ✅ Close & Save
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ═══ EXPIRY BATCH SELECTION MODAL (only for expiry-enabled outlets) ═══ */}
+            {showBatchModal && batchModalProduct && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowBatchModal(false)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-orange-500 to-red-500 px-6 py-4 text-white rounded-t-2xl flex items-center justify-between shrink-0">
+                            <div>
+                                <h2 className="text-lg font-bold flex items-center gap-2">{'\u23f0'} Select Batch</h2>
+                                <p className="text-xs text-white/80 mt-0.5">{batchModalProduct.name} — First Expiry First Out</p>
+                            </div>
+                            <button onClick={() => setShowBatchModal(false)} className="p-1.5 hover:bg-white/20 rounded-lg text-white font-bold text-lg">{'\u2715'}</button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="overflow-y-auto p-4 space-y-2 flex-1">
+                            {loadingBatches ? (
+                                <div className="flex flex-col items-center justify-center py-12">
+                                    <div className="w-10 h-10 border-4 border-orange-200 border-t-orange-600 rounded-full animate-spin" />
+                                    <p className="mt-3 text-sm text-gray-500">Loading batches...</p>
+                                </div>
+                            ) : productBatches.length === 0 ? (
+                                <div className="text-center py-12">
+                                    <p className="text-4xl mb-3">{'\ud83d\udce6'}</p>
+                                    <p className="font-medium text-gray-600">No batches found for this product</p>
+                                    <p className="text-sm text-gray-400 mt-1">Add batches in Products {'\u2192'} Expiry Management</p>
+                                    <button
+                                        onClick={() => {
+                                            setShowBatchModal(false);
+                                            // Let them add without batch for now
+                                            setUnitPickerProduct(batchModalProduct);
+                                            setShowUnitPicker(true);
+                                        }}
+                                        className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-xl text-sm font-medium hover:bg-blue-600"
+                                    >
+                                        Add Without Batch
+                                    </button>
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Legend */}
+                                    <div className="flex gap-2 mb-2 text-[10px] font-medium">
+                                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full">{'\ud83d\udfe2'} OK</span>
+                                        <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full">{'\ud83d\udfe0'} 2-7 days</span>
+                                        <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full">{'\ud83d\udd34'} {'\u2264'}2 days (warn)</span>
+                                        <span className="px-2 py-0.5 bg-gray-800 text-white rounded-full">{'\u26d4'} Expired (blocked)</span>
+                                    </div>
+
+                                    {productBatches.map(batch => {
+                                        const isExpired = batch.daysLeft <= 0;
+                                        const isBlocked = batch.daysLeft <= 1;
+                                        const isWarning = batch.daysLeft <= 2;
+                                        const isSoon = batch.daysLeft <= 7;
+
+                                        let bgColor = 'bg-white border-emerald-200 hover:border-emerald-400';
+                                        let badgeColor = 'bg-emerald-100 text-emerald-700';
+                                        let badgeText = `${batch.daysLeft}d left`;
+
+                                        if (isExpired) {
+                                            bgColor = 'bg-gray-100 border-red-300 opacity-60';
+                                            badgeColor = 'bg-red-600 text-white';
+                                            badgeText = 'EXPIRED';
+                                        } else if (isBlocked) {
+                                            bgColor = 'bg-red-50 border-red-300';
+                                            badgeColor = 'bg-red-500 text-white';
+                                            badgeText = `${batch.daysLeft}d - BLOCKED`;
+                                        } else if (isWarning) {
+                                            bgColor = 'bg-orange-50 border-orange-300';
+                                            badgeColor = 'bg-orange-500 text-white';
+                                            badgeText = `${batch.daysLeft}d left ⚠️`;
+                                        } else if (isSoon) {
+                                            bgColor = 'bg-amber-50 border-amber-200';
+                                            badgeColor = 'bg-amber-100 text-amber-700';
+                                            badgeText = `${batch.daysLeft}d left`;
+                                        }
+
+                                        return (
+                                            <button
+                                                key={batch.batch_id}
+                                                onClick={() => handleBatchSelect(batch)}
+                                                disabled={isBlocked}
+                                                className={`w-full p-4 rounded-xl border-2 text-left transition-all ${bgColor} ${isBlocked ? 'cursor-not-allowed' : 'cursor-pointer hover:shadow-md active:scale-[0.98]'}`}
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <p className="font-bold text-gray-800 text-sm">
+                                                            {batch.batch_number || `Batch #${batch.batch_id}`}
+                                                        </p>
+                                                        <p className="text-xs text-gray-500 mt-0.5">
+                                                            Expires: {new Date(batch.expiry_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                        </p>
+                                                        <p className="text-xs text-gray-400 mt-0.5">
+                                                            Qty: {batch.qty_remaining} remaining
+                                                        </p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${badgeColor}`}>
+                                                            {badgeText}
+                                                        </span>
+                                                        {!isBlocked && (
+                                                            <p className="text-xs text-blue-600 font-medium mt-1">{'\u2192'} Select</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="px-6 py-3 border-t bg-gray-50 rounded-b-2xl shrink-0">
+                            <button onClick={() => setShowBatchModal(false)} className="w-full py-2.5 border-2 border-gray-200 text-gray-600 font-bold rounded-xl text-sm hover:bg-gray-100">
+                                Cancel
                             </button>
                         </div>
                     </div>

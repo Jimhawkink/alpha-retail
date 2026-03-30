@@ -12,12 +12,14 @@ export interface Outlet {
     phone: string;
     is_main: boolean;
     active: boolean;
+    enable_expiry_tracking?: boolean;
 }
 
 interface OutletContextType {
     activeOutlet: Outlet | null;
     outlets: Outlet[];
     isMainOutlet: boolean;
+    expiryEnabled: boolean; // true if active outlet has expiry tracking ON
     switchOutlet: (outletId: number) => void;
     reloadOutlets: () => Promise<void>;
     outletFilter: (query: any) => any; // helper to add .eq('outlet_id', id) to Supabase queries
@@ -27,6 +29,7 @@ const OutletContext = createContext<OutletContextType>({
     activeOutlet: null,
     outlets: [],
     isMainOutlet: false,
+    expiryEnabled: false,
     switchOutlet: () => { },
     reloadOutlets: async () => { },
     outletFilter: (q: any) => q,
@@ -101,6 +104,7 @@ export function OutletProvider({ children }: { children: ReactNode }) {
             activeOutlet,
             outlets,
             isMainOutlet: activeOutlet?.is_main ?? false,
+            expiryEnabled: activeOutlet?.enable_expiry_tracking ?? false,
             switchOutlet,
             reloadOutlets: loadOutlets,
             outletFilter,

@@ -15,7 +15,7 @@ export default function OutletsPage() {
     // Modal
     const [showModal, setShowModal] = useState(false);
     const [editingOutlet, setEditingOutlet] = useState<Outlet | null>(null);
-    const [form, setForm] = useState({ outlet_name: '', outlet_code: '', address: '', city: '', phone: '', email: '', is_main: false });
+    const [form, setForm] = useState({ outlet_name: '', outlet_code: '', address: '', city: '', phone: '', email: '', is_main: false, enable_expiry_tracking: false });
     const [isSaving, setIsSaving] = useState(false);
 
     // Staff Assignment Modal
@@ -54,13 +54,13 @@ export default function OutletsPage() {
 
     const openAdd = () => {
         setEditingOutlet(null);
-        setForm({ outlet_name: '', outlet_code: '', address: '', city: '', phone: '', email: '', is_main: false });
+        setForm({ outlet_name: '', outlet_code: '', address: '', city: '', phone: '', email: '', is_main: false, enable_expiry_tracking: false });
         setShowModal(true);
     };
 
     const openEdit = (o: Outlet) => {
         setEditingOutlet(o);
-        setForm({ outlet_name: o.outlet_name, outlet_code: o.outlet_code, address: o.address || '', city: o.city || '', phone: o.phone || '', email: '', is_main: o.is_main });
+        setForm({ outlet_name: o.outlet_name, outlet_code: o.outlet_code, address: o.address || '', city: o.city || '', phone: o.phone || '', email: '', is_main: o.is_main, enable_expiry_tracking: o.enable_expiry_tracking || false });
         setShowModal(true);
     };
 
@@ -72,6 +72,7 @@ export default function OutletsPage() {
                 const { error } = await supabase.from('retail_outlets').update({
                     outlet_name: form.outlet_name, outlet_code: form.outlet_code.toUpperCase(),
                     address: form.address, city: form.city, phone: form.phone, is_main: form.is_main,
+                    enable_expiry_tracking: form.enable_expiry_tracking,
                     updated_at: new Date().toISOString(),
                 }).eq('outlet_id', editingOutlet.outlet_id);
                 if (error) throw error;
@@ -80,6 +81,7 @@ export default function OutletsPage() {
                 const { error } = await supabase.from('retail_outlets').insert({
                     outlet_name: form.outlet_name, outlet_code: form.outlet_code.toUpperCase(),
                     address: form.address, city: form.city, phone: form.phone, is_main: form.is_main,
+                    enable_expiry_tracking: form.enable_expiry_tracking,
                     active: true,
                 });
                 if (error) throw error;
@@ -206,6 +208,13 @@ export default function OutletsPage() {
                                 <div>
                                     <span className="text-sm font-bold text-amber-800">Set as Main/Head Office</span>
                                     <p className="text-[10px] text-amber-600">Main outlet can view all outlets' data</p>
+                                </div>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                                <input type="checkbox" checked={form.enable_expiry_tracking} onChange={e => setForm({ ...form, enable_expiry_tracking: e.target.checked })} className="accent-emerald-600" />
+                                <div>
+                                    <span className="text-sm font-bold text-emerald-800">⏰ Enable Expiry Tracking</span>
+                                    <p className="text-[10px] text-emerald-600">Track batch expiry dates, warn 2 days before, block sales on expiry day</p>
                                 </div>
                             </label>
                             <div className="flex gap-3 pt-3 border-t">
