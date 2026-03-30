@@ -81,7 +81,7 @@ async function fetchAllStock(outletId: number): Promise<Array<{pid: number; qty:
 }
 
 export default function ProductsPage() {
-    const { activeOutlet } = useOutlet();
+    const { activeOutlet, expiryEnabled } = useOutlet();
     const outletId = activeOutlet?.outlet_id || 1;
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
@@ -127,6 +127,16 @@ export default function ProductsPage() {
     const [adjustPieces, setAdjustPieces] = useState(0);
     const [adjustType, setAdjustType] = useState<'add' | 'remove'>('add');
     const [adjustReason, setAdjustReason] = useState('');
+
+    // Expiry batch management (only for expiry-enabled outlets)
+    const [productBatches, setProductBatches] = useState<Array<{
+        batch_id?: number; batch_number: string; expiry_date: string;
+        qty_received: number; qty_remaining: number; cost_price: number;
+        selling_price: number; supplier_name: string; isNew?: boolean; isEditing?: boolean;
+    }>>([]);
+    const [batchForm, setBatchForm] = useState({ batch_number: '', expiry_date: '', qty_received: 0, qty_remaining: 0, cost_price: 0, selling_price: 0, supplier_name: '' });
+    const [showBatchForm, setShowBatchForm] = useState(false);
+    const [editingBatchIdx, setEditingBatchIdx] = useState<number | null>(null);
 
     // Import states
     const [showImportModal, setShowImportModal] = useState(false);
@@ -239,7 +249,9 @@ export default function ProductsPage() {
 
     const openAddModal = async () => {
         setEditingProduct(null); const bc = await generateBarcode();
-        setFormData({ ...defaultProduct, barcode: bc, supplier_name: getKitchenSupplier() }); setOpeningBags(0); setOpeningPieces(0); setShowModal(true);
+        setFormData({ ...defaultProduct, barcode: bc, supplier_name: getKitchenSupplier() }); setOpeningBags(0); setOpeningPieces(0);
+        setProductBatches([]); setShowBatchForm(false); setEditingBatchIdx(null);
+        setShowModal(true);
     };
 
     const openEditModal = (p: Product) => {
@@ -252,7 +264,16 @@ export default function ProductsPage() {
             margin_per: p.margin_per || 0, show_ps: p.show_ps !== false, button_ui_color: p.button_ui_color || 'from-blue-400 to-blue-600',
             photo: p.photo || '', hscode: p.hscode || '', batch_no: p.batch_no || '', supplier_name: p.supplier_name || '', active: p.active !== false,
             pieces_per_package: p.pieces_per_package || 1,
-        }); setShowModal(true);
+        });
+        setShowBatchForm(false); setEditingBatchIdx(null);
+        // Load batches for this product (only if expiry tracking enabled)
+        if (expiryEnabled) {
+            supabase.from('retail_product_batches').select('*').eq('pid', p.pid).eq('outlet_id', outletId).eq('status', 'Active').order('expiry_date', { ascending: true })
+                .then(({ data }) => setProductBatches((data || []).map(b => ({ ...b, isNew: false, isEditing: false }))));
+        } else {
+            setProductBatches([]);
+        }
+        setShowModal(true);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -294,6 +315,17 @@ export default function ProductsPage() {
                     if (openingBags > 0) stockRecords.push({ pid: np.pid, invoice_no: 'OPENING', qty: openingBags, storage_type: 'Bags', outlet_id: outletId });
                     if (openingPieces > 0) stockRecords.push({ pid: np.pid, invoice_no: 'OPENING', qty: openingPieces, storage_type: 'Pieces', outlet_id: outletId });
                     if (stockRecords.length > 0) await supabase.from('retail_stock').insert(stockRecords);
+                    // Save any new batches (expiry tracking)
+                    if (expiryEnabled && productBatches.length > 0) {
+                        const newBatches = productBatches.filter(b => b.isNew).map(b => ({
+                            pid: np.pid, product_name: formData.product_name,
+                            batch_number: b.batch_number || `B-${Date.now().toString(36).toUpperCase()}`,
+                            expiry_date: b.expiry_date, qty_received: b.qty_received, qty_remaining: b.qty_remaining,
+                            cost_price: b.cost_price, selling_price: b.selling_price, supplier_name: b.supplier_name,
+                            outlet_id: outletId, status: 'Active', received_date: new Date().toISOString().split('T')[0],
+                        }));
+                        if (newBatches.length > 0) await supabase.from('retail_product_batches').insert(newBatches);
+                    }
                 }
                 toast.success(`Product ${code} created!`);
                 logActivity('Create', `Created product: ${formData.product_name}`, `Code: ${code}, Buy: ${formData.purchase_cost}, Sell: ${formData.sales_cost}`);
@@ -1080,6 +1112,163 @@ export default function ProductsPage() {
                                     </label>
                                 </div>
                             </div>
+
+                            {/* ━━━ EXPIRY BATCH MANAGEMENT (only for expiry-enabled outlets) ━━━ */}
+                            {expiryEnabled && (
+                                <div className="border-2 border-orange-200 rounded-2xl p-4 bg-orange-50/50">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <h3 className="text-sm font-bold text-orange-700 flex items-center gap-2">⏰ Expiry Batches</h3>
+                                        <button type="button" onClick={() => {
+                                            setEditingBatchIdx(null);
+                                            setBatchForm({ batch_number: '', expiry_date: '', qty_received: 0, qty_remaining: 0, cost_price: formData.purchase_cost, selling_price: formData.sales_cost, supplier_name: formData.supplier_name });
+                                            setShowBatchForm(true);
+                                        }} className="px-3 py-1.5 bg-orange-500 text-white rounded-lg text-xs font-bold hover:bg-orange-600 flex items-center gap-1">
+                                            <FiPlus size={12} /> Add Batch
+                                        </button>
+                                    </div>
+
+                                    {/* Batch add/edit form */}
+                                    {showBatchForm && (
+                                        <div className="bg-white rounded-xl p-3 border border-orange-200 mb-3 space-y-2">
+                                            <div className="grid grid-cols-3 gap-2">
+                                                <div>
+                                                    <label className="text-[9px] font-bold text-gray-500 uppercase">Batch #</label>
+                                                    <input type="text" value={batchForm.batch_number} onChange={e => setBatchForm({ ...batchForm, batch_number: e.target.value })}
+                                                        placeholder="Auto" className="w-full px-2 py-1.5 bg-gray-50 border rounded-lg text-xs" />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[9px] font-bold text-red-500 uppercase">Expiry Date *</label>
+                                                    <input type="date" value={batchForm.expiry_date} onChange={e => setBatchForm({ ...batchForm, expiry_date: e.target.value })}
+                                                        className="w-full px-2 py-1.5 bg-gray-50 border border-red-200 rounded-lg text-xs" />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[9px] font-bold text-gray-500 uppercase">Supplier</label>
+                                                    <input type="text" value={batchForm.supplier_name} onChange={e => setBatchForm({ ...batchForm, supplier_name: e.target.value })}
+                                                        placeholder="Optional" className="w-full px-2 py-1.5 bg-gray-50 border rounded-lg text-xs" />
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-4 gap-2">
+                                                <div>
+                                                    <label className="text-[9px] font-bold text-gray-500 uppercase">Qty Received</label>
+                                                    <input type="number" value={batchForm.qty_received} onChange={e => { const v = Number(e.target.value) || 0; setBatchForm({ ...batchForm, qty_received: v, qty_remaining: editingBatchIdx !== null ? batchForm.qty_remaining : v }); }}
+                                                        className="w-full px-2 py-1.5 bg-gray-50 border rounded-lg text-xs" />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[9px] font-bold text-gray-500 uppercase">Qty Remaining</label>
+                                                    <input type="number" value={batchForm.qty_remaining} onChange={e => setBatchForm({ ...batchForm, qty_remaining: Number(e.target.value) || 0 })}
+                                                        className="w-full px-2 py-1.5 bg-gray-50 border rounded-lg text-xs" />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[9px] font-bold text-gray-500 uppercase">Cost Price</label>
+                                                    <input type="number" value={batchForm.cost_price} onChange={e => setBatchForm({ ...batchForm, cost_price: Number(e.target.value) || 0 })}
+                                                        className="w-full px-2 py-1.5 bg-gray-50 border rounded-lg text-xs" />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[9px] font-bold text-gray-500 uppercase">Sell Price</label>
+                                                    <input type="number" value={batchForm.selling_price} onChange={e => setBatchForm({ ...batchForm, selling_price: Number(e.target.value) || 0 })}
+                                                        className="w-full px-2 py-1.5 bg-gray-50 border rounded-lg text-xs" />
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2 pt-1">
+                                                <button type="button" onClick={() => setShowBatchForm(false)} className="px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-xs font-medium">Cancel</button>
+                                                <button type="button" onClick={async () => {
+                                                    if (!batchForm.expiry_date) { toast.error('Set expiry date!'); return; }
+                                                    const batchData = {
+                                                        batch_number: batchForm.batch_number || `B-${Date.now().toString(36).toUpperCase()}`,
+                                                        expiry_date: batchForm.expiry_date,
+                                                        qty_received: batchForm.qty_received,
+                                                        qty_remaining: batchForm.qty_remaining,
+                                                        cost_price: batchForm.cost_price,
+                                                        selling_price: batchForm.selling_price,
+                                                        supplier_name: batchForm.supplier_name,
+                                                    };
+                                                    if (editingBatchIdx !== null) {
+                                                        // Update existing batch
+                                                        const batch = productBatches[editingBatchIdx];
+                                                        if (batch.batch_id) {
+                                                            await supabase.from('retail_product_batches').update({ ...batchData, product_name: formData.product_name, updated_at: new Date().toISOString() }).eq('batch_id', batch.batch_id);
+                                                            toast.success('Batch updated!');
+                                                        }
+                                                        setProductBatches(prev => prev.map((b, i) => i === editingBatchIdx ? { ...b, ...batchData } : b));
+                                                    } else {
+                                                        // New batch
+                                                        if (editingProduct) {
+                                                            // Product already exists — save to DB immediately
+                                                            const { error } = await supabase.from('retail_product_batches').insert({
+                                                                ...batchData, pid: editingProduct.pid, product_name: formData.product_name,
+                                                                outlet_id: outletId, status: 'Active', received_date: new Date().toISOString().split('T')[0],
+                                                            });
+                                                            if (error) { toast.error('Failed to save batch'); return; }
+                                                            toast.success('Batch added!');
+                                                            // Reload batches
+                                                            const { data } = await supabase.from('retail_product_batches').select('*').eq('pid', editingProduct.pid).eq('outlet_id', outletId).eq('status', 'Active').order('expiry_date');
+                                                            setProductBatches((data || []).map(b => ({ ...b, isNew: false, isEditing: false })));
+                                                        } else {
+                                                            // New product — store locally, will save on product create
+                                                            setProductBatches(prev => [...prev, { ...batchData, isNew: true }]);
+                                                        }
+                                                    }
+                                                    setShowBatchForm(false); setEditingBatchIdx(null);
+                                                }} className="px-3 py-1.5 bg-orange-500 text-white rounded-lg text-xs font-bold hover:bg-orange-600">
+                                                    {editingBatchIdx !== null ? 'Update' : 'Add'} Batch
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Batch list */}
+                                    {productBatches.length === 0 && !showBatchForm ? (
+                                        <p className="text-xs text-orange-500 italic text-center py-3">No batches yet — click &quot;Add Batch&quot; to track expiry dates</p>
+                                    ) : (
+                                        <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                                            {productBatches.map((b, idx) => {
+                                                const today = new Date(); today.setHours(0, 0, 0, 0);
+                                                const exp = new Date(b.expiry_date); exp.setHours(0, 0, 0, 0);
+                                                const daysLeft = Math.ceil((exp.getTime() - today.getTime()) / 86400000);
+                                                const isExpired = daysLeft <= 0;
+                                                const isBlocked = daysLeft <= 1;
+                                                const isWarning = daysLeft <= 2;
+                                                const isSoon = daysLeft <= 7;
+
+                                                let badgeBg = 'bg-emerald-100 text-emerald-700';
+                                                let badgeText = `${daysLeft}d`;
+                                                let rowBg = 'bg-white';
+                                                if (isExpired) { badgeBg = 'bg-red-600 text-white'; badgeText = 'EXPIRED'; rowBg = 'bg-red-50'; }
+                                                else if (isBlocked) { badgeBg = 'bg-red-500 text-white'; badgeText = `${daysLeft}d BLOCKED`; rowBg = 'bg-red-50'; }
+                                                else if (isWarning) { badgeBg = 'bg-orange-500 text-white'; badgeText = `${daysLeft}d ⚠️`; rowBg = 'bg-orange-50'; }
+                                                else if (isSoon) { badgeBg = 'bg-amber-100 text-amber-700'; badgeText = `${daysLeft}d`; rowBg = 'bg-amber-50'; }
+
+                                                return (
+                                                    <div key={b.batch_id || idx} className={`flex items-center gap-2 p-2 rounded-lg border border-gray-200 ${rowBg}`}>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-xs font-bold text-gray-800 truncate">{b.batch_number || `Batch #${idx + 1}`}</p>
+                                                            <p className="text-[10px] text-gray-500">
+                                                                Exp: {new Date(b.expiry_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                                {' · '} Qty: {b.qty_remaining}{b.supplier_name ? ` · ${b.supplier_name}` : ''}
+                                                            </p>
+                                                        </div>
+                                                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${badgeBg}`}>{badgeText}</span>
+                                                        <button type="button" onClick={() => {
+                                                            setEditingBatchIdx(idx);
+                                                            setBatchForm({ batch_number: b.batch_number, expiry_date: b.expiry_date, qty_received: b.qty_received, qty_remaining: b.qty_remaining, cost_price: b.cost_price, selling_price: b.selling_price, supplier_name: b.supplier_name || '' });
+                                                            setShowBatchForm(true);
+                                                        }} className="p-1 text-blue-500 hover:bg-blue-50 rounded"><FiEdit2 size={12} /></button>
+                                                        <button type="button" onClick={async () => {
+                                                            if (!confirm('Remove this batch?')) return;
+                                                            if (b.batch_id) {
+                                                                await supabase.from('retail_product_batches').update({ status: 'Removed' }).eq('batch_id', b.batch_id);
+                                                                toast.success('Batch removed');
+                                                            }
+                                                            setProductBatches(prev => prev.filter((_, i) => i !== idx));
+                                                        }} className="p-1 text-red-500 hover:bg-red-50 rounded"><FiTrash2 size={12} /></button>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             <div>
                                 <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Description</label>
                                 <textarea value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} placeholder="Optional..." rows={2}
