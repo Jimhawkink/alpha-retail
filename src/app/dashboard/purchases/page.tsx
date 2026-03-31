@@ -51,17 +51,18 @@ export default function PurchasesPage() {
             if (dateFrom) query = query.gte('purchase_date', dateFrom);
             if (dateTo) query = query.lte('purchase_date', dateTo);
             let { data, error } = await query;
-            if (error) {
+            if (error || (data && data.length === 0)) {
+                // Fallback: try without outlet_id filter
                 let fb = supabase.from('retail_purchases').select('*').order('purchase_id', { ascending: false });
                 if (dateFrom) fb = fb.gte('purchase_date', dateFrom);
                 if (dateTo) fb = fb.lte('purchase_date', dateTo);
                 const r2 = await fb;
-                data = r2.data;
+                if (r2.data && r2.data.length > 0) data = r2.data;
             }
             setPurchases(data || []);
         } catch { toast.error('Failed to load purchases'); }
         setIsLoading(false);
-    }, [dateFrom, dateTo]);
+    }, [activeOutlet, outletId, dateFrom, dateTo]);
 
     const loadSuppliers = useCallback(async () => {
         try { const { data } = await supabase.from('retail_suppliers').select('supplier_id, supplier_name').eq('active', true).order('supplier_name'); setSuppliers(data || []); } catch { /* silent */ }
