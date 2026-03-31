@@ -1082,14 +1082,25 @@ export default function RetailPOSPage() {
 
     // User role for discount permission
     const [userType, setUserType] = useState<string>('');
+    const [isWaiterUser, setIsWaiterUser] = useState(false);
+    const [loggedInUserName, setLoggedInUserName] = useState('');
     useEffect(() => {
         try {
             const userData = localStorage.getItem('user');
             if (userData) {
                 const parsed = JSON.parse(userData);
                 setUserType(parsed.userType || '');
+                const waiter = parsed.isWaiter === true || (parsed.userType || '').toLowerCase() === 'waiter' || (parsed.userType || '').toLowerCase() === 'cashier';
+                setIsWaiterUser(waiter);
+                setLoggedInUserName(parsed.name || '');
             }
         } catch { /* ignore */ }
+        // Auto-fullscreen POS on load for ALL users
+        setTimeout(() => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            }
+        }, 500);
     }, []);
     const canDiscount = ['Admin', 'SuperAdmin', 'Super User', 'admin', 'superadmin', 'super user'].includes(userType);
 
@@ -2045,6 +2056,22 @@ export default function RetailPOSPage() {
                         {new Date().toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
                     </span>
                     <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm font-semibold">{receiptNo}</span>
+                    {/* Waiter badge + Logout */}
+                    {isWaiterUser && (
+                        <>
+                            <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-50 rounded-lg border border-purple-200">
+                                <span className="text-xs">👤</span>
+                                <span className="text-xs font-semibold text-purple-700">{loggedInUserName}</span>
+                            </div>
+                            <button
+                                onClick={() => { localStorage.removeItem('user'); window.location.href = '/'; }}
+                                className="px-2.5 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1"
+                                title="Logout"
+                            >
+                                🚪 Logout
+                            </button>
+                        </>
+                    )}
                     <button
                         onClick={toggleFullscreen}
                         className="p-2 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white rounded-lg transition-all hover:scale-105 active:scale-95 shadow-md"
@@ -2066,11 +2093,11 @@ export default function RetailPOSPage() {
             {/* Main Header */}
             <div className="bg-white border-b border-gray-200 px-4 py-3">
                 <div className="flex items-center justify-between gap-4">
-                    {/* Left - Store/Branch Dropdown */}
+                    {/* Left - Store/Branch Dropdown (disabled for waiters) */}
                     <div className="flex items-center gap-4">
                         <div>
                             <label className="block text-xs text-gray-500 mb-1">Store/Branch</label>
-                            <select className="px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 font-medium focus:outline-none focus:border-blue-500 cursor-pointer min-w-[180px]">
+                            <select className={`px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 font-medium focus:outline-none focus:border-blue-500 cursor-pointer min-w-[180px] ${isWaiterUser ? 'opacity-40 pointer-events-none' : ''}`} disabled={isWaiterUser}>
                                 <option>🏪 Main Store</option>
                                 <option>🏪 Branch 1</option>
                                 <option>🏪 Branch 2</option>
@@ -2078,7 +2105,7 @@ export default function RetailPOSPage() {
                         </div>
                         <div>
                             <label className="block text-xs text-gray-500 mb-1">Counter</label>
-                            <select className="px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 font-medium focus:outline-none focus:border-blue-500 cursor-pointer min-w-[120px]">
+                            <select className={`px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 font-medium focus:outline-none focus:border-blue-500 cursor-pointer min-w-[120px] ${isWaiterUser ? 'opacity-40 pointer-events-none' : ''}`} disabled={isWaiterUser}>
                                 <option>Counter 1</option>
                                 <option>Counter 2</option>
                             </select>
