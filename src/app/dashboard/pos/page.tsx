@@ -1007,6 +1007,77 @@ export default function RetailPOSPage() {
     } | null>(null);
     const [isLoadingRegister, setIsLoadingRegister] = useState(false);
 
+    // ─── HOLD / RECALL SALE ───
+    interface HeldSale {
+        id: string;
+        cart: CartItem[];
+        receiptNo: string;
+        heldAt: string;
+        total: number;
+        itemCount: number;
+        customerName?: string;
+    }
+    const [heldSales, setHeldSales] = useState<HeldSale[]>([]);
+    const [showHeldSalesModal, setShowHeldSalesModal] = useState(false);
+
+    // Load held sales from localStorage on mount
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem('alpha_retail_held_sales');
+            if (saved) setHeldSales(JSON.parse(saved));
+        } catch (_) {}
+    }, []);
+
+    // Persist held sales to localStorage whenever they change
+    useEffect(() => {
+        try {
+            localStorage.setItem('alpha_retail_held_sales', JSON.stringify(heldSales));
+        } catch (_) {}
+    }, [heldSales]);
+
+    // Hold current sale
+    const holdCurrentSale = () => {
+        if (cart.length === 0) {
+            toast.error('Cart is empty — nothing to hold');
+            return;
+        }
+        const subtot = cart.reduce((s, i) => s + (i.effectivePrice * i.qty), 0);
+        const disc = cart.reduce((s, i) => s + i.discount, 0);
+        const held: HeldSale = {
+            id: `HOLD-${Date.now()}`,
+            cart: [...cart],
+            receiptNo,
+            heldAt: new Date().toISOString(),
+            total: subtot - disc,
+            itemCount: cart.length,
+        };
+        setHeldSales(prev => [...prev, held]);
+        setCart([]);
+        loadNextReceiptNo();
+        toast.success(`Sale held (${held.itemCount} items — Ksh ${held.total.toLocaleString()})`);
+    };
+
+    // Recall a held sale
+    const recallHeldSale = (heldId: string) => {
+        const sale = heldSales.find(h => h.id === heldId);
+        if (!sale) return;
+        if (cart.length > 0) {
+            // Auto-hold current cart before recalling
+            holdCurrentSale();
+        }
+        setCart(sale.cart);
+        setReceiptNo(sale.receiptNo);
+        setHeldSales(prev => prev.filter(h => h.id !== heldId));
+        setShowHeldSalesModal(false);
+        toast.success('Sale recalled — continue where you left off');
+    };
+
+    // Delete a held sale
+    const deleteHeldSale = (heldId: string) => {
+        setHeldSales(prev => prev.filter(h => h.id !== heldId));
+        toast.success('Held sale removed');
+    };
+
     const searchInputRef = useRef<HTMLInputElement>(null);
 
     // User role for discount permission
@@ -2176,14 +2247,38 @@ export default function RetailPOSPage() {
                         <h2 className="font-bold flex items-center gap-2">
                             <span>🛒</span> Cart ({cart.length} items)
                         </h2>
-                        {cart.length > 0 && (
+                        <div className="flex items-center gap-1.5">
+                            {/* Recall / Held Sales Button */}
                             <button
-                                onClick={clearCart}
-                                className="text-sm bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg transition-colors"
+                                onClick={() => setShowHeldSalesModal(true)}
+                                className="relative text-sm bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg transition-colors flex items-center gap-1"
                             >
-                                Clear
+                                <span>📋</span> Recall
+                                {heldSales.length > 0 && (
+                                    <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-lg animate-pulse">
+                                        {heldSales.length}
+                                    </span>
+                                )}
                             </button>
-                        )}
+                            {/* Hold Sale Button */}
+                            {cart.length > 0 && (
+                                <button
+                                    onClick={holdCurrentSale}
+                                    className="text-sm bg-amber-500/80 hover:bg-amber-500 px-3 py-1 rounded-lg transition-colors flex items-center gap-1"
+                                >
+                                    <span>⏸️</span> Hold
+                                </button>
+                            )}
+                            {/* Clear Cart */}
+                            {cart.length > 0 && (
+                                <button
+                                    onClick={clearCart}
+                                    className="text-sm bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg transition-colors"
+                                >
+                                    Clear
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     {/* Cart Items */}
@@ -2240,6 +2335,85 @@ export default function RetailPOSPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Held Sales Modal */}
+            {showHeldSalesModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowHeldSalesModal(false)}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-4 text-white flex items-center justify-between">
+                            <div>
+                                <h2 className="text-lg font-bold flex items-center gap-2">📋 Held Sales</h2>
+                                <p className="text-amber-100 text-xs mt-0.5">{heldSales.length} transaction{heldSales.length !== 1 ? 's' : ''} on hold</p>
+                            </div>
+                            <button onClick={() => setShowHeldSalesModal(false)} className="p-2 hover:bg-white/20 rounded-xl text-white text-lg">✕</button>
+                        </div>
+
+                        <div className="flex-1 overflow-auto p-4">
+                            {heldSales.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                                    <span className="text-5xl mb-3">📋</span>
+                                    <p className="font-medium">No held sales</p>
+                                    <p className="text-sm">Hold a sale from the cart to see it here</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {heldSales.map(h => {
+                                        const heldTime = new Date(h.heldAt);
+                                        const minsAgo = Math.floor((Date.now() - heldTime.getTime()) / 60000);
+                                        const timeLabel = minsAgo < 1 ? 'Just now' : minsAgo < 60 ? `${minsAgo}m ago` : `${Math.floor(minsAgo / 60)}h ${minsAgo % 60}m ago`;
+                                        return (
+                                            <div key={h.id} className="bg-white rounded-2xl border-2 border-amber-200 shadow-sm hover:shadow-md transition-all p-4">
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xl">🧾</span>
+                                                        <div>
+                                                            <p className="font-bold text-gray-800">{h.receiptNo}</p>
+                                                            <p className="text-xs text-gray-500">⏱️ {timeLabel}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-lg font-black text-green-600">Ksh {h.total.toLocaleString()}</p>
+                                                        <p className="text-xs text-gray-500">{h.itemCount} item{h.itemCount !== 1 ? 's' : ''}</p>
+                                                    </div>
+                                                </div>
+
+                                                {/* Items preview */}
+                                                <div className="bg-gray-50 rounded-xl p-2.5 mb-3 max-h-[100px] overflow-y-auto">
+                                                    {h.cart.map((item, idx) => (
+                                                        <div key={idx} className="flex justify-between text-xs py-0.5">
+                                                            <span className="text-gray-600">{item.name} × {item.qty}</span>
+                                                            <span className="font-bold text-gray-800">Ksh {((item.effectivePrice * item.qty) - item.discount).toLocaleString()}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => recallHeldSale(h.id)}
+                                                        className="flex-1 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold text-sm hover:shadow-lg transition-all flex items-center justify-center gap-1.5"
+                                                    >
+                                                        <span>▶️</span> Recall Sale
+                                                    </button>
+                                                    <button
+                                                        onClick={() => deleteHeldSale(h.id)}
+                                                        className="py-2.5 px-4 bg-red-50 text-red-500 rounded-xl font-bold text-sm hover:bg-red-100 transition-all"
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="p-4 border-t border-gray-200">
+                            <button onClick={() => setShowHeldSalesModal(false)} className="w-full py-3 border-2 border-gray-200 text-gray-600 rounded-xl font-semibold hover:bg-gray-50 transition-colors">Close</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Modals */}
             <PaymentModal
