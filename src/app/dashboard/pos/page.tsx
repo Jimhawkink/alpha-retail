@@ -2197,19 +2197,23 @@ export default function RetailPOSPage() {
                         </div>
                     </div>
 
-                    {/* Register Open/Close Buttons */}
+                    {/* Register Open/Close Buttons — disabled for cashiers */}
                     <div className="flex items-center gap-2">
                         {!registerOpen ? (
                             <button
                                 onClick={() => setShowOpeningDrop(true)}
-                                className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                                disabled={isWaiterUser}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${isWaiterUser ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600 text-white'}`}
+                                title={isWaiterUser ? 'Only admins can open the register' : 'Open Register'}
                             >
                                 🟢 Open Register
                             </button>
                         ) : (
                             <button
                                 onClick={handleCloseRegister}
-                                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                                disabled={isWaiterUser}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${isWaiterUser ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-red-500 hover:bg-red-600 text-white'}`}
+                                title={isWaiterUser ? 'Only admins can close the register' : 'Close Register'}
                             >
                                 🔴 Close Register
                             </button>

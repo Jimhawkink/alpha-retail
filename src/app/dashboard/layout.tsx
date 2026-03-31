@@ -66,7 +66,8 @@ const menuItems = [
     {
         category: 'Reports',
         items: [
-            { name: 'Sales Report', icon: '📈', href: '/dashboard/reports/sales', badge: null },
+            { name: 'Sales Summary', icon: '📈', href: '/dashboard/sales-summary', badge: null },
+            { name: 'Sales Report', icon: '📋', href: '/dashboard/reports/sales', badge: null },
             { name: 'Profit Report', icon: '💹', href: '/dashboard/reports/profit', badge: null },
             { name: 'Stock Report', icon: '📊', href: '/dashboard/reports/stock', badge: null },
             { name: 'P&L Report', icon: '📉', href: '/dashboard/reports/profit-loss', badge: null },

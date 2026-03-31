@@ -749,21 +749,23 @@ export default function DashboardPage() {
             {/* ══════ Quick Actions ══════ */}
             <div className="bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800 rounded-2xl p-5 text-white">
                 <h3 className="font-bold text-sm mb-3 flex items-center gap-2">⚡ Quick Actions</h3>
-                <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
+                <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-10 gap-2">
                     {[
-                        { icon: '🛒', label: 'POS', href: '/dashboard/pos' },
-                        { icon: '📋', label: 'Reports', href: '/dashboard/shift-reports' },
-                        { icon: '📥', label: 'Purchase', href: '/dashboard/purchase' },
-                        { icon: '🍳', label: 'Recipe', href: '/dashboard/recipe' },
-                        { icon: '📦', label: 'Batches', href: '/dashboard/batches' },
-                        { icon: '💸', label: 'Expenses', href: '/dashboard/expenses' },
-                        { icon: '👥', label: 'Payroll', href: '/dashboard/payroll' },
-                        { icon: '⏰', label: 'Shifts', href: '/dashboard/shifts' },
+                        { icon: '🛒', label: 'POS', href: '/dashboard/pos', color: 'from-emerald-500/30 to-green-600/30 hover:from-emerald-500/50 hover:to-green-600/50' },
+                        { icon: '📥', label: 'Purchases', href: '/dashboard/purchases', color: 'from-blue-500/30 to-indigo-600/30 hover:from-blue-500/50 hover:to-indigo-600/50' },
+                        { icon: '📦', label: 'Stock Available', href: '/dashboard/products', color: 'from-cyan-500/30 to-sky-600/30 hover:from-cyan-500/50 hover:to-sky-600/50' },
+                        { icon: '⏰', label: 'Expiry Register', href: '/dashboard/expiry-register', color: 'from-amber-500/30 to-orange-600/30 hover:from-amber-500/50 hover:to-orange-600/50' },
+                        { icon: '↩️', label: 'Sales Returns', href: '/dashboard/sales-return', color: 'from-rose-500/30 to-red-600/30 hover:from-rose-500/50 hover:to-red-600/50' },
+                        { icon: '🧾', label: 'Register History', href: '/dashboard/shift-reports', color: 'from-purple-500/30 to-violet-600/30 hover:from-purple-500/50 hover:to-violet-600/50' },
+                        { icon: '📊', label: 'Reports', href: '/dashboard/reports/sales', color: 'from-indigo-500/30 to-blue-600/30 hover:from-indigo-500/50 hover:to-blue-600/50' },
+                        { icon: '📈', label: 'Sales Summary', href: '/dashboard/sales-summary', color: 'from-teal-500/30 to-emerald-600/30 hover:from-teal-500/50 hover:to-emerald-600/50' },
+                        { icon: '💸', label: 'Expenses', href: '/dashboard/expenses', color: 'from-pink-500/30 to-rose-600/30 hover:from-pink-500/50 hover:to-rose-600/50' },
+                        { icon: '👥', label: 'Payroll', href: '/dashboard/payroll', color: 'from-slate-400/30 to-gray-500/30 hover:from-slate-400/50 hover:to-gray-500/50' },
                     ].map(a => (
                         <a key={a.label} href={a.href}
-                            className="flex flex-col items-center gap-1.5 p-3 bg-white/10 hover:bg-white/20 rounded-xl transition-all hover:scale-105">
-                            <span className="text-2xl">{a.icon}</span>
-                            <span className="text-xs font-medium">{a.label}</span>
+                            className={`flex flex-col items-center gap-1.5 p-3 bg-gradient-to-br ${a.color} rounded-xl transition-all hover:scale-105 border border-white/10 hover:border-white/25 hover:shadow-lg hover:shadow-white/5`}>
+                            <span className="text-2xl drop-shadow-sm">{a.icon}</span>
+                            <span className="text-[10px] font-semibold text-center leading-tight">{a.label}</span>
                         </a>
                     ))}
                 </div>
