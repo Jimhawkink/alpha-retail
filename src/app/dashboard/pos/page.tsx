@@ -2090,6 +2090,72 @@ export default function RetailPOSPage() {
                 </div>
             </div>
 
+            {/* ═══ Quick Action Buttons Strip ═══ */}
+            <div className="bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800 px-4 py-2 flex items-center gap-2 overflow-x-auto">
+                {[
+                    { icon: '📥', label: 'Purchases', href: '/dashboard/purchases', cashierEnabled: false },
+                    { icon: '📦', label: 'Stock Available', href: '/dashboard/products', cashierEnabled: false },
+                    { icon: '⏰', label: 'Expiry Register', href: '/dashboard/expiry-register', cashierEnabled: false },
+                    { icon: '↩️', label: 'Sales Returns', href: '/dashboard/sales-return', cashierEnabled: true },
+                    { icon: '🧾', label: 'Register History', href: '/dashboard/shift-reports', cashierEnabled: false },
+                    { icon: '📊', label: 'Reports', href: '/dashboard/reports/sales', cashierEnabled: false },
+                    { icon: '📈', label: 'Sales Summary', href: '/dashboard/sales-summary', cashierEnabled: true },
+                ].map(btn => {
+                    const disabled = isWaiterUser && !btn.cashierEnabled;
+                    return disabled ? (
+                        <button
+                            key={btn.label}
+                            disabled
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 rounded-lg text-white/30 cursor-not-allowed border border-white/5 whitespace-nowrap"
+                            title="Admin only"
+                        >
+                            <span className="text-sm">{btn.icon}</span>
+                            <span className="text-[11px] font-medium">{btn.label}</span>
+                        </button>
+                    ) : (
+                        <a
+                            key={btn.label}
+                            href={btn.href}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-all hover:scale-105 border border-white/10 hover:border-white/25 whitespace-nowrap"
+                        >
+                            <span className="text-sm">{btn.icon}</span>
+                            <span className="text-[11px] font-semibold">{btn.label}</span>
+                        </a>
+                    );
+                })}
+
+                {/* Divider */}
+                <div className="h-6 w-px bg-white/20 mx-1 shrink-0" />
+
+                {/* Hold button — always enabled */}
+                <button
+                    onClick={holdCurrentSale}
+                    disabled={cart.length === 0}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all border whitespace-nowrap ${
+                        cart.length === 0
+                            ? 'bg-amber-500/10 text-amber-300/50 border-amber-500/10 cursor-not-allowed'
+                            : 'bg-amber-500/30 hover:bg-amber-500/50 text-white border-amber-400/30 hover:border-amber-400/50 hover:scale-105'
+                    }`}
+                >
+                    <span className="text-sm">⏸️</span>
+                    <span className="text-[11px] font-semibold">Hold Sale</span>
+                </button>
+
+                {/* Unhold / Recall button — always enabled */}
+                <button
+                    onClick={() => setShowHeldSalesModal(true)}
+                    className="relative flex items-center gap-1.5 px-3 py-1.5 bg-green-500/30 hover:bg-green-500/50 rounded-lg text-white transition-all hover:scale-105 border border-green-400/30 hover:border-green-400/50 whitespace-nowrap"
+                >
+                    <span className="text-sm">▶️</span>
+                    <span className="text-[11px] font-semibold">Unhold</span>
+                    {heldSales.length > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-pulse">
+                            {heldSales.length}
+                        </span>
+                    )}
+                </button>
+            </div>
+
             {/* Main Header */}
             <div className="bg-white border-b border-gray-200 px-4 py-3">
                 <div className="flex items-center justify-between gap-4">
