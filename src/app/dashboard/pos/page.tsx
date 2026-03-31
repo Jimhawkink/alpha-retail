@@ -1007,6 +1007,22 @@ export default function RetailPOSPage() {
     } | null>(null);
     const [isLoadingRegister, setIsLoadingRegister] = useState(false);
 
+    // ─── LOW STOCK NOTIFICATION ───
+    const [showLowStockModal, setShowLowStockModal] = useState(false);
+    const [lowStockItems, setLowStockItems] = useState<Array<{ name: string; pieceQty: number; bagQty: number; salesUnit: string; purchaseUnit: string }>>([]);
+
+    // Compute low stock items from loaded products (pieces < 10)
+    useEffect(() => {
+        const low = products.filter(p => (p.pieceQty || 0) < 10).map(p => ({
+            name: p.name,
+            pieceQty: p.pieceQty || 0,
+            bagQty: p.bagQty || 0,
+            salesUnit: p.salesUnit || 'Pc',
+            purchaseUnit: p.purchaseUnit || 'Bag',
+        })).sort((a, b) => a.pieceQty - b.pieceQty);
+        setLowStockItems(low);
+    }, [products]);
+
     // ─── HOLD / RECALL SALE ───
     interface HeldSale {
         id: string;
@@ -2090,8 +2106,8 @@ export default function RetailPOSPage() {
                 </div>
             </div>
 
-            {/* ═══ Quick Action Buttons Strip ═══ */}
-            <div className="bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800 px-4 py-2 flex items-center gap-2 overflow-x-auto">
+            {/* ═══ Quick Action Buttons Strip (Light Theme) ═══ */}
+            <div className="bg-gradient-to-r from-gray-50 via-white to-gray-50 border-b border-gray-200 px-4 py-2 flex items-center gap-2 overflow-x-auto">
                 {[
                     { icon: '📥', label: 'Purchases', href: '/dashboard/purchases', cashierEnabled: false },
                     { icon: '📦', label: 'Stock Available', href: '/dashboard/products', cashierEnabled: false },
@@ -2106,7 +2122,7 @@ export default function RetailPOSPage() {
                         <button
                             key={btn.label}
                             disabled
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 rounded-lg text-white/30 cursor-not-allowed border border-white/5 whitespace-nowrap"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 rounded-lg text-gray-300 cursor-not-allowed border border-gray-200 whitespace-nowrap"
                             title="Admin only"
                         >
                             <span className="text-sm">{btn.icon}</span>
@@ -2116,7 +2132,7 @@ export default function RetailPOSPage() {
                         <a
                             key={btn.label}
                             href={btn.href}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-all hover:scale-105 border border-white/10 hover:border-white/25 whitespace-nowrap"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-blue-50 rounded-lg text-gray-700 hover:text-blue-700 transition-all hover:scale-105 border border-gray-200 hover:border-blue-300 shadow-sm hover:shadow whitespace-nowrap"
                         >
                             <span className="text-sm">{btn.icon}</span>
                             <span className="text-[11px] font-semibold">{btn.label}</span>
@@ -2125,32 +2141,18 @@ export default function RetailPOSPage() {
                 })}
 
                 {/* Divider */}
-                <div className="h-6 w-px bg-white/20 mx-1 shrink-0" />
+                <div className="h-6 w-px bg-gray-300 mx-1 shrink-0" />
 
-                {/* Hold button — always enabled */}
+                {/* Low Stock Notification Button */}
                 <button
-                    onClick={holdCurrentSale}
-                    disabled={cart.length === 0}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all border whitespace-nowrap ${
-                        cart.length === 0
-                            ? 'bg-amber-500/10 text-amber-300/50 border-amber-500/10 cursor-not-allowed'
-                            : 'bg-amber-500/30 hover:bg-amber-500/50 text-white border-amber-400/30 hover:border-amber-400/50 hover:scale-105'
-                    }`}
+                    onClick={() => setShowLowStockModal(true)}
+                    className="relative flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-red-50 rounded-lg text-gray-700 hover:text-red-700 transition-all hover:scale-105 border border-gray-200 hover:border-red-300 shadow-sm hover:shadow whitespace-nowrap"
                 >
-                    <span className="text-sm">⏸️</span>
-                    <span className="text-[11px] font-semibold">Hold Sale</span>
-                </button>
-
-                {/* Unhold / Recall button — always enabled */}
-                <button
-                    onClick={() => setShowHeldSalesModal(true)}
-                    className="relative flex items-center gap-1.5 px-3 py-1.5 bg-green-500/30 hover:bg-green-500/50 rounded-lg text-white transition-all hover:scale-105 border border-green-400/30 hover:border-green-400/50 whitespace-nowrap"
-                >
-                    <span className="text-sm">▶️</span>
-                    <span className="text-[11px] font-semibold">Unhold</span>
-                    {heldSales.length > 0 && (
-                        <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-pulse">
-                            {heldSales.length}
+                    <span className="text-sm">🔔</span>
+                    <span className="text-[11px] font-semibold">Low Stock</span>
+                    {lowStockItems.length > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-pulse">
+                            {lowStockItems.length}
                         </span>
                     )}
                 </button>
@@ -2901,6 +2903,82 @@ export default function RetailPOSPage() {
                     <div className="bg-white rounded-2xl p-6 flex items-center gap-3">
                         <div className="w-6 h-6 border-3 border-blue-500 border-t-transparent rounded-full animate-spin" />
                         <span className="font-medium text-gray-700">Loading register data...</span>
+                    </div>
+                </div>
+            )}
+
+            {/* ═══ Low Stock Notification Modal ═══ */}
+            {showLowStockModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowLowStockModal(false)}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <div className="bg-gradient-to-r from-red-500 to-orange-500 px-6 py-4 text-white flex items-center justify-between">
+                            <div>
+                                <h2 className="text-lg font-bold flex items-center gap-2">🔔 Low Stock Alert</h2>
+                                <p className="text-red-100 text-xs mt-0.5">{lowStockItems.length} product{lowStockItems.length !== 1 ? 's' : ''} below 10 pieces</p>
+                            </div>
+                            <button onClick={() => setShowLowStockModal(false)} className="p-2 hover:bg-white/20 rounded-xl text-white text-lg">✕</button>
+                        </div>
+
+                        <div className="flex-1 overflow-auto">
+                            {lowStockItems.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                                    <span className="text-5xl mb-3">✅</span>
+                                    <p className="font-medium">All stock levels are good!</p>
+                                    <p className="text-sm">No products below 10 pieces</p>
+                                </div>
+                            ) : (
+                                <table className="w-full">
+                                    <thead className="bg-gray-50 sticky top-0">
+                                        <tr>
+                                            <th className="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase">#</th>
+                                            <th className="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase">Product</th>
+                                            <th className="text-center py-3 px-4 text-xs font-bold text-gray-500 uppercase">Bags</th>
+                                            <th className="text-center py-3 px-4 text-xs font-bold text-gray-500 uppercase">Pieces</th>
+                                            <th className="text-center py-3 px-4 text-xs font-bold text-gray-500 uppercase">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {lowStockItems.map((item, i) => {
+                                            const status = item.pieceQty === 0 ? 'out' : item.pieceQty <= 3 ? 'critical' : 'low';
+                                            return (
+                                                <tr key={i} className={`transition-colors ${status === 'out' ? 'bg-red-50' : status === 'critical' ? 'bg-orange-50' : 'hover:bg-yellow-50/50'}`}>
+                                                    <td className="py-3 px-4 text-sm text-gray-400">{i + 1}</td>
+                                                    <td className="py-3 px-4">
+                                                        <p className="font-semibold text-gray-800 text-sm">{item.name}</p>
+                                                    </td>
+                                                    <td className="py-3 px-4 text-center">
+                                                        <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs font-bold">
+                                                            📦 {item.bagQty} {item.purchaseUnit}
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-3 px-4 text-center">
+                                                        <span className={`px-2 py-0.5 rounded text-xs font-bold ${item.pieceQty === 0 ? 'bg-red-200 text-red-800' : item.pieceQty <= 3 ? 'bg-orange-200 text-orange-800' : 'bg-yellow-200 text-yellow-800'}`}>
+                                                            🔢 {item.pieceQty} {item.salesUnit}
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-3 px-4 text-center">
+                                                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold ${
+                                                            status === 'out' ? 'bg-red-200 text-red-800' :
+                                                            status === 'critical' ? 'bg-orange-200 text-orange-800' :
+                                                            'bg-yellow-200 text-yellow-800'
+                                                        }`}>
+                                                            {status === 'out' ? '❌ OUT' : status === 'critical' ? '🔴 CRITICAL' : '🟡 LOW'}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+
+                        <div className="p-4 border-t border-gray-200 flex gap-2">
+                            <a href="/dashboard/low-stock" className="flex-1 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-semibold text-center hover:shadow-lg transition-all text-sm">
+                                📦 View Full Stock Report
+                            </a>
+                            <button onClick={() => setShowLowStockModal(false)} className="px-6 py-3 border-2 border-gray-200 text-gray-600 rounded-xl font-semibold hover:bg-gray-50 transition-colors text-sm">Close</button>
+                        </div>
                     </div>
                 </div>
             )}
