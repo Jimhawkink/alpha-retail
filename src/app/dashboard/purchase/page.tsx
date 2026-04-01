@@ -28,6 +28,10 @@ interface PurchaseItem {
     id: number; productId: number; productCode: string; productName: string;
     purchaseUnit: string; // the unit user is buying in (could be Kg, Piece, Box etc)
     qty: number; price: number; total: number;
+    // Bags & Pieces (dual stock)
+    bagQty: number; pieceQty: number;
+    // Expiry batch tracking
+    batchNumber: string; expiryDate: string;
     // Price change tracking
     oldCost: number; oldSell: number; newCost: number; newSell: number;
     updatePrices: boolean; // whether to update product prices in DB after saving
@@ -35,7 +39,7 @@ interface PurchaseItem {
 }
 
 export default function PurchaseEntryPage() {
-    const { activeOutlet } = useOutlet();
+    const { activeOutlet, expiryEnabled } = useOutlet();
     const outletId = activeOutlet?.outlet_id || 1;
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
@@ -59,6 +63,12 @@ export default function PurchaseEntryPage() {
     const [price, setPrice] = useState<number>(0);
     const [purchaseUnit, setPurchaseUnit] = useState<string>('');
     const [availableQty, setAvailableQty] = useState<number>(0);
+    // Bags & Pieces qty
+    const [itemBagQty, setItemBagQty] = useState<number>(0);
+    const [itemPieceQty, setItemPieceQty] = useState<number>(0);
+    // Expiry batch fields
+    const [itemBatchNumber, setItemBatchNumber] = useState('');
+    const [itemExpiryDate, setItemExpiryDate] = useState('');
     // Price change fields
     const [newSellPrice, setNewSellPrice] = useState<number>(0);
     const [shouldUpdatePrices, setShouldUpdatePrices] = useState(false);
@@ -117,6 +127,10 @@ export default function PurchaseEntryPage() {
         setShouldUpdatePrices(false);
         setPriceChanged(false);
         setQty(1);
+        setItemBagQty(0);
+        setItemPieceQty(0);
+        setItemBatchNumber('');
+        setItemExpiryDate('');
         // Load stock for this outlet
         const { data: stockData } = await supabase.from('retail_stock').select('qty').eq('pid', product.pid).eq('outlet_id', outletId);
         setAvailableQty(stockData?.reduce((s, r) => s + (r.qty || 0), 0) || 0);
@@ -174,32 +188,37 @@ export default function PurchaseEntryPage() {
 
     // ─── ADD ITEM ───
     const addItem = () => {
-        if (!selectedProduct || qty <= 0 || price <= 0) { toast.error('Select product, enter qty & price'); return; }
-        const existing = items.findIndex(i => i.productId === selectedProduct.pid && i.purchaseUnit === purchaseUnit);
-        if (existing >= 0) {
-            setItems(prev => prev.map((item, idx) => idx === existing ? { ...item, qty: item.qty + qty, total: (item.qty + qty) * item.price } : item));
-            toast.success('Quantity updated');
-        } else {
-            const newItem: PurchaseItem = {
-                id: Date.now(),
-                productId: selectedProduct.pid,
-                productCode: selectedProduct.product_code || '',
-                productName: selectedProduct.product_name,
-                purchaseUnit: purchaseUnit,
-                qty, price,
-                total: qty * price,
-                oldCost: selectedProduct.purchase_cost,
-                oldSell: selectedProduct.sales_cost,
-                newCost: price,
-                newSell: newSellPrice,
-                updatePrices: shouldUpdatePrices,
-                piecesPerPackage: selectedProduct.pieces_per_package || 1,
-            };
-            setItems(prev => [...prev, newItem]);
-            toast.success('Item added');
-        }
+        if (!selectedProduct || price <= 0) { toast.error('Select product & enter price'); return; }
+        if (itemBagQty <= 0 && itemPieceQty <= 0 && qty <= 0) { toast.error('Enter bags qty or pieces qty'); return; }
+        // Use bag+piece if either is set, otherwise fall back to single qty
+        const useDualQty = itemBagQty > 0 || itemPieceQty > 0;
+        const effectiveQty = useDualQty ? (itemBagQty + itemPieceQty) : qty;
+        const lineTotal = useDualQty ? (itemBagQty * price) + (itemPieceQty * (price / (selectedProduct.pieces_per_package || 1))) : qty * price;
+
+        const newItem: PurchaseItem = {
+            id: Date.now(),
+            productId: selectedProduct.pid,
+            productCode: selectedProduct.product_code || '',
+            productName: selectedProduct.product_name,
+            purchaseUnit: purchaseUnit,
+            qty: effectiveQty, price,
+            total: Math.round(lineTotal),
+            bagQty: itemBagQty,
+            pieceQty: itemPieceQty,
+            batchNumber: itemBatchNumber || '',
+            expiryDate: itemExpiryDate || '',
+            oldCost: selectedProduct.purchase_cost,
+            oldSell: selectedProduct.sales_cost,
+            newCost: price,
+            newSell: newSellPrice,
+            updatePrices: shouldUpdatePrices,
+            piecesPerPackage: selectedProduct.pieces_per_package || 1,
+        };
+        setItems(prev => [...prev, newItem]);
+        toast.success('Item added');
         setSelectedProduct(null); setQty(1); setPrice(0); setPurchaseUnit(''); setProductSearch('');
         setPriceChanged(false); setShouldUpdatePrices(false);
+        setItemBagQty(0); setItemPieceQty(0); setItemBatchNumber(''); setItemExpiryDate('');
     };
 
     // ─── TOGGLE PRICE UPDATE FOR AN ITEM ───
@@ -253,22 +272,67 @@ export default function PurchaseEntryPage() {
             const purchaseItemsData = items.map(i => ({
                 purchase_id: pid, product_id: i.productId, product_code: i.productCode,
                 product_name: i.productName, quantity: i.qty, unit: i.purchaseUnit,
-                rate: i.price, total_amount: i.total
+                rate: i.price, total_amount: i.total,
+                bag_qty: i.bagQty || 0, piece_qty: i.pieceQty || 0,
+                batch_number: i.batchNumber || null, expiry_date: i.expiryDate || null,
             }));
             const { error: iErr } = await supabase.from('retail_purchase_products').insert(purchaseItemsData);
             if (iErr) throw iErr;
 
             // Update stock & prices for each item
             for (const item of items) {
-                const product = products.find(p => p.pid === item.productId);
-                const stockQty = product ? getStockQty(item.qty, item.purchaseUnit, product) : item.qty;
+                const hasDualQty = item.bagQty > 0 || item.pieceQty > 0;
 
-                // Update stock
-                const { data: sData } = await supabase.from('retail_stock').select('st_id, qty').eq('pid', item.productId).eq('outlet_id', outletId).single();
-                if (sData) {
-                    await supabase.from('retail_stock').update({ qty: (sData.qty || 0) + stockQty, invoice_no: invoiceNo, updated_at: new Date().toISOString() }).eq('st_id', sData.st_id);
+                if (hasDualQty) {
+                    // ─── DUAL STOCK: Separate Bags + Pieces rows (matching Add Product pattern) ───
+                    if (item.bagQty > 0) {
+                        const { data: bagRow } = await supabase.from('retail_stock').select('st_id, qty').eq('pid', item.productId).eq('outlet_id', outletId).eq('storage_type', 'Bags').single();
+                        if (bagRow) {
+                            await supabase.from('retail_stock').update({ qty: (bagRow.qty || 0) + item.bagQty, invoice_no: invoiceNo, updated_at: new Date().toISOString() }).eq('st_id', bagRow.st_id);
+                        } else {
+                            await supabase.from('retail_stock').insert({ pid: item.productId, invoice_no: invoiceNo, qty: item.bagQty, storage_type: 'Bags', outlet_id: outletId });
+                        }
+                    }
+                    if (item.pieceQty > 0) {
+                        const { data: pcRow } = await supabase.from('retail_stock').select('st_id, qty').eq('pid', item.productId).eq('outlet_id', outletId).eq('storage_type', 'Pieces').single();
+                        if (pcRow) {
+                            await supabase.from('retail_stock').update({ qty: (pcRow.qty || 0) + item.pieceQty, invoice_no: invoiceNo, updated_at: new Date().toISOString() }).eq('st_id', pcRow.st_id);
+                        } else {
+                            await supabase.from('retail_stock').insert({ pid: item.productId, invoice_no: invoiceNo, qty: item.pieceQty, storage_type: 'Pieces', outlet_id: outletId });
+                        }
+                    }
                 } else {
-                    await supabase.from('retail_stock').insert({ pid: item.productId, invoice_no: invoiceNo, qty: stockQty, storage_type: 'Store', outlet_id: outletId });
+                    // ─── LEGACY: Single qty stock row ───
+                    const product = products.find(p => p.pid === item.productId);
+                    const stockQty = product ? getStockQty(item.qty, item.purchaseUnit, product) : item.qty;
+                    const { data: sData } = await supabase.from('retail_stock').select('st_id, qty').eq('pid', item.productId).eq('outlet_id', outletId).single();
+                    if (sData) {
+                        await supabase.from('retail_stock').update({ qty: (sData.qty || 0) + stockQty, invoice_no: invoiceNo, updated_at: new Date().toISOString() }).eq('st_id', sData.st_id);
+                    } else {
+                        await supabase.from('retail_stock').insert({ pid: item.productId, invoice_no: invoiceNo, qty: stockQty, storage_type: 'Store', outlet_id: outletId });
+                    }
+                }
+
+                // ─── EXPIRY BATCH INSERT ───
+                if (item.expiryDate && expiryEnabled) {
+                    try {
+                        const batchNum = item.batchNumber || `B-${Date.now().toString(36).toUpperCase()}`;
+                        const totalBatchQty = item.bagQty > 0 ? item.bagQty * (item.piecesPerPackage || 1) + (item.pieceQty || 0) : item.pieceQty > 0 ? item.pieceQty : item.qty;
+                        await supabase.from('retail_product_batches').insert({
+                            pid: item.productId,
+                            product_name: item.productName,
+                            batch_number: batchNum,
+                            expiry_date: item.expiryDate,
+                            qty_received: totalBatchQty,
+                            qty_remaining: totalBatchQty,
+                            cost_price: item.price,
+                            selling_price: item.newSell || item.oldSell,
+                            supplier_name: supplier?.supplier_name || '',
+                            outlet_id: outletId,
+                            status: 'Active',
+                            received_date: purchaseDate,
+                        });
+                    } catch { /* batch table may not exist */ }
                 }
 
                 // Update product prices if flagged
@@ -473,24 +537,21 @@ export default function PurchaseEntryPage() {
                                     <button onClick={() => { setSelectedProduct(null); setProductSearch(''); }} className="p-1.5 text-gray-400 hover:text-red-500"><FiX size={14} /></button>
                                 </div>
 
+                                {/* ─── ROW 1: Unit, Cost, Stock ─── */}
                                 <div className="grid grid-cols-12 gap-3 items-end">
                                     {/* Purchase Unit */}
-                                    <div className="col-span-2">
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Buy In</label>
+                                    <div className="col-span-3">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Buy In (Unit)</label>
                                         <select value={purchaseUnit} onChange={e => {
                                             const unit = e.target.value;
                                             setPurchaseUnit(unit);
-                                            // Auto-adjust price based on unit
                                             if (selectedProduct) {
                                                 const basePrice = selectedProduct.purchase_cost;
                                                 const basePU = selectedProduct.purchase_unit || 'Piece';
                                                 if (unit === basePU) { setPrice(basePrice); }
                                                 else {
                                                     const conv = UNIT_CONVERSIONS[basePU];
-                                                    if (conv && conv[unit]) {
-                                                        // e.g., base is Bag (50kg = 6500), buying in Kgs: 6500/50 = 130/kg
-                                                        setPrice(Math.round(basePrice / conv[unit] * 100) / 100);
-                                                    }
+                                                    if (conv && conv[unit]) { setPrice(Math.round(basePrice / conv[unit] * 100) / 100); }
                                                 }
                                             }
                                         }}
@@ -499,43 +560,100 @@ export default function PurchaseEntryPage() {
                                         </select>
                                     </div>
 
-                                    {/* Qty */}
-                                    <div className="col-span-2">
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Qty *</label>
-                                        <input type="number" value={qty} onChange={e => setQty(Number(e.target.value))} min={0.01} step={0.01}
-                                            className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-bold focus:border-indigo-500 outline-none text-center" />
-                                    </div>
-
                                     {/* Cost Price */}
-                                    <div className="col-span-2">
+                                    <div className="col-span-3">
                                         <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">
-                                            Cost/Unit <span className="text-gray-300">(was {selectedProduct.purchase_cost})</span>
+                                            Cost/{purchaseUnit || 'Unit'} <span className="text-gray-300">(was {selectedProduct.purchase_cost})</span>
                                         </label>
                                         <input type="number" value={price} onChange={e => handlePriceChange(Number(e.target.value))} min={0} step={0.01}
                                             className={`w-full px-3 py-2.5 border rounded-xl text-sm font-bold outline-none text-center ${priceChanged ? 'bg-amber-50 border-amber-400 text-amber-800' : 'bg-white border-gray-200'}`} />
                                     </div>
 
+                                    {/* Stock Info */}
+                                    <div className="col-span-2 text-center">
+                                        <p className="text-[9px] text-gray-400 uppercase mb-1">Current Stock</p>
+                                        <p className="text-sm font-bold text-blue-600">{availableQty}</p>
+                                    </div>
+
                                     {/* Line Total */}
-                                    <div className="col-span-2">
+                                    <div className="col-span-4">
                                         <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Line Total</label>
                                         <div className="w-full px-3 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-sm font-black text-emerald-700 text-center">
-                                            Ksh {(qty * price).toLocaleString()}
+                                            Ksh {(() => {
+                                                const useDual = itemBagQty > 0 || itemPieceQty > 0;
+                                                if (useDual) {
+                                                    const bagTotal = itemBagQty * price;
+                                                    const pcTotal = itemPieceQty * (price / (selectedProduct.pieces_per_package || 1));
+                                                    return Math.round(bagTotal + pcTotal).toLocaleString();
+                                                }
+                                                return (qty * price).toLocaleString();
+                                            })()}
                                         </div>
                                     </div>
-
-                                    {/* Stock Info */}
-                                    <div className="col-span-1 text-center">
-                                        <p className="text-[9px] text-gray-400 uppercase mb-1">Stock</p>
-                                        <p className="text-xs font-bold text-blue-600">{availableQty}</p>
-                                    </div>
-
-                                    {/* Add Button */}
-                                    <div className="col-span-1">
-                                        <button onClick={addItem} className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center justify-center" title="Add Item">
-                                            <FiPlus size={18} />
-                                        </button>
-                                    </div>
                                 </div>
+
+                                {/* ─── ROW 2: Bags Qty + Pieces Qty (like Add Product) ─── */}
+                                <div className="bg-white border border-blue-200 rounded-xl p-3">
+                                    <p className="text-[10px] font-bold text-blue-700 uppercase mb-2 flex items-center gap-1">📦 Purchase Quantities</p>
+                                    <div className="grid grid-cols-12 gap-3 items-end">
+                                        <div className="col-span-4">
+                                            <label className="text-[10px] font-bold text-indigo-500 uppercase mb-1 block">
+                                                📦 {selectedProduct.purchase_unit || 'Bags'} Qty
+                                            </label>
+                                            <input type="number" value={itemBagQty || ''} onChange={e => setItemBagQty(Number(e.target.value))} min={0} step={1}
+                                                placeholder="e.g. 5"
+                                                className="w-full px-3 py-2.5 bg-indigo-50 border border-indigo-200 rounded-xl text-sm font-bold focus:border-indigo-500 outline-none text-center" />
+                                        </div>
+                                        <div className="col-span-4">
+                                            <label className="text-[10px] font-bold text-emerald-500 uppercase mb-1 block">
+                                                🔢 {selectedProduct.sales_unit || 'Pieces'} Qty
+                                            </label>
+                                            <input type="number" value={itemPieceQty || ''} onChange={e => setItemPieceQty(Number(e.target.value))} min={0} step={1}
+                                                placeholder="e.g. 10"
+                                                className="w-full px-3 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-sm font-bold focus:border-emerald-500 outline-none text-center" />
+                                        </div>
+                                        {/* Add Button */}
+                                        <div className="col-span-4">
+                                            <button onClick={addItem} className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2" title="Add Item">
+                                                <FiPlus size={16} /> Add Item
+                                            </button>
+                                        </div>
+                                    </div>
+                                    {selectedProduct.pieces_per_package > 1 && (itemBagQty > 0 || itemPieceQty > 0) && (
+                                        <p className="text-[10px] text-blue-600 mt-2 bg-blue-50 px-2 py-1 rounded-lg">
+                                            📊 Total: {itemBagQty > 0 ? `${itemBagQty} ${selectedProduct.purchase_unit}(s) × ${selectedProduct.pieces_per_package} = ${itemBagQty * selectedProduct.pieces_per_package} pcs` : ''}
+                                            {itemBagQty > 0 && itemPieceQty > 0 ? ' + ' : ''}
+                                            {itemPieceQty > 0 ? `${itemPieceQty} ${selectedProduct.sales_unit}(s)` : ''}
+                                            {' = '}<span className="font-bold">{(itemBagQty * selectedProduct.pieces_per_package) + itemPieceQty} total {selectedProduct.sales_unit}(s)</span>
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* ─── ROW 3: Batch & Expiry (only if expiry tracking enabled) ─── */}
+                                {expiryEnabled && (
+                                    <div className="bg-white border border-amber-200 rounded-xl p-3">
+                                        <p className="text-[10px] font-bold text-amber-700 uppercase mb-2 flex items-center gap-1">⏰ Batch & Expiry Tracking</p>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Batch Number</label>
+                                                <input type="text" value={itemBatchNumber} onChange={e => setItemBatchNumber(e.target.value)}
+                                                    placeholder="e.g. B-2024-001 (auto if empty)"
+                                                    className="w-full px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm focus:border-amber-500 outline-none font-mono" />
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Expiry Date *</label>
+                                                <input type="date" value={itemExpiryDate} onChange={e => setItemExpiryDate(e.target.value)}
+                                                    className="w-full px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm focus:border-amber-500 outline-none font-bold" />
+                                            </div>
+                                        </div>
+                                        {itemExpiryDate && (
+                                            <p className="text-[10px] text-amber-600 mt-2">
+                                                ✅ Batch {itemBatchNumber || '(auto-generated)'} expires on <span className="font-bold">{new Date(itemExpiryDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                                {' • '}{Math.ceil((new Date(itemExpiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} days from now
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
 
                                 {/* ─── PRICE CHANGE WARNING ─── */}
                                 {priceChanged && (
@@ -588,43 +706,63 @@ export default function PurchaseEntryPage() {
                         ) : (
                             <table className="w-full">
                                 <thead><tr className="bg-gray-50">
-                                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">#</th>
-                                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Code</th>
-                                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Product</th>
-                                    <th className="px-3 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">Unit</th>
-                                    <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Qty</th>
-                                    <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Cost</th>
-                                    <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Total</th>
-                                    <th className="px-3 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">Price Update</th>
-                                    <th className="px-3 py-2 text-center text-[10px] font-bold text-gray-500 uppercase w-10"></th>
+                                    <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">#</th>
+                                    <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Product</th>
+                                    <th className="px-2 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">📦 Bags</th>
+                                    <th className="px-2 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">🔢 Pcs</th>
+                                    <th className="px-2 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Cost</th>
+                                    <th className="px-2 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Total</th>
+                                    {expiryEnabled && <th className="px-2 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">Batch/Expiry</th>}
+                                    <th className="px-2 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">Price</th>
+                                    <th className="px-2 py-2 text-center text-[10px] font-bold text-gray-500 uppercase w-8"></th>
                                 </tr></thead>
                                 <tbody>
                                     {items.map((item, idx) => (
                                         <tr key={item.id} className={`border-b border-gray-50 hover:bg-emerald-50/40 transition-colors ${idx % 2 ? 'bg-gray-50/30' : ''}`}>
-                                            <td className="px-3 py-2 text-xs text-gray-400">{idx + 1}</td>
-                                            <td className="px-3 py-2 text-xs text-indigo-600 font-mono">{item.productCode}</td>
-                                            <td className="px-3 py-2 text-sm font-semibold text-gray-800">{item.productName}</td>
-                                            <td className="px-3 py-2 text-center"><span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-medium">{item.purchaseUnit}</span></td>
-                                            <td className="px-3 py-2 text-right text-sm font-bold text-gray-700">{item.qty}</td>
-                                            <td className="px-3 py-2 text-right text-xs text-gray-500">Ksh {item.price.toLocaleString()}</td>
-                                            <td className="px-3 py-2 text-right text-sm font-bold text-emerald-600">Ksh {item.total.toLocaleString()}</td>
-                                            <td className="px-3 py-2 text-center">
+                                            <td className="px-2 py-2 text-xs text-gray-400">{idx + 1}</td>
+                                            <td className="px-2 py-2">
+                                                <p className="text-xs font-semibold text-gray-800">{item.productName}</p>
+                                                <p className="text-[10px] text-indigo-500 font-mono">{item.productCode} • {item.purchaseUnit}</p>
+                                            </td>
+                                            <td className="px-2 py-2 text-center">
+                                                {item.bagQty > 0 ? (
+                                                    <span className="inline-flex items-center px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs font-bold">{item.bagQty}</span>
+                                                ) : <span className="text-[10px] text-gray-300">—</span>}
+                                            </td>
+                                            <td className="px-2 py-2 text-center">
+                                                {item.pieceQty > 0 ? (
+                                                    <span className="inline-flex items-center px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded text-xs font-bold">{item.pieceQty}</span>
+                                                ) : <span className="text-[10px] text-gray-300">—</span>}
+                                            </td>
+                                            <td className="px-2 py-2 text-right text-xs text-gray-500">Ksh {item.price.toLocaleString()}</td>
+                                            <td className="px-2 py-2 text-right text-sm font-bold text-emerald-600">Ksh {item.total.toLocaleString()}</td>
+                                            {expiryEnabled && (
+                                                <td className="px-2 py-2 text-center">
+                                                    {item.expiryDate ? (
+                                                        <div>
+                                                            <span className="text-[10px] font-mono text-amber-700 bg-amber-50 px-1 rounded">{item.batchNumber || 'Auto'}</span>
+                                                            <p className="text-[9px] text-gray-400 mt-0.5">{new Date(item.expiryDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}</p>
+                                                        </div>
+                                                    ) : <span className="text-[10px] text-gray-300">—</span>}
+                                                </td>
+                                            )}
+                                            <td className="px-2 py-2 text-center">
                                                 {item.newCost !== item.oldCost || item.newSell !== item.oldSell ? (
                                                     <div className="flex items-center justify-center gap-1">
                                                         <label className="flex items-center gap-1 cursor-pointer">
                                                             <input type="checkbox" checked={item.updatePrices} onChange={e => toggleItemPriceUpdate(item.id, e.target.checked)} className="accent-amber-600" />
-                                                            <span className="text-[10px] text-amber-700 font-bold">Update</span>
+                                                            <span className="text-[10px] text-amber-700 font-bold">Upd</span>
                                                         </label>
                                                         {item.updatePrices && (
                                                             <input type="number" value={item.newSell} onChange={e => editItemSellPrice(item.id, Number(e.target.value))}
-                                                                className="w-16 px-1 py-0.5 text-[10px] border border-amber-300 rounded text-center bg-amber-50 font-bold" title="New sell price" />
+                                                                className="w-14 px-1 py-0.5 text-[10px] border border-amber-300 rounded text-center bg-amber-50 font-bold" title="New sell price" />
                                                         )}
                                                     </div>
                                                 ) : (
                                                     <span className="text-[10px] text-gray-300">—</span>
                                                 )}
                                             </td>
-                                            <td className="px-3 py-2 text-center">
+                                            <td className="px-2 py-2 text-center">
                                                 <button onClick={() => setItems(prev => prev.filter(i => i.id !== item.id))} className="p-1 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 transition-all"><FiTrash2 size={12} /></button>
                                             </td>
                                         </tr>

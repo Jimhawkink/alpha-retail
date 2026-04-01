@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
-import { FiShoppingBag, FiRefreshCw, FiSearch, FiFilter, FiCalendar, FiChevronLeft, FiChevronRight, FiChevronsLeft, FiChevronsRight, FiX, FiEye, FiTrash2, FiTruck, FiDollarSign, FiCheckCircle, FiClock, FiAlertTriangle, FiDownload, FiPlus, FiTrendingUp, FiPackage, FiPrinter, FiFileText } from 'react-icons/fi';
+import { FiShoppingBag, FiRefreshCw, FiSearch, FiFilter, FiCalendar, FiChevronLeft, FiChevronRight, FiChevronsLeft, FiChevronsRight, FiX, FiEye, FiTrash2, FiTruck, FiDollarSign, FiCheckCircle, FiClock, FiAlertTriangle, FiDownload, FiPlus, FiTrendingUp, FiPackage, FiPrinter, FiFileText, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 
 interface Purchase {
     purchase_id: number; purchase_no: string; purchase_date: string;
@@ -15,16 +15,15 @@ interface Purchase {
 interface PurchaseItem {
     pp_id: number; product_id: number; product_code: string; product_name: string;
     quantity: number; unit: string; rate: number; total_amount: number;
+    bag_qty?: number; piece_qty?: number; batch_number?: string; expiry_date?: string;
 }
 interface Supplier { supplier_id: number; supplier_name: string; }
-interface Category { category_id: number; category_name: string; }
 
 export default function PurchasesPage() {
     const { activeOutlet } = useOutlet();
     const outletId = activeOutlet?.outlet_id || 1;
     const [purchases, setPurchases] = useState<Purchase[]>([]);
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-    const [categories, setCategories] = useState<Category[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [dateFrom, setDateFrom] = useState('');
@@ -35,24 +34,21 @@ export default function PurchasesPage() {
     const [page, setPage] = useState(1);
     const [perPage, setPerPage] = useState(20);
 
-    // View Modal
-    const [showViewModal, setShowViewModal] = useState(false);
-    const [selectedPurchase, setSelectedPurchase] = useState<Purchase | null>(null);
-    const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
-    const [isLoadingItems, setIsLoadingItems] = useState(false);
+    // Expandable rows
+    const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+    const [rowItems, setRowItems] = useState<Record<number, PurchaseItem[]>>({});
+    const [loadingRows, setLoadingRows] = useState<Set<number>>(new Set());
 
     // ─── DATA LOADING ───
     const loadPurchases = useCallback(async () => {
-        if (!activeOutlet) return; // Wait for outlet context
+        if (!activeOutlet) return;
         setIsLoading(true);
         try {
-            // Try with outlet_id, fallback without
             let query = supabase.from('retail_purchases').select('*').eq('outlet_id', outletId).order('purchase_id', { ascending: false });
             if (dateFrom) query = query.gte('purchase_date', dateFrom);
             if (dateTo) query = query.lte('purchase_date', dateTo);
             let { data, error } = await query;
             if (error || (data && data.length === 0)) {
-                // Fallback: try without outlet_id filter
                 let fb = supabase.from('retail_purchases').select('*').order('purchase_id', { ascending: false });
                 if (dateFrom) fb = fb.gte('purchase_date', dateFrom);
                 if (dateTo) fb = fb.lte('purchase_date', dateTo);
@@ -68,24 +64,35 @@ export default function PurchasesPage() {
         try { const { data } = await supabase.from('retail_suppliers').select('supplier_id, supplier_name').eq('active', true).order('supplier_name'); setSuppliers(data || []); } catch { /* silent */ }
     }, []);
 
-    const loadCategories = useCallback(async () => {
-        try { const { data } = await supabase.from('retail_categories').select('category_id, category_name').eq('active', true).order('category_name'); setCategories(data || []); } catch { /* silent */ }
-    }, []);
+    useEffect(() => { loadPurchases(); loadSuppliers(); }, [loadPurchases, loadSuppliers]);
 
-    useEffect(() => { loadPurchases(); loadSuppliers(); loadCategories(); }, [loadPurchases, loadSuppliers, loadCategories]);
+    // ─── EXPAND ROW ───
+    const toggleRow = async (purchaseId: number) => {
+        const newExpanded = new Set(expandedRows);
+        if (newExpanded.has(purchaseId)) {
+            newExpanded.delete(purchaseId);
+            setExpandedRows(newExpanded);
+            return;
+        }
+        newExpanded.add(purchaseId);
+        setExpandedRows(newExpanded);
 
-    // ─── ACTIONS ───
-    const viewPurchaseDetails = async (purchase: Purchase) => {
-        setSelectedPurchase(purchase); setShowViewModal(true); setIsLoadingItems(true);
-        try { const { data, error } = await supabase.from('retail_purchase_products').select('*').eq('purchase_id', purchase.purchase_id); if (error) throw error; setPurchaseItems(data || []); }
-        catch { toast.error('Failed to load items'); }
-        setIsLoadingItems(false);
+        // Load items if not cached
+        if (!rowItems[purchaseId]) {
+            setLoadingRows(prev => new Set(prev).add(purchaseId));
+            try {
+                const { data, error } = await supabase.from('retail_purchase_products').select('*').eq('purchase_id', purchaseId);
+                if (error) throw error;
+                setRowItems(prev => ({ ...prev, [purchaseId]: data || [] }));
+            } catch { toast.error('Failed to load items'); }
+            setLoadingRows(prev => { const n = new Set(prev); n.delete(purchaseId); return n; });
+        }
     };
 
+    // ─── ACTIONS ───
     const deletePurchase = async (purchase: Purchase) => {
         if (!confirm(`Delete purchase ${purchase.purchase_no}? This will also delete all items and reverse stock.`)) return;
         try {
-            // Reverse stock
             const { data: items } = await supabase.from('retail_purchase_products').select('product_id, quantity').eq('purchase_id', purchase.purchase_id);
             if (items) {
                 for (const item of items) {
@@ -118,8 +125,8 @@ export default function PurchasesPage() {
         <h1>Purchase Order - ${purchase.purchase_no}</h1>
         <div class="info"><span>Supplier: <b>${purchase.supplier_name || 'N/A'}</b></span><span>Date: <b>${new Date(purchase.purchase_date).toLocaleDateString('en-GB')}</b></span></div>
         <div class="info"><span>Invoice: <b>${purchase.supplier_invoice || 'N/A'}</b></span><span>Status: <b>${purchase.payment_status || 'N/A'}</b></span></div>
-        <table><thead><tr><th>#</th><th>Code</th><th>Product</th><th>Unit</th><th class="right">Qty</th><th class="right">Rate</th><th class="right">Total</th></tr></thead>
-        <tbody>${items.map((item, i) => `<tr><td>${i + 1}</td><td>${item.product_code}</td><td>${item.product_name}</td><td>${item.unit}</td><td class="right">${item.quantity}</td><td class="right">Ksh ${item.rate?.toLocaleString()}</td><td class="right">Ksh ${item.total_amount?.toLocaleString()}</td></tr>`).join('')}</tbody></table>
+        <table><thead><tr><th>#</th><th>Code</th><th>Product</th><th>Unit</th><th class="right">Bags</th><th class="right">Pcs</th><th class="right">Rate</th><th class="right">Total</th><th>Batch</th><th>Expiry</th></tr></thead>
+        <tbody>${items.map((item, i) => `<tr><td>${i + 1}</td><td>${item.product_code}</td><td>${item.product_name}</td><td>${item.unit}</td><td class="right">${item.bag_qty || '—'}</td><td class="right">${item.piece_qty || '—'}</td><td class="right">Ksh ${item.rate?.toLocaleString()}</td><td class="right">Ksh ${item.total_amount?.toLocaleString()}</td><td>${item.batch_number || '—'}</td><td>${item.expiry_date ? new Date(item.expiry_date).toLocaleDateString('en-GB') : '—'}</td></tr>`).join('')}</tbody></table>
         <p class="total">Grand Total: Ksh ${purchase.grand_total.toLocaleString()}</p>
         </body></html>`;
         const iframe = document.createElement('iframe'); iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:none;';
@@ -177,53 +184,29 @@ export default function PurchasesPage() {
                 <div className="relative overflow-hidden rounded-2xl bg-white border border-indigo-100 p-5 shadow-sm hover:shadow-xl transition-all group">
                     <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-gradient-to-br from-indigo-100 to-purple-50 opacity-60 group-hover:scale-125 transition-transform" />
                     <div className="relative flex items-center justify-between">
-                        <div>
-                            <p className="text-xs font-bold text-indigo-500 uppercase tracking-wider">Total Purchases</p>
-                            <p className="text-3xl font-black text-gray-800 mt-1">{filtered.length}</p>
-                            <p className="text-[10px] text-gray-400 mt-1">All purchase orders</p>
-                        </div>
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-300/30 group-hover:scale-110 transition-transform">
-                            <FiShoppingBag className="text-white" size={22} />
-                        </div>
+                        <div><p className="text-xs font-bold text-indigo-500 uppercase tracking-wider">Total Purchases</p><p className="text-3xl font-black text-gray-800 mt-1">{filtered.length}</p><p className="text-[10px] text-gray-400 mt-1">All purchase orders</p></div>
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-300/30 group-hover:scale-110 transition-transform"><FiShoppingBag className="text-white" size={22} /></div>
                     </div>
                 </div>
                 <div className="relative overflow-hidden rounded-2xl bg-white border border-emerald-100 p-5 shadow-sm hover:shadow-xl transition-all group">
                     <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-gradient-to-br from-emerald-100 to-green-50 opacity-60 group-hover:scale-125 transition-transform" />
                     <div className="relative flex items-center justify-between">
-                        <div>
-                            <p className="text-xs font-bold text-emerald-500 uppercase tracking-wider">Paid Orders</p>
-                            <p className="text-3xl font-black text-gray-800 mt-1">{paidCount}</p>
-                            <p className="text-[10px] text-gray-400 mt-1">Fully settled</p>
-                        </div>
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-300/30 group-hover:scale-110 transition-transform">
-                            <FiCheckCircle className="text-white" size={22} />
-                        </div>
+                        <div><p className="text-xs font-bold text-emerald-500 uppercase tracking-wider">Paid Orders</p><p className="text-3xl font-black text-gray-800 mt-1">{paidCount}</p><p className="text-[10px] text-gray-400 mt-1">Fully settled</p></div>
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-300/30 group-hover:scale-110 transition-transform"><FiCheckCircle className="text-white" size={22} /></div>
                     </div>
                 </div>
                 <div className="relative overflow-hidden rounded-2xl bg-white border border-amber-100 p-5 shadow-sm hover:shadow-xl transition-all group">
                     <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-gradient-to-br from-amber-100 to-orange-50 opacity-60 group-hover:scale-125 transition-transform" />
                     <div className="relative flex items-center justify-between">
-                        <div>
-                            <p className="text-xs font-bold text-amber-500 uppercase tracking-wider">Pending / Unpaid</p>
-                            <p className="text-3xl font-black text-gray-800 mt-1">{pendingCount}</p>
-                            <p className="text-[10px] text-gray-400 mt-1">{pendingCount > 0 ? 'Awaiting payment' : 'All clear!'}</p>
-                        </div>
-                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform ${pendingCount > 0 ? 'bg-gradient-to-br from-amber-500 to-orange-600 shadow-amber-300/30' : 'bg-gradient-to-br from-teal-500 to-cyan-600 shadow-teal-300/30'}`}>
-                            <FiClock className="text-white" size={22} />
-                        </div>
+                        <div><p className="text-xs font-bold text-amber-500 uppercase tracking-wider">Pending / Unpaid</p><p className="text-3xl font-black text-gray-800 mt-1">{pendingCount}</p><p className="text-[10px] text-gray-400 mt-1">{pendingCount > 0 ? 'Awaiting payment' : 'All clear!'}</p></div>
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform ${pendingCount > 0 ? 'bg-gradient-to-br from-amber-500 to-orange-600 shadow-amber-300/30' : 'bg-gradient-to-br from-teal-500 to-cyan-600 shadow-teal-300/30'}`}><FiClock className="text-white" size={22} /></div>
                     </div>
                 </div>
                 <div className="relative overflow-hidden rounded-2xl bg-white border border-blue-100 p-5 shadow-sm hover:shadow-xl transition-all group">
                     <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-gradient-to-br from-blue-100 to-cyan-50 opacity-60 group-hover:scale-125 transition-transform" />
                     <div className="relative flex items-center justify-between">
-                        <div>
-                            <p className="text-xs font-bold text-blue-500 uppercase tracking-wider">Suppliers</p>
-                            <p className="text-3xl font-black text-gray-800 mt-1">{uniqueSuppliers.length}</p>
-                            <p className="text-[10px] text-gray-400 mt-1">Active vendors</p>
-                        </div>
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-blue-300/30 group-hover:scale-110 transition-transform">
-                            <FiTruck className="text-white" size={22} />
-                        </div>
+                        <div><p className="text-xs font-bold text-blue-500 uppercase tracking-wider">Suppliers</p><p className="text-3xl font-black text-gray-800 mt-1">{uniqueSuppliers.length}</p><p className="text-[10px] text-gray-400 mt-1">Active vendors</p></div>
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-blue-300/30 group-hover:scale-110 transition-transform"><FiTruck className="text-white" size={22} /></div>
                     </div>
                 </div>
             </div>
@@ -284,9 +267,7 @@ export default function PurchasesPage() {
                         <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1); }}
                             className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none cursor-pointer">
                             <option value="All">All Status</option>
-                            <option value="Completed">Completed</option>
-                            <option value="Pending">Pending</option>
-                            <option value="Cancelled">Cancelled</option>
+                            <option value="Completed">Completed</option><option value="Pending">Pending</option><option value="Cancelled">Cancelled</option>
                         </select>
                     </div>
                     <div className="min-w-[120px]">
@@ -294,9 +275,7 @@ export default function PurchasesPage() {
                         <select value={filterPayment} onChange={e => { setFilterPayment(e.target.value); setPage(1); }}
                             className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none cursor-pointer">
                             <option value="All">All Payments</option>
-                            <option value="Paid">Paid</option>
-                            <option value="Unpaid">Unpaid</option>
-                            <option value="Partial">Partial</option>
+                            <option value="Paid">Paid</option><option value="Unpaid">Unpaid</option><option value="Partial">Partial</option>
                         </select>
                     </div>
                     <button onClick={clearFilters} className="px-4 py-2.5 bg-gray-100 text-gray-500 rounded-xl text-sm font-semibold hover:bg-gray-200 transition-all flex items-center gap-1">
@@ -308,7 +287,7 @@ export default function PurchasesPage() {
                 </div>
             </div>
 
-            {/* ━━━ TABLE ━━━ */}
+            {/* ━━━ TABLE WITH EXPANDABLE ROWS ━━━ */}
             {isLoading ? (
                 <div className="flex flex-col items-center justify-center py-20">
                     <div className="w-14 h-14 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
@@ -326,53 +305,139 @@ export default function PurchasesPage() {
                         <table className="w-full">
                             <thead>
                                 <tr className="bg-gradient-to-r from-indigo-500 to-purple-600">
-                                    <th className="px-4 py-3.5 text-left text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Invoice</th>
-                                    <th className="px-4 py-3.5 text-left text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Date</th>
-                                    <th className="px-4 py-3.5 text-left text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Supplier</th>
-                                    <th className="px-4 py-3.5 text-left text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden md:table-cell">Sup. Invoice</th>
-                                    <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Amount</th>
-                                    <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Status</th>
-                                    <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Payment</th>
-                                    <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Created By</th>
-                                    <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider w-28">Actions</th>
+                                    <th className="px-3 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider w-10"></th>
+                                    <th className="px-3 py-3.5 text-left text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Invoice</th>
+                                    <th className="px-3 py-3.5 text-left text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Date</th>
+                                    <th className="px-3 py-3.5 text-left text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Supplier</th>
+                                    <th className="px-3 py-3.5 text-left text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden md:table-cell">Sup. Invoice</th>
+                                    <th className="px-3 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Amount</th>
+                                    <th className="px-3 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Status</th>
+                                    <th className="px-3 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Payment</th>
+                                    <th className="px-3 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider w-24">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {paginated.map((p, idx) => (
-                                    <tr key={p.purchase_id} className={`border-b border-gray-50 hover:bg-indigo-50/40 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
-                                        <td className="px-4 py-3">
-                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold">
-                                                <FiFileText size={11} /> {p.purchase_no}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-600">{new Date(p.purchase_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">{(p.supplier_name || 'N')[0]}</div>
-                                                <span className="text-sm font-semibold text-gray-800 truncate max-w-[120px]">{p.supplier_name || 'N/A'}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-xs text-gray-500 hidden md:table-cell">{p.supplier_invoice || '—'}</td>
-                                        <td className="px-4 py-3 text-right text-sm font-bold text-gray-900">Ksh {(p.grand_total || 0).toLocaleString()}</td>
-                                        <td className="px-4 py-3 text-center">
-                                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${p.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' : p.status === 'Cancelled' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-700'}`}>
-                                                <span className={`w-1.5 h-1.5 rounded-full ${p.status === 'Completed' ? 'bg-emerald-500' : p.status === 'Cancelled' ? 'bg-red-500' : 'bg-amber-500'}`} />{p.status || 'Pending'}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-center">
-                                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${p.payment_status === 'Paid' ? 'bg-cyan-100 text-cyan-700' : p.payment_status === 'Partial' ? 'bg-purple-100 text-purple-700' : 'bg-red-100 text-red-600'}`}>
-                                                {p.payment_status || 'Unpaid'}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-center text-xs text-gray-500">{p.created_by || '—'}</td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center justify-center gap-1">
-                                                <button onClick={() => viewPurchaseDetails(p)} className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all" title="View"><FiEye size={12} /></button>
-                                                <button onClick={() => deletePurchase(p)} className="p-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-all" title="Delete"><FiTrash2 size={12} /></button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
+                                {paginated.map((p, idx) => {
+                                    const isExpanded = expandedRows.has(p.purchase_id);
+                                    const items = rowItems[p.purchase_id] || [];
+                                    const isLoadingItems = loadingRows.has(p.purchase_id);
+                                    return (
+                                        <>
+                                            <tr key={p.purchase_id} className={`border-b border-gray-50 hover:bg-indigo-50/40 transition-colors cursor-pointer ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} ${isExpanded ? 'bg-indigo-50/60' : ''}`}
+                                                onClick={() => toggleRow(p.purchase_id)}>
+                                                <td className="px-3 py-3 text-center">
+                                                    <button className={`p-1 rounded-lg transition-all ${isExpanded ? 'bg-indigo-100 text-indigo-600' : 'text-gray-400 hover:text-indigo-600'}`}>
+                                                        {isExpanded ? <FiChevronUp size={14} /> : <FiChevronDown size={14} />}
+                                                    </button>
+                                                </td>
+                                                <td className="px-3 py-3">
+                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold">
+                                                        <FiFileText size={11} /> {p.purchase_no}
+                                                    </span>
+                                                </td>
+                                                <td className="px-3 py-3 text-sm text-gray-600">{new Date(p.purchase_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                                                <td className="px-3 py-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">{(p.supplier_name || 'N')[0]}</div>
+                                                        <span className="text-sm font-semibold text-gray-800 truncate max-w-[120px]">{p.supplier_name || 'N/A'}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-3 py-3 text-xs text-gray-500 hidden md:table-cell">{p.supplier_invoice || '—'}</td>
+                                                <td className="px-3 py-3 text-right text-sm font-bold text-gray-900">Ksh {(p.grand_total || 0).toLocaleString()}</td>
+                                                <td className="px-3 py-3 text-center">
+                                                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${p.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' : p.status === 'Cancelled' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-700'}`}>
+                                                        <span className={`w-1.5 h-1.5 rounded-full ${p.status === 'Completed' ? 'bg-emerald-500' : p.status === 'Cancelled' ? 'bg-red-500' : 'bg-amber-500'}`} />{p.status || 'Pending'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-3 py-3 text-center">
+                                                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${p.payment_status === 'Paid' ? 'bg-cyan-100 text-cyan-700' : p.payment_status === 'Partial' ? 'bg-purple-100 text-purple-700' : 'bg-red-100 text-red-600'}`}>
+                                                        {p.payment_status || 'Unpaid'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        {isExpanded && items.length > 0 && (
+                                                            <button onClick={() => printPurchaseDetail(p, items)} className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-all" title="Print"><FiPrinter size={12} /></button>
+                                                        )}
+                                                        <button onClick={() => deletePurchase(p)} className="p-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-all" title="Delete"><FiTrash2 size={12} /></button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            {/* ─── EXPANDED ITEMS ROW ─── */}
+                                            {isExpanded && (
+                                                <tr key={`exp-${p.purchase_id}`} className="bg-gradient-to-r from-indigo-50/80 to-purple-50/50">
+                                                    <td colSpan={9} className="px-4 py-3">
+                                                        {isLoadingItems ? (
+                                                            <div className="flex items-center justify-center py-4 gap-2">
+                                                                <div className="w-5 h-5 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+                                                                <span className="text-xs text-gray-400">Loading items...</span>
+                                                            </div>
+                                                        ) : items.length === 0 ? (
+                                                            <p className="text-center text-gray-400 py-3 text-xs">No items found for this purchase</p>
+                                                        ) : (
+                                                            <div className="bg-white rounded-xl border border-indigo-100 overflow-hidden shadow-sm">
+                                                                <div className="px-3 py-2 bg-indigo-50 flex items-center justify-between">
+                                                                    <span className="text-[10px] font-bold text-indigo-600 uppercase flex items-center gap-1"><FiPackage size={10} /> {items.length} Item(s) in {p.purchase_no}</span>
+                                                                    <span className="text-[10px] font-bold text-emerald-600">Total: Ksh {p.grand_total.toLocaleString()}</span>
+                                                                </div>
+                                                                <table className="w-full">
+                                                                    <thead><tr className="bg-gray-50/80">
+                                                                        <th className="px-2 py-1.5 text-left text-[9px] font-bold text-gray-500 uppercase">#</th>
+                                                                        <th className="px-2 py-1.5 text-left text-[9px] font-bold text-gray-500 uppercase">Code</th>
+                                                                        <th className="px-2 py-1.5 text-left text-[9px] font-bold text-gray-500 uppercase">Product</th>
+                                                                        <th className="px-2 py-1.5 text-center text-[9px] font-bold text-gray-500 uppercase">Unit</th>
+                                                                        <th className="px-2 py-1.5 text-center text-[9px] font-bold text-indigo-500 uppercase">📦 Bags</th>
+                                                                        <th className="px-2 py-1.5 text-center text-[9px] font-bold text-emerald-500 uppercase">🔢 Pcs</th>
+                                                                        <th className="px-2 py-1.5 text-right text-[9px] font-bold text-gray-500 uppercase">Rate</th>
+                                                                        <th className="px-2 py-1.5 text-right text-[9px] font-bold text-gray-500 uppercase">Total</th>
+                                                                        <th className="px-2 py-1.5 text-center text-[9px] font-bold text-amber-500 uppercase">Batch</th>
+                                                                        <th className="px-2 py-1.5 text-center text-[9px] font-bold text-amber-500 uppercase">Expiry</th>
+                                                                    </tr></thead>
+                                                                    <tbody>
+                                                                        {items.map((item, i) => (
+                                                                            <tr key={item.pp_id} className={`border-t border-gray-50 ${i % 2 ? 'bg-gray-50/30' : ''}`}>
+                                                                                <td className="px-2 py-1.5 text-[10px] text-gray-400">{i + 1}</td>
+                                                                                <td className="px-2 py-1.5 text-[10px] text-indigo-600 font-mono font-medium">{item.product_code}</td>
+                                                                                <td className="px-2 py-1.5 text-xs font-semibold text-gray-800">{item.product_name}</td>
+                                                                                <td className="px-2 py-1.5 text-center"><span className="px-1 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px]">{item.unit}</span></td>
+                                                                                <td className="px-2 py-1.5 text-center">
+                                                                                    {(item.bag_qty || 0) > 0 ? (
+                                                                                        <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[10px] font-bold">{item.bag_qty}</span>
+                                                                                    ) : <span className="text-[10px] text-gray-300">—</span>}
+                                                                                </td>
+                                                                                <td className="px-2 py-1.5 text-center">
+                                                                                    {(item.piece_qty || 0) > 0 ? (
+                                                                                        <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[10px] font-bold">{item.piece_qty}</span>
+                                                                                    ) : item.quantity > 0 ? (
+                                                                                        <span className="text-[10px] text-gray-600 font-medium">{item.quantity}</span>
+                                                                                    ) : <span className="text-[10px] text-gray-300">—</span>}
+                                                                                </td>
+                                                                                <td className="px-2 py-1.5 text-right text-[10px] text-gray-500">Ksh {item.rate?.toLocaleString()}</td>
+                                                                                <td className="px-2 py-1.5 text-right text-xs font-bold text-emerald-600">Ksh {item.total_amount?.toLocaleString()}</td>
+                                                                                <td className="px-2 py-1.5 text-center">
+                                                                                    {item.batch_number ? (
+                                                                                        <span className="px-1 py-0.5 bg-amber-50 text-amber-700 rounded text-[9px] font-mono">{item.batch_number}</span>
+                                                                                    ) : <span className="text-[10px] text-gray-300">—</span>}
+                                                                                </td>
+                                                                                <td className="px-2 py-1.5 text-center">
+                                                                                    {item.expiry_date ? (
+                                                                                        <span className={`px-1 py-0.5 rounded text-[9px] font-bold ${new Date(item.expiry_date) < new Date() ? 'bg-red-100 text-red-700' : 'bg-amber-50 text-amber-700'}`}>
+                                                                                            {new Date(item.expiry_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}
+                                                                                        </span>
+                                                                                    ) : <span className="text-[10px] text-gray-300">—</span>}
+                                                                                </td>
+                                                                            </tr>
+                                                                        ))}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
@@ -406,78 +471,6 @@ export default function PurchasesPage() {
                     <span className="text-sm text-gray-400">Page <span className="font-bold text-gray-700">{page}</span> of <span className="font-bold text-gray-700">{totalPages || 1}</span></span>
                 </div>
             </div>
-
-            {/* ━━━ VIEW PURCHASE MODAL ━━━ */}
-            {showViewModal && selectedPurchase && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50" onClick={() => setShowViewModal(false)}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-4 text-white sticky top-0 z-10 flex items-center justify-between rounded-t-3xl">
-                            <div className="flex items-center gap-3"><FiShoppingBag size={20} /><div><h2 className="text-lg font-bold">Purchase {selectedPurchase.purchase_no}</h2><p className="text-indigo-100 text-xs">{new Date(selectedPurchase.purchase_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</p></div></div>
-                            <div className="flex items-center gap-2">
-                                <button onClick={() => printPurchaseDetail(selectedPurchase, purchaseItems)} className="p-2 hover:bg-white/20 rounded-xl" title="Print"><FiPrinter size={16} /></button>
-                                <button onClick={() => setShowViewModal(false)} className="p-2 hover:bg-white/20 rounded-xl"><FiX size={18} /></button>
-                            </div>
-                        </div>
-                        <div className="p-5 space-y-5">
-                            {/* Info Grid */}
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                                <div className="p-3 bg-gray-50 rounded-xl"><p className="text-[10px] text-gray-400 uppercase font-bold">Invoice No</p><p className="text-sm font-bold text-gray-800 mt-0.5">{selectedPurchase.purchase_no}</p></div>
-                                <div className="p-3 bg-gray-50 rounded-xl"><p className="text-[10px] text-gray-400 uppercase font-bold">Supplier</p><p className="text-sm font-bold text-gray-800 mt-0.5">{selectedPurchase.supplier_name || 'N/A'}</p></div>
-                                <div className="p-3 bg-gray-50 rounded-xl"><p className="text-[10px] text-gray-400 uppercase font-bold">Status</p><span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold mt-0.5 ${selectedPurchase.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{selectedPurchase.status || 'Pending'}</span></div>
-                                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200"><p className="text-[10px] text-emerald-500 uppercase font-bold">Grand Total</p><p className="text-xl font-black text-emerald-700 mt-0.5">Ksh {selectedPurchase.grand_total.toLocaleString()}</p></div>
-                            </div>
-                            {/* Items Table */}
-                            <div>
-                                <h3 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2"><FiPackage size={14} /> Purchase Items ({purchaseItems.length})</h3>
-                                {isLoadingItems ? (
-                                    <div className="text-center py-8"><div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto" /><p className="mt-2 text-gray-400 text-sm">Loading...</p></div>
-                                ) : purchaseItems.length === 0 ? (
-                                    <p className="text-center text-gray-400 py-8 text-sm">No items found</p>
-                                ) : (
-                                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                                        <table className="w-full">
-                                            <thead><tr className="bg-gray-50">
-                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">#</th>
-                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Code</th>
-                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Product</th>
-                                                <th className="px-3 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">Unit</th>
-                                                <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Qty</th>
-                                                <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Rate</th>
-                                                <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Total</th>
-                                            </tr></thead>
-                                            <tbody>
-                                                {purchaseItems.map((item, idx) => (
-                                                    <tr key={item.pp_id} className={`border-t border-gray-100 ${idx % 2 ? 'bg-gray-50/30' : ''}`}>
-                                                        <td className="px-3 py-2 text-xs text-gray-400">{idx + 1}</td>
-                                                        <td className="px-3 py-2 text-xs text-indigo-600 font-mono font-medium">{item.product_code}</td>
-                                                        <td className="px-3 py-2 text-sm font-semibold text-gray-800">{item.product_name}</td>
-                                                        <td className="px-3 py-2 text-center"><span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">{item.unit}</span></td>
-                                                        <td className="px-3 py-2 text-right text-sm font-bold text-gray-700">{item.quantity}</td>
-                                                        <td className="px-3 py-2 text-right text-xs text-gray-500">Ksh {item.rate?.toLocaleString()}</td>
-                                                        <td className="px-3 py-2 text-right text-sm font-bold text-emerald-600">Ksh {item.total_amount?.toLocaleString()}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                )}
-                            </div>
-                            {/* Totals */}
-                            <div className="flex justify-end">
-                                <div className="w-64 space-y-2 bg-gray-50 rounded-xl p-4">
-                                    <div className="flex justify-between text-sm"><span className="text-gray-500">Sub Total</span><span className="font-medium">Ksh {(selectedPurchase.sub_total || 0).toLocaleString()}</span></div>
-                                    {(selectedPurchase.discount || 0) > 0 && <div className="flex justify-between text-sm"><span className="text-gray-500">Discount</span><span className="font-medium text-red-500">-Ksh {selectedPurchase.discount.toLocaleString()}</span></div>}
-                                    <div className="border-t border-gray-200 pt-2 flex justify-between text-base"><span className="font-bold text-gray-700">Grand Total</span><span className="font-black text-emerald-600">Ksh {selectedPurchase.grand_total.toLocaleString()}</span></div>
-                                </div>
-                            </div>
-                            <div className="flex gap-3 pt-3 border-t">
-                                <button onClick={() => printPurchaseDetail(selectedPurchase, purchaseItems)} className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2"><FiPrinter size={14} /> Print</button>
-                                <button onClick={() => setShowViewModal(false)} className="flex-1 px-4 py-3 border-2 border-gray-200 text-gray-600 font-bold rounded-xl text-sm">Close</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
