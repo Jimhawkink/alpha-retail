@@ -171,92 +171,98 @@ export default function OutletsPage() {
             {/* Modal */}
             {showModal && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
-                        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-4 text-white rounded-t-3xl flex items-center justify-between">
-                            <h2 className="text-lg font-bold flex items-center gap-2"><FiMapPin size={18} /> {editingOutlet ? 'Edit Outlet' : 'Add New Outlet'}</h2>
-                            <button onClick={() => setShowModal(false)} className="p-1 hover:bg-white/20 rounded-lg"><FiX size={18} /></button>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                        {/* Fixed Header */}
+                        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 px-5 py-3 text-white rounded-t-3xl flex items-center justify-between shrink-0">
+                            <h2 className="text-base font-bold flex items-center gap-2"><FiMapPin size={16} /> {editingOutlet ? 'Edit Outlet' : 'Add New Outlet'}</h2>
+                            <button onClick={() => setShowModal(false)} className="p-1 hover:bg-white/20 rounded-lg"><FiX size={16} /></button>
                         </div>
-                        <div className="p-6 space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
+                        {/* Scrollable Body */}
+                        <div className="p-4 space-y-3 overflow-y-auto flex-1">
+                            <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Outlet Name *</label>
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase mb-0.5 block">Outlet Name *</label>
                                     <input type="text" value={form.outlet_name} onChange={e => setForm({ ...form, outlet_name: e.target.value })} placeholder="e.g. Silibwet Branch"
-                                        className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none" />
+                                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:border-indigo-500 outline-none" />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Code *</label>
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase mb-0.5 block">Code *</label>
                                     <input type="text" value={form.outlet_code} onChange={e => setForm({ ...form, outlet_code: e.target.value.toUpperCase() })} placeholder="e.g. SLB" maxLength={10}
-                                        className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none uppercase font-mono" />
+                                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:border-indigo-500 outline-none uppercase font-mono" />
                                 </div>
                             </div>
                             <div>
-                                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Address</label>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase mb-0.5 block">Address</label>
                                 <input type="text" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Physical address"
-                                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none" />
+                                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:border-indigo-500 outline-none" />
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">City</label>
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase mb-0.5 block">City</label>
                                     <input type="text" value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} placeholder="Town/City"
-                                        className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none" />
+                                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:border-indigo-500 outline-none" />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Phone</label>
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase mb-0.5 block">Phone</label>
                                     <input type="text" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="0720..."
-                                        className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none" />
+                                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:border-indigo-500 outline-none" />
                                 </div>
                             </div>
-                            <label className="flex items-center gap-2 cursor-pointer p-3 bg-amber-50 border border-amber-200 rounded-xl">
-                                <input type="checkbox" checked={form.is_main} onChange={e => setForm({ ...form, is_main: e.target.checked })} className="accent-amber-600" />
-                                <div>
-                                    <span className="text-sm font-bold text-amber-800">Set as Main/Head Office</span>
-                                    <p className="text-[10px] text-amber-600">Main outlet can view all outlets' data</p>
-                                </div>
-                            </label>
-                            <label className="flex items-center gap-2 cursor-pointer p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
-                                <input type="checkbox" checked={form.enable_expiry_tracking} onChange={e => setForm({ ...form, enable_expiry_tracking: e.target.checked })} className="accent-emerald-600" />
-                                <div>
-                                    <span className="text-sm font-bold text-emerald-800">⏰ Enable Expiry Tracking</span>
-                                    <p className="text-[10px] text-emerald-600">Track batch expiry dates, warn 2 days before, block sales on expiry day</p>
-                                </div>
-                            </label>
+                            {/* Compact toggles row */}
+                            <div className="grid grid-cols-2 gap-2">
+                                <label className="flex items-center gap-2 cursor-pointer p-2.5 bg-amber-50 border border-amber-200 rounded-lg">
+                                    <input type="checkbox" checked={form.is_main} onChange={e => setForm({ ...form, is_main: e.target.checked })} className="accent-amber-600 w-4 h-4" />
+                                    <div>
+                                        <span className="text-xs font-bold text-amber-800">Main/Head Office</span>
+                                        <p className="text-[9px] text-amber-600">Can view all outlets</p>
+                                    </div>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg">
+                                    <input type="checkbox" checked={form.enable_expiry_tracking} onChange={e => setForm({ ...form, enable_expiry_tracking: e.target.checked })} className="accent-emerald-600 w-4 h-4" />
+                                    <div>
+                                        <span className="text-xs font-bold text-emerald-800">⏰ Expiry Tracking</span>
+                                        <p className="text-[9px] text-emerald-600">Track batch expiry dates</p>
+                                    </div>
+                                </label>
+                            </div>
                             {/* ── Quick Action Buttons Visibility ── */}
-                            <div className="border border-blue-200 rounded-xl p-4 bg-blue-50/50">
-                                <p className="text-sm font-bold text-blue-800 mb-1 flex items-center gap-2">⚡ POS Quick Action Buttons</p>
-                                <p className="text-[10px] text-blue-600 mb-3">Toggle which quick action buttons are visible on the POS page for this outlet</p>
-                                <div className="grid grid-cols-2 gap-2">
+                            <div className="border border-blue-200 rounded-lg p-3 bg-blue-50/50">
+                                <p className="text-xs font-bold text-blue-800 mb-1 flex items-center gap-1">⚡ POS Quick Action Buttons</p>
+                                <p className="text-[9px] text-blue-600 mb-2">Toggle which buttons are visible on POS for this outlet</p>
+                                <div className="grid grid-cols-3 gap-1.5">
                                     {[
                                         { key: 'purchases', icon: '📥', label: 'Purchases' },
-                                        { key: 'stock_available', icon: '📦', label: 'Stock Available' },
-                                        { key: 'expiry_register', icon: '⏰', label: 'Expiry Register' },
-                                        { key: 'sales_returns', icon: '↩️', label: 'Sales Returns' },
-                                        { key: 'register_history', icon: '🧾', label: 'Register History' },
+                                        { key: 'stock_available', icon: '📦', label: 'Stock' },
+                                        { key: 'expiry_register', icon: '⏰', label: 'Expiry' },
+                                        { key: 'sales_returns', icon: '↩️', label: 'Returns' },
+                                        { key: 'register_history', icon: '🧾', label: 'History' },
                                         { key: 'reports', icon: '📊', label: 'Reports' },
-                                        { key: 'sales_summary', icon: '📈', label: 'Sales Summary' },
+                                        { key: 'sales_summary', icon: '📈', label: 'Summary' },
                                         { key: 'expenses', icon: '💸', label: 'Expenses' },
                                         { key: 'payroll', icon: '👥', label: 'Payroll' },
                                     ].map(btn => (
-                                        <label key={btn.key} className={`flex items-center gap-2 cursor-pointer p-2 rounded-lg border transition-all ${
+                                        <label key={btn.key} className={`flex items-center gap-1.5 cursor-pointer px-2 py-1.5 rounded-lg border transition-all ${
                                             form.allowed_quick_actions[btn.key] ? 'bg-green-50 border-green-300' : 'bg-white border-gray-200'
                                         }`}>
                                             <input
                                                 type="checkbox"
                                                 checked={form.allowed_quick_actions[btn.key] || false}
                                                 onChange={e => setForm({ ...form, allowed_quick_actions: { ...form.allowed_quick_actions, [btn.key]: e.target.checked } })}
-                                                className="accent-green-600 w-4 h-4"
+                                                className="accent-green-600 w-3.5 h-3.5"
                                             />
-                                            <span className="text-sm">{btn.icon}</span>
-                                            <span className={`text-xs font-semibold ${form.allowed_quick_actions[btn.key] ? 'text-green-800' : 'text-gray-500'}`}>{btn.label}</span>
+                                            <span className="text-xs">{btn.icon}</span>
+                                            <span className={`text-[10px] font-semibold ${form.allowed_quick_actions[btn.key] ? 'text-green-800' : 'text-gray-500'}`}>{btn.label}</span>
                                         </label>
                                     ))}
                                 </div>
                             </div>
-                            <div className="flex gap-3 pt-3 border-t">
-                                <button onClick={() => setShowModal(false)} className="flex-1 px-4 py-3 border-2 border-gray-200 text-gray-600 font-bold rounded-xl text-sm">Cancel</button>
-                                <button onClick={save} disabled={isSaving} className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold rounded-xl text-sm disabled:opacity-50">
-                                    {isSaving ? 'Saving...' : editingOutlet ? 'Update Outlet' : 'Create Outlet'}
-                                </button>
-                            </div>
+                        </div>
+                        {/* Fixed Footer with Save Buttons — always visible */}
+                        <div className="px-5 py-3 border-t border-gray-200 flex gap-3 shrink-0 rounded-b-3xl bg-gray-50">
+                            <button onClick={() => setShowModal(false)} className="flex-1 px-4 py-2.5 border-2 border-gray-200 text-gray-600 font-bold rounded-xl text-sm hover:bg-gray-100 transition-colors">Cancel</button>
+                            <button onClick={save} disabled={isSaving} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold rounded-xl text-sm disabled:opacity-50 hover:shadow-lg transition-all">
+                                {isSaving ? 'Saving...' : editingOutlet ? '✅ Update Outlet' : '✅ Create Outlet'}
+                            </button>
                         </div>
                     </div>
                 </div>
