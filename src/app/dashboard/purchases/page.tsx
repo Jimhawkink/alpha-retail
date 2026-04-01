@@ -22,6 +22,7 @@ interface Supplier { supplier_id: number; supplier_name: string; }
 export default function PurchasesPage() {
     const { activeOutlet } = useOutlet();
     const outletId = activeOutlet?.outlet_id || 1;
+    const expiryEnabled = !!(activeOutlet as any)?.enable_expiry_tracking;
     const [purchases, setPurchases] = useState<Purchase[]>([]);
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -390,8 +391,8 @@ export default function PurchasesPage() {
                                                                         <th className="px-2 py-1.5 text-center text-[9px] font-bold text-emerald-500 uppercase">🔢 Pcs</th>
                                                                         <th className="px-2 py-1.5 text-right text-[9px] font-bold text-gray-500 uppercase">Rate</th>
                                                                         <th className="px-2 py-1.5 text-right text-[9px] font-bold text-gray-500 uppercase">Total</th>
-                                                                        <th className="px-2 py-1.5 text-center text-[9px] font-bold text-amber-500 uppercase">Batch</th>
-                                                                        <th className="px-2 py-1.5 text-center text-[9px] font-bold text-amber-500 uppercase">Expiry</th>
+                                                                        {expiryEnabled && <th className="px-2 py-1.5 text-center text-[9px] font-bold text-amber-500 uppercase">Batch</th>}
+                                                                        {expiryEnabled && <th className="px-2 py-1.5 text-center text-[9px] font-bold text-amber-500 uppercase">Expiry</th>}
                                                                     </tr></thead>
                                                                     <tbody>
                                                                         {items.map((item, i) => (
@@ -414,18 +415,20 @@ export default function PurchasesPage() {
                                                                                 </td>
                                                                                 <td className="px-2 py-1.5 text-right text-[10px] text-gray-500">Ksh {item.rate?.toLocaleString()}</td>
                                                                                 <td className="px-2 py-1.5 text-right text-xs font-bold text-emerald-600">Ksh {item.total_amount?.toLocaleString()}</td>
+                                                                                {expiryEnabled && (
                                                                                 <td className="px-2 py-1.5 text-center">
                                                                                     {item.batch_number ? (
                                                                                         <span className="px-1 py-0.5 bg-amber-50 text-amber-700 rounded text-[9px] font-mono">{item.batch_number}</span>
                                                                                     ) : <span className="text-[10px] text-gray-300">—</span>}
-                                                                                </td>
+                                                                                </td>)}
+                                                                                {expiryEnabled && (
                                                                                 <td className="px-2 py-1.5 text-center">
                                                                                     {item.expiry_date ? (
                                                                                         <span className={`px-1 py-0.5 rounded text-[9px] font-bold ${new Date(item.expiry_date) < new Date() ? 'bg-red-100 text-red-700' : 'bg-amber-50 text-amber-700'}`}>
                                                                                             {new Date(item.expiry_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}
                                                                                         </span>
                                                                                     ) : <span className="text-[10px] text-gray-300">—</span>}
-                                                                                </td>
+                                                                                </td>)}
                                                                             </tr>
                                                                         ))}
                                                                     </tbody>

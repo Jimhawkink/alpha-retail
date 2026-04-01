@@ -109,11 +109,12 @@ export default function PurchaseEntryPage() {
 
     const generateInvoiceNo = async () => {
         try {
-            const { data } = await supabase.from('retail_purchases').select('purchase_no').eq('outlet_id', outletId).order('purchase_id', { ascending: false }).limit(1);
+            // Query ALL purchases globally (not per-outlet) since purchase_no has a global unique constraint
+            const { data } = await supabase.from('retail_purchases').select('purchase_no').order('purchase_id', { ascending: false }).limit(1);
             let n = 1;
             if (data?.[0]) { const m = data[0].purchase_no.match(/INV-(\d+)/); if (m) n = parseInt(m[1]) + 1; }
-            setInvoiceNo(`INV-${String(n).padStart(3, '0')}`);
-        } catch { setInvoiceNo(`INV-${Date.now().toString().slice(-4)}`); }
+            setInvoiceNo(`INV-${String(n).padStart(4, '0')}`);
+        } catch { setInvoiceNo(`INV-${Date.now().toString(36).toUpperCase()}`); }
     };
 
     // ─── PRODUCT SELECTION ───
@@ -268,7 +269,7 @@ export default function PurchaseEntryPage() {
             if (pErr) throw pErr;
             const pid = purchaseData.purchase_id;
 
-            // Insert purchase items
+            // Insert purchase items (try with new columns, fallback to base columns if they don't exist yet)
             const purchaseItemsData = items.map(i => ({
                 purchase_id: pid, product_id: i.productId, product_code: i.productCode,
                 product_name: i.productName, quantity: i.qty, unit: i.purchaseUnit,
@@ -276,7 +277,17 @@ export default function PurchaseEntryPage() {
                 bag_qty: i.bagQty || 0, piece_qty: i.pieceQty || 0,
                 batch_number: i.batchNumber || null, expiry_date: i.expiryDate || null,
             }));
-            const { error: iErr } = await supabase.from('retail_purchase_products').insert(purchaseItemsData);
+            let { error: iErr } = await supabase.from('retail_purchase_products').insert(purchaseItemsData);
+            if (iErr && iErr.message?.includes('column')) {
+                // Fallback: insert without new columns if they don't exist in DB yet
+                const fallbackData = items.map(i => ({
+                    purchase_id: pid, product_id: i.productId, product_code: i.productCode,
+                    product_name: i.productName, quantity: i.qty, unit: i.purchaseUnit,
+                    rate: i.price, total_amount: i.total,
+                }));
+                const fb = await supabase.from('retail_purchase_products').insert(fallbackData);
+                iErr = fb.error;
+            }
             if (iErr) throw iErr;
 
             // Update stock & prices for each item
