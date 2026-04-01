@@ -13,6 +13,7 @@ export interface Outlet {
     is_main: boolean;
     active: boolean;
     enable_expiry_tracking?: boolean;
+    allowed_quick_actions?: Record<string, boolean>;
 }
 
 interface OutletContextType {

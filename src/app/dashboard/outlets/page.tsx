@@ -15,7 +15,8 @@ export default function OutletsPage() {
     // Modal
     const [showModal, setShowModal] = useState(false);
     const [editingOutlet, setEditingOutlet] = useState<Outlet | null>(null);
-    const [form, setForm] = useState({ outlet_name: '', outlet_code: '', address: '', city: '', phone: '', email: '', is_main: false, enable_expiry_tracking: false });
+    const defaultQuickActions: Record<string, boolean> = { purchases: false, stock_available: false, expiry_register: false, sales_returns: false, register_history: false, reports: false, sales_summary: false, expenses: false, payroll: false };
+    const [form, setForm] = useState({ outlet_name: '', outlet_code: '', address: '', city: '', phone: '', email: '', is_main: false, enable_expiry_tracking: false, allowed_quick_actions: { ...defaultQuickActions } as Record<string, boolean> });
     const [isSaving, setIsSaving] = useState(false);
 
     // Staff Assignment Modal
@@ -54,13 +55,13 @@ export default function OutletsPage() {
 
     const openAdd = () => {
         setEditingOutlet(null);
-        setForm({ outlet_name: '', outlet_code: '', address: '', city: '', phone: '', email: '', is_main: false, enable_expiry_tracking: false });
+        setForm({ outlet_name: '', outlet_code: '', address: '', city: '', phone: '', email: '', is_main: false, enable_expiry_tracking: false, allowed_quick_actions: { ...defaultQuickActions } });
         setShowModal(true);
     };
 
     const openEdit = (o: Outlet) => {
         setEditingOutlet(o);
-        setForm({ outlet_name: o.outlet_name, outlet_code: o.outlet_code, address: o.address || '', city: o.city || '', phone: o.phone || '', email: '', is_main: o.is_main, enable_expiry_tracking: o.enable_expiry_tracking || false });
+        setForm({ outlet_name: o.outlet_name, outlet_code: o.outlet_code, address: o.address || '', city: o.city || '', phone: o.phone || '', email: '', is_main: o.is_main, enable_expiry_tracking: o.enable_expiry_tracking || false, allowed_quick_actions: { ...defaultQuickActions, ...(o.allowed_quick_actions || {}) } });
         setShowModal(true);
     };
 
@@ -73,6 +74,7 @@ export default function OutletsPage() {
                     outlet_name: form.outlet_name, outlet_code: form.outlet_code.toUpperCase(),
                     address: form.address, city: form.city, phone: form.phone, is_main: form.is_main,
                     enable_expiry_tracking: form.enable_expiry_tracking,
+                    allowed_quick_actions: form.allowed_quick_actions,
                     updated_at: new Date().toISOString(),
                 }).eq('outlet_id', editingOutlet.outlet_id);
                 if (error) throw error;
@@ -82,6 +84,7 @@ export default function OutletsPage() {
                     outlet_name: form.outlet_name, outlet_code: form.outlet_code.toUpperCase(),
                     address: form.address, city: form.city, phone: form.phone, is_main: form.is_main,
                     enable_expiry_tracking: form.enable_expiry_tracking,
+                    allowed_quick_actions: form.allowed_quick_actions,
                     active: true,
                 });
                 if (error) throw error;
@@ -217,6 +220,37 @@ export default function OutletsPage() {
                                     <p className="text-[10px] text-emerald-600">Track batch expiry dates, warn 2 days before, block sales on expiry day</p>
                                 </div>
                             </label>
+                            {/* ── Quick Action Buttons Visibility ── */}
+                            <div className="border border-blue-200 rounded-xl p-4 bg-blue-50/50">
+                                <p className="text-sm font-bold text-blue-800 mb-1 flex items-center gap-2">⚡ POS Quick Action Buttons</p>
+                                <p className="text-[10px] text-blue-600 mb-3">Toggle which quick action buttons are visible on the POS page for this outlet</p>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {[
+                                        { key: 'purchases', icon: '📥', label: 'Purchases' },
+                                        { key: 'stock_available', icon: '📦', label: 'Stock Available' },
+                                        { key: 'expiry_register', icon: '⏰', label: 'Expiry Register' },
+                                        { key: 'sales_returns', icon: '↩️', label: 'Sales Returns' },
+                                        { key: 'register_history', icon: '🧾', label: 'Register History' },
+                                        { key: 'reports', icon: '📊', label: 'Reports' },
+                                        { key: 'sales_summary', icon: '📈', label: 'Sales Summary' },
+                                        { key: 'expenses', icon: '💸', label: 'Expenses' },
+                                        { key: 'payroll', icon: '👥', label: 'Payroll' },
+                                    ].map(btn => (
+                                        <label key={btn.key} className={`flex items-center gap-2 cursor-pointer p-2 rounded-lg border transition-all ${
+                                            form.allowed_quick_actions[btn.key] ? 'bg-green-50 border-green-300' : 'bg-white border-gray-200'
+                                        }`}>
+                                            <input
+                                                type="checkbox"
+                                                checked={form.allowed_quick_actions[btn.key] || false}
+                                                onChange={e => setForm({ ...form, allowed_quick_actions: { ...form.allowed_quick_actions, [btn.key]: e.target.checked } })}
+                                                className="accent-green-600 w-4 h-4"
+                                            />
+                                            <span className="text-sm">{btn.icon}</span>
+                                            <span className={`text-xs font-semibold ${form.allowed_quick_actions[btn.key] ? 'text-green-800' : 'text-gray-500'}`}>{btn.label}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
                             <div className="flex gap-3 pt-3 border-t">
                                 <button onClick={() => setShowModal(false)} className="flex-1 px-4 py-3 border-2 border-gray-200 text-gray-600 font-bold rounded-xl text-sm">Cancel</button>
                                 <button onClick={save} disabled={isSaving} className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold rounded-xl text-sm disabled:opacity-50">

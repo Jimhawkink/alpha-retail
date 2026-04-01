@@ -2109,14 +2109,21 @@ export default function RetailPOSPage() {
             {/* ═══ Quick Action Buttons Strip (Light Theme) ═══ */}
             <div className="bg-gradient-to-r from-gray-50 via-white to-gray-50 border-b border-gray-200 px-4 py-2 flex items-center gap-2 overflow-x-auto">
                 {[
-                    { icon: '📥', label: 'Purchases', href: '/dashboard/purchases', cashierEnabled: false },
-                    { icon: '📦', label: 'Stock Available', href: '/dashboard/products', cashierEnabled: false },
-                    { icon: '⏰', label: 'Expiry Register', href: '/dashboard/expiry-register', cashierEnabled: false },
-                    { icon: '↩️', label: 'Sales Returns', href: '/dashboard/sales-return', cashierEnabled: true },
-                    { icon: '🧾', label: 'Register History', href: '/dashboard/shift-reports', cashierEnabled: false },
-                    { icon: '📊', label: 'Reports', href: '/dashboard/reports/sales', cashierEnabled: false },
-                    { icon: '📈', label: 'Sales Summary', href: '/dashboard/sales-summary', cashierEnabled: true },
-                ].map(btn => {
+                    { key: 'purchases', icon: '📥', label: 'Purchases', href: '/dashboard/purchases', cashierEnabled: false },
+                    { key: 'stock_available', icon: '📦', label: 'Stock Available', href: '/dashboard/products', cashierEnabled: false },
+                    { key: 'expiry_register', icon: '⏰', label: 'Expiry Register', href: '/dashboard/expiry-register', cashierEnabled: false },
+                    { key: 'sales_returns', icon: '↩️', label: 'Sales Returns', href: '/dashboard/sales-return', cashierEnabled: true },
+                    { key: 'register_history', icon: '🧾', label: 'Register History', href: '/dashboard/shift-reports', cashierEnabled: false },
+                    { key: 'reports', icon: '📊', label: 'Reports', href: '/dashboard/reports/sales', cashierEnabled: false },
+                    { key: 'sales_summary', icon: '📈', label: 'Sales Summary', href: '/dashboard/sales-summary', cashierEnabled: true },
+                    { key: 'expenses', icon: '💸', label: 'Expenses', href: '/dashboard/expenses', cashierEnabled: false },
+                    { key: 'payroll', icon: '👥', label: 'Payroll', href: '/dashboard/payroll', cashierEnabled: false },
+                ].filter(btn => {
+                    // Only show buttons that are enabled for this outlet
+                    const qa = activeOutlet?.allowed_quick_actions;
+                    if (!qa) return false;
+                    return qa[btn.key] === true;
+                }).map(btn => {
                     const disabled = isWaiterUser && !btn.cashierEnabled;
                     return disabled ? (
                         <button
