@@ -2020,7 +2020,7 @@ export default function RetailPOSPage() {
                             name: `${item.name}${item.unitMultiplier > 1 ? ` (${item.sellingUnit})` : ''}`,
                             qty: item.qty,
                             price: item.effectivePrice,
-                            total: item.effectivePrice * item.qty
+                            total: (item.effectivePrice * item.qty) - item.discount
                         })),
                         subtotal: subtotal,
                         discount: totalDiscount,
@@ -2053,10 +2053,10 @@ export default function RetailPOSPage() {
                         time: now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
                         cashier: 'Cashier',
                         items: cart.map(item => ({
-                            name: item.name,
+                            name: `${item.name}${item.unitMultiplier > 1 ? ` (${item.sellingUnit})` : ''}`,
                             qty: item.qty,
-                            price: item.salesPrice,
-                            total: item.salesPrice * item.qty
+                            price: item.effectivePrice,
+                            total: (item.effectivePrice * item.qty) - item.discount
                         })),
                         subtotal: subtotal,
                         discount: totalDiscount,
