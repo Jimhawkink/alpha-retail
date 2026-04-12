@@ -100,13 +100,14 @@ const ProductRow = ({
     </tr>
 );
 
-// Cart Item Row Component
+// Cart Item Row Component — qty is clickable to type a custom number
 const CartItemRow = ({
     item,
     onIncrease,
     onDecrease,
     onRemove,
     onEditDiscount,
+    onSetQty,
     canDiscount = true
 }: {
     item: CartItem;
@@ -114,9 +115,18 @@ const CartItemRow = ({
     onDecrease: () => void;
     onRemove: () => void;
     onEditDiscount: () => void;
+    onSetQty: (qty: number) => void;
     canDiscount?: boolean;
 }) => {
+    const [editingQty, setEditingQty] = useState(false);
+    const [qtyInput, setQtyInput] = useState(item.qty.toString());
     const itemTotal = (item.effectivePrice * item.qty) - item.discount;
+
+    const handleQtySubmit = () => {
+        const newQty = parseInt(qtyInput) || 1;
+        if (newQty > 0) onSetQty(newQty);
+        setEditingQty(false);
+    };
 
     return (
         <div className="bg-white rounded-xl p-3 space-y-2 border border-gray-100 shadow-sm">
@@ -135,7 +145,26 @@ const CartItemRow = ({
                     >
                         −
                     </button>
-                    <span className="w-8 text-center font-bold text-gray-800">{item.qty}</span>
+                    {editingQty ? (
+                        <input
+                            type="number"
+                            value={qtyInput}
+                            onChange={(e) => setQtyInput(e.target.value)}
+                            onBlur={handleQtySubmit}
+                            onKeyDown={(e) => { if (e.key === 'Enter') handleQtySubmit(); }}
+                            className="w-16 text-center font-bold text-gray-800 border-2 border-blue-400 rounded-lg py-1 text-sm focus:outline-none focus:border-blue-600"
+                            autoFocus
+                            min={1}
+                        />
+                    ) : (
+                        <button
+                            onClick={() => { setQtyInput(item.qty.toString()); setEditingQty(true); }}
+                            className="w-10 text-center font-bold text-gray-800 hover:bg-blue-100 rounded-lg py-1 cursor-pointer transition-colors border border-transparent hover:border-blue-300"
+                            title="Click to type quantity"
+                        >
+                            {item.qty}
+                        </button>
+                    )}
                     <button
                         onClick={onIncrease}
                         className="w-8 h-8 rounded-lg bg-green-500 hover:bg-green-600 flex items-center justify-center font-bold text-white transition-colors text-lg shadow-sm"
@@ -1052,7 +1081,7 @@ export default function RetailPOSPage() {
     }, [heldSales]);
 
     // Hold current sale
-    const holdCurrentSale = () => {
+    const holdCurrentSale = async () => {
         if (cart.length === 0) {
             toast.error('Cart is empty — nothing to hold');
             return;
@@ -1069,20 +1098,22 @@ export default function RetailPOSPage() {
         };
         setHeldSales(prev => [...prev, held]);
         setCart([]);
-        loadNextReceiptNo();
+        await loadNextReceiptNo();
         toast.success(`Sale held (${held.itemCount} items — Ksh ${held.total.toLocaleString()})`);
     };
 
     // Recall a held sale
-    const recallHeldSale = (heldId: string) => {
+    const recallHeldSale = async (heldId: string) => {
         const sale = heldSales.find(h => h.id === heldId);
         if (!sale) return;
         if (cart.length > 0) {
             // Auto-hold current cart before recalling
-            holdCurrentSale();
+            await holdCurrentSale();
         }
         setCart(sale.cart);
-        setReceiptNo(sale.receiptNo);
+        // ALWAYS get a fresh receipt number — the old one may have been used
+        // while this sale was on hold
+        await loadNextReceiptNo();
         setHeldSales(prev => prev.filter(h => h.id !== heldId));
         setShowHeldSalesModal(false);
         toast.success('Sale recalled — continue where you left off');
@@ -1301,6 +1332,7 @@ export default function RetailPOSPage() {
                 return;
             }
 
+            let nextNum = 1;
             if (data && data.length > 0) {
                 let maxNum = 0;
                 const regex = new RegExp(`${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\d+)`);
@@ -1312,18 +1344,25 @@ export default function RetailPOSPage() {
                     }
                 }
                 if (maxNum > 0) {
-                    setReceiptNo(`${prefix}${String(maxNum + 1).padStart(2, '0')}`);
-                    return;
+                    nextNum = maxNum + 1;
                 }
             }
 
-            setReceiptNo(`${prefix}01`);
+            // Check against held sales to avoid receipt conflicts
+            let candidate = `${prefix}${String(nextNum).padStart(2, '0')}`;
+            const heldReceiptNos = heldSales.map(h => h.receiptNo);
+            while (heldReceiptNos.includes(candidate)) {
+                nextNum++;
+                candidate = `${prefix}${String(nextNum).padStart(2, '0')}`;
+            }
+
+            setReceiptNo(candidate);
         } catch (err) {
             console.error('Exception loading receipt number:', err);
             // ALWAYS fall back to clean format, never timestamps
             setReceiptNo(`${prefix}01`);
         }
-    }, [activeOutlet, outletId, outletCode]);
+    }, [activeOutlet, outletId, outletCode, heldSales]);
 
     // Load credit customers for dropdown
     const loadCreditCustomers = useCallback(async () => {
@@ -1394,24 +1433,35 @@ export default function RetailPOSPage() {
     }, [products]);
 
     // Add product to cart
-    // Add to cart with specific unit selection
-    const addToCartWithUnit = useCallback((product: Product, sellingUnit: string, unitMultiplier: number, effectivePrice: number) => {
+    // Add to cart with specific unit selection — accepts optional qty (default 1)
+    const addToCartWithUnit = useCallback((product: Product, sellingUnit: string, unitMultiplier: number, effectivePrice: number, qty: number = 1) => {
+        const addQty = Math.max(1, Math.floor(qty));
         setCart(prev => {
             // Check for existing item with SAME product AND SAME selling unit
             const existing = prev.find(item => item.id === product.id && item.sellingUnit === sellingUnit);
             if (existing) {
                 return prev.map(item =>
                     item.id === product.id && item.sellingUnit === sellingUnit
-                        ? { ...item, qty: item.qty + 1 }
+                        ? { ...item, qty: item.qty + addQty }
                         : item
                 );
             }
-            return [...prev, { ...product, qty: 1, discount: 0, sellingUnit, unitMultiplier, effectivePrice }];
+            return [...prev, { ...product, qty: addQty, discount: 0, sellingUnit, unitMultiplier, effectivePrice }];
         });
 
-        toast.success(`${product.name} (${sellingUnit}) added`);
+        toast.success(`${product.name} x${addQty} (${sellingUnit}) added`);
         setSearchQuery('');
         searchInputRef.current?.focus();
+    }, []);
+
+    // Set exact qty for a cart item (for clicking on qty to type)
+    const setCartItemQty = useCallback((id: number, sellingUnit: string, qty: number) => {
+        const newQty = Math.max(1, Math.floor(qty));
+        setCart(prev => prev.map(item =>
+            item.id === id && item.sellingUnit === sellingUnit
+                ? { ...item, qty: newQty }
+                : item
+        ));
     }, []);
 
     // Add product to cart (checks for unit picker)
@@ -2404,6 +2454,7 @@ export default function RetailPOSPage() {
                                     onDecrease={() => decreaseQty(item.id, item.sellingUnit)}
                                     onRemove={() => removeFromCart(item.id, item.sellingUnit)}
                                     onEditDiscount={() => openDiscountModal(item)}
+                                    onSetQty={(qty) => setCartItemQty(item.id, item.sellingUnit, qty)}
                                     canDiscount={canDiscount}
                                 />
                             ))
@@ -2541,7 +2592,7 @@ export default function RetailPOSPage() {
                 onSave={saveItemDiscount}
             />
 
-                 {/* Unit Picker Modal — shows Retail, Wholesale, Big Qty prices */}
+                 {/* Unit Picker Modal — shows Retail, Wholesale, Big Qty prices + QUANTITY INPUT */}
             {showUnitPicker && unitPickerProduct && (() => {
                 const ppp = unitPickerProduct.piecesPerPackage || 1;
                 const retailPrice = unitPickerProduct.retailPrice || unitPickerProduct.salesPrice;
@@ -2549,16 +2600,56 @@ export default function RetailPOSPage() {
                 const bigQtyPrice = wholesalePrice * ppp;
                 return (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowUnitPicker(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl p-6 w-[420px] max-w-[95vw]" onClick={e => e.stopPropagation()}>
+                    <div className="bg-white rounded-2xl shadow-2xl p-6 w-[440px] max-w-[95vw]" onClick={e => e.stopPropagation()}>
                         <h3 className="text-lg font-bold text-gray-800 mb-1">📦 Select Selling Unit & Price</h3>
-                        <p className="text-sm text-gray-500 mb-4">{unitPickerProduct.name}</p>
+                        <p className="text-sm text-gray-500 mb-3">{unitPickerProduct.name}</p>
+
+                        {/* ── QUANTITY INPUT ── */}
+                        <div className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+                            <label className="text-xs font-bold text-blue-700 uppercase tracking-wider mb-1.5 block">🔢 Quantity</label>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => {
+                                        const el = document.getElementById('unit-picker-qty') as HTMLInputElement;
+                                        if (el) { const v = Math.max(1, (parseInt(el.value) || 1) - 1); el.value = v.toString(); }
+                                    }}
+                                    className="w-10 h-10 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-bold text-xl flex items-center justify-center shadow-sm"
+                                >−</button>
+                                <input
+                                    id="unit-picker-qty"
+                                    type="number"
+                                    defaultValue={1}
+                                    min={1}
+                                    className="flex-1 text-center text-2xl font-bold py-2 border-2 border-blue-300 rounded-xl focus:outline-none focus:border-blue-500 bg-white"
+                                    onFocus={(e) => e.target.select()}
+                                />
+                                <button
+                                    onClick={() => {
+                                        const el = document.getElementById('unit-picker-qty') as HTMLInputElement;
+                                        if (el) { const v = (parseInt(el.value) || 1) + 1; el.value = v.toString(); }
+                                    }}
+                                    className="w-10 h-10 rounded-lg bg-green-500 hover:bg-green-600 text-white font-bold text-xl flex items-center justify-center shadow-sm"
+                                >+</button>
+                            </div>
+                            <div className="flex gap-1.5 mt-2">
+                                {[1, 5, 10, 20, 50, 100].map(q => (
+                                    <button key={q} onClick={() => {
+                                        const el = document.getElementById('unit-picker-qty') as HTMLInputElement;
+                                        if (el) el.value = q.toString();
+                                    }}
+                                    className="flex-1 py-1 bg-white border border-blue-200 hover:bg-blue-100 rounded-lg text-xs font-semibold text-blue-700 transition-colors"
+                                    >{q}</button>
+                                ))}
+                            </div>
+                        </div>
 
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Per {unitPickerProduct.salesUnit}</p>
                         <div className="space-y-2 mb-4">
                             {/* Retail Price */}
                             <button
                                 onClick={() => {
-                                    addToCartWithUnit(unitPickerProduct, unitPickerProduct.salesUnit || 'Piece', 1, retailPrice);
+                                    const qty = parseInt((document.getElementById('unit-picker-qty') as HTMLInputElement)?.value) || 1;
+                                    addToCartWithUnit(unitPickerProduct, unitPickerProduct.salesUnit || 'Piece', 1, retailPrice, qty);
                                     setShowUnitPicker(false);
                                     setUnitPickerProduct(null);
                                 }}
@@ -2577,7 +2668,8 @@ export default function RetailPOSPage() {
                             {/* Wholesale Price */}
                             <button
                                 onClick={() => {
-                                    addToCartWithUnit(unitPickerProduct, unitPickerProduct.salesUnit || 'Piece', 1, wholesalePrice);
+                                    const qty = parseInt((document.getElementById('unit-picker-qty') as HTMLInputElement)?.value) || 1;
+                                    addToCartWithUnit(unitPickerProduct, unitPickerProduct.salesUnit || 'Piece', 1, wholesalePrice, qty);
                                     setShowUnitPicker(false);
                                     setUnitPickerProduct(null);
                                 }}
@@ -2600,7 +2692,8 @@ export default function RetailPOSPage() {
                             {/* Big Quantity / Bag Price */}
                             <button
                                 onClick={() => {
-                                    addToCartWithUnit(unitPickerProduct, unitPickerProduct.purchaseUnit || 'Bag', ppp, bigQtyPrice);
+                                    const qty = parseInt((document.getElementById('unit-picker-qty') as HTMLInputElement)?.value) || 1;
+                                    addToCartWithUnit(unitPickerProduct, unitPickerProduct.purchaseUnit || 'Bag', ppp, bigQtyPrice, qty);
                                     setShowUnitPicker(false);
                                     setUnitPickerProduct(null);
                                 }}
