@@ -405,15 +405,68 @@ const PaymentModal = ({
         }
     };
 
-    // Poll for M-Pesa payment status
+    // Helper: finalize M-Pesa payment success
+    const finalizeMpesaSuccess = async (receipt: string, requestId: string) => {
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        setMpesaStatus('success');
+        setMpesaStatusMessage(`✅ Payment received! Receipt: ${receipt}`);
+        setMpesaReceipt(receipt);
+        toast.success(`✅ M-Pesa payment successful! ${receipt}`);
+
+        // Update transaction in database
+        await supabase.from('mpesa_transactions')
+            .update({
+                status: 'Completed',
+                mpesa_receipt_number: receipt,
+                updated_at: new Date().toISOString()
+            })
+            .eq('checkout_request_id', requestId);
+
+        // Auto-complete the sale (only if not already completed)
+        setTimeout(() => {
+            if (!saleCompletedRef.current) {
+                saleCompletedRef.current = true;
+                onComplete('MPESA', total, receipt, customerName, requestId, mpesaPhone);
+            }
+        }, 800);
+    };
+
+    // Poll for M-Pesa payment status (dual-source: API + Supabase callback table)
     const startStatusPolling = (requestId: string) => {
         let attempts = 0;
-        const maxAttempts = 24; // 2 minutes (24 * 5 seconds) - more time for callback
+        const maxAttempts = 15; // 45 seconds (15 * 3 seconds)
 
         pollIntervalRef.current = setInterval(async () => {
             attempts++;
 
             try {
+                // ── SOURCE 1: Check Supabase mpesa_transactions table directly ──
+                // The callback updates this table FASTER than the API responds
+                try {
+                    const { data: txn } = await supabase
+                        .from('mpesa_transactions')
+                        .select('status, mpesa_receipt_number, result_code, result_desc')
+                        .eq('checkout_request_id', requestId)
+                        .single();
+
+                    if (txn) {
+                        if (txn.status === 'Completed' && txn.mpesa_receipt_number) {
+                            console.log('✅ Payment detected via Supabase callback:', txn.mpesa_receipt_number);
+                            await finalizeMpesaSuccess(txn.mpesa_receipt_number, requestId);
+                            return;
+                        }
+                        if (txn.status === 'Failed') {
+                            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+                            const desc = txn.result_desc || '❌ Payment failed';
+                            setMpesaStatus('failed');
+                            setMpesaStatusMessage(desc);
+                            toast.error(desc);
+                            return;
+                        }
+                    }
+                } catch { /* Supabase check failed, continue to API check */ }
+
+                // ── SOURCE 2: Check the external API ──
                 const response = await fetch(`${MPESA_API_URL}/check-status?checkout_request_id=${requestId}`, {
                     headers: {
                         'apikey': MPESA_SUPABASE_ANON_KEY,
@@ -421,109 +474,34 @@ const PaymentModal = ({
                     }
                 });
                 const data = await response.json();
-                console.log('🔵 check-status Response:', JSON.stringify(data, null, 2));
+                console.log(`🔵 Poll #${attempts} check-status:`, JSON.stringify(data, null, 2));
 
                 if (data.resultCode === 0) {
-                    // Payment successful!
-                    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-
-                    // Get receipt from response - check multiple possible field names
+                    // Payment successful via API
                     let receipt = data.mpesaReceiptNumber || data.MpesaReceiptNumber || data.mpesa_receipt_number || data.mpesa_receipt || null;
 
-                    // If no receipt in response, try to extract from resultDesc (format: "...UALHE4GP51...")
+                    // Try to extract from resultDesc
                     if (!receipt && data.resultDesc) {
                         const match = data.resultDesc.match(/([A-Z0-9]{10})/);
                         if (match) receipt = match[1];
                     }
 
-                    // If still no receipt, poll a few more times (callback may still be processing)
-                    if (!receipt && attempts < maxAttempts) {
-                        console.log('⏳ Payment success but receipt not yet available, retrying...');
-                        // Poll again after 2 seconds (callback should have saved by now)
-                        setTimeout(async () => {
-                            for (let retry = 0; retry < 5; retry++) {
-                                await new Promise(resolve => setTimeout(resolve, 1000));
-                                try {
-                                    const retryResponse = await fetch(`${MPESA_API_URL}/check-status?checkout_request_id=${requestId}`, {
-                                        headers: {
-                                            'apikey': MPESA_SUPABASE_ANON_KEY,
-                                            'Authorization': `Bearer ${MPESA_SUPABASE_ANON_KEY}`
-                                        }
-                                    });
-                                    const retryData = await retryResponse.json();
-                                    if (retryData.mpesaReceiptNumber) {
-                                        receipt = retryData.mpesaReceiptNumber;
-                                        console.log('✅ Got receipt on retry:', receipt);
-                                        break;
-                                    }
-                                } catch (e) {
-                                    console.error('Retry error:', e);
-                                }
-                            }
-
-                            // Final completion with whatever receipt we have
-                            if (!receipt) {
-                                console.warn('⚠️ Could not get M-Pesa receipt after retries');
-                                receipt = `MPESA-${Date.now().toString(36).toUpperCase()}`;
-                            }
-
-                            setMpesaStatus('success');
-                            setMpesaStatusMessage(`✅ Payment received! Receipt: ${receipt}`);
-                            setMpesaReceipt(receipt);
-                            toast.success(`✅ M-Pesa payment successful! ${receipt}`);
-
-                            // Update transaction in database
-                            await supabase.from('mpesa_transactions')
-                                .update({
-                                    status: 'Completed',
-                                    mpesa_receipt_number: receipt,
-                                    updated_at: new Date().toISOString()
-                                })
-                                .eq('checkout_request_id', requestId);
-
-                            // Complete the sale
-                            if (!saleCompletedRef.current) {
-                                saleCompletedRef.current = true;
-                                onComplete('MPESA', total, receipt, customerName, requestId, mpesaPhone);
-                            }
-                        }, 500);
-                        return;
+                    // If still no receipt, generate a fallback
+                    if (!receipt) {
+                        receipt = `MPESA-${Date.now().toString(36).toUpperCase()}`;
                     }
 
-                    console.log('✅ M-Pesa Receipt:', receipt);
-                    setMpesaStatus('success');
-                    setMpesaStatusMessage(`✅ Payment received! Receipt: ${receipt}`);
-                    setMpesaReceipt(receipt);
-                    toast.success(`✅ M-Pesa payment successful! ${receipt}`);
-
-                    // Update transaction in database
-                    await supabase.from('mpesa_transactions')
-                        .update({
-                            status: 'Completed',
-                            mpesa_receipt_number: receipt,
-                            updated_at: new Date().toISOString()
-                        })
-                        .eq('checkout_request_id', requestId);
-
-                    // Auto-complete the sale after 1 second (only if not already completed)
-                    setTimeout(() => {
-                        if (!saleCompletedRef.current) {
-                            saleCompletedRef.current = true;
-                            onComplete('MPESA', total, receipt, customerName, requestId, mpesaPhone);
-                        }
-                    }, 1000);
+                    await finalizeMpesaSuccess(receipt, requestId);
 
                 } else if ((data.success === false || (data.resultCode !== undefined && data.resultCode !== null && data.resultCode !== 0)) && data.status !== 'pending') {
-                    // Payment failed or cancelled (but NOT if still pending - waiting for callback)
+                    // Payment failed or cancelled
                     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
                     setMpesaStatus('failed');
 
-                    // Determine error message
                     let desc = '❌ Payment failed';
-
                     const errorMessages: Record<number, string> = {
                         1: '❌ Insufficient funds in M-Pesa account',
-                        1032: '❌ Request cancelled by user',
+                        1032: '❌ Request cancelled by user — tap Resend to try again',
                         1037: '❌ Request timed out - no response from phone',
                         2001: '❌ Wrong M-Pesa PIN entered',
                     };
@@ -535,7 +513,7 @@ const PaymentModal = ({
                         if (descLower.includes('insufficient') || descLower.includes('balance')) {
                             desc = '❌ Insufficient funds in M-Pesa account';
                         } else if (descLower.includes('cancel')) {
-                            desc = '❌ Request cancelled by user';
+                            desc = '❌ Request cancelled — tap Resend to try again';
                         } else {
                             desc = `❌ Payment failed: ${data.resultDesc}`;
                         }
@@ -546,22 +524,21 @@ const PaymentModal = ({
                     setMpesaStatusMessage(desc);
                     toast.error(desc);
 
-                    // Update transaction status
                     await supabase.from('mpesa_transactions')
                         .update({ status: 'Failed', result_desc: desc })
                         .eq('checkout_request_id', requestId);
 
                 } else if (attempts >= maxAttempts) {
-                    // Timeout
+                    // Timeout — but show friendly message with resend option
                     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
                     setMpesaStatus('failed');
-                    setMpesaStatusMessage('⏰ Payment timeout - please check your M-Pesa messages');
-                    toast.error('Payment timeout - please check your M-Pesa messages');
+                    setMpesaStatusMessage('⏰ No response yet — tap Resend or enter receipt manually');
+                    toast.error('Payment timeout — check M-Pesa messages or resend');
                 }
             } catch {
-                // Continue polling on error
+                // Continue polling on network error
             }
-        }, 5000);
+        }, 3000);
     };
 
     // Handle close with cleanup
@@ -696,7 +673,7 @@ const PaymentModal = ({
                                 {(mpesaStatus === 'sending' || mpesaStatus === 'waiting') && (
                                     <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
                                 )}
-                                <span className={`font-medium ${mpesaStatus === 'sending' ? 'text-amber-700' :
+                                <span className={`font-medium flex-1 ${mpesaStatus === 'sending' ? 'text-amber-700' :
                                     mpesaStatus === 'waiting' ? 'text-blue-700' :
                                         mpesaStatus === 'success' ? 'text-green-700' :
                                             'text-red-700'
@@ -704,13 +681,27 @@ const PaymentModal = ({
                             </div>
                         )}
 
-                        {/* Send STK Push Button */}
+                        {/* Cancel & Resend STK during waiting (customer cancelled/didn't respond) */}
+                        {mpesaStatus === 'waiting' && (
+                            <button
+                                onClick={() => {
+                                    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+                                    resetMpesaState();
+                                    toast('STK cancelled — ready to resend', { icon: '🔄' });
+                                }}
+                                className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl font-bold text-base transition-all flex items-center justify-center gap-2 shadow-md"
+                            >
+                                <span>🔄</span> Cancel & Resend STK Push
+                            </button>
+                        )}
+
+                        {/* Send / Resend STK Push Button */}
                         {(mpesaStatus === 'idle' || mpesaStatus === 'failed') && (
                             <button
                                 onClick={handleMpesaSTKPush}
                                 className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
                             >
-                                <span>📤</span> Send STK Push
+                                <span>📲</span> {mpesaStatus === 'failed' ? 'Resend STK Push' : 'Send STK Push'}
                             </button>
                         )}
 
