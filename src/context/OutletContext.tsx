@@ -14,6 +14,16 @@ export interface Outlet {
     active: boolean;
     enable_expiry_tracking?: boolean;
     allowed_quick_actions?: Record<string, boolean>;
+    // ── M-Pesa credentials (optional — null = use system fallback) ──
+    mpesa_api_url?:          string | null;
+    mpesa_anon_key?:         string | null;
+    mpesa_shortcode?:        string | null;
+    mpesa_passkey?:          string | null;
+    mpesa_consumer_key?:     string | null;
+    mpesa_consumer_secret?:  string | null;
+    mpesa_callback_url?:     string | null;
+    // ── Tier 2 multi-tenant (optional — null = public schema) ──
+    db_schema?:              string | null;
 }
 
 interface OutletContextType {

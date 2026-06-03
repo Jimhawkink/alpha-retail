@@ -318,9 +318,10 @@ const ProductCard = ({ product, onAdd }: { product: Product; onAdd: () => void }
     </div>
 );
 
-// M-Pesa API URL - using AlphaRetail's own Supabase Edge Functions
-const MPESA_API_URL = 'https://enlqpifpxuecxxozyiak.supabase.co/functions/v1';
-const MPESA_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVubHFwaWZweHVlY3h4b3p5aWFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYwMjUzNjgsImV4cCI6MjA4MTYwMTM2OH0.-z3-2Mf3SkkZR3ZryOGyG-60jWERX9YLKIee048OziE';
+// M-Pesa API fallback — used when outlet has no custom M-Pesa config
+// (Silibwet's live credentials — DO NOT REMOVE, they are the working fallback)
+const MPESA_API_URL_FALLBACK = 'https://enlqpifpxuecxxozyiak.supabase.co/functions/v1';
+const MPESA_ANON_KEY_FALLBACK = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVubHFwaWZweHVlY3h4b3p5aWFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYwMjUzNjgsImV4cCI6MjA4MTYwMTM2OH0.-z3-2Mf3SkkZR3ZryOGyG-60jWERX9YLKIee048OziE';
 
 // Format phone number for M-Pesa
 const formatMpesaPhone = (phone: string): string => {
@@ -350,6 +351,8 @@ const PaymentModal = ({
     selectedCustomer,
     setSelectedCustomer,
     loadCreditCustomers,
+    mpesaApiUrl,
+    mpesaAnonKey,
 }: {
     isOpen: boolean;
     onClose: () => void;
@@ -360,9 +363,14 @@ const PaymentModal = ({
     selectedCustomer: CreditCustomer | null;
     setSelectedCustomer: (c: CreditCustomer | null) => void;
     loadCreditCustomers: () => void;
+    mpesaApiUrl?: string | null;    // outlet-specific, falls back to Silibwet hardcoded
+    mpesaAnonKey?: string | null;   // outlet-specific, falls back to Silibwet hardcoded
 }) => {
     const [paymentMethod, setPaymentMethod] = useState('cash');
     const [amountPaid, setAmountPaid] = useState('');
+    // ── Resolve effective M-Pesa config: outlet-specific ?? fallback to Silibwet ──
+    const MPESA_API_URL         = mpesaApiUrl  || MPESA_API_URL_FALLBACK;
+    const MPESA_SUPABASE_ANON_KEY = mpesaAnonKey || MPESA_ANON_KEY_FALLBACK;
     const [isSaving, setIsSaving] = useState(false);
     const [mpesaPhone, setMpesaPhone] = useState('');
     const [mpesaReceipt, setMpesaReceipt] = useState('');
@@ -2756,6 +2764,8 @@ export default function RetailPOSPage() {
                 selectedCustomer={selectedCustomer}
                 setSelectedCustomer={setSelectedCustomer}
                 loadCreditCustomers={loadCreditCustomers}
+                mpesaApiUrl={activeOutlet?.mpesa_api_url}
+                mpesaAnonKey={activeOutlet?.mpesa_anon_key}
             />
 
             <DiscountModal

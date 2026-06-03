@@ -80,13 +80,14 @@ const menuItems = [
     {
         category: 'Administration',
         items: [
-            { name: 'Outlets', icon: '📍', href: '/dashboard/outlets', badge: null },
-            { name: 'Users', icon: '👥', href: '/dashboard/users', badge: null },
-            { name: 'User Roles', icon: '🛡️', href: '/dashboard/user-roles', badge: null },
-            { name: 'Activity Log', icon: '📜', href: '/dashboard/activity-log', badge: null },
-            { name: 'Company', icon: '🏪', href: '/dashboard/company', badge: null },
-            { name: 'Tax Settings', icon: '📊', href: '/dashboard/tax-settings', badge: null },
-            { name: 'Units', icon: '📏', href: '/dashboard/units', badge: null },
+            { name: 'Outlets',           icon: '📍', href: '/dashboard/outlets',         badge: null },
+            { name: 'Users',             icon: '👥', href: '/dashboard/users',            badge: null },
+            { name: 'User Roles',        icon: '🛡️', href: '/dashboard/user-roles',       badge: null },
+            { name: 'Activity Log',      icon: '📜', href: '/dashboard/activity-log',     badge: null },
+            { name: 'Company',           icon: '🏪', href: '/dashboard/company',          badge: null },
+            { name: 'Tax Settings',      icon: '📊', href: '/dashboard/tax-settings',     badge: null },
+            { name: 'Units',             icon: '📏', href: '/dashboard/units',            badge: null },
+            { name: 'M-Pesa Config',     icon: '⚡', href: '/dashboard/mpesa-settings',  badge: 'SA' },
         ]
     },
 ];
@@ -232,6 +233,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     if (item.href === '/dashboard/outlets' && !isSuperAdmin) return false;
                                     // Only admin+ can see Activity Log
                                     if (item.href === '/dashboard/activity-log' && !isAdmin) return false;
+                                    // M-Pesa Config — superadmin ONLY
+                                    if (item.href === '/dashboard/mpesa-settings' && !isSuperAdmin) return false;
                                     return true;
                                 });
                                 if (filteredItems.length === 0) return null;
