@@ -1,115 +1,92 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useRef } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
+import {
+    FiHome, FiShoppingCart, FiPackage, FiTag, FiFileText, FiRefreshCw,
+    FiTruck, FiUsers, FiBox, FiActivity, FiRepeat, FiAlertCircle,
+    FiDollarSign, FiClock, FiTrendingDown, FiCreditCard, FiSmartphone,
+    FiTrendingUp, FiBarChart2, FiPieChart, FiSettings, FiMapPin, FiShield,
+    FiZap, FiBriefcase, FiChevronDown, FiChevronLeft, FiChevronRight,
+    FiLogOut, FiSearch, FiBell, FiMenu, FiX, FiDatabase, FiSliders,
+    FiDownload, FiLayers
+} from 'react-icons/fi';
 import { SettingsProvider, useCompanyName } from '@/context/SettingsContext';
 import { OutletProvider, useOutlet } from '@/context/OutletContext';
 import { logActivity } from '@/lib/supabase';
 
-// Menu Items for Retail Store System
-const menuItems = [
-    {
-        category: 'Main',
-        items: [
-            { name: 'Dashboard', icon: '📊', href: '/dashboard', badge: null },
-            { name: 'Retail POS', icon: '🛒', href: '/dashboard/pos', badge: 'Live' },
-        ]
-    },
-    {
-        category: 'Sales & Products',
-        items: [
-            { name: 'Products', icon: '📦', href: '/dashboard/products', badge: null },
-            { name: 'Categories', icon: '🏷️', href: '/dashboard/categories', badge: null },
-            { name: 'Sales Records', icon: '📋', href: '/dashboard/sales', badge: null },
-            { name: 'Sales Return', icon: '↩️', href: '/dashboard/sales-return', badge: null },
-        ]
-    },
-    {
-        category: 'Purchases',
-        items: [
-            { name: 'Suppliers', icon: '🏢', href: '/dashboard/suppliers', badge: null },
-            { name: 'Purchase Entry', icon: '📥', href: '/dashboard/purchase', badge: null },
-            { name: 'Purchase Records', icon: '📋', href: '/dashboard/purchases', badge: null },
-            { name: 'Purchase Return', icon: '↩️', href: '/dashboard/purchase-return', badge: null },
-        ]
-    },
-    {
-        category: 'Inventory',
-        items: [
-            { name: 'Stock Movement', icon: '📦', href: '/dashboard/stock-movement', badge: null },
-            { name: 'Stock Transfer', icon: '🔄', href: '/dashboard/stock-transfer', badge: null },
-            { name: 'Stock Adjustment', icon: '⚖️', href: '/dashboard/stock-adjustment', badge: null },
-            { name: 'Low Stock', icon: '⚠️', href: '/dashboard/low-stock', badge: '5' },
-            { name: 'Stock Valuation', icon: '💰', href: '/dashboard/stock-valuation', badge: null },
-            { name: 'Expiry Register', icon: '⏰', href: '/dashboard/expiry-register', badge: null },
-        ]
-    },
-    {
-        category: 'Finance',
-        items: [
-            { name: 'Expenses', icon: '💸', href: '/dashboard/expenses', badge: null },
-            { name: 'Credit Customers', icon: '💳', href: '/dashboard/credit-customers', badge: null },
-            { name: 'Credit Payments', icon: '💰', href: '/dashboard/credit-payments', badge: null },
-            { name: 'M-Pesa', icon: '📱', href: '/dashboard/mpesa', badge: null },
-        ]
-    },
-    {
-        category: 'HR & Payroll',
-        items: [
-            { name: 'Payroll', icon: '💰', href: '/dashboard/payroll', badge: null },
-            { name: 'Advances', icon: '💵', href: '/dashboard/advances', badge: null },
-            { name: 'Shifts', icon: '⏰', href: '/dashboard/shifts', badge: null },
-            { name: 'Shift Reports', icon: '📋', href: '/dashboard/shift-reports', badge: null },
-        ]
-    },
-    {
-        category: 'Reports',
-        items: [
-            { name: 'Sales Summary', icon: '📈', href: '/dashboard/sales-summary', badge: null },
-            { name: 'Sales Report', icon: '📋', href: '/dashboard/reports/sales', badge: null },
-            { name: 'Profit Report', icon: '💹', href: '/dashboard/reports/profit', badge: null },
-            { name: 'Stock Report', icon: '📊', href: '/dashboard/reports/stock', badge: null },
-            { name: 'P&L Report', icon: '📉', href: '/dashboard/reports/profit-loss', badge: null },
-            { name: 'Trial Balance', icon: '⚖️', href: '/dashboard/reports/trial-balance', badge: null },
-            { name: 'Balance Sheet', icon: '📋', href: '/dashboard/reports/balance-sheet', badge: null },
-            { name: 'Cash Book', icon: '💵', href: '/dashboard/reports/cash-book', badge: null },
-            { name: 'M-Pesa Report', icon: '📱', href: '/dashboard/reports/mpesa', badge: null },
-        ]
-    },
-    {
-        category: 'Administration',
-        items: [
-            { name: 'Outlets',           icon: '📍', href: '/dashboard/outlets',         badge: null },
-            { name: 'Users',             icon: '👥', href: '/dashboard/users',            badge: null },
-            { name: 'User Roles',        icon: '🛡️', href: '/dashboard/user-roles',       badge: null },
-            { name: 'Activity Log',      icon: '📜', href: '/dashboard/activity-log',     badge: null },
-            { name: 'Company',           icon: '🏪', href: '/dashboard/company',          badge: null },
-            { name: 'Tax Settings',      icon: '📊', href: '/dashboard/tax-settings',     badge: null },
-            { name: 'Units',             icon: '📏', href: '/dashboard/units',            badge: null },
-            { name: 'M-Pesa Config',     icon: '⚡', href: '/dashboard/mpesa-settings',  badge: 'SA' },
-            { name: 'Businesses',        icon: '🏢', href: '/dashboard/businesses',     badge: 'SA' },
-        ]
-    },
+// ── Menu groups ───────────────────────────────────────────────────────
+const menuGroups = [
+    { label: '', collapsible: false, name: 'main', items: [
+        { href: '/dashboard',     label: 'Dashboard',  icon: FiHome,         roles: 'all' },
+        { href: '/dashboard/pos', label: 'Retail POS', icon: FiShoppingCart, roles: 'all', badge: 'LIVE' },
+    ]},
+    { label: 'Sales & Products', icon: FiShoppingCart, name: 'sales', collapsible: true, items: [
+        { href: '/dashboard/products',     label: 'Products',       icon: FiPackage,  roles: 'all' },
+        { href: '/dashboard/categories',   label: 'Categories',     icon: FiTag,      roles: 'all' },
+        { href: '/dashboard/sales',        label: 'Sales Records',  icon: FiFileText, roles: 'all' },
+        { href: '/dashboard/sales-return', label: 'Sales Return',   icon: FiRefreshCw,roles: 'all' },
+    ]},
+    { label: 'Purchases', icon: FiTruck, name: 'purchases', collapsible: true, items: [
+        { href: '/dashboard/suppliers',       label: 'Suppliers',        icon: FiUsers,    roles: 'all' },
+        { href: '/dashboard/purchase',        label: 'Purchase Entry',   icon: FiDownload, roles: 'all' },
+        { href: '/dashboard/purchases',       label: 'Purchase Records', icon: FiFileText, roles: 'all' },
+        { href: '/dashboard/purchase-return', label: 'Purchase Return',  icon: FiRefreshCw,roles: 'all' },
+    ]},
+    { label: 'Inventory', icon: FiBox, name: 'inventory', collapsible: true, items: [
+        { href: '/dashboard/stock-movement',  label: 'Stock Movement',  icon: FiActivity,    roles: 'all' },
+        { href: '/dashboard/stock-transfer',  label: 'Stock Transfer',  icon: FiRepeat,      roles: 'all' },
+        { href: '/dashboard/low-stock',       label: 'Low Stock',       icon: FiAlertCircle, roles: 'all' },
+        { href: '/dashboard/expiry-register', label: 'Expiry Register', icon: FiClock,       roles: 'all' },
+    ]},
+    { label: 'Finance', icon: FiDollarSign, name: 'finance', collapsible: true, items: [
+        { href: '/dashboard/expenses',         label: 'Expenses',         icon: FiTrendingDown, roles: 'all' },
+        { href: '/dashboard/credit-customers', label: 'Credit Customers', icon: FiUsers,        roles: 'all' },
+        { href: '/dashboard/credit-payments',  label: 'Credit Payments',  icon: FiCreditCard,   roles: 'all' },
+        { href: '/dashboard/mpesa',            label: 'M-Pesa',           icon: FiSmartphone,   roles: 'all' },
+    ]},
+    { label: 'HR & Payroll', icon: FiUsers, name: 'hr', collapsible: true, items: [
+        { href: '/dashboard/payroll',       label: 'Payroll',       icon: FiDollarSign, roles: 'all' },
+        { href: '/dashboard/advances',      label: 'Advances',      icon: FiTrendingUp, roles: 'all' },
+        { href: '/dashboard/shifts',        label: 'Shifts',        icon: FiClock,      roles: 'all' },
+        { href: '/dashboard/shift-reports', label: 'Shift Reports', icon: FiFileText,   roles: 'all' },
+    ]},
+    { label: 'Reports', icon: FiBarChart2, name: 'reports', collapsible: true, items: [
+        { href: '/dashboard/sales-summary',         label: 'Sales Summary',  icon: FiTrendingUp,  roles: 'all' },
+        { href: '/dashboard/reports/sales',         label: 'Sales Report',   icon: FiFileText,    roles: 'all' },
+        { href: '/dashboard/reports/profit',        label: 'Profit Report',  icon: FiPieChart,    roles: 'all' },
+        { href: '/dashboard/reports/stock',         label: 'Stock Report',   icon: FiBox,         roles: 'all' },
+        { href: '/dashboard/reports/profit-loss',   label: 'P&L Report',     icon: FiTrendingDown,roles: 'all' },
+        { href: '/dashboard/reports/trial-balance', label: 'Trial Balance',  icon: FiDatabase,    roles: 'all' },
+        { href: '/dashboard/reports/balance-sheet', label: 'Balance Sheet',  icon: FiFileText,    roles: 'all' },
+        { href: '/dashboard/reports/cash-book',     label: 'Cash Book',      icon: FiDollarSign,  roles: 'all' },
+        { href: '/dashboard/reports/mpesa',         label: 'M-Pesa Report',  icon: FiSmartphone,  roles: 'all' },
+    ]},
+    { label: 'Administration', icon: FiSettings, name: 'admin', collapsible: true, items: [
+        { href: '/dashboard/outlets',        label: 'Outlets',      icon: FiMapPin,    roles: 'superadmin' },
+        { href: '/dashboard/users',          label: 'Users',        icon: FiUsers,     roles: 'all' },
+        { href: '/dashboard/user-roles',     label: 'User Roles',   icon: FiShield,    roles: 'all' },
+        { href: '/dashboard/activity-log',   label: 'Activity Log', icon: FiActivity,  roles: 'admin' },
+        { href: '/dashboard/company',        label: 'Company',      icon: FiHome,      roles: 'all' },
+        { href: '/dashboard/tax-settings',   label: 'Tax Settings', icon: FiFileText,  roles: 'all' },
+        { href: '/dashboard/units',          label: 'Units',        icon: FiSliders,   roles: 'all' },
+        { href: '/dashboard/mpesa-settings', label: 'M-Pesa Config',icon: FiZap,       roles: 'superadmin', badge: 'SA' },
+        { href: '/dashboard/businesses',     label: 'Businesses',   icon: FiBriefcase, roles: 'superadmin', badge: 'SA' },
+    ]},
 ];
 
-// Component to display company name and outlet name dynamically
-function CompanyNameDisplay() {
-    const companyName = useCompanyName();
-    const { activeOutlet } = useOutlet();
-    return (
-        <>
-            <h1 className="font-bold text-gray-800 text-sm leading-tight max-w-[140px] break-words">
-                {companyName || 'Alpha Retail'}
-            </h1>
-            {activeOutlet && (
-                <span className="text-xs text-indigo-600 font-semibold">📍 {activeOutlet.outlet_name}</span>
-            )}
-        </>
-    );
+function canSee(roles: string, userType: string) {
+    if (roles === 'all') return true;
+    const t = (userType || '').toLowerCase().replace(/\s/g, '');
+    const isSuperAdmin = t === 'superadmin' || t === 'superuser';
+    const isAdmin = isSuperAdmin || t === 'admin' || t === 'manager';
+    if (roles === 'superadmin') return isSuperAdmin;
+    if (roles === 'admin') return isAdmin;
+    return false;
 }
 
-// Outlet switcher component for header
+// ── Outlet switcher in header ─────────────────────────────────────────
 function OutletSwitcher() {
     const { activeOutlet, outlets, switchOutlet } = useOutlet();
     if (outlets.length <= 1) return null;
@@ -117,11 +94,10 @@ function OutletSwitcher() {
         <select
             value={activeOutlet?.outlet_id || ''}
             onChange={e => switchOutlet(Number(e.target.value))}
-            className="px-3 py-1.5 bg-indigo-50 border border-indigo-200 rounded-xl text-sm font-semibold text-indigo-700 focus:border-indigo-400 outline-none cursor-pointer"
-            title="Switch Outlet"
+            className="px-3 py-1.5 bg-teal-500/10 border border-teal-500/30 rounded-lg text-xs font-semibold text-teal-300 focus:border-teal-400 outline-none cursor-pointer"
         >
             {outlets.map(o => (
-                <option key={o.outlet_id} value={o.outlet_id}>
+                <option key={o.outlet_id} value={o.outlet_id} className="bg-slate-800 text-white">
                     {o.is_main ? '⭐ ' : '📍 '}{o.outlet_name}
                 </option>
             ))}
@@ -129,47 +105,53 @@ function OutletSwitcher() {
     );
 }
 
-// Active outlet badge
-function OutletBadge() {
-    const { activeOutlet } = useOutlet();
-    if (!activeOutlet) return null;
-    return (
-        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 rounded-full border border-indigo-100">
-            <span className="text-xs">{activeOutlet.is_main ? '⭐' : '📍'}</span>
-            <span className="text-xs font-semibold text-indigo-700">{activeOutlet.outlet_name}</span>
-        </div>
-    );
-}
-
+// ── Main Layout ───────────────────────────────────────────────────────
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-    const router = useRouter();
-    const [user, setUser] = useState<{ userId: string; name: string; userType: string } | null>(null);
-    const [sidebarOpen, setSidebarOpen] = useState(true);
-    const [currentTime, setCurrentTime] = useState(new Date());
-    const [activeMenu, setActiveMenu] = useState('/dashboard');
+    const router    = useRouter();
+    const pathname  = usePathname();
+    const [user, setUser]               = useState<{ userId: string; name: string; userType: string } | null>(null);
+    const [collapsed, setCollapsed]     = useState(false);
+    const [mobileOpen, setMobileOpen]   = useState(false);
+    const [expanded, setExpanded]       = useState<Record<string, boolean>>({});
+    const [loading, setLoading]         = useState(false);
+    const prevPath = useRef(pathname);
 
     useEffect(() => {
-        const userData = localStorage.getItem('user');
-        if (!userData) {
-            router.push('/');
-            return;
-        }
-        const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
-
-        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-        return () => clearInterval(timer);
+        const raw = localStorage.getItem('user');
+        if (!raw) { router.push('/'); return; }
+        setUser(JSON.parse(raw));
     }, [router]);
 
-    const getGreeting = () => {
-        const hour = currentTime.getHours();
-        if (hour < 12) return { text: 'Good Morning', emoji: '🌅' };
-        if (hour < 17) return { text: 'Good Afternoon', emoji: '☀️' };
-        if (hour < 21) return { text: 'Good Evening', emoji: '🌆' };
-        return { text: 'Good Night', emoji: '🌙' };
+    // Auto-expand active group
+    useEffect(() => {
+        const ns: Record<string, boolean> = { ...expanded };
+        let changed = false;
+        menuGroups.forEach(g => {
+            const active = g.items.some(i =>
+                i.href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(i.href)
+            );
+            if (active && !expanded[g.name]) { ns[g.name] = true; changed = true; }
+        });
+        if (changed) setExpanded(ns);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pathname]);
+
+    // Loading bar on route change
+    useEffect(() => {
+        if (prevPath.current !== pathname) {
+            setLoading(true); prevPath.current = pathname;
+            const t = setTimeout(() => setLoading(false), 800);
+            return () => clearTimeout(t);
+        }
+    }, [pathname]);
+
+    const toggle = (name: string) => {
+        if (collapsed) { setCollapsed(false); setExpanded({ [name]: true }); }
+        else setExpanded(p => ({ ...p, [name]: !p[name] }));
     };
 
-    const greeting = getGreeting();
+    const isActive = (href: string) =>
+        href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href);
 
     const handleLogout = async () => {
         await logActivity('Logout', `${user?.name || 'Unknown'} logged out`);
@@ -177,187 +159,239 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         router.push('/');
     };
 
-    if (!user) return null;
+    if (!user) return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="text-center">
+                <div className="w-8 h-8 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                <p className="text-gray-500 text-sm">Loading...</p>
+            </div>
+        </div>
+    );
 
-    const isCashier = ['cashier', 'waiter'].includes((user?.userType || '').toLowerCase());
+    const isCashier = ['cashier', 'waiter'].includes((user.userType || '').toLowerCase());
+
+    const filteredGroups = menuGroups.map(g => ({
+        ...g,
+        items: g.items.filter(i => canSee(i.roles ?? 'all', user.userType))
+    })).filter(g => g.items.length > 0);
 
     return (
         <SettingsProvider>
             <OutletProvider>
-                <div className="min-h-screen bg-[#f8fafc] flex">
-                    {/* Sidebar — hidden for Cashier/Waiter */}
-                    {!isCashier && (
-                    <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-white border-r border-gray-200 flex flex-col transition-all duration-300 fixed h-full z-50`}>
-                        {/* Logo Section */}
-                        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg">
-                                    <span className="text-xl">🛒</span>
-                                </div>
-                                {sidebarOpen && (
-                                    <div>
-                                        <CompanyNameDisplay />
-                                        <span className="text-xs text-green-600 font-medium">Retail v1.0</span>
-                                    </div>
-                                )}
-                            </div>
-                            <button
-                                onClick={() => setSidebarOpen(!sidebarOpen)}
-                                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                            >
-                                {sidebarOpen ? '◀️' : '▶️'}
-                            </button>
-                        </div>
+                <div className="min-h-screen bg-[#f0f2f5] flex font-sans text-gray-800">
 
-                        {/* Search */}
-                        {sidebarOpen && (
-                            <div className="p-4">
-                                <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
-                                    <input
-                                        type="text"
-                                        placeholder="Search..."
-                                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-green-400 focus:ring-2 focus:ring-green-100 transition-all"
-                                    />
-                                </div>
-                            </div>
-                        )}
+                    {/* ── Loading bar (exact AlphaTVET) ── */}
+                    {loading && (
+                        <div style={{
+                            position: 'fixed', top: 0, left: 0, right: 0, height: 3, zIndex: 9999,
+                            background: 'linear-gradient(90deg, transparent 0%, #0d9488 40%, #14b8a6 60%, transparent 100%)',
+                            animation: 'loadbar 0.8s ease-in-out'
+                        }} />
+                    )}
+                    <style>{`
+                        @keyframes loadbar { 0% { transform: translateX(-100%); } 100% { transform: translateX(0); } }
+                        .sidebar-scroll { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent; }
+                        .sidebar-scroll::-webkit-scrollbar { width: 4px; }
+                        .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+                        .sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+                    `}</style>
 
-                        {/* Navigation */}
-                        <nav className="flex-1 overflow-y-auto px-3 py-2">
-                            {menuItems.map((section, idx) => {
-                                // Filter items based on user role
-                                const isSuperAdmin = user?.userType?.toLowerCase() === 'superadmin' || user?.userType?.toLowerCase() === 'superuser' || user?.userType?.toLowerCase() === 'super admin';
-                                const isAdmin = isSuperAdmin || user?.userType?.toLowerCase() === 'admin' || user?.userType?.toLowerCase() === 'manager';
-                                const filteredItems = section.items.filter(item => {
-                                    // Only superadmin/superuser can see Outlets
-                                    if (item.href === '/dashboard/outlets' && !isSuperAdmin) return false;
-                                    // Only admin+ can see Activity Log
-                                    if (item.href === '/dashboard/activity-log' && !isAdmin) return false;
-                                    // M-Pesa Config — superadmin ONLY
-                                    if (item.href === '/dashboard/mpesa-settings' && !isSuperAdmin) return false;
-                                    // Businesses — superadmin ONLY
-                                    if (item.href === '/dashboard/businesses' && !isSuperAdmin) return false;
-                                    return true;
-                                });
-                                if (filteredItems.length === 0) return null;
-                                return (
-                                <div key={idx} className="mb-4">
-                                    {sidebarOpen && (
-                                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 mb-2">
-                                            {section.category}
-                                        </p>
-                                    )}
-                                    {filteredItems.map((item) => (
-                                        <Link
-                                            key={item.href}
-                                            href={item.href}
-                                            onClick={() => setActiveMenu(item.href)}
-                                            title={item.name}
-                                            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl mb-1 transition-all ${activeMenu === item.href
-                                                ? 'bg-green-50 text-green-600'
-                                                : 'text-gray-600 hover:bg-gray-50'
-                                                }`}
-                                        >
-                                            <span className="text-xl" title={item.name}>{item.icon}</span>
-                                            {sidebarOpen && (
-                                                <>
-                                                    <span className="font-medium text-sm flex-1">{item.name}</span>
-                                                    {item.badge && (
-                                                        <span className={`text-xs px-2 py-0.5 rounded-full ${item.badge === 'Live'
-                                                            ? 'bg-green-100 text-green-600'
-                                                            : 'bg-red-100 text-red-600'
-                                                            }`}>
-                                                            {item.badge}
-                                                        </span>
-                                                    )}
-                                                </>
-                                            )}
-                                        </Link>
-                                    ))}
-                                </div>
-                                );
-                            })}
-                        </nav>
-
-                        {/* User Profile */}
-                        <div className="p-4 border-t border-gray-100">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white font-bold">
-                                    {user.name.charAt(0).toUpperCase()}
-                                </div>
-                                {sidebarOpen && (
-                                    <div className="flex-1">
-                                        <p className="font-semibold text-gray-800 text-sm">{user.name}</p>
-                                        <p className="text-xs text-gray-500">{user.userType || 'Cashier'}</p>
-                                    </div>
-                                )}
-                                {sidebarOpen && (
-                                    <button
-                                        onClick={handleLogout}
-                                        className="p-2 hover:bg-red-50 rounded-lg text-red-500 transition-colors"
-                                        title="Logout"
-                                    >
-                                        🚪
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    </aside>
+                    {/* Mobile overlay */}
+                    {mobileOpen && (
+                        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 lg:hidden"
+                            onClick={() => setMobileOpen(false)} />
                     )}
 
-                    {/* Main Content */}
-                    <main className={`flex-1 ${isCashier ? 'ml-0' : (sidebarOpen ? 'ml-64' : 'ml-20')} transition-all duration-300`}>
-                        {/* Top Header */}
-                        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 sticky top-0 z-40">
-                            <div className="flex items-center gap-4">
-                                <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-                                    {greeting.emoji} {greeting.text}
-                                    <span className="text-2xl">👋</span>
-                                </h2>
-                                <span className="text-sm text-gray-400">Alpha Retail POS - v1.0</span>
+                    {/* ════════════════ SIDEBAR (exact AlphaTVET) ════════════════ */}
+                    {!isCashier && (
+                        <aside
+                            className={`fixed top-0 left-0 h-full z-50 border-r border-slate-700/30 shadow-xl transition-all duration-300 ease-in-out flex flex-col
+                                ${collapsed ? 'w-[72px]' : 'w-[270px]'}
+                                ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+                            style={{ background: 'linear-gradient(180deg, #0f172a 0%, #134e4a 50%, #0f172a 100%)' }}>
+
+                            {/* Logo — exact AlphaTVET */}
+                            <div className={`flex items-center ${collapsed ? 'justify-center px-2' : 'px-5'} h-[60px] border-b border-white/10`}>
+                                {!collapsed && (
+                                    <div className="flex items-center gap-2.5 flex-1">
+                                        <div className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-lg"
+                                            style={{ background: 'linear-gradient(135deg, #14b8a6, #0d9488)' }}>
+                                            <FiShoppingCart size={18} />
+                                        </div>
+                                        <div>
+                                            <h1 className="text-[15px] font-bold text-white tracking-tight" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                                                Alpha<span className="text-teal-400">Retail</span>
+                                            </h1>
+                                            <p className="text-[9px] text-teal-500/60 font-semibold tracking-[0.15em] uppercase">Point of Sale</p>
+                                        </div>
+                                    </div>
+                                )}
+                                {collapsed && (
+                                    <div className="w-9 h-9 rounded-lg flex items-center justify-center text-white"
+                                        style={{ background: 'linear-gradient(135deg, #14b8a6, #0d9488)' }}>
+                                        <FiShoppingCart size={18} />
+                                    </div>
+                                )}
+                                <button onClick={() => setCollapsed(!collapsed)}
+                                    className="hidden lg:flex items-center justify-center w-6 h-6 rounded-md border border-white/10 hover:bg-white/10 transition-colors ml-auto text-slate-400 hover:text-white">
+                                    {collapsed ? <FiChevronRight size={12} /> : <FiChevronLeft size={12} />}
+                                </button>
+                                <button onClick={() => setMobileOpen(false)} className="lg:hidden ml-auto text-slate-400 hover:text-white">
+                                    <FiX size={20} />
+                                </button>
                             </div>
 
-                            <div className="flex items-center gap-4">
-                                {/* Outlet Switcher */}
-                                <OutletSwitcher />
-                                <OutletBadge />
+                            {/* Navigation — exact AlphaTVET */}
+                            <nav className="flex-1 overflow-y-auto overflow-x-hidden sidebar-scroll py-3 px-3 space-y-0.5">
+                                {filteredGroups.map(group => {
+                                    const isExp   = expanded[group.name];
+                                    const GIcon   = group.icon as React.ElementType | undefined;
+                                    const gActive = group.items.some(i => isActive(i.href));
 
-                                {/* Online Status */}
-                                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-full">
-                                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                                    <span className="text-sm font-medium text-green-600">Online</span>
-                                </div>
+                                    /* Non-collapsible top items (Dashboard, POS) */
+                                    if (!group.collapsible) {
+                                        return group.items.map(item => {
+                                            const IIcon  = item.icon as React.ElementType;
+                                            const active = isActive(item.href);
+                                            return (
+                                                <Link key={item.href} href={item.href}
+                                                    onClick={() => setMobileOpen(false)}
+                                                    title={collapsed ? item.label : undefined}
+                                                    className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all mb-2
+                                                        ${active ? 'bg-teal-500/20 text-teal-300 font-semibold' : 'text-slate-400 hover:bg-white/5 hover:text-white'}
+                                                        ${collapsed ? 'justify-center' : ''}`}>
+                                                    <IIcon size={18} className={active ? 'text-teal-400' : 'text-slate-500'} />
+                                                    {!collapsed && <span>{item.label}</span>}
+                                                    {!collapsed && item.badge && (
+                                                        <span className="ml-auto text-[9px] font-black px-1.5 py-0.5 rounded-full bg-teal-500/20 text-teal-400">{item.badge}</span>
+                                                    )}
+                                                    {active && !collapsed && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-teal-400" />}
+                                                </Link>
+                                            );
+                                        });
+                                    }
 
-                                {/* Refresh Button */}
-                                <button className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-colors shadow-sm">
-                                    <span>🔄</span>
-                                    <span className="font-medium">Refresh</span>
-                                </button>
+                                    /* Collapsible group */
+                                    return (
+                                        <div key={group.name} className="mb-0.5">
+                                            <button onClick={() => toggle(group.name)}
+                                                title={collapsed ? group.label : undefined}
+                                                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all
+                                                    ${gActive ? 'text-teal-300 bg-teal-500/10' : 'text-slate-400 hover:bg-white/5 hover:text-white'}
+                                                    ${collapsed ? 'justify-center' : ''}`}>
+                                                {GIcon && <GIcon size={17} className={gActive ? 'text-teal-400' : 'text-slate-500'} />}
+                                                {!collapsed && (
+                                                    <>
+                                                        <span className="flex-1 text-left">{group.label}</span>
+                                                        <FiChevronDown size={14}
+                                                            className={`text-slate-500 transition-transform duration-200 ${isExp ? 'rotate-180' : ''}`} />
+                                                    </>
+                                                )}
+                                            </button>
 
-                                {/* Notifications */}
-                                <button className="relative p-2 hover:bg-gray-100 rounded-xl transition-colors">
-                                    <span className="text-xl">🔔</span>
-                                    <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-                                </button>
+                                            {/* Sub-items — exact AlphaTVET indent + border */}
+                                            <div className={`overflow-hidden transition-all duration-200 ease-in-out
+                                                ${isExp && !collapsed ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                                                <div className="ml-[22px] pl-3 mt-0.5 space-y-0.5 border-l border-white/10">
+                                                    {group.items.map(item => {
+                                                        const IIcon  = item.icon as React.ElementType;
+                                                        const active = isActive(item.href);
+                                                        return (
+                                                            <Link key={item.href} href={item.href}
+                                                                onClick={() => setMobileOpen(false)}
+                                                                className={`flex items-center gap-2 px-2.5 py-[7px] rounded-md text-[12.5px] transition-all
+                                                                    ${active ? 'text-teal-300 bg-teal-500/15 font-semibold' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}>
+                                                                <IIcon size={14} className={active ? 'text-teal-400' : 'text-slate-600'} />
+                                                                <span>{item.label}</span>
+                                                                {item.badge && (
+                                                                    <span className="ml-auto text-[8px] font-black px-1 py-0.5 rounded-full bg-violet-500/20 text-violet-400">{item.badge}</span>
+                                                                )}
+                                                            </Link>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </nav>
 
-                                {/* User Avatar */}
-                                <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
-                                    <div className="text-right">
-                                        <p className="font-semibold text-gray-800 text-sm">{user.name}</p>
-                                        <p className="text-xs text-gray-500">Cashier</p>
+                            {/* User footer — exact AlphaTVET */}
+                            <div className={`border-t border-white/10 ${collapsed ? 'p-2' : 'p-3'}`}>
+                                {!collapsed ? (
+                                    <div className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-white/5 transition-colors">
+                                        <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold"
+                                            style={{ background: 'linear-gradient(135deg, #14b8a6, #0d9488)' }}>
+                                            {user.name?.charAt(0)?.toUpperCase() || '?'}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-[12.5px] font-semibold text-white truncate">{user.name}</p>
+                                            <p className="text-[10.5px] text-teal-400 capitalize font-medium">{user.userType}</p>
+                                        </div>
+                                        <button onClick={handleLogout}
+                                            className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
+                                            title="Logout">
+                                            <FiLogOut size={15} />
+                                        </button>
                                     </div>
-                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white font-bold shadow-md">
-                                        {user.name.charAt(0).toUpperCase()}
+                                ) : (
+                                    <div className="flex flex-col items-center gap-2">
+                                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                                            style={{ background: 'linear-gradient(135deg, #14b8a6, #0d9488)' }}>
+                                            {user.name?.charAt(0)?.toUpperCase() || '?'}
+                                        </div>
+                                        <button onClick={handleLogout}
+                                            className="p-1.5 text-slate-500 hover:text-red-400 rounded-md transition-colors"
+                                            title="Logout">
+                                            <FiLogOut size={15} />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </aside>
+                    )}
+
+                    {/* ════════════════ MAIN CONTENT ════════════════ */}
+                    <main className={`flex-1 flex flex-col min-h-screen transition-all duration-300
+                        ${isCashier ? 'ml-0' : collapsed ? 'lg:ml-[72px]' : 'lg:ml-[270px]'}`}>
+
+                        {/* Header — exact AlphaTVET */}
+                        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-200/70 px-4 lg:px-6 h-14 flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                {!isCashier && (
+                                    <button onClick={() => setMobileOpen(true)} className="lg:hidden text-gray-500 hover:text-gray-800">
+                                        <FiMenu size={22} />
+                                    </button>
+                                )}
+                                <div className="hidden sm:flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 w-72 focus-within:w-96 focus-within:ring-2 focus-within:ring-teal-100 focus-within:bg-white focus-within:border-teal-300 transition-all duration-300">
+                                    <FiSearch className="text-gray-400" size={15} />
+                                    <input type="text" placeholder="Search products, customers, reports..."
+                                        className="bg-transparent text-[13px] text-gray-800 outline-none w-full placeholder:text-gray-400" />
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <OutletSwitcher />
+                                <button className="relative p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors">
+                                    <FiBell size={17} />
+                                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
+                                </button>
+                                <button className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors" onClick={() => router.push('/dashboard/company')}>
+                                    <FiSettings size={17} />
+                                </button>
+                                <div className="flex items-center gap-2 pl-2 border-l border-gray-200 ml-1">
+                                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                                        style={{ background: 'linear-gradient(135deg, #14b8a6, #0d9488)' }}>
+                                        {user.name?.charAt(0)?.toUpperCase() || '?'}
+                                    </div>
+                                    <div className="hidden sm:block">
+                                        <p className="text-[12px] font-bold text-gray-800 leading-tight">{user.name}</p>
+                                        <p className="text-[10px] text-teal-600 capitalize font-medium">{user.userType}</p>
                                     </div>
                                 </div>
                             </div>
                         </header>
 
-                        {/* Page Content */}
-                        <div className="p-6">
-                            {children}
-                        </div>
+                        <div className="p-4 lg:p-6 flex-1 overflow-x-hidden">{children}</div>
                     </main>
                 </div>
             </OutletProvider>
