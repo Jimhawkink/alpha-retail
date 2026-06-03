@@ -5,6 +5,31 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { logActivity } from '@/lib/supabase';
 
+// ── Hybrid password verification ──────────────────────────────────────
+// Hashed format  →  "salt:hash"  verified with PBKDF2-SHA512 (210k rounds)
+// Plain-text     →  direct match (existing users — zero disruption)
+async function verifyPassword(entered: string, stored: string): Promise<boolean> {
+    if (!stored) return false;
+    if (stored.includes(':')) {
+        try {
+            const [saltHex, expectedHex] = stored.split(':');
+            const enc = new TextEncoder();
+            const key = await crypto.subtle.importKey(
+                'raw', enc.encode(entered), 'PBKDF2', false, ['deriveBits']
+            );
+            const bits = await crypto.subtle.deriveBits(
+                { name: 'PBKDF2', salt: enc.encode(saltHex), iterations: 210000, hash: 'SHA-512' },
+                key, 512
+            );
+            const derived = Array.from(new Uint8Array(bits))
+                .map(b => b.toString(16).padStart(2, '0')).join('');
+            return derived === expectedHex;
+        } catch { return false; }
+    }
+    return stored === entered; // plain-text fallback for existing users
+}
+
+
 export default function LoginPage() {
     const router = useRouter();
     const [username, setUsername] = useState('');
@@ -77,8 +102,9 @@ export default function LoginPage() {
                 return;
             }
 
-            // Check password
-            if (data.password_hash === password || data.pin === password) {
+            // Check password — PBKDF2 for hashed accounts, plain-text fallback for existing
+            const passwordValid = await verifyPassword(password, data.password_hash);
+            if (passwordValid || data.pin === password) {
                 // Load user's outlets
                 const { data: outletLinks } = await supabase
                     .from('retail_user_outlets')
