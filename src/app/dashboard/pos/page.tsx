@@ -1096,6 +1096,9 @@ export default function RetailPOSPage() {
     // ─── QUICK ACTIONS FAB ───
     const [showQuickActions, setShowQuickActions] = useState(false);
     const [qaSearch, setQaSearch] = useState('');
+    // ── Premium FAB: only show for licensed/Silibwet outlets ──
+    const showQuickActionsFAB = (activeOutlet?.outlet_code || '').toUpperCase().includes('SILB') ||
+        (activeOutlet?.outlet_name || '').toLowerCase().includes('silibwet');
     useEffect(() => {
         const handleQAKey = (e: KeyboardEvent) => {
             if (e.altKey && e.key.toLowerCase() === 'q') { e.preventDefault(); setShowQuickActions(prev => !prev); }
@@ -2187,9 +2190,7 @@ export default function RetailPOSPage() {
             </div>
 
             {/* ═══ Quick Action Command Bar — Premium Dark, Always Fully Visible ═══ */}
-            <div className="relative bg-gradient-to-r from-slate-800 via-slate-750 to-slate-800 border-b border-slate-700 px-3 py-1.5 flex items-center flex-wrap gap-1 shadow-[0_2px_12px_rgba(0,0,0,0.25)] z-10">
-                {/* Premium ambient glow line at top */}
-                <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-emerald-400/30 to-transparent pointer-events-none" />
+            <div className={`bg-white border-b border-gray-100 px-4 py-1.5 flex items-center gap-1.5 z-10 shadow-sm transition-all ${showQuickActions ? 'hidden' : ''}`}>
 
                 {[
                     { key: 'purchases',        icon: '📥', label: 'Purchases',    href: '/dashboard/purchases',       cashierEnabled: false },
@@ -2211,59 +2212,43 @@ export default function RetailPOSPage() {
                         <button
                             key={btn.label}
                             disabled
-                            className="flex items-center gap-1 px-2.5 py-1 bg-slate-700/50 rounded-full text-slate-600 cursor-not-allowed border border-slate-600/50 whitespace-nowrap text-[10px] font-medium"
-                            title="Admin only"
+                            className="w-9 h-9 flex items-center justify-center rounded-xl bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed text-[17px]"
+                            title={`${btn.label} (Admin only)`}
                         >
-                            <span className="text-[11px]">{btn.icon}</span>
-                            <span>{btn.label}</span>
+                            {btn.icon}
                         </button>
                     ) : (
                         <a
                             key={btn.label}
                             href={btn.href}
-                            className="flex items-center gap-1 px-2.5 py-1 bg-white/10 hover:bg-white/20 rounded-full text-slate-200 hover:text-white transition-all duration-150 hover:scale-105 active:scale-95 border border-white/10 hover:border-white/30 whitespace-nowrap text-[10px] font-semibold shadow-sm"
+                            title={btn.label}
+                            className="w-9 h-9 flex items-center justify-center rounded-xl bg-gray-50 hover:bg-violet-50 border border-gray-200 hover:border-violet-300 transition-all duration-150 hover:scale-110 active:scale-95 shadow-sm text-[17px] no-underline"
                         >
-                            <span className="text-[11px]">{btn.icon}</span>
-                            <span>{btn.label}</span>
+                            {btn.icon}
                         </a>
                     );
                 })}
 
                 {/* Divider */}
-                <div className="h-4 w-px bg-white/15 mx-0.5 shrink-0" />
+                <div className="h-5 w-px bg-gray-200 mx-1 shrink-0" />
 
                 {/* ── Premium Notification Bell ── */}
                 <button
                     onClick={() => setShowLowStockModal(true)}
-                    className="relative flex items-center gap-1 px-2.5 py-1 rounded-full whitespace-nowrap text-[10px] font-bold transition-all duration-200 hover:scale-110 active:scale-95 shadow-sm group/bell"
-                    style={{
-                        background: lowStockItems.length > 0
-                            ? 'linear-gradient(135deg,rgba(239,68,68,0.25),rgba(251,146,60,0.2))'
-                            : 'rgba(255,255,255,0.08)',
-                        border: lowStockItems.length > 0
-                            ? '1px solid rgba(239,68,68,0.45)'
-                            : '1px solid rgba(255,255,255,0.12)',
-                        color: lowStockItems.length > 0 ? '#fca5a5' : '#94a3b8',
-                    }}
                     title={`${lowStockItems.length} low-stock item${lowStockItems.length !== 1 ? 's' : ''}`}
+                    className={`relative w-9 h-9 flex items-center justify-center rounded-xl border text-[17px] transition-all duration-200 hover:scale-110 active:scale-95 shadow-sm ${
+                        lowStockItems.length > 0
+                            ? 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100'
+                            : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'
+                    }`}
                 >
-                    {/* Animated SVG Bell */}
-                    <span className="relative shrink-0">
-                        <svg
-                            className={`w-3.5 h-3.5 transition-transform duration-300 ${
-                                lowStockItems.length > 0 ? 'group-hover/bell:animate-[wiggle_0.4s_ease-in-out]' : ''
-                            }`}
-                            fill="currentColor" viewBox="0 0 24 24"
-                        >
-                            <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6V11c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
-                        </svg>
-                        {/* Ring pulse when items are low */}
+                    <span className="relative">
+                        🔔
                         {lowStockItems.length > 0 && (
-                            <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-slate-800 animate-pulse" />
+                            <span className="absolute -top-2 -right-2.5 w-4 h-4 bg-red-500 text-white text-[8px] font-black rounded-full flex items-center justify-center border border-white shadow">
+                                {lowStockItems.length}
+                            </span>
                         )}
-                    </span>
-                    <span className="text-[10px] font-bold tabular-nums leading-none">
-                        {lowStockItems.length > 0 ? lowStockItems.length : '✓'}
                     </span>
                 </button>
             </div>
@@ -2476,7 +2461,7 @@ export default function RetailPOSPage() {
                 </div>
 
                 {/* Right Side - Cart */}
-                <div className="w-[400px] bg-white flex flex-col border-l border-gray-200 shadow-lg">
+                <div className="w-[400px] bg-white flex flex-col border-l border-gray-200 shadow-lg overflow-hidden min-h-0">
                     {/* Cart Header */}
                     <div className="px-4 py-3 bg-gradient-to-br from-green-600 via-emerald-600 to-teal-700 text-white shrink-0">
                         <div className="flex items-center gap-2">
@@ -2575,31 +2560,33 @@ export default function RetailPOSPage() {
                 <div className="fixed inset-0 z-[59]" onClick={() => setShowQuickActions(false)} />
             )}
 
-            {/* FAB Button — purple lightning bolt, hovers left of cart */}
-            <button
-                onClick={() => setShowQuickActions(prev => !prev)}
-                title="Quick Actions (Alt+Q)"
-                style={{ bottom: '24px', right: '412px', width: '52px', height: '52px' }}
-                className={`fixed z-[60] flex items-center justify-center rounded-2xl shadow-2xl transition-all duration-200 hover:scale-110 active:scale-95 ${
-                    showQuickActions
-                        ? 'bg-gradient-to-br from-violet-600 via-purple-700 to-indigo-700 shadow-purple-600/60 scale-110'
-                        : 'bg-gradient-to-br from-violet-500 via-purple-600 to-indigo-600 shadow-purple-500/50 hover:shadow-purple-600/70'
-                } text-white`}
-            >
-                <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-                    <path d="M13 3L4 14h7l-2 7 9-11h-7l2-7z"/>
-                </svg>
-            </button>
+            {/* FAB Button — bottom-left of products area, outlet-gated */}
+            {showQuickActionsFAB && (
+                <button
+                    onClick={() => setShowQuickActions(prev => !prev)}
+                    title="Quick Actions (Alt+Q)"
+                    style={{ bottom: '28px', left: '80px', width: '52px', height: '52px' }}
+                    className={`fixed z-[60] flex items-center justify-center rounded-2xl shadow-2xl transition-all duration-200 hover:scale-110 active:scale-95 ${
+                        showQuickActions
+                            ? 'bg-gradient-to-br from-violet-600 via-purple-700 to-indigo-700 shadow-purple-600/60 scale-110 rotate-12'
+                            : 'bg-gradient-to-br from-violet-500 via-purple-600 to-indigo-600 shadow-purple-500/50 hover:shadow-purple-600/70'
+                    } text-white`}
+                >
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+                        <path d="M13 3L4 14h7l-2 7 9-11h-7l2-7z"/>
+                    </svg>
+                </button>
+            )}
 
             {/* Quick Actions Panel */}
-            {showQuickActions && (
+            {showQuickActionsFAB && showQuickActions && (
                 <div
                     onClick={e => e.stopPropagation()}
                     className="fixed z-[60] bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100"
-                    style={{ bottom: '86px', right: '412px', width: '336px' }}
+                    style={{ bottom: '90px', left: '80px', width: '336px' }}
                 >
                     {/* Header */}
-                    <div className="bg-gradient-to-r from-gray-900 to-slate-800 px-4 py-3 flex items-center justify-between">
+                    <div className="bg-gradient-to-r from-violet-500 to-indigo-600 px-4 py-2.5 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-yellow-400">
                                 <path d="M13 3L4 14h7l-2 7 9-11h-7l2-7z"/>
