@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -20,14 +20,14 @@ import { Line, Bar, Doughnut } from 'react-chartjs-2';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler);
 
-// ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ Types ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ────────────────── Types ──────────────────
 interface DailySales { date: string; cash: number; mpesa: number; credit: number; total: number; orders: number; }
 interface TopProduct { name: string; qty: number; revenue: number; avgPrice: number; }
 interface LowStockItem { name: string; stock: number; reorder: number; type: 'dish' | 'ingredient' | 'product'; status: 'out' | 'critical' | 'low'; }
 interface UserSalesData { name: string; sales: number; orders: number; }
 interface RecentPurchase { date: string; supplier: string; total: number; status: string; items: number; }
 
-// ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ Dashboard ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ────────────────── Dashboard ──────────────────
 export default function DashboardPage() {
     const { activeOutlet } = useOutlet();
     const outletId = activeOutlet?.outlet_id || 1;
@@ -62,7 +62,7 @@ export default function DashboardPage() {
     const [recentPurchases, setRecentPurchases] = useState<RecentPurchase[]>([]);
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    // ΓöÇΓöÇΓöÇΓöÇ Date Presets ΓöÇΓöÇΓöÇΓöÇ
+    // ──── Date Presets ────
     const setPreset = (preset: string) => {
         setRangePreset(preset);
         const now = new Date();
@@ -77,14 +77,14 @@ export default function DashboardPage() {
         setDateTo(to);
     };
 
-    // ΓöÇΓöÇΓöÇΓöÇ Data Loading ΓöÇΓöÇΓöÇΓöÇ
+    // ──── Data Loading ────
     const loadDashboardData = useCallback(async () => {
         setIsLoading(true);
         const today = new Date().toISOString().split('T')[0];
         const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
         try {
-            // ΓöÇΓöÇ Today's Sales by payment method ΓöÇΓöÇ (using retail_sales, filtered by outlet)
+            // ── Today's Sales by payment method ── (using retail_sales, filtered by outlet)
             const { data: todayData } = await supabase.from('retail_sales').select('total_amount, payment_method').eq('sale_date', today).eq('outlet_id', outletId);
             const tData = todayData || [];
             setTodaySales(tData.reduce((s, r) => s + (r.total_amount || 0), 0));
@@ -93,16 +93,16 @@ export default function DashboardPage() {
             setTodayMpesa(tData.filter(r => (r.payment_method || '').toLowerCase().includes('mpesa')).reduce((s, r) => s + (r.total_amount || 0), 0));
             setTodayCredit(tData.filter(r => (r.payment_method || '').toLowerCase().includes('credit')).reduce((s, r) => s + (r.total_amount || 0), 0));
 
-            // ΓöÇΓöÇ Yesterday's Sales ΓöÇΓöÇ
+            // ── Yesterday's Sales ──
             const { data: yData } = await supabase.from('retail_sales').select('total_amount').eq('sale_date', yesterday).eq('outlet_id', outletId);
             setYesterdaySales((yData || []).reduce((s, r) => s + (r.total_amount || 0), 0));
             setYesterdayOrders((yData || []).length);
 
-            // ΓöÇΓöÇ Pending Bills ΓöÇΓöÇ
+            // ── Pending Bills ──
             const { data: pBills } = await supabase.from('retail_sales').select('sale_id').eq('status', 'Pending').eq('outlet_id', outletId);
             setPendingBills(pBills?.length || 0);
 
-            // ΓöÇΓöÇ Daily Sales Trend (by date range, broken by payment method) ΓöÇΓöÇ
+            // ── Daily Sales Trend (by date range, broken by payment method) ──
             const { data: rangeSales } = await supabase
                 .from('retail_sales')
                 .select('sale_date, total_amount, payment_method')
@@ -132,7 +132,7 @@ export default function DashboardPage() {
             });
             setDailySales(Array.from(salesMap.values()).sort((a, b) => a.date.localeCompare(b.date)));
 
-            // ΓöÇΓöÇ Top Selling Products ΓöÇΓöÇ (using retail_sales_items)
+            // ── Top Selling Products ── (using retail_sales_items)
             const { data: salesItems } = await supabase
                 .from('retail_sales_items')
                 .select('product_name, quantity, subtotal, created_at')
@@ -155,7 +155,7 @@ export default function DashboardPage() {
                     .slice(0, 15)
             );
 
-            // ΓöÇΓöÇ Low Stock Items ΓöÇΓöÇ (using retail_products + retail_stock, filtered by outlet)
+            // ── Low Stock Items ── (using retail_products + retail_stock, filtered by outlet)
             const { data: retailProds } = await supabase.from('retail_products').select('pid, product_name, reorder_point').eq('active', true).eq('outlet_id', outletId).order('product_name');
             const { data: retailStock } = await supabase.from('retail_stock').select('pid, qty').eq('outlet_id', outletId);
             const stockMap: Record<number, number> = {};
@@ -171,7 +171,7 @@ export default function DashboardPage() {
             });
             setLowStock(lowItems.sort((a, b) => a.stock - b.stock));
 
-            // ΓöÇΓöÇ Cashier Sales (retail_sales by user) ΓöÇΓöÇ
+            // ── Cashier Sales (retail_sales by user) ──
             const { data: cashierData } = await supabase
                 .from('retail_sales')
                 .select('created_by, total_amount')
@@ -186,7 +186,7 @@ export default function DashboardPage() {
             });
             setUserSales(Array.from(wMap.entries()).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.sales - a.sales).slice(0, 10));
 
-            // ΓöÇΓöÇ Recent Purchases (retail_purchases) ΓöÇΓöÇ
+            // ── Recent Purchases (retail_purchases) ──
             const { data: purchasesData } = await supabase
                 .from('retail_purchases')
                 .select('purchase_date, supplier_name, grand_total, status, purchase_no')
@@ -197,11 +197,11 @@ export default function DashboardPage() {
                 date: p.purchase_date, supplier: p.supplier_name || '-', total: p.grand_total || 0, status: p.status || 'Pending', items: 0,
             })));
 
-            // ΓöÇΓöÇ Financials (expenses, filtered by outlet) ΓöÇΓöÇ
+            // ── Financials (expenses, filtered by outlet) ──
             const { data: expData } = await supabase.from('expenses').select('amount').gte('expense_date', dateFrom).lte('expense_date', dateTo).eq('outlet_id', outletId);
             setTotalExpenses((expData || []).reduce((s, e) => s + (e.amount || 0), 0));
 
-            // ΓöÇΓöÇ Shifts (retail_shifts) ΓöÇΓöÇ
+            // ── Shifts (retail_shifts) ──
             const { data: shData } = await supabase.from('retail_shifts').select('status, shift_date').gte('shift_date', dateFrom).lte('shift_date', dateTo);
             setActiveShifts((shData || []).filter(s => s.status === 'Open').length);
             setClosedShifts((shData || []).filter(s => s.status === 'Closed').length);
@@ -216,14 +216,14 @@ export default function DashboardPage() {
 
     useEffect(() => { loadDashboardData(); }, [loadDashboardData]);
 
-    // ΓöÇΓöÇΓöÇΓöÇ Computed ΓöÇΓöÇΓöÇΓöÇ
+    // ──── Computed ────
     const salesChange = yesterdaySales > 0 ? ((todaySales - yesterdaySales) / yesterdaySales * 100) : 0;
     const netSales = todaySales - totalExpenses - totalAdvances - totalVouchers;
     const totalRangeSales = dailySales.reduce((s, d) => s + d.total, 0);
     const totalRangeOrders = dailySales.reduce((s, d) => s + d.orders, 0);
     const avgOrderValue = totalRangeOrders > 0 ? Math.round(totalRangeSales / totalRangeOrders) : 0;
 
-    // ΓöÇΓöÇΓöÇΓöÇ Chart Configs ΓöÇΓöÇΓöÇΓöÇ
+    // ──── Chart Configs ────
     const chartLabels = dailySales.map(d => {
         const dt = new Date(d.date);
         return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
@@ -397,18 +397,18 @@ export default function DashboardPage() {
         },
     };
 
-    // ΓöÇΓöÇΓöÇΓöÇ Helpers ΓöÇΓöÇΓöÇΓöÇ
+    // ──── Helpers ────
     const fmt = (n: number) => n >= 1000000 ? `${(n / 1000000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}K` : n.toLocaleString();
     const pct = (val: number) => val >= 0 ? `+${val.toFixed(1)}%` : `${val.toFixed(1)}%`;
 
-    // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ RENDER ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // ──────────────── RENDER ────────────────
     return (
         <div className="space-y-5 pb-8" ref={scrollRef}>
-            {/* ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ Header ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
+            {/* ══════ Header ══════ */}
             <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
                     <h1 className="text-2xl font-extrabold text-gray-900 flex items-center gap-3">
-                        <span className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white text-lg shadow-lg shadow-indigo-200">≡ƒôè</span>
+                        <span className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white text-lg shadow-lg shadow-indigo-200">📊</span>
                         Analytics Dashboard
                     </h1>
                     <p className="text-sm text-gray-500 mt-0.5">Real-time business intelligence</p>
@@ -424,26 +424,26 @@ export default function DashboardPage() {
                     <div className="flex items-center gap-1.5 ml-2">
                         <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setRangePreset('custom'); }}
                             className="px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs bg-white focus:ring-2 focus:ring-indigo-300 focus:outline-none" />
-                        <span className="text-gray-400 text-xs">ΓåÆ</span>
+                        <span className="text-gray-400 text-xs">→</span>
                         <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setRangePreset('custom'); }}
                             className="px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs bg-white focus:ring-2 focus:ring-indigo-300 focus:outline-none" />
                     </div>
                     <button onClick={loadDashboardData}
                         className="px-4 py-1.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg text-xs font-bold hover:shadow-lg hover:shadow-indigo-200 transition-all">
-                        {isLoading ? 'ΓÅ│' : '≡ƒöä'} Refresh
+                        {isLoading ? '⏳' : '🔄'} Refresh
                     </button>
                 </div>
             </div>
 
-            {/* ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ Alert Banner ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
+            {/* ══════ Alert Banner ══════ */}
             {(lowStock.filter(i => i.status === 'out').length > 0 || pendingBills > 0) && (
                 <div className="bg-gradient-to-r from-red-500 via-orange-500 to-amber-500 rounded-2xl px-5 py-3 text-white flex items-center justify-between shadow-lg shadow-orange-200/50">
                     <div className="flex items-center gap-3">
-                        <span className="text-2xl animate-pulse">≡ƒÜ¿</span>
+                        <span className="text-2xl animate-pulse">🚨</span>
                         <div>
                             <p className="font-bold text-sm">Action Required</p>
                             <p className="text-xs opacity-90">
-                                {lowStock.filter(i => i.status === 'out').length > 0 && `${lowStock.filter(i => i.status === 'out').length} items OUT OF STOCK ΓÇó `}
+                                {lowStock.filter(i => i.status === 'out').length > 0 && `${lowStock.filter(i => i.status === 'out').length} items OUT OF STOCK • `}
                                 {pendingBills > 0 && `${pendingBills} unpaid bills`}
                             </p>
                         </div>
@@ -455,7 +455,7 @@ export default function DashboardPage() {
                 </div>
             )}
 
-            {/* ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ KPI Cards Row ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
+            {/* ══════ KPI Cards Row ══════ */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 {/* Today's Sales */}
                 <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-4 text-white shadow-lg shadow-emerald-200/50 relative overflow-hidden">
@@ -478,42 +478,42 @@ export default function DashboardPage() {
                 </div>
                 {/* Cash */}
                 <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-4 text-white shadow-lg shadow-green-200/50">
-                    <p className="text-xs font-medium opacity-80">≡ƒÆ╡ Cash Today</p>
+                    <p className="text-xs font-medium opacity-80">💵 Cash Today</p>
                     <p className="text-2xl font-extrabold mt-1">Ksh {fmt(todayCash)}</p>
                     <p className="text-xs opacity-70 mt-1">{totalPayments > 0 ? ((todayCash / totalPayments) * 100).toFixed(0) : 0}% of total</p>
                 </div>
                 {/* M-Pesa */}
                 <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-4 text-white shadow-lg shadow-amber-200/50">
-                    <p className="text-xs font-medium opacity-80">≡ƒô▒ M-Pesa Today</p>
+                    <p className="text-xs font-medium opacity-80">📱 M-Pesa Today</p>
                     <p className="text-2xl font-extrabold mt-1">Ksh {fmt(todayMpesa)}</p>
                     <p className="text-xs opacity-70 mt-1">{totalPayments > 0 ? ((todayMpesa / totalPayments) * 100).toFixed(0) : 0}% of total</p>
                 </div>
                 {/* Credit */}
                 <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl p-4 text-white shadow-lg shadow-red-200/50">
-                    <p className="text-xs font-medium opacity-80">≡ƒÅª Credit Today</p>
+                    <p className="text-xs font-medium opacity-80">🏦 Credit Today</p>
                     <p className="text-2xl font-extrabold mt-1">Ksh {fmt(todayCredit)}</p>
                     <p className="text-xs opacity-70 mt-1">{totalPayments > 0 ? ((todayCredit / totalPayments) * 100).toFixed(0) : 0}% of total</p>
                 </div>
                 {/* Net Profit */}
                 <div className="bg-gradient-to-br from-violet-600 to-purple-700 rounded-2xl p-4 text-white shadow-lg shadow-purple-200/50 relative overflow-hidden">
                     <div className="absolute -top-4 -left-4 w-16 h-16 bg-white/10 rounded-full" />
-                    <p className="text-xs font-medium opacity-80">≡ƒôè Net Today</p>
+                    <p className="text-xs font-medium opacity-80">📊 Net Today</p>
                     <p className={`text-2xl font-extrabold mt-1 ${netSales < 0 ? 'text-red-300' : ''}`}>Ksh {fmt(netSales)}</p>
                     <p className="text-xs opacity-70 mt-1">After deductions</p>
                 </div>
             </div>
 
-            {/* ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ Main Charts Row ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
+            {/* ══════ Main Charts Row ══════ */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 {/* Sales Trend Line Chart */}
                 <div className="lg:col-span-2 bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                            <span className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-sm">≡ƒôê</span>
+                            <span className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-sm">📈</span>
                             Sales Trend
                         </h3>
                         <span className="text-xs text-gray-400 font-medium">
-                            Total: Ksh {totalRangeSales.toLocaleString()} ΓÇó {totalRangeOrders} orders
+                            Total: Ksh {totalRangeSales.toLocaleString()} • {totalRangeOrders} orders
                         </span>
                     </div>
                     <div style={{ height: '320px' }}>
@@ -521,7 +521,7 @@ export default function DashboardPage() {
                             <Line data={salesLineData} options={salesLineOptions} />
                         ) : (
                             <div className="h-full flex items-center justify-center text-gray-400">
-                                <div className="text-center"><span className="text-4xl">≡ƒôè</span><p className="mt-2">No sales data for this period</p></div>
+                                <div className="text-center"><span className="text-4xl">📊</span><p className="mt-2">No sales data for this period</p></div>
                             </div>
                         )}
                     </div>
@@ -530,7 +530,7 @@ export default function DashboardPage() {
                 {/* Payment Split Donut */}
                 <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                     <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
-                        <span className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center text-sm">≡ƒÆ│</span>
+                        <span className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center text-sm">💳</span>
                         Today&apos;s Payment Split
                     </h3>
                     <div style={{ height: '200px' }} className="flex items-center justify-center relative">
@@ -544,9 +544,9 @@ export default function DashboardPage() {
                     </div>
                     <div className="mt-4 space-y-2">
                         {[
-                            { label: 'Cash', value: todayCash, color: '#10b981', icon: '≡ƒÆ╡' },
-                            { label: 'M-Pesa', value: todayMpesa, color: '#f59e0b', icon: '≡ƒô▒' },
-                            { label: 'Credit', value: todayCredit, color: '#ef4444', icon: '≡ƒÅª' },
+                            { label: 'Cash', value: todayCash, color: '#10b981', icon: '💵' },
+                            { label: 'M-Pesa', value: todayMpesa, color: '#f59e0b', icon: '📱' },
+                            { label: 'Credit', value: todayCredit, color: '#ef4444', icon: '🏦' },
                         ].map(m => (
                             <div key={m.label} className="flex items-center gap-2">
                                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: m.color }} />
@@ -559,12 +559,12 @@ export default function DashboardPage() {
                 </div>
             </div>
 
-            {/* ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ Payment Comparison + User Sales ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
+            {/* ══════ Payment Comparison + User Sales ══════ */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 {/* Payment Comparison Bar Chart */}
                 <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                     <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
-                        <span className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center text-sm">≡ƒôè</span>
+                        <span className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center text-sm">📊</span>
                         Payment Method Comparison
                     </h3>
                     <div style={{ height: '300px' }}>
@@ -577,7 +577,7 @@ export default function DashboardPage() {
                 {/* User/Waiter Sales */}
                 <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                     <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
-                        <span className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center text-sm">≡ƒæÑ</span>
+                        <span className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center text-sm">👥</span>
                         Staff Sales Ranking
                     </h3>
                     <div style={{ height: '300px' }}>
@@ -588,12 +588,12 @@ export default function DashboardPage() {
                 </div>
             </div>
 
-            {/* ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ Data Grids Row ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
+            {/* ══════ Data Grids Row ══════ */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 {/* Best Sellers Grid */}
                 <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                     <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
-                        <span className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center text-sm">≡ƒöÑ</span>
+                        <span className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center text-sm">🔥</span>
                         Best Sellers
                     </h3>
                     <div className="overflow-auto max-h-[400px]">
@@ -630,7 +630,7 @@ export default function DashboardPage() {
                 {/* Low Stock / Out of Stock Grid */}
                 <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                     <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
-                        <span className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center text-sm">ΓÜá∩╕Å</span>
+                        <span className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center text-sm">⚠️</span>
                         Stock Alerts
                         {lowStock.length > 0 && (
                             <span className="ml-auto px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-bold">{lowStock.length}</span>
@@ -652,7 +652,7 @@ export default function DashboardPage() {
                                         <td className="py-2 px-2 font-medium text-gray-800 max-w-[130px] truncate">{item.name}</td>
                                         <td className="py-2 px-2">
                                             <span className={`text-xs px-1.5 py-0.5 rounded ${item.type === 'dish' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
-                                                {item.type === 'dish' ? '≡ƒì╜∩╕Å' : '≡ƒÑ¼'} {item.type}
+                                                {item.type === 'dish' ? '🍽️' : '🥬'} {item.type}
                                             </span>
                                         </td>
                                         <td className="py-2 px-2 text-right font-bold">{item.stock} / {item.reorder}</td>
@@ -660,14 +660,14 @@ export default function DashboardPage() {
                                             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${item.status === 'out' ? 'bg-red-200 text-red-800' :
                                                     item.status === 'critical' ? 'bg-orange-200 text-orange-800' : 'bg-yellow-200 text-yellow-800'
                                                 }`}>
-                                                {item.status === 'out' ? 'Γ¥î OUT' : item.status === 'critical' ? '≡ƒö┤ CRITICAL' : '≡ƒƒí LOW'}
+                                                {item.status === 'out' ? '❌ OUT' : item.status === 'critical' ? '🔴 CRITICAL' : '🟡 LOW'}
                                             </span>
                                         </td>
                                     </tr>
                                 ))}
                                 {lowStock.length === 0 && (
                                     <tr><td colSpan={4} className="py-8 text-center text-gray-400">
-                                        <span className="text-3xl">Γ£à</span><p className="mt-1">All stock levels good!</p>
+                                        <span className="text-3xl">✅</span><p className="mt-1">All stock levels good!</p>
                                     </td></tr>
                                 )}
                             </tbody>
@@ -678,7 +678,7 @@ export default function DashboardPage() {
                 {/* Recent Purchases Grid */}
                 <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                     <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
-                        <span className="w-8 h-8 bg-cyan-100 rounded-lg flex items-center justify-center text-sm">≡ƒôª</span>
+                        <span className="w-8 h-8 bg-cyan-100 rounded-lg flex items-center justify-center text-sm">📦</span>
                         Recent Purchases
                     </h3>
                     <div className="overflow-auto max-h-[400px]">
@@ -713,54 +713,54 @@ export default function DashboardPage() {
                 </div>
             </div>
 
-            {/* ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ Financial Cards ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
+            {/* ══════ Financial Cards ══════ */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                 <div className="bg-gradient-to-br from-rose-500 to-pink-600 rounded-2xl p-4 text-white shadow-lg shadow-rose-200/50">
-                    <p className="text-xs opacity-80">≡ƒÆ╕ Expenses</p>
+                    <p className="text-xs opacity-80">💸 Expenses</p>
                     <p className="text-xl font-extrabold mt-1">Ksh {fmt(totalExpenses)}</p>
-                    <a href="/dashboard/expenses" className="text-xs underline opacity-70 hover:opacity-100 mt-1 inline-block">View ΓåÆ</a>
+                    <a href="/dashboard/expenses" className="text-xs underline opacity-70 hover:opacity-100 mt-1 inline-block">View →</a>
                 </div>
                 <div className="bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl p-4 text-white shadow-lg shadow-violet-200/50">
-                    <p className="text-xs opacity-80">≡ƒÆ╡ Advances</p>
+                    <p className="text-xs opacity-80">💵 Advances</p>
                     <p className="text-xl font-extrabold mt-1">Ksh {fmt(totalAdvances)}</p>
-                    <a href="/dashboard/advances" className="text-xs underline opacity-70 hover:opacity-100 mt-1 inline-block">View ΓåÆ</a>
+                    <a href="/dashboard/advances" className="text-xs underline opacity-70 hover:opacity-100 mt-1 inline-block">View →</a>
                 </div>
                 <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-4 text-white shadow-lg shadow-amber-200/50">
-                    <p className="text-xs opacity-80">≡ƒÄƒ∩╕Å Vouchers</p>
+                    <p className="text-xs opacity-80">🎟️ Vouchers</p>
                     <p className="text-xl font-extrabold mt-1">Ksh {fmt(totalVouchers)}</p>
-                    <a href="/dashboard/vouchers" className="text-xs underline opacity-70 hover:opacity-100 mt-1 inline-block">View ΓåÆ</a>
+                    <a href="/dashboard/vouchers" className="text-xs underline opacity-70 hover:opacity-100 mt-1 inline-block">View →</a>
                 </div>
                 <div className="bg-gradient-to-br from-cyan-500 to-sky-600 rounded-2xl p-4 text-white shadow-lg shadow-cyan-200/50">
-                    <p className="text-xs opacity-80">ΓÅ░ Shifts</p>
+                    <p className="text-xs opacity-80">⏰ Shifts</p>
                     <div className="flex items-center gap-3 mt-1">
                         <div><p className="text-lg font-extrabold">{activeShifts}</p><p className="text-xs opacity-70">Active</p></div>
                         <div className="h-6 w-px bg-white/30" />
                         <div><p className="text-lg font-extrabold">{closedShifts}</p><p className="text-xs opacity-70">Closed</p></div>
                     </div>
-                    <a href="/dashboard/shifts" className="text-xs underline opacity-70 hover:opacity-100 mt-1 inline-block">Manage ΓåÆ</a>
+                    <a href="/dashboard/shifts" className="text-xs underline opacity-70 hover:opacity-100 mt-1 inline-block">Manage →</a>
                 </div>
                 <div className="bg-gradient-to-br from-slate-700 to-slate-900 rounded-2xl p-4 text-white shadow-lg shadow-slate-300/50">
-                    <p className="text-xs opacity-80">ΓÜá∩╕Å Pending Bills</p>
+                    <p className="text-xs opacity-80">⚠️ Pending Bills</p>
                     <p className="text-xl font-extrabold mt-1">{pendingBills}</p>
-                    <a href="/dashboard/bills" className="text-xs underline opacity-70 hover:opacity-100 mt-1 inline-block">View ΓåÆ</a>
+                    <a href="/dashboard/bills" className="text-xs underline opacity-70 hover:opacity-100 mt-1 inline-block">View →</a>
                 </div>
             </div>
 
-            {/* ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ Quick Actions ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
+            {/* ══════ Quick Actions ══════ */}
             <div className="bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800 rounded-2xl p-5 text-white">
-                <h3 className="font-bold text-sm mb-3 flex items-center gap-2">ΓÜí Quick Actions</h3>
+                <h3 className="font-bold text-sm mb-3 flex items-center gap-2">⚡ Quick Actions</h3>
                 <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-10 gap-2">
                     {[
-                        { icon: '≡ƒ¢Æ', label: 'POS', href: '/dashboard/pos', color: 'from-emerald-500/30 to-green-600/30 hover:from-emerald-500/50 hover:to-green-600/50' },
-                        { icon: '≡ƒôÑ', label: 'Purchases', href: '/dashboard/purchases', color: 'from-blue-500/30 to-indigo-600/30 hover:from-blue-500/50 hover:to-indigo-600/50' },
-                        { icon: '≡ƒôª', label: 'Stock Available', href: '/dashboard/products', color: 'from-cyan-500/30 to-sky-600/30 hover:from-cyan-500/50 hover:to-sky-600/50' },
-                        { icon: 'ΓÅ░', label: 'Expiry Register', href: '/dashboard/expiry-register', color: 'from-amber-500/30 to-orange-600/30 hover:from-amber-500/50 hover:to-orange-600/50' },
-                        { icon: 'Γå⌐∩╕Å', label: 'Sales Returns', href: '/dashboard/sales-return', color: 'from-rose-500/30 to-red-600/30 hover:from-rose-500/50 hover:to-red-600/50' },
-                        { icon: '≡ƒº╛', label: 'Register History', href: '/dashboard/shift-reports', color: 'from-purple-500/30 to-violet-600/30 hover:from-purple-500/50 hover:to-violet-600/50' },
-                        { icon: '≡ƒôè', label: 'Reports', href: '/dashboard/reports/sales', color: 'from-indigo-500/30 to-blue-600/30 hover:from-indigo-500/50 hover:to-blue-600/50' },
-                        { icon: '≡ƒôê', label: 'Sales Summary', href: '/dashboard/sales-summary', color: 'from-teal-500/30 to-emerald-600/30 hover:from-teal-500/50 hover:to-emerald-600/50' },
-                        { icon: '≡ƒÆ╕', label: 'Expenses', href: '/dashboard/expenses', color: 'from-pink-500/30 to-rose-600/30 hover:from-pink-500/50 hover:to-rose-600/50' },
-                        { icon: '≡ƒæÑ', label: 'Payroll', href: '/dashboard/payroll', color: 'from-slate-400/30 to-gray-500/30 hover:from-slate-400/50 hover:to-gray-500/50' },
+                        { icon: '🛒', label: 'POS', href: '/dashboard/pos', color: 'from-emerald-500/30 to-green-600/30 hover:from-emerald-500/50 hover:to-green-600/50' },
+                        { icon: '📥', label: 'Purchases', href: '/dashboard/purchases', color: 'from-blue-500/30 to-indigo-600/30 hover:from-blue-500/50 hover:to-indigo-600/50' },
+                        { icon: '📦', label: 'Stock Available', href: '/dashboard/products', color: 'from-cyan-500/30 to-sky-600/30 hover:from-cyan-500/50 hover:to-sky-600/50' },
+                        { icon: '⏰', label: 'Expiry Register', href: '/dashboard/expiry-register', color: 'from-amber-500/30 to-orange-600/30 hover:from-amber-500/50 hover:to-orange-600/50' },
+                        { icon: '↩️', label: 'Sales Returns', href: '/dashboard/sales-return', color: 'from-rose-500/30 to-red-600/30 hover:from-rose-500/50 hover:to-red-600/50' },
+                        { icon: '🧾', label: 'Register History', href: '/dashboard/shift-reports', color: 'from-purple-500/30 to-violet-600/30 hover:from-purple-500/50 hover:to-violet-600/50' },
+                        { icon: '📊', label: 'Reports', href: '/dashboard/reports/sales', color: 'from-indigo-500/30 to-blue-600/30 hover:from-indigo-500/50 hover:to-blue-600/50' },
+                        { icon: '📈', label: 'Sales Summary', href: '/dashboard/sales-summary', color: 'from-teal-500/30 to-emerald-600/30 hover:from-teal-500/50 hover:to-emerald-600/50' },
+                        { icon: '💸', label: 'Expenses', href: '/dashboard/expenses', color: 'from-pink-500/30 to-rose-600/30 hover:from-pink-500/50 hover:to-rose-600/50' },
+                        { icon: '👥', label: 'Payroll', href: '/dashboard/payroll', color: 'from-slate-400/30 to-gray-500/30 hover:from-slate-400/50 hover:to-gray-500/50' },
                     ].map(a => (
                         <a key={a.label} href={a.href}
                             className={`flex flex-col items-center gap-1.5 p-3 bg-gradient-to-br ${a.color} rounded-xl transition-all hover:scale-105 border border-white/10 hover:border-white/25 hover:shadow-lg hover:shadow-white/5`}>
