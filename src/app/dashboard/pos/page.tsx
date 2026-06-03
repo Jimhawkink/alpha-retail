@@ -220,37 +220,83 @@ const CategoryButton = ({
     </button>
 );
 
-// Product Card - Fixed Height, Compact Design
+// Product Card — Premium Compact Design: name + price on same line
 const ProductCard = ({ product, onAdd }: { product: Product; onAdd: () => void }) => (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow h-[240px] flex flex-col" title={product.name}>
-        {/* Image - Fixed 110px */}
-        <div className="h-[110px] bg-gray-50 flex items-center justify-center flex-shrink-0">
+    <div
+        className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col cursor-pointer group transition-all duration-200 hover:shadow-xl hover:border-emerald-300 hover:-translate-y-0.5"
+        title={product.name}
+    >
+        {/* Image */}
+        <div className="h-[90px] bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center flex-shrink-0 relative overflow-hidden">
             {product.imageUrl ? (
-                <img src={product.imageUrl} alt={product.name} className="max-h-[100px] max-w-[100px] object-contain" onError={(e) => { (e.target as HTMLImageElement).src = '/no-image.png'; }} />
+                <img
+                    src={product.imageUrl}
+                    alt={product.name}
+                    className="max-h-[80px] max-w-[80px] object-contain group-hover:scale-105 transition-transform duration-200"
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/no-image.png'; }}
+                />
             ) : (
-                <img src="/no-image.png" alt="No image" className="h-[100px] w-[100px] object-contain" />
+                <img src="/no-image.png" alt="No image" className="h-[80px] w-[80px] object-contain opacity-50" />
+            )}
+            {product.availableQty === 0 && (
+                <div className="absolute inset-0 bg-red-500/5 flex items-end justify-center pb-1.5">
+                    <span className="text-[8px] font-black text-red-500 bg-white border border-red-200 px-1.5 py-0.5 rounded-full shadow-sm tracking-wide">OUT OF STOCK</span>
+                </div>
             )}
         </div>
+
         {/* Content */}
-        <div className="flex-1 p-2 flex flex-col">
-            <h3 className="text-[12px] font-medium text-gray-800 line-clamp-1 cursor-default" title={product.name}>{product.name}</h3>
-            <p className="text-[9px] text-gray-400 truncate" title={`SKU: ${product.barcode || product.id}`}>SKU: {product.barcode || product.id}</p>
-            <div className="h-[18px] flex items-center">
-                <span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-[8px]">{product.category || 'General'}</span>
+        <div className="flex-1 px-2.5 pt-2 pb-2 flex flex-col gap-1.5">
+
+            {/* ── Name + Price on the SAME LINE ── */}
+            <div className="flex items-start justify-between gap-1">
+                <h3
+                    className="text-[11px] font-semibold text-gray-800 line-clamp-2 flex-1 leading-tight cursor-default"
+                    title={product.name}
+                >
+                    {product.name}
+                </h3>
+                <span className="text-[12px] font-black text-emerald-600 whitespace-nowrap shrink-0 ml-1 mt-px">
+                    Ksh {product.salesPrice.toLocaleString()}
+                </span>
             </div>
-            <div className="flex-1"></div>
-            <div className="flex items-center gap-2 mb-2">
-                <span className="text-[15px] font-bold text-gray-900">Ksh {product.salesPrice.toLocaleString()}</span>
-                <div className="flex flex-col gap-0.5">
-                    {(product.bagQty || 0) > 0 && (
-                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-100 text-indigo-700">📦 {product.bagQty} {product.purchaseUnit}</span>
-                    )}
-                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${(product.pieceQty || 0) > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>🔢 {product.pieceQty || 0} {product.salesUnit}</span>
-                </div>
+
+            {/* Category + SKU */}
+            <div className="flex items-center gap-1">
+                <span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-[8px] truncate max-w-[90px]">
+                    {product.category || 'General'}
+                </span>
+                <span className="text-[8px] text-gray-300 truncate">#{product.barcode || product.id}</span>
             </div>
-            <button onClick={(e) => { e.stopPropagation(); if (product.availableQty > 0) onAdd(); }} disabled={product.availableQty === 0}
-                className={`w-full py-1.5 rounded-lg text-[11px] font-medium flex items-center justify-center gap-1 ${product.availableQty === 0 ? 'bg-gray-100 text-gray-400' : 'bg-emerald-500 text-white hover:bg-emerald-600 active:scale-[0.98]'}`}>
-                + Add to Cart
+
+            {/* Stock Badges */}
+            <div className="flex items-center gap-1 flex-wrap min-h-[18px]">
+                {(product.bagQty || 0) > 0 && (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-100 text-indigo-700">📦 {product.bagQty} {product.purchaseUnit}</span>
+                )}
+                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                    (product.pieceQty || 0) > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+                }`}>🔢 {product.pieceQty || 0} {product.salesUnit}</span>
+            </div>
+
+            {/* Add to Cart Button — Super Premium */}
+            <button
+                onClick={(e) => { e.stopPropagation(); if (product.availableQty > 0) onAdd(); }}
+                disabled={product.availableQty === 0}
+                className={`w-full py-2 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all duration-200 relative overflow-hidden ${
+                    product.availableQty === 0
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white active:scale-[0.97] shadow-md shadow-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/45'
+                }`}
+            >
+                {/* Shimmer sweep on hover */}
+                {product.availableQty > 0 && (
+                    <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-[200%] transition-transform duration-700 ease-in-out pointer-events-none" />
+                )}
+                <svg className="relative w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <span className="relative">{product.availableQty === 0 ? 'Out of Stock' : 'Add to Cart'}</span>
             </button>
         </div>
     </div>
@@ -2112,22 +2158,24 @@ export default function RetailPOSPage() {
                 </div>
             </div>
 
-            {/* ═══ Quick Action Buttons Strip (Light Theme) ═══ */}
-            <div className="bg-gradient-to-r from-gray-50 via-white to-gray-50 border-b border-gray-200 px-4 py-2 flex items-center gap-2 overflow-x-auto">
+            {/* ═══ Quick Action Command Bar — Premium Dark, Always Fully Visible ═══ */}
+            <div className="relative bg-gradient-to-r from-slate-800 via-slate-750 to-slate-800 border-b border-slate-700 px-3 py-1.5 flex items-center flex-wrap gap-1 shadow-[0_2px_12px_rgba(0,0,0,0.25)] z-10">
+                {/* Premium ambient glow line at top */}
+                <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-emerald-400/30 to-transparent pointer-events-none" />
+
                 {[
-                    { key: 'purchases', icon: '📥', label: 'Purchases', href: '/dashboard/purchases', cashierEnabled: false },
-                    { key: 'stock_available', icon: '📦', label: 'Stock Available', href: '/dashboard/products', cashierEnabled: false },
-                    { key: 'expiry_register', icon: '⏰', label: 'Expiry Register', href: '/dashboard/expiry-register', cashierEnabled: false },
-                    { key: 'sales_returns', icon: '↩️', label: 'Sales Returns', href: '/dashboard/sales-return', cashierEnabled: true },
-                    { key: 'register_history', icon: '🧾', label: 'Register History', href: '/dashboard/shift-reports', cashierEnabled: false },
-                    { key: 'reports', icon: '📊', label: 'Reports', href: '/dashboard/reports/sales', cashierEnabled: false },
-                    { key: 'sales_summary', icon: '📈', label: 'Sales Summary', href: '/dashboard/sales-summary', cashierEnabled: true },
-                    { key: 'expenses', icon: '💸', label: 'Expenses', href: '/dashboard/expenses', cashierEnabled: false },
-                    { key: 'payroll', icon: '👥', label: 'Payroll', href: '/dashboard/payroll', cashierEnabled: false },
+                    { key: 'purchases',        icon: '📥', label: 'Purchases',    href: '/dashboard/purchases',       cashierEnabled: false },
+                    { key: 'stock_available',  icon: '📦', label: 'Stock',        href: '/dashboard/products',         cashierEnabled: false },
+                    { key: 'expiry_register',  icon: '⏰', label: 'Expiry',       href: '/dashboard/expiry-register',  cashierEnabled: false },
+                    { key: 'sales_returns',    icon: '↩️', label: 'Returns',      href: '/dashboard/sales-return',     cashierEnabled: true  },
+                    { key: 'register_history', icon: '🧾', label: 'Register',     href: '/dashboard/shift-reports',    cashierEnabled: false },
+                    { key: 'reports',          icon: '📊', label: 'Reports',      href: '/dashboard/reports/sales',    cashierEnabled: false },
+                    { key: 'sales_summary',    icon: '📈', label: 'Summary',      href: '/dashboard/sales-summary',    cashierEnabled: true  },
+                    { key: 'expenses',         icon: '💸', label: 'Expenses',     href: '/dashboard/expenses',         cashierEnabled: false },
+                    { key: 'payroll',          icon: '👥', label: 'Payroll',      href: '/dashboard/payroll',          cashierEnabled: false },
                 ].filter(btn => {
-                    // Only show buttons that are enabled for this outlet
                     const qa = activeOutlet?.allowed_quick_actions;
-                    if (!qa) return false;
+                    if (!qa || Object.keys(qa).length === 0) return true;
                     return qa[btn.key] === true;
                 }).map(btn => {
                     const disabled = isWaiterUser && !btn.cashierEnabled;
@@ -2135,36 +2183,61 @@ export default function RetailPOSPage() {
                         <button
                             key={btn.label}
                             disabled
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 rounded-lg text-gray-300 cursor-not-allowed border border-gray-200 whitespace-nowrap"
+                            className="flex items-center gap-1 px-2.5 py-1 bg-slate-700/50 rounded-full text-slate-600 cursor-not-allowed border border-slate-600/50 whitespace-nowrap text-[10px] font-medium"
                             title="Admin only"
                         >
-                            <span className="text-sm">{btn.icon}</span>
-                            <span className="text-[11px] font-medium">{btn.label}</span>
+                            <span className="text-[11px]">{btn.icon}</span>
+                            <span>{btn.label}</span>
                         </button>
                     ) : (
                         <a
                             key={btn.label}
                             href={btn.href}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-blue-50 rounded-lg text-gray-700 hover:text-blue-700 transition-all hover:scale-105 border border-gray-200 hover:border-blue-300 shadow-sm hover:shadow whitespace-nowrap"
+                            className="flex items-center gap-1 px-2.5 py-1 bg-white/10 hover:bg-white/20 rounded-full text-slate-200 hover:text-white transition-all duration-150 hover:scale-105 active:scale-95 border border-white/10 hover:border-white/30 whitespace-nowrap text-[10px] font-semibold shadow-sm"
                         >
-                            <span className="text-sm">{btn.icon}</span>
-                            <span className="text-[11px] font-semibold">{btn.label}</span>
+                            <span className="text-[11px]">{btn.icon}</span>
+                            <span>{btn.label}</span>
                         </a>
                     );
                 })}
 
                 {/* Divider */}
-                <div className="h-6 w-px bg-gray-300 mx-1 shrink-0" />
+                <div className="h-4 w-px bg-white/15 mx-0.5 shrink-0" />
 
-                {/* Low Stock Notification Button */}
+                {/* ── Premium Notification Bell ── */}
                 <button
                     onClick={() => setShowLowStockModal(true)}
-                    className="relative flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-red-50 rounded-lg text-gray-700 hover:text-red-700 transition-all hover:scale-105 border border-gray-200 hover:border-red-300 shadow-sm hover:shadow whitespace-nowrap"
+                    className="relative flex items-center gap-1 px-2.5 py-1 rounded-full whitespace-nowrap text-[10px] font-bold transition-all duration-200 hover:scale-110 active:scale-95 shadow-sm group/bell"
+                    style={{
+                        background: lowStockItems.length > 0
+                            ? 'linear-gradient(135deg,rgba(239,68,68,0.25),rgba(251,146,60,0.2))'
+                            : 'rgba(255,255,255,0.08)',
+                        border: lowStockItems.length > 0
+                            ? '1px solid rgba(239,68,68,0.45)'
+                            : '1px solid rgba(255,255,255,0.12)',
+                        color: lowStockItems.length > 0 ? '#fca5a5' : '#94a3b8',
+                    }}
+                    title={`${lowStockItems.length} low-stock item${lowStockItems.length !== 1 ? 's' : ''}`}
                 >
-                    <span className="text-sm">🔔</span>
-                    <span className="text-[11px] font-semibold">Low Stock</span>
+                    {/* Animated SVG Bell */}
+                    <span className="relative shrink-0">
+                        <svg
+                            className={`w-3.5 h-3.5 transition-transform duration-300 ${
+                                lowStockItems.length > 0 ? 'group-hover/bell:animate-[wiggle_0.4s_ease-in-out]' : ''
+                            }`}
+                            fill="currentColor" viewBox="0 0 24 24"
+                        >
+                            <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6V11c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+                        </svg>
+                        {/* Ring pulse when items are low */}
+                        {lowStockItems.length > 0 && (
+                            <span className="absolute inset-0 rounded-full border border-red-400/60 animate-ping opacity-60" />
+                        )}
+                    </span>
+                    <span>Alerts</span>
+                    {/* Count Badge */}
                     {lowStockItems.length > 0 && (
-                        <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-pulse">
+                        <span className="absolute -top-1.5 -right-1.5 min-w-[17px] h-[17px] px-0.5 bg-gradient-to-br from-red-500 to-rose-600 text-white text-[8px] font-black rounded-full flex items-center justify-center shadow-md shadow-red-500/50 ring-1 ring-red-400/60">
                             {lowStockItems.length}
                         </span>
                     )}
