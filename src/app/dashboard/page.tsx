@@ -1,775 +1,571 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useOutlet } from '@/context/OutletContext';
 import {
-    Chart as ChartJS,
-    CategoryScale,
-    LinearScale,
-    PointElement,
-    LineElement,
-    BarElement,
-    ArcElement,
-    Title,
-    Tooltip,
-    Legend,
-    Filler,
-} from 'chart.js';
-import { Line, Bar, Doughnut } from 'react-chartjs-2';
+    AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+    XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+} from 'recharts';
+import {
+    FiTrendingUp, FiTrendingDown, FiShoppingCart, FiPackage,
+    FiDollarSign, FiAlertTriangle, FiRefreshCw, FiClock,
+    FiArrowUp, FiArrowDown, FiMinus, FiCalendar, FiBarChart2,
+    FiActivity, FiCreditCard, FiSmartphone, FiZap
+} from 'react-icons/fi';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler);
+// ── Helpers ───────────────────────────────────────────────────────────
+const fmt = (n: number, sym = 'KSh') =>
+    `${sym} ${n.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+const pct = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`;
 
-// ────────────────── Types ──────────────────
-interface DailySales { date: string; cash: number; mpesa: number; credit: number; total: number; orders: number; }
-interface TopProduct { name: string; qty: number; revenue: number; avgPrice: number; }
-interface LowStockItem { name: string; stock: number; reorder: number; type: 'dish' | 'ingredient' | 'product'; status: 'out' | 'critical' | 'low'; }
-interface UserSalesData { name: string; sales: number; orders: number; }
-interface RecentPurchase { date: string; supplier: string; total: number; status: string; items: number; }
+const COLORS = ['#4f46e5','#059669','#f59e0b','#ef4444','#8b5cf6','#0ea5e9','#ec4899','#14b8a6'];
 
-// ────────────────── Dashboard ──────────────────
+interface KpiData {
+    revenue: number; profit: number; transactions: number; avgOrder: number;
+    revYest: number; profitYest: number; txYest: number; avgYest: number;
+    expenses: number; grossMargin: number;
+}
+interface TrendPoint { date: string; revenue: number; profit: number; transactions: number; }
+interface ProductMove { name: string; qty: number; revenue: number; profit: number; category: string; }
+interface PaymentBreak { method: string; amount: number; count: number; }
+interface StockAlert { name: string; qty: number; reorder: number; category: string; }
+interface RecentSale { id: number; receipt: string; customer: string; amount: number; method: string; time: string; items: number; }
+interface CategorySales { category: string; revenue: number; qty: number; }
+
+// ── Custom tooltip ────────────────────────────────────────────────────
+const ChartTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload?.length) return null;
+    return (
+        <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-3 text-xs">
+            <p className="font-bold text-gray-700 mb-1">{label}</p>
+            {payload.map((p: any) => (
+                <div key={p.name} className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full" style={{ background: p.color }} />
+                    <span className="text-gray-500">{p.name}:</span>
+                    <span className="font-bold text-gray-800">{typeof p.value === 'number' ? fmt(p.value) : p.value}</span>
+                </div>
+            ))}
+        </div>
+    );
+};
+
+// ── KPI Card ──────────────────────────────────────────────────────────
+function KpiCard({ title, value, prev, icon: Icon, color, prefix = 'KSh', isCount = false, suffix = '' }: {
+    title: string; value: number; prev: number; icon: any; color: string;
+    prefix?: string; isCount?: boolean; suffix?: string;
+}) {
+    const change = prev > 0 ? ((value - prev) / prev) * 100 : 0;
+    const up = change >= 0;
+    const display = isCount ? value.toLocaleString() : fmt(value, prefix);
+    return (
+        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-start justify-between mb-3">
+                <div>
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">{title}</p>
+                    <p className="text-2xl font-black text-gray-800 mt-1">{display}{suffix}</p>
+                </div>
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: `${color}18` }}>
+                    <Icon size={20} style={{ color }} />
+                </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+                <div className={`flex items-center gap-0.5 text-xs font-bold px-1.5 py-0.5 rounded-full ${up ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>
+                    {change === 0 ? <FiMinus size={10} /> : up ? <FiArrowUp size={10} /> : <FiArrowDown size={10} />}
+                    {pct(change)}
+                </div>
+                <span className="text-[11px] text-gray-400">vs yesterday</span>
+            </div>
+        </div>
+    );
+}
+
+// ── Section header ────────────────────────────────────────────────────
+function SectionHeader({ title, sub, icon: Icon, color = '#4f46e5' }: { title: string; sub?: string; icon: any; color?: string }) {
+    return (
+        <div className="flex items-center gap-3 mb-4">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${color}18` }}>
+                <Icon size={15} style={{ color }} />
+            </div>
+            <div>
+                <h3 className="font-black text-gray-800 text-sm">{title}</h3>
+                {sub && <p className="text-[11px] text-gray-400">{sub}</p>}
+            </div>
+        </div>
+    );
+}
+
 export default function DashboardPage() {
-    const { activeOutlet } = useOutlet();
-    const outletId = activeOutlet?.outlet_id || 1;
-    const [isLoading, setIsLoading] = useState(true);
-    const [dateFrom, setDateFrom] = useState(() => {
-        const d = new Date(); d.setDate(d.getDate() - 7);
-        return d.toISOString().split('T')[0];
-    });
-    const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0]);
-    const [rangePreset, setRangePreset] = useState<string>('7d');
+    const [kpi, setKpi]               = useState<KpiData | null>(null);
+    const [trend, setTrend]           = useState<TrendPoint[]>([]);
+    const [bestMovers, setBestMovers] = useState<ProductMove[]>([]);
+    const [slowMovers, setSlowMovers] = useState<ProductMove[]>([]);
+    const [payments, setPayments]     = useState<PaymentBreak[]>([]);
+    const [stockAlerts, setStockAlerts] = useState<StockAlert[]>([]);
+    const [recentSales, setRecentSales] = useState<RecentSale[]>([]);
+    const [catSales, setCatSales]     = useState<CategorySales[]>([]);
+    const [loading, setLoading]       = useState(true);
+    const [range, setRange]           = useState<7 | 30>(7);
+    const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+    const [currSym, setCurrSym]       = useState('KSh');
 
-    // KPI Stats
-    const [todaySales, setTodaySales] = useState(0);
-    const [yesterdaySales, setYesterdaySales] = useState(0);
-    const [todayOrders, setTodayOrders] = useState(0);
-    const [yesterdayOrders, setYesterdayOrders] = useState(0);
-    const [todayCash, setTodayCash] = useState(0);
-    const [todayMpesa, setTodayMpesa] = useState(0);
-    const [todayCredit, setTodayCredit] = useState(0);
-    const [pendingBills, setPendingBills] = useState(0);
-    const [totalExpenses, setTotalExpenses] = useState(0);
-    const [totalAdvances, setTotalAdvances] = useState(0);
-    const [totalVouchers, setTotalVouchers] = useState(0);
-    const [activeShifts, setActiveShifts] = useState(0);
-    const [closedShifts, setClosedShifts] = useState(0);
+    const today     = new Date().toISOString().split('T')[0];
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
-    // Chart data
-    const [dailySales, setDailySales] = useState<DailySales[]>([]);
-    const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
-    const [lowStock, setLowStock] = useState<LowStockItem[]>([]);
-    const [userSales, setUserSales] = useState<UserSalesData[]>([]);
-    const [recentPurchases, setRecentPurchases] = useState<RecentPurchase[]>([]);
-    const scrollRef = useRef<HTMLDivElement>(null);
-
-    // ──── Date Presets ────
-    const setPreset = (preset: string) => {
-        setRangePreset(preset);
-        const now = new Date();
-        const to = now.toISOString().split('T')[0];
-        let from = to;
-        if (preset === '1d') from = to;
-        else if (preset === '7d') { const d = new Date(); d.setDate(d.getDate() - 7); from = d.toISOString().split('T')[0]; }
-        else if (preset === '14d') { const d = new Date(); d.setDate(d.getDate() - 14); from = d.toISOString().split('T')[0]; }
-        else if (preset === '30d') { const d = new Date(); d.setDate(d.getDate() - 30); from = d.toISOString().split('T')[0]; }
-        else if (preset === 'month') { from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`; }
-        setDateFrom(from);
-        setDateTo(to);
-    };
-
-    // ──── Data Loading ────
-    const loadDashboardData = useCallback(async () => {
-        setIsLoading(true);
-        const today = new Date().toISOString().split('T')[0];
-        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-
+    const loadDashboard = useCallback(async () => {
+        setLoading(true);
         try {
-            // ── Today's Sales by payment method ── (using retail_sales, filtered by outlet)
-            const { data: todayData } = await supabase.from('retail_sales').select('total_amount, payment_method').eq('sale_date', today).eq('outlet_id', outletId);
-            const tData = todayData || [];
-            setTodaySales(tData.reduce((s, r) => s + (r.total_amount || 0), 0));
-            setTodayOrders(tData.length);
-            setTodayCash(tData.filter(r => (r.payment_method || '').toLowerCase().includes('cash')).reduce((s, r) => s + (r.total_amount || 0), 0));
-            setTodayMpesa(tData.filter(r => (r.payment_method || '').toLowerCase().includes('mpesa')).reduce((s, r) => s + (r.total_amount || 0), 0));
-            setTodayCredit(tData.filter(r => (r.payment_method || '').toLowerCase().includes('credit')).reduce((s, r) => s + (r.total_amount || 0), 0));
+            // Currency symbol from settings
+            const { data: curr } = await supabase.from('organisation_settings')
+                .select('setting_value').eq('setting_key','currency_symbol').single();
+            if (curr?.setting_value) setCurrSym(curr.setting_value);
 
-            // ── Yesterday's Sales ──
-            const { data: yData } = await supabase.from('retail_sales').select('total_amount').eq('sale_date', yesterday).eq('outlet_id', outletId);
-            setYesterdaySales((yData || []).reduce((s, r) => s + (r.total_amount || 0), 0));
-            setYesterdayOrders((yData || []).length);
+            // ── KPIs: Today ─────────────────────────────────────────
+            const { data: todaySales } = await supabase.from('sales')
+                .select('total_amount, profit, payment_method')
+                .eq('sale_date', today).eq('status','Completed');
+            const { data: yesterdaySales } = await supabase.from('sales')
+                .select('total_amount, profit')
+                .eq('sale_date', yesterday).eq('status','Completed');
 
-            // ── Pending Bills ──
-            const { data: pBills } = await supabase.from('retail_sales').select('sale_id').eq('status', 'Pending').eq('outlet_id', outletId);
-            setPendingBills(pBills?.length || 0);
+            const rev   = todaySales?.reduce((s,r) => s + (r.total_amount||0), 0) || 0;
+            const prof  = todaySales?.reduce((s,r) => s + (r.profit||0), 0) || 0;
+            const txns  = todaySales?.length || 0;
+            const avg   = txns > 0 ? rev / txns : 0;
+            const revY  = yesterdaySales?.reduce((s,r) => s + (r.total_amount||0), 0) || 0;
+            const profY = yesterdaySales?.reduce((s,r) => s + (r.profit||0), 0) || 0;
+            const txY   = yesterdaySales?.length || 0;
 
-            // ── Daily Sales Trend (by date range, broken by payment method) ──
-            const { data: rangeSales } = await supabase
-                .from('retail_sales')
-                .select('sale_date, total_amount, payment_method')
-                .gte('sale_date', dateFrom)
-                .lte('sale_date', dateTo)
-                .eq('outlet_id', outletId)
+            // Today's expenses
+            const { data: expData } = await supabase.from('expenses')
+                .select('amount').eq('expense_date', today);
+            const exps = expData?.reduce((s,r) => s + (r.amount||0), 0) || 0;
+
+            setKpi({
+                revenue: rev, profit: prof, transactions: txns, avgOrder: avg,
+                revYest: revY, profitYest: profY, txYest: txY, avgYest: txY > 0 ? revY/txY : 0,
+                expenses: exps, grossMargin: rev > 0 ? (prof/rev)*100 : 0,
+            });
+
+            // ── Revenue trend ────────────────────────────────────────
+            const startDate = new Date(Date.now() - (range - 1) * 86400000).toISOString().split('T')[0];
+            const { data: trendData } = await supabase.from('sales')
+                .select('sale_date, total_amount, profit')
+                .gte('sale_date', startDate).eq('status','Completed')
                 .order('sale_date');
 
-            const salesMap = new Map<string, DailySales>();
-            // Fill in all dates in range
-            const start = new Date(dateFrom);
-            const end = new Date(dateTo);
-            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-                const key = d.toISOString().split('T')[0];
-                salesMap.set(key, { date: key, cash: 0, mpesa: 0, credit: 0, total: 0, orders: 0 });
+            const tMap: Record<string, TrendPoint> = {};
+            for (let i = range - 1; i >= 0; i--) {
+                const d = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
+                const label = new Date(d).toLocaleDateString('en-US', { month:'short', day:'numeric' });
+                tMap[d] = { date: label, revenue: 0, profit: 0, transactions: 0 };
             }
-            (rangeSales || []).forEach(s => {
-                const key = s.sale_date;
-                if (!salesMap.has(key)) salesMap.set(key, { date: key, cash: 0, mpesa: 0, credit: 0, total: 0, orders: 0 });
-                const entry = salesMap.get(key)!;
-                const amt = s.total_amount || 0;
-                const method = (s.payment_method || '').toLowerCase();
-                entry.total += amt; entry.orders += 1;
-                if (method.includes('mpesa')) entry.mpesa += amt;
-                else if (method.includes('credit')) entry.credit += amt;
-                else entry.cash += amt;
-            });
-            setDailySales(Array.from(salesMap.values()).sort((a, b) => a.date.localeCompare(b.date)));
-
-            // ── Top Selling Products ── (using retail_sales_items)
-            const { data: salesItems } = await supabase
-                .from('retail_sales_items')
-                .select('product_name, quantity, subtotal, created_at')
-                .gte('created_at', `${dateFrom}T00:00:00`)
-                .lte('created_at', `${dateTo}T23:59:59`)
-                .limit(1000);
-
-            const prodMap = new Map<string, { qty: number; revenue: number }>();
-            (salesItems || []).forEach(item => {
-                const name = item.product_name || 'Unknown';
-                if (!prodMap.has(name)) prodMap.set(name, { qty: 0, revenue: 0 });
-                const e = prodMap.get(name)!;
-                e.qty += item.quantity || 0;
-                e.revenue += item.subtotal || 0;
-            });
-            setTopProducts(
-                Array.from(prodMap.entries())
-                    .map(([name, data]) => ({ name, ...data, avgPrice: data.qty > 0 ? Math.round(data.revenue / data.qty) : 0 }))
-                    .sort((a, b) => b.qty - a.qty)
-                    .slice(0, 15)
-            );
-
-            // ── Low Stock Items ── (using retail_products + retail_stock, filtered by outlet)
-            const { data: retailProds } = await supabase.from('retail_products').select('pid, product_name, reorder_point').eq('active', true).eq('outlet_id', outletId).order('product_name');
-            const { data: retailStock } = await supabase.from('retail_stock').select('pid, qty').eq('outlet_id', outletId);
-            const stockMap: Record<number, number> = {};
-            (retailStock || []).forEach((s: { pid: number; qty: number }) => { stockMap[s.pid] = (stockMap[s.pid] || 0) + (s.qty || 0); });
-
-            const lowItems: LowStockItem[] = [];
-            (retailProds || []).forEach(p => {
-                const stock = stockMap[p.pid] || 0;
-                const reorder = p.reorder_point || 5;
-                if (stock <= reorder) {
-                    lowItems.push({ name: p.product_name, stock, reorder, type: 'product', status: stock === 0 ? 'out' : stock <= reorder * 0.3 ? 'critical' : 'low' });
+            trendData?.forEach(r => {
+                if (tMap[r.sale_date]) {
+                    tMap[r.sale_date].revenue += r.total_amount || 0;
+                    tMap[r.sale_date].profit  += r.profit || 0;
+                    tMap[r.sale_date].transactions++;
                 }
             });
-            setLowStock(lowItems.sort((a, b) => a.stock - b.stock));
+            setTrend(Object.values(tMap));
 
-            // ── Cashier Sales (retail_sales by user) ──
-            const { data: cashierData } = await supabase
-                .from('retail_sales')
-                .select('created_by, total_amount')
-                .gte('sale_date', dateFrom).lte('sale_date', dateTo)
-                .eq('outlet_id', outletId);
-            const wMap = new Map<string, { sales: number; orders: number }>();
-            (cashierData || []).forEach(s => {
-                const name = s.created_by || 'Unknown';
-                if (!wMap.has(name)) wMap.set(name, { sales: 0, orders: 0 });
-                const e = wMap.get(name)!;
-                e.sales += s.total_amount || 0; e.orders += 1;
+            // ── Best moving products (last 30 days) ──────────────────
+            const rangeStart = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+            const { data: itemData } = await supabase.from('sales_items')
+                .select('product_name, quantity, subtotal, profit, sales!inner(sale_date, status)')
+                .gte('sales.sale_date', rangeStart).eq('sales.status','Completed');
+
+            const prodMap: Record<string, { qty: number; revenue: number; profit: number }> = {};
+            itemData?.forEach((it: any) => {
+                const name = it.product_name || 'Unknown';
+                if (!prodMap[name]) prodMap[name] = { qty: 0, revenue: 0, profit: 0 };
+                prodMap[name].qty     += it.quantity || 0;
+                prodMap[name].revenue += it.subtotal || 0;
+                prodMap[name].profit  += it.profit   || 0;
             });
-            setUserSales(Array.from(wMap.entries()).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.sales - a.sales).slice(0, 10));
+            const sorted = Object.entries(prodMap).map(([name, v]) => ({ name, ...v, category: '' }))
+                .sort((a, b) => b.qty - a.qty);
+            setBestMovers(sorted.slice(0, 8));
+            setSlowMovers(sorted.filter(p => p.qty > 0).slice(-8).reverse());
 
-            // ── Recent Purchases (retail_purchases) ──
-            const { data: purchasesData } = await supabase
-                .from('retail_purchases')
-                .select('purchase_date, supplier_name, grand_total, status, purchase_no')
-                .eq('outlet_id', outletId)
-                .order('purchase_date', { ascending: false })
-                .limit(8);
-            setRecentPurchases((purchasesData || []).map(p => ({
-                date: p.purchase_date, supplier: p.supplier_name || '-', total: p.grand_total || 0, status: p.status || 'Pending', items: 0,
+            // ── Payment breakdown (today) ────────────────────────────
+            const pmMap: Record<string, { amount: number; count: number }> = {};
+            todaySales?.forEach(r => {
+                const m = r.payment_method || 'Cash';
+                if (!pmMap[m]) pmMap[m] = { amount: 0, count: 0 };
+                pmMap[m].amount += r.total_amount || 0;
+                pmMap[m].count++;
+            });
+            setPayments(Object.entries(pmMap).map(([method, v]) => ({ method, ...v })));
+
+            // ── Stock alerts ─────────────────────────────────────────
+            const { data: stockData } = await supabase
+                .from('products').select('product_name, reorder_point, category, pid').eq('active', true).limit(200);
+            const { data: stockQty } = await supabase.from('stock').select('pid, qty');
+            const qtyMap: Record<number, number> = {};
+            stockQty?.forEach(s => { qtyMap[s.pid] = (qtyMap[s.pid]||0) + (s.qty||0); });
+            const alerts = (stockData || [])
+                .map(p => ({ name: p.product_name, qty: qtyMap[p.pid]||0, reorder: p.reorder_point||5, category: p.category||'' }))
+                .filter(p => p.qty <= p.reorder)
+                .sort((a, b) => a.qty - b.qty).slice(0, 10);
+            setStockAlerts(alerts);
+
+            // ── Category sales ───────────────────────────────────────
+            const { data: catData } = await supabase.from('sales_items')
+                .select('product_id, quantity, subtotal, products!inner(category)')
+                .gte('created_at', `${rangeStart}T00:00:00`).limit(2000);
+            const catMap: Record<string, { revenue: number; qty: number }> = {};
+            catData?.forEach((it: any) => {
+                const cat = it.products?.category || 'Uncategorized';
+                if (!catMap[cat]) catMap[cat] = { revenue: 0, qty: 0 };
+                catMap[cat].revenue += it.subtotal || 0;
+                catMap[cat].qty     += it.quantity || 0;
+            });
+            setCatSales(Object.entries(catMap).map(([category, v]) => ({ category, ...v }))
+                .sort((a,b) => b.revenue - a.revenue).slice(0, 8));
+
+            // ── Recent sales ─────────────────────────────────────────
+            const { data: recSales } = await supabase.from('sales')
+                .select('sale_id, receipt_no, customer_name, total_amount, payment_method, created_at, partial_payment_count')
+                .order('created_at', { ascending: false }).limit(15);
+            const { data: itemCounts } = await supabase.from('sales_items')
+                .select('sale_id').in('sale_id', (recSales||[]).map(s => s.sale_id));
+            const countMap: Record<number, number> = {};
+            itemCounts?.forEach(i => { countMap[i.sale_id] = (countMap[i.sale_id]||0)+1; });
+            setRecentSales((recSales||[]).map(s => ({
+                id: s.sale_id, receipt: s.receipt_no || `#${s.sale_id}`,
+                customer: s.customer_name || 'Walk-in',
+                amount: s.total_amount || 0, method: s.payment_method || 'Cash',
+                time: new Date(s.created_at).toLocaleTimeString('en-KE',{hour:'2-digit',minute:'2-digit'}),
+                items: countMap[s.sale_id] || 0,
             })));
 
-            // ── Financials (expenses, filtered by outlet) ──
-            const { data: expData } = await supabase.from('expenses').select('amount').gte('expense_date', dateFrom).lte('expense_date', dateTo).eq('outlet_id', outletId);
-            setTotalExpenses((expData || []).reduce((s, e) => s + (e.amount || 0), 0));
+        } catch (err) { console.error('Dashboard load error:', err); }
+        setLoading(false);
+        setLastRefresh(new Date());
+    }, [today, yesterday, range]);
 
-            // ── Shifts (retail_shifts) ──
-            const { data: shData } = await supabase.from('retail_shifts').select('status, shift_date').gte('shift_date', dateFrom).lte('shift_date', dateTo);
-            setActiveShifts((shData || []).filter(s => s.status === 'Open').length);
-            setClosedShifts((shData || []).filter(s => s.status === 'Closed').length);
+    useEffect(() => { loadDashboard(); }, [loadDashboard]);
 
-            // Reset unused hotel-only fields
-            setTotalAdvances(0);
-            setTotalVouchers(0);
-
-        } catch (err) { console.error('Dashboard error:', err); }
-        setIsLoading(false);
-    }, [dateFrom, dateTo, outletId]);
-
-    useEffect(() => { loadDashboardData(); }, [loadDashboardData]);
-
-    // ──── Computed ────
-    const salesChange = yesterdaySales > 0 ? ((todaySales - yesterdaySales) / yesterdaySales * 100) : 0;
-    const netSales = todaySales - totalExpenses - totalAdvances - totalVouchers;
-    const totalRangeSales = dailySales.reduce((s, d) => s + d.total, 0);
-    const totalRangeOrders = dailySales.reduce((s, d) => s + d.orders, 0);
-    const avgOrderValue = totalRangeOrders > 0 ? Math.round(totalRangeSales / totalRangeOrders) : 0;
-
-    // ──── Chart Configs ────
-    const chartLabels = dailySales.map(d => {
-        const dt = new Date(d.date);
-        return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-    });
-
-    const salesLineData = {
-        labels: chartLabels,
-        datasets: [
-            {
-                label: 'Total Sales',
-                data: dailySales.map(d => d.total),
-                borderColor: '#6366f1',
-                backgroundColor: 'rgba(99, 102, 241, 0.08)',
-                fill: true,
-                tension: 0.4,
-                borderWidth: 3,
-                pointRadius: dailySales.length > 14 ? 0 : 4,
-                pointHoverRadius: 6,
-                pointBackgroundColor: '#6366f1',
-            },
-            {
-                label: 'Cash',
-                data: dailySales.map(d => d.cash),
-                borderColor: '#10b981',
-                backgroundColor: 'rgba(16, 185, 129, 0.05)',
-                fill: false,
-                tension: 0.4,
-                borderWidth: 2,
-                pointRadius: 0,
-                pointHoverRadius: 5,
-                borderDash: [],
-            },
-            {
-                label: 'M-Pesa',
-                data: dailySales.map(d => d.mpesa),
-                borderColor: '#f59e0b',
-                backgroundColor: 'rgba(245, 158, 11, 0.05)',
-                fill: false,
-                tension: 0.4,
-                borderWidth: 2,
-                pointRadius: 0,
-                pointHoverRadius: 5,
-            },
-            {
-                label: 'Credit',
-                data: dailySales.map(d => d.credit),
-                borderColor: '#ef4444',
-                backgroundColor: 'rgba(239, 68, 68, 0.05)',
-                fill: false,
-                tension: 0.4,
-                borderWidth: 2,
-                pointRadius: 0,
-                pointHoverRadius: 5,
-                borderDash: [5, 5],
-            },
-        ],
+    const paymentIcon: Record<string, any> = {
+        Cash: FiDollarSign, Mpesa: FiSmartphone, 'M-Pesa': FiSmartphone,
+        Card: FiCreditCard, Credit: FiActivity,
+    };
+    const paymentColor: Record<string, string> = {
+        Cash: '#059669', Mpesa: '#10b981', 'M-Pesa': '#10b981',
+        Card: '#4f46e5', Credit: '#f59e0b',
     };
 
-    const salesLineOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index' as const, intersect: false },
-        plugins: {
-            legend: { position: 'top' as const, labels: { usePointStyle: true, padding: 20, font: { size: 12, weight: 500 as const } } },
-            tooltip: {
-                backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                padding: 14,
-                titleFont: { size: 13, weight: 'bold' as const },
-                bodyFont: { size: 12 },
-                cornerRadius: 10,
-                callbacks: {
-                    label: (ctx: { dataset: { label?: string }; parsed: { y: number | null } }) =>
-                        `${ctx.dataset.label}: Ksh ${(ctx.parsed.y || 0).toLocaleString()}`,
-                },
-            },
-        },
-        scales: {
-            x: { grid: { display: false }, ticks: { font: { size: 11 }, maxRotation: 45 } },
-            y: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 11 }, callback: (v: string | number) => `Ksh ${Number(v).toLocaleString()}` } },
-        },
-    };
-
-    const paymentBarData = {
-        labels: chartLabels,
-        datasets: [
-            { label: 'Cash', data: dailySales.map(d => d.cash), backgroundColor: 'rgba(16, 185, 129, 0.8)', borderRadius: 6, barPercentage: 0.7 },
-            { label: 'M-Pesa', data: dailySales.map(d => d.mpesa), backgroundColor: 'rgba(245, 158, 11, 0.8)', borderRadius: 6, barPercentage: 0.7 },
-            { label: 'Credit', data: dailySales.map(d => d.credit), backgroundColor: 'rgba(239, 68, 68, 0.7)', borderRadius: 6, barPercentage: 0.7 },
-        ],
-    };
-
-    const paymentBarOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: { position: 'top' as const, labels: { usePointStyle: true, padding: 15, font: { size: 12 } } },
-            tooltip: {
-                backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                padding: 12, cornerRadius: 10,
-                callbacks: {
-                    label: (ctx: { dataset: { label?: string }; parsed: { y: number | null } }) =>
-                        `${ctx.dataset.label}: Ksh ${(ctx.parsed.y || 0).toLocaleString()}`,
-                },
-            },
-        },
-        scales: {
-            x: { grid: { display: false }, ticks: { font: { size: 11 }, maxRotation: 45 } },
-            y: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 11 }, callback: (v: string | number) => `Ksh ${Number(v).toLocaleString()}` } },
-        },
-    };
-
-    const userBarData = {
-        labels: userSales.map(u => u.name),
-        datasets: [{
-            label: 'Revenue',
-            data: userSales.map(u => u.sales),
-            backgroundColor: userSales.map((_, i) => {
-                const colors = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#818cf8', '#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#818cf8'];
-                return colors[i % colors.length];
-            }),
-            borderRadius: 8,
-            barPercentage: 0.6,
-        }],
-    };
-
-    const userBarOptions = {
-        indexAxis: 'y' as const,
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: { display: false },
-            tooltip: {
-                backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                padding: 12, cornerRadius: 10,
-                callbacks: {
-                    label: (ctx: { parsed: { x: number | null } }) =>
-                        `Revenue: Ksh ${(ctx.parsed.x || 0).toLocaleString()}`,
-                },
-            },
-        },
-        scales: {
-            x: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 11 }, callback: (v: string | number) => `Ksh ${Number(v).toLocaleString()}` } },
-            y: { grid: { display: false }, ticks: { font: { size: 12, weight: 500 as const } } },
-        },
-    };
-
-    // Payment donut
-    const totalPayments = todayCash + todayMpesa + todayCredit;
-    const donutData = {
-        labels: ['Cash', 'M-Pesa', 'Credit'],
-        datasets: [{
-            data: [todayCash || 0.01, todayMpesa || 0.01, todayCredit || 0.01],
-            backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
-            borderWidth: 0,
-            cutout: '72%',
-        }],
-    };
-    const donutOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: { display: false },
-            tooltip: {
-                backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                padding: 12, cornerRadius: 10,
-                callbacks: {
-                    label: (ctx: { label?: string; parsed: number }) =>
-                        `${ctx.label}: Ksh ${ctx.parsed.toLocaleString()}`,
-                },
-            },
-        },
-    };
-
-    // ──── Helpers ────
-    const fmt = (n: number) => n >= 1000000 ? `${(n / 1000000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}K` : n.toLocaleString();
-    const pct = (val: number) => val >= 0 ? `+${val.toFixed(1)}%` : `${val.toFixed(1)}%`;
-
-    // ──────────────── RENDER ────────────────
     return (
-        <div className="space-y-5 pb-8" ref={scrollRef}>
-            {/* ══════ Header ══════ */}
-            <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="space-y-5">
+            <style>{`
+                @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+                .fu{animation:fadeUp .35s ease-out}
+                .trow:hover{background:#f8fafc}
+            `}</style>
+
+            {/* ── Page header ── */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                    <h1 className="text-2xl font-extrabold text-gray-900 flex items-center gap-3">
-                        <span className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white text-lg shadow-lg shadow-indigo-200">📊</span>
-                        Analytics Dashboard
-                    </h1>
-                    <p className="text-sm text-gray-500 mt-0.5">Real-time business intelligence</p>
+                    <h1 className="text-2xl font-black text-gray-800">Dashboard</h1>
+                    <p className="text-sm text-gray-400 flex items-center gap-1.5 mt-0.5">
+                        <FiClock size={12} />
+                        Last updated: {lastRefresh.toLocaleTimeString('en-KE',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+                    </p>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                    {/* Date Presets */}
-                    {['1d', '7d', '14d', '30d', 'month'].map(p => (
-                        <button key={p} onClick={() => setPreset(p)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${rangePreset === p ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}>
-                            {p === '1d' ? 'Today' : p === 'month' ? 'This Month' : p.toUpperCase()}
-                        </button>
-                    ))}
-                    <div className="flex items-center gap-1.5 ml-2">
-                        <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setRangePreset('custom'); }}
-                            className="px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs bg-white focus:ring-2 focus:ring-indigo-300 focus:outline-none" />
-                        <span className="text-gray-400 text-xs">→</span>
-                        <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setRangePreset('custom'); }}
-                            className="px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs bg-white focus:ring-2 focus:ring-indigo-300 focus:outline-none" />
+                <div className="flex items-center gap-2">
+                    <div className="flex bg-white rounded-xl border border-gray-200 overflow-hidden">
+                        {([7,30] as const).map(d => (
+                            <button key={d} onClick={() => setRange(d)}
+                                className={`px-4 py-2 text-xs font-bold transition-all ${range===d ? 'text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+                                style={range===d ? {background:'linear-gradient(135deg,#4f46e5,#7c3aed)'} : {}}>
+                                {d}D
+                            </button>
+                        ))}
                     </div>
-                    <button onClick={loadDashboardData}
-                        className="px-4 py-1.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg text-xs font-bold hover:shadow-lg hover:shadow-indigo-200 transition-all">
-                        {isLoading ? '⏳' : '🔄'} Refresh
+                    <button onClick={loadDashboard} disabled={loading}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-gray-200 text-xs font-bold text-gray-600 hover:border-indigo-300 hover:text-indigo-600 transition-all disabled:opacity-50">
+                        <FiRefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+                        Refresh
                     </button>
                 </div>
             </div>
 
-            {/* ══════ Alert Banner ══════ */}
-            {(lowStock.filter(i => i.status === 'out').length > 0 || pendingBills > 0) && (
-                <div className="bg-gradient-to-r from-red-500 via-orange-500 to-amber-500 rounded-2xl px-5 py-3 text-white flex items-center justify-between shadow-lg shadow-orange-200/50">
-                    <div className="flex items-center gap-3">
-                        <span className="text-2xl animate-pulse">🚨</span>
-                        <div>
-                            <p className="font-bold text-sm">Action Required</p>
-                            <p className="text-xs opacity-90">
-                                {lowStock.filter(i => i.status === 'out').length > 0 && `${lowStock.filter(i => i.status === 'out').length} items OUT OF STOCK • `}
-                                {pendingBills > 0 && `${pendingBills} unpaid bills`}
-                            </p>
+            {/* ── KPI Cards ── */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 fu">
+                <KpiCard title="Today's Revenue" value={kpi?.revenue||0} prev={kpi?.revYest||0} icon={FiDollarSign} color="#4f46e5" prefix={currSym} />
+                <KpiCard title="Gross Profit" value={kpi?.profit||0} prev={kpi?.profitYest||0} icon={FiTrendingUp} color="#059669" prefix={currSym} />
+                <KpiCard title="Transactions" value={kpi?.transactions||0} prev={kpi?.txYest||0} icon={FiShoppingCart} color="#f59e0b" isCount />
+                <KpiCard title="Avg Order Value" value={kpi?.avgOrder||0} prev={kpi?.avgYest||0} icon={FiActivity} color="#8b5cf6" prefix={currSym} />
+            </div>
+
+            {/* ── Secondary KPIs ── */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {[
+                    { label: 'Gross Margin', val: `${(kpi?.grossMargin||0).toFixed(1)}%`, color:'#4f46e5', icon: FiBarChart2 },
+                    { label: "Today's Expenses", val: fmt(kpi?.expenses||0, currSym), color:'#ef4444', icon: FiTrendingDown },
+                    { label: 'Net Profit', val: fmt((kpi?.profit||0)-(kpi?.expenses||0), currSym), color:'#059669', icon: FiZap },
+                    { label: 'Stock Alerts', val: `${stockAlerts.length} items`, color: stockAlerts.length>5?'#ef4444':'#f59e0b', icon: FiAlertTriangle },
+                ].map(c => {
+                    const Icon = c.icon;
+                    return (
+                        <div key={c.label} className="bg-white rounded-xl px-4 py-3 border border-gray-100 shadow-sm flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{background:`${c.color}18`}}>
+                                <Icon size={14} style={{color:c.color}} />
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{c.label}</p>
+                                <p className="text-sm font-black text-gray-800">{c.val}</p>
+                            </div>
                         </div>
+                    );
+                })}
+            </div>
+
+            {/* ── Revenue Trend + Payment Breakdown ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                {/* Revenue trend chart */}
+                <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                    <SectionHeader title={`Revenue & Profit Trend (${range} days)`} sub="Daily breakdown" icon={FiTrendingUp} />
+                    <ResponsiveContainer width="100%" height={220}>
+                        <AreaChart data={trend} margin={{top:5,right:5,left:5,bottom:0}}>
+                            <defs>
+                                <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.15}/>
+                                    <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
+                                </linearGradient>
+                                <linearGradient id="profGrad" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#059669" stopOpacity={0.15}/>
+                                    <stop offset="95%" stopColor="#059669" stopOpacity={0}/>
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                            <XAxis dataKey="date" tick={{fontSize:10,fill:'#94a3b8'}} axisLine={false} tickLine={false} />
+                            <YAxis tick={{fontSize:10,fill:'#94a3b8'}} axisLine={false} tickLine={false} tickFormatter={v => v>=1000?`${(v/1000).toFixed(0)}k`:String(v)} />
+                            <Tooltip content={<ChartTooltip />} />
+                            <Legend iconType="circle" iconSize={8} wrapperStyle={{fontSize:'11px',paddingTop:'8px'}} />
+                            <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#4f46e5" strokeWidth={2.5} fill="url(#revGrad)" dot={false} activeDot={{r:4,fill:'#4f46e5'}} />
+                            <Area type="monotone" dataKey="profit"  name="Profit"  stroke="#059669" strokeWidth={2}   fill="url(#profGrad)" dot={false} activeDot={{r:4,fill:'#059669'}} />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
+
+                {/* Payment methods */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                    <SectionHeader title="Payment Methods" sub="Today's breakdown" icon={FiCreditCard} color="#059669" />
+                    {payments.length === 0 ? (
+                        <div className="flex items-center justify-center h-[160px] text-gray-300 text-sm">No sales today</div>
+                    ) : (
+                        <>
+                            <ResponsiveContainer width="100%" height={140}>
+                                <PieChart>
+                                    <Pie data={payments} dataKey="amount" nameKey="method" cx="50%" cy="50%" outerRadius={60} innerRadius={35} paddingAngle={3}>
+                                        {payments.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                                    </Pie>
+                                    <Tooltip formatter={(val: any) => [fmt(Number(val), currSym), 'Amount']} contentStyle={{fontSize:'11px',borderRadius:'10px'}} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                            <div className="space-y-1.5 mt-2">
+                                {payments.map((p, i) => {
+                                    const Icon = paymentIcon[p.method] || FiDollarSign;
+                                    const pctShare = kpi?.revenue ? (p.amount/kpi.revenue*100) : 0;
+                                    return (
+                                        <div key={p.method} className="flex items-center gap-2">
+                                            <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{background:`${COLORS[i%COLORS.length]}18`}}>
+                                                <Icon size={11} style={{color:COLORS[i%COLORS.length]}} />
+                                            </div>
+                                            <span className="text-xs text-gray-600 flex-1">{p.method}</span>
+                                            <div className="w-16 bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                                                <div className="h-1.5 rounded-full" style={{width:`${pctShare}%`,background:COLORS[i%COLORS.length]}} />
+                                            </div>
+                                            <span className="text-[11px] font-bold text-gray-700 w-10 text-right">{pctShare.toFixed(0)}%</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </>
+                    )}
+                </div>
+            </div>
+
+            {/* ── Category Sales Chart ── */}
+            {catSales.length > 0 && (
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                    <SectionHeader title="Sales by Category (30 days)" sub="Revenue per product category" icon={FiBarChart2} color="#f59e0b" />
+                    <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={catSales} layout="vertical" margin={{top:0,right:20,left:60,bottom:0}}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+                            <XAxis type="number" tick={{fontSize:10,fill:'#94a3b8'}} axisLine={false} tickLine={false} tickFormatter={v => v>=1000?`${(v/1000).toFixed(0)}k`:String(v)} />
+                            <YAxis type="category" dataKey="category" tick={{fontSize:10,fill:'#475569'}} axisLine={false} tickLine={false} width={55} />
+                            <Tooltip formatter={(val: any) => [fmt(Number(val),currSym), 'Revenue']} contentStyle={{fontSize:'11px',borderRadius:'10px'}} />
+
+                            <Bar dataKey="revenue" name="Revenue" radius={[0,6,6,0]}>
+                                {catSales.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            )}
+
+            {/* ── Best & Slow Movers ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                {/* Best movers */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="px-5 pt-5 pb-3">
+                        <SectionHeader title="🚀 Best Moving Products" sub="Last 30 days by quantity sold" icon={FiTrendingUp} color="#059669" />
                     </div>
-                    <div className="flex gap-2">
-                        <a href="/dashboard/low-stock" className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-bold transition">View Stock</a>
-                        <a href="/dashboard/bills" className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-bold transition">View Bills</a>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                            <thead>
+                                <tr className="bg-gray-50 border-y border-gray-100">
+                                    <th className="text-left px-5 py-2.5 font-bold text-gray-500 text-[10px] uppercase tracking-wider">#</th>
+                                    <th className="text-left px-3 py-2.5 font-bold text-gray-500 text-[10px] uppercase tracking-wider">Product</th>
+                                    <th className="text-right px-3 py-2.5 font-bold text-gray-500 text-[10px] uppercase tracking-wider">Qty Sold</th>
+                                    <th className="text-right px-5 py-2.5 font-bold text-gray-500 text-[10px] uppercase tracking-wider">Revenue</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                                {bestMovers.length === 0 ? (
+                                    <tr><td colSpan={4} className="text-center py-8 text-gray-300 text-sm">No sales data</td></tr>
+                                ) : bestMovers.map((p, i) => (
+                                    <tr key={p.name} className="trow transition-colors">
+                                        <td className="px-5 py-3">
+                                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black text-white ${i===0?'bg-amber-500':i===1?'bg-gray-400':i===2?'bg-orange-500':'bg-gray-200 !text-gray-500'}`}>{i+1}</span>
+                                        </td>
+                                        <td className="px-3 py-3 font-semibold text-gray-800 max-w-[160px]">
+                                            <div className="truncate">{p.name}</div>
+                                        </td>
+                                        <td className="px-3 py-3 text-right">
+                                            <span className="font-black text-emerald-600">{p.qty.toLocaleString()}</span>
+                                        </td>
+                                        <td className="px-5 py-3 text-right font-bold text-gray-800">{fmt(p.revenue, currSym)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* Slow movers */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="px-5 pt-5 pb-3">
+                        <SectionHeader title="🐢 Slow Moving Products" sub="Lowest sales velocity (30 days)" icon={FiTrendingDown} color="#f59e0b" />
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                            <thead>
+                                <tr className="bg-gray-50 border-y border-gray-100">
+                                    <th className="text-left px-5 py-2.5 font-bold text-gray-500 text-[10px] uppercase tracking-wider">#</th>
+                                    <th className="text-left px-3 py-2.5 font-bold text-gray-500 text-[10px] uppercase tracking-wider">Product</th>
+                                    <th className="text-right px-3 py-2.5 font-bold text-gray-500 text-[10px] uppercase tracking-wider">Qty Sold</th>
+                                    <th className="text-right px-5 py-2.5 font-bold text-gray-500 text-[10px] uppercase tracking-wider">Revenue</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                                {slowMovers.length === 0 ? (
+                                    <tr><td colSpan={4} className="text-center py-8 text-gray-300 text-sm">No data yet</td></tr>
+                                ) : slowMovers.map((p, i) => (
+                                    <tr key={p.name} className="trow transition-colors">
+                                        <td className="px-5 py-3">
+                                            <span className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center text-[10px] font-black text-amber-600">{i+1}</span>
+                                        </td>
+                                        <td className="px-3 py-3 font-semibold text-gray-800 max-w-[160px]">
+                                            <div className="truncate">{p.name}</div>
+                                        </td>
+                                        <td className="px-3 py-3 text-right">
+                                            <span className="font-black text-amber-500">{p.qty.toLocaleString()}</span>
+                                        </td>
+                                        <td className="px-5 py-3 text-right font-bold text-gray-500">{fmt(p.revenue, currSym)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            {/* ── Stock Alerts ── */}
+            {stockAlerts.length > 0 && (
+                <div className="bg-white rounded-2xl border border-red-100 shadow-sm overflow-hidden">
+                    <div className="px-5 pt-5 pb-3 flex items-center justify-between">
+                        <SectionHeader title="⚠️ Low Stock Alerts" sub={`${stockAlerts.length} products need restocking`} icon={FiAlertTriangle} color="#ef4444" />
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-red-50 text-red-600 border border-red-200">{stockAlerts.length} alerts</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                            <thead>
+                                <tr className="bg-red-50/50 border-y border-red-100">
+                                    <th className="text-left px-5 py-2.5 font-bold text-gray-500 text-[10px] uppercase tracking-wider">Product</th>
+                                    <th className="text-left px-3 py-2.5 font-bold text-gray-500 text-[10px] uppercase tracking-wider">Category</th>
+                                    <th className="text-right px-3 py-2.5 font-bold text-gray-500 text-[10px] uppercase tracking-wider">Current Stock</th>
+                                    <th className="text-right px-5 py-2.5 font-bold text-gray-500 text-[10px] uppercase tracking-wider">Reorder Point</th>
+                                    <th className="text-center px-5 py-2.5 font-bold text-gray-500 text-[10px] uppercase tracking-wider">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                                {stockAlerts.map(a => (
+                                    <tr key={a.name} className="trow transition-colors">
+                                        <td className="px-5 py-3 font-semibold text-gray-800">{a.name}</td>
+                                        <td className="px-3 py-3 text-gray-500">{a.category || '—'}</td>
+                                        <td className="px-3 py-3 text-right">
+                                            <span className={`font-black ${a.qty===0?'text-red-600':'text-amber-500'}`}>{a.qty}</span>
+                                        </td>
+                                        <td className="px-5 py-3 text-right text-gray-500">{a.reorder}</td>
+                                        <td className="px-5 py-3 text-center">
+                                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${a.qty===0?'bg-red-50 text-red-600 border-red-200':'bg-amber-50 text-amber-600 border-amber-200'}`}>
+                                                {a.qty===0?'OUT OF STOCK':'LOW STOCK'}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             )}
 
-            {/* ══════ KPI Cards Row ══════ */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                {/* Today's Sales */}
-                <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-4 text-white shadow-lg shadow-emerald-200/50 relative overflow-hidden">
-                    <div className="absolute -top-6 -right-6 w-20 h-20 bg-white/10 rounded-full" />
-                    <p className="text-xs font-medium opacity-80">Today&apos;s Sales</p>
-                    <p className="text-2xl font-extrabold mt-1">Ksh {fmt(todaySales)}</p>
-                    <div className="flex items-center gap-1 mt-1">
-                        <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${salesChange >= 0 ? 'bg-white/25' : 'bg-red-400/40'}`}>
-                            {pct(salesChange)}
-                        </span>
-                        <span className="text-xs opacity-70">vs yesterday</span>
-                    </div>
+            {/* ── Recent Transactions ── */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-5 pt-5 pb-3">
+                    <SectionHeader title="Recent Transactions" sub="Latest 15 sales" icon={FiCalendar} />
                 </div>
-                {/* Orders */}
-                <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-4 text-white shadow-lg shadow-blue-200/50 relative overflow-hidden">
-                    <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-white/10 rounded-full" />
-                    <p className="text-xs font-medium opacity-80">Orders Today</p>
-                    <p className="text-2xl font-extrabold mt-1">{todayOrders}</p>
-                    <p className="text-xs opacity-70 mt-1">Avg: Ksh {avgOrderValue.toLocaleString()}</p>
-                </div>
-                {/* Cash */}
-                <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-4 text-white shadow-lg shadow-green-200/50">
-                    <p className="text-xs font-medium opacity-80">💵 Cash Today</p>
-                    <p className="text-2xl font-extrabold mt-1">Ksh {fmt(todayCash)}</p>
-                    <p className="text-xs opacity-70 mt-1">{totalPayments > 0 ? ((todayCash / totalPayments) * 100).toFixed(0) : 0}% of total</p>
-                </div>
-                {/* M-Pesa */}
-                <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-4 text-white shadow-lg shadow-amber-200/50">
-                    <p className="text-xs font-medium opacity-80">📱 M-Pesa Today</p>
-                    <p className="text-2xl font-extrabold mt-1">Ksh {fmt(todayMpesa)}</p>
-                    <p className="text-xs opacity-70 mt-1">{totalPayments > 0 ? ((todayMpesa / totalPayments) * 100).toFixed(0) : 0}% of total</p>
-                </div>
-                {/* Credit */}
-                <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl p-4 text-white shadow-lg shadow-red-200/50">
-                    <p className="text-xs font-medium opacity-80">🏦 Credit Today</p>
-                    <p className="text-2xl font-extrabold mt-1">Ksh {fmt(todayCredit)}</p>
-                    <p className="text-xs opacity-70 mt-1">{totalPayments > 0 ? ((todayCredit / totalPayments) * 100).toFixed(0) : 0}% of total</p>
-                </div>
-                {/* Net Profit */}
-                <div className="bg-gradient-to-br from-violet-600 to-purple-700 rounded-2xl p-4 text-white shadow-lg shadow-purple-200/50 relative overflow-hidden">
-                    <div className="absolute -top-4 -left-4 w-16 h-16 bg-white/10 rounded-full" />
-                    <p className="text-xs font-medium opacity-80">📊 Net Today</p>
-                    <p className={`text-2xl font-extrabold mt-1 ${netSales < 0 ? 'text-red-300' : ''}`}>Ksh {fmt(netSales)}</p>
-                    <p className="text-xs opacity-70 mt-1">After deductions</p>
-                </div>
-            </div>
-
-            {/* ══════ Main Charts Row ══════ */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                {/* Sales Trend Line Chart */}
-                <div className="lg:col-span-2 bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                            <span className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-sm">📈</span>
-                            Sales Trend
-                        </h3>
-                        <span className="text-xs text-gray-400 font-medium">
-                            Total: Ksh {totalRangeSales.toLocaleString()} • {totalRangeOrders} orders
-                        </span>
-                    </div>
-                    <div style={{ height: '320px' }}>
-                        {dailySales.length > 0 ? (
-                            <Line data={salesLineData} options={salesLineOptions} />
-                        ) : (
-                            <div className="h-full flex items-center justify-center text-gray-400">
-                                <div className="text-center"><span className="text-4xl">📊</span><p className="mt-2">No sales data for this period</p></div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Payment Split Donut */}
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
-                        <span className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center text-sm">💳</span>
-                        Today&apos;s Payment Split
-                    </h3>
-                    <div style={{ height: '200px' }} className="flex items-center justify-center relative">
-                        <Doughnut data={donutData} options={donutOptions} />
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="text-center">
-                                <p className="text-2xl font-extrabold text-gray-800">Ksh {fmt(totalPayments)}</p>
-                                <p className="text-xs text-gray-500">Total</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="mt-4 space-y-2">
-                        {[
-                            { label: 'Cash', value: todayCash, color: '#10b981', icon: '💵' },
-                            { label: 'M-Pesa', value: todayMpesa, color: '#f59e0b', icon: '📱' },
-                            { label: 'Credit', value: todayCredit, color: '#ef4444', icon: '🏦' },
-                        ].map(m => (
-                            <div key={m.label} className="flex items-center gap-2">
-                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: m.color }} />
-                                <span className="text-sm text-gray-600 flex-1">{m.icon} {m.label}</span>
-                                <span className="text-sm font-bold text-gray-800">Ksh {m.value.toLocaleString()}</span>
-                                <span className="text-xs text-gray-400">{totalPayments > 0 ? ((m.value / totalPayments) * 100).toFixed(0) : 0}%</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-
-            {/* ══════ Payment Comparison + User Sales ══════ */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                {/* Payment Comparison Bar Chart */}
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
-                        <span className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center text-sm">📊</span>
-                        Payment Method Comparison
-                    </h3>
-                    <div style={{ height: '300px' }}>
-                        {dailySales.length > 0 ? <Bar data={paymentBarData} options={paymentBarOptions} /> : (
-                            <div className="h-full flex items-center justify-center text-gray-400"><p>No data</p></div>
-                        )}
-                    </div>
-                </div>
-
-                {/* User/Waiter Sales */}
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
-                        <span className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center text-sm">👥</span>
-                        Staff Sales Ranking
-                    </h3>
-                    <div style={{ height: '300px' }}>
-                        {userSales.length > 0 ? <Bar data={userBarData} options={userBarOptions} /> : (
-                            <div className="h-full flex items-center justify-center text-gray-400"><p>No staff data</p></div>
-                        )}
-                    </div>
-                </div>
-            </div>
-
-            {/* ══════ Data Grids Row ══════ */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                {/* Best Sellers Grid */}
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
-                        <span className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center text-sm">🔥</span>
-                        Best Sellers
-                    </h3>
-                    <div className="overflow-auto max-h-[400px]">
-                        <table className="w-full text-sm">
-                            <thead className="sticky top-0 bg-gray-50">
-                                <tr className="text-left text-xs font-semibold text-gray-500 uppercase">
-                                    <th className="py-2 px-2">#</th>
-                                    <th className="py-2 px-2">Product</th>
-                                    <th className="py-2 px-2 text-right">Qty</th>
-                                    <th className="py-2 px-2 text-right">Revenue</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-50">
-                                {topProducts.map((p, i) => (
-                                    <tr key={i} className="hover:bg-indigo-50/50 transition">
-                                        <td className="py-2 px-2">
-                                            <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold text-white ${i === 0 ? 'bg-yellow-500' : i === 1 ? 'bg-gray-400' : i === 2 ? 'bg-amber-600' : 'bg-indigo-400'}`}>
-                                                {i + 1}
+                <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                        <thead>
+                            <tr className="bg-gray-50 border-y border-gray-100">
+                                {['Receipt','Customer','Items','Amount','Method','Time'].map(h => (
+                                    <th key={h} className="px-4 py-2.5 font-bold text-gray-500 text-[10px] uppercase tracking-wider text-left last:text-right">{h}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                            {recentSales.length === 0 ? (
+                                <tr><td colSpan={6} className="text-center py-8 text-gray-300">No recent transactions</td></tr>
+                            ) : recentSales.map(s => {
+                                const Icon = paymentIcon[s.method] || FiDollarSign;
+                                const col  = paymentColor[s.method] || '#4f46e5';
+                                return (
+                                    <tr key={s.id} className="trow transition-colors">
+                                        <td className="px-4 py-3 font-mono font-bold text-indigo-600">{s.receipt}</td>
+                                        <td className="px-4 py-3 text-gray-700 font-medium max-w-[140px]">
+                                            <div className="truncate">{s.customer}</div>
+                                        </td>
+                                        <td className="px-4 py-3 text-gray-500">{s.items} item{s.items!==1?'s':''}</td>
+                                        <td className="px-4 py-3 font-black text-gray-800">{fmt(s.amount, currSym)}</td>
+                                        <td className="px-4 py-3">
+                                            <span className="flex items-center gap-1 w-fit px-2 py-0.5 rounded-full border text-[10px] font-bold"
+                                                style={{borderColor:`${col}40`,background:`${col}10`,color:col}}>
+                                                <Icon size={9} />{s.method}
                                             </span>
                                         </td>
-                                        <td className="py-2 px-2 font-medium text-gray-800 max-w-[140px] truncate">{p.name}</td>
-                                        <td className="py-2 px-2 text-right font-bold text-indigo-600">{p.qty}</td>
-                                        <td className="py-2 px-2 text-right text-gray-600">Ksh {p.revenue.toLocaleString()}</td>
+                                        <td className="px-4 py-3 text-right text-gray-400 font-mono">{s.time}</td>
                                     </tr>
-                                ))}
-                                {topProducts.length === 0 && (
-                                    <tr><td colSpan={4} className="py-8 text-center text-gray-400">No sales data</td></tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                {/* Low Stock / Out of Stock Grid */}
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
-                        <span className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center text-sm">⚠️</span>
-                        Stock Alerts
-                        {lowStock.length > 0 && (
-                            <span className="ml-auto px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-bold">{lowStock.length}</span>
-                        )}
-                    </h3>
-                    <div className="overflow-auto max-h-[400px]">
-                        <table className="w-full text-sm">
-                            <thead className="sticky top-0 bg-gray-50">
-                                <tr className="text-left text-xs font-semibold text-gray-500 uppercase">
-                                    <th className="py-2 px-2">Item</th>
-                                    <th className="py-2 px-2">Type</th>
-                                    <th className="py-2 px-2 text-right">Stock</th>
-                                    <th className="py-2 px-2 text-right">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-50">
-                                {lowStock.map((item, i) => (
-                                    <tr key={i} className={`transition ${item.status === 'out' ? 'bg-red-50' : item.status === 'critical' ? 'bg-orange-50' : 'hover:bg-yellow-50/50'}`}>
-                                        <td className="py-2 px-2 font-medium text-gray-800 max-w-[130px] truncate">{item.name}</td>
-                                        <td className="py-2 px-2">
-                                            <span className={`text-xs px-1.5 py-0.5 rounded ${item.type === 'dish' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
-                                                {item.type === 'dish' ? '🍽️' : '🥬'} {item.type}
-                                            </span>
-                                        </td>
-                                        <td className="py-2 px-2 text-right font-bold">{item.stock} / {item.reorder}</td>
-                                        <td className="py-2 px-2 text-right">
-                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${item.status === 'out' ? 'bg-red-200 text-red-800' :
-                                                    item.status === 'critical' ? 'bg-orange-200 text-orange-800' : 'bg-yellow-200 text-yellow-800'
-                                                }`}>
-                                                {item.status === 'out' ? '❌ OUT' : item.status === 'critical' ? '🔴 CRITICAL' : '🟡 LOW'}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                ))}
-                                {lowStock.length === 0 && (
-                                    <tr><td colSpan={4} className="py-8 text-center text-gray-400">
-                                        <span className="text-3xl">✅</span><p className="mt-1">All stock levels good!</p>
-                                    </td></tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                {/* Recent Purchases Grid */}
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
-                        <span className="w-8 h-8 bg-cyan-100 rounded-lg flex items-center justify-center text-sm">📦</span>
-                        Recent Purchases
-                    </h3>
-                    <div className="overflow-auto max-h-[400px]">
-                        <table className="w-full text-sm">
-                            <thead className="sticky top-0 bg-gray-50">
-                                <tr className="text-left text-xs font-semibold text-gray-500 uppercase">
-                                    <th className="py-2 px-2">Date</th>
-                                    <th className="py-2 px-2">Supplier</th>
-                                    <th className="py-2 px-2 text-right">Total</th>
-                                    <th className="py-2 px-2 text-right">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-50">
-                                {recentPurchases.map((p, i) => (
-                                    <tr key={i} className="hover:bg-cyan-50/50 transition">
-                                        <td className="py-2 px-2 text-gray-600">{new Date(p.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</td>
-                                        <td className="py-2 px-2 font-medium text-gray-800 max-w-[120px] truncate">{p.supplier}</td>
-                                        <td className="py-2 px-2 text-right font-bold text-gray-700">Ksh {p.total.toLocaleString()}</td>
-                                        <td className="py-2 px-2 text-right">
-                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${p.status === 'Completed' ? 'bg-green-100 text-green-700' :
-                                                    p.status === 'Pending' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
-                                                }`}>{p.status}</span>
-                                        </td>
-                                    </tr>
-                                ))}
-                                {recentPurchases.length === 0 && (
-                                    <tr><td colSpan={4} className="py-8 text-center text-gray-400">No purchase data</td></tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                                );
+                            })}
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
-            {/* ══════ Financial Cards ══════ */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                <div className="bg-gradient-to-br from-rose-500 to-pink-600 rounded-2xl p-4 text-white shadow-lg shadow-rose-200/50">
-                    <p className="text-xs opacity-80">💸 Expenses</p>
-                    <p className="text-xl font-extrabold mt-1">Ksh {fmt(totalExpenses)}</p>
-                    <a href="/dashboard/expenses" className="text-xs underline opacity-70 hover:opacity-100 mt-1 inline-block">View →</a>
-                </div>
-                <div className="bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl p-4 text-white shadow-lg shadow-violet-200/50">
-                    <p className="text-xs opacity-80">💵 Advances</p>
-                    <p className="text-xl font-extrabold mt-1">Ksh {fmt(totalAdvances)}</p>
-                    <a href="/dashboard/advances" className="text-xs underline opacity-70 hover:opacity-100 mt-1 inline-block">View →</a>
-                </div>
-                <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-4 text-white shadow-lg shadow-amber-200/50">
-                    <p className="text-xs opacity-80">🎟️ Vouchers</p>
-                    <p className="text-xl font-extrabold mt-1">Ksh {fmt(totalVouchers)}</p>
-                    <a href="/dashboard/vouchers" className="text-xs underline opacity-70 hover:opacity-100 mt-1 inline-block">View →</a>
-                </div>
-                <div className="bg-gradient-to-br from-cyan-500 to-sky-600 rounded-2xl p-4 text-white shadow-lg shadow-cyan-200/50">
-                    <p className="text-xs opacity-80">⏰ Shifts</p>
-                    <div className="flex items-center gap-3 mt-1">
-                        <div><p className="text-lg font-extrabold">{activeShifts}</p><p className="text-xs opacity-70">Active</p></div>
-                        <div className="h-6 w-px bg-white/30" />
-                        <div><p className="text-lg font-extrabold">{closedShifts}</p><p className="text-xs opacity-70">Closed</p></div>
-                    </div>
-                    <a href="/dashboard/shifts" className="text-xs underline opacity-70 hover:opacity-100 mt-1 inline-block">Manage →</a>
-                </div>
-                <div className="bg-gradient-to-br from-slate-700 to-slate-900 rounded-2xl p-4 text-white shadow-lg shadow-slate-300/50">
-                    <p className="text-xs opacity-80">⚠️ Pending Bills</p>
-                    <p className="text-xl font-extrabold mt-1">{pendingBills}</p>
-                    <a href="/dashboard/bills" className="text-xs underline opacity-70 hover:opacity-100 mt-1 inline-block">View →</a>
-                </div>
-            </div>
-
-            {/* ══════ Quick Actions ══════ */}
-            <div className="bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800 rounded-2xl p-5 text-white">
-                <h3 className="font-bold text-sm mb-3 flex items-center gap-2">⚡ Quick Actions</h3>
-                <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-10 gap-2">
-                    {[
-                        { icon: '🛒', label: 'POS', href: '/dashboard/pos', color: 'from-emerald-500/30 to-green-600/30 hover:from-emerald-500/50 hover:to-green-600/50' },
-                        { icon: '📥', label: 'Purchases', href: '/dashboard/purchases', color: 'from-blue-500/30 to-indigo-600/30 hover:from-blue-500/50 hover:to-indigo-600/50' },
-                        { icon: '📦', label: 'Stock Available', href: '/dashboard/products', color: 'from-cyan-500/30 to-sky-600/30 hover:from-cyan-500/50 hover:to-sky-600/50' },
-                        { icon: '⏰', label: 'Expiry Register', href: '/dashboard/expiry-register', color: 'from-amber-500/30 to-orange-600/30 hover:from-amber-500/50 hover:to-orange-600/50' },
-                        { icon: '↩️', label: 'Sales Returns', href: '/dashboard/sales-return', color: 'from-rose-500/30 to-red-600/30 hover:from-rose-500/50 hover:to-red-600/50' },
-                        { icon: '🧾', label: 'Register History', href: '/dashboard/shift-reports', color: 'from-purple-500/30 to-violet-600/30 hover:from-purple-500/50 hover:to-violet-600/50' },
-                        { icon: '📊', label: 'Reports', href: '/dashboard/reports/sales', color: 'from-indigo-500/30 to-blue-600/30 hover:from-indigo-500/50 hover:to-blue-600/50' },
-                        { icon: '📈', label: 'Sales Summary', href: '/dashboard/sales-summary', color: 'from-teal-500/30 to-emerald-600/30 hover:from-teal-500/50 hover:to-emerald-600/50' },
-                        { icon: '💸', label: 'Expenses', href: '/dashboard/expenses', color: 'from-pink-500/30 to-rose-600/30 hover:from-pink-500/50 hover:to-rose-600/50' },
-                        { icon: '👥', label: 'Payroll', href: '/dashboard/payroll', color: 'from-slate-400/30 to-gray-500/30 hover:from-slate-400/50 hover:to-gray-500/50' },
-                    ].map(a => (
-                        <a key={a.label} href={a.href}
-                            className={`flex flex-col items-center gap-1.5 p-3 bg-gradient-to-br ${a.color} rounded-xl transition-all hover:scale-105 border border-white/10 hover:border-white/25 hover:shadow-lg hover:shadow-white/5`}>
-                            <span className="text-2xl drop-shadow-sm">{a.icon}</span>
-                            <span className="text-[10px] font-semibold text-center leading-tight">{a.label}</span>
-                        </a>
-                    ))}
-                </div>
-            </div>
         </div>
     );
 }

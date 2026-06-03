@@ -137,6 +137,7 @@ const menuGroups = [
         { href: '/dashboard/units',          label: 'Units',        icon: FiSliders,   roles: 'all' },
         { href: '/dashboard/mpesa-settings', label: 'M-Pesa Config',icon: FiZap,       roles: 'superadmin', badge: 'SA' },
         { href: '/dashboard/businesses',     label: 'Businesses',   icon: FiBriefcase, roles: 'superadmin', badge: 'SA' },
+        { href: '/dashboard/license',        label: '🔐 License Mgmt', icon: FiShield, roles: 'superadmin', badge: 'SA' },
     ]},
 ];
 
