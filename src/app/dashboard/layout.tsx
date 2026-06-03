@@ -88,6 +88,7 @@ const menuItems = [
             { name: 'Tax Settings',      icon: '📊', href: '/dashboard/tax-settings',     badge: null },
             { name: 'Units',             icon: '📏', href: '/dashboard/units',            badge: null },
             { name: 'M-Pesa Config',     icon: '⚡', href: '/dashboard/mpesa-settings',  badge: 'SA' },
+            { name: 'Businesses',        icon: '🏢', href: '/dashboard/businesses',     badge: 'SA' },
         ]
     },
 ];
@@ -235,6 +236,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     if (item.href === '/dashboard/activity-log' && !isAdmin) return false;
                                     // M-Pesa Config — superadmin ONLY
                                     if (item.href === '/dashboard/mpesa-settings' && !isSuperAdmin) return false;
+                                    // Businesses — superadmin ONLY
+                                    if (item.href === '/dashboard/businesses' && !isSuperAdmin) return false;
                                     return true;
                                 });
                                 if (filteredItems.length === 0) return null;
