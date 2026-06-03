@@ -14,7 +14,7 @@ export interface Outlet {
     active: boolean;
     enable_expiry_tracking?: boolean;
     allowed_quick_actions?: Record<string, boolean>;
-    // ── M-Pesa credentials (optional — null = use system fallback) ──
+    // ── M-Pesa credentials (optional — null = use system fallback if mpesa_use_system=true) ──
     mpesa_api_url?:          string | null;
     mpesa_anon_key?:         string | null;
     mpesa_shortcode?:        string | null;
@@ -22,6 +22,9 @@ export interface Outlet {
     mpesa_consumer_key?:     string | null;
     mpesa_consumer_secret?:  string | null;
     mpesa_callback_url?:     string | null;
+    // TRUE  → outlet uses system/hardcoded credentials (Main Outlet, Chebunyo)
+    // FALSE → outlet must have own credentials, or M-Pesa tab is disabled
+    mpesa_use_system?:       boolean | null;
     // ── Tier 2 multi-tenant (optional — null = public schema) ──
     db_schema?:              string | null;
 }

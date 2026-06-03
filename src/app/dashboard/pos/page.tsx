@@ -353,6 +353,7 @@ const PaymentModal = ({
     loadCreditCustomers,
     mpesaApiUrl,
     mpesaAnonKey,
+    mpesaUseSystem,
 }: {
     isOpen: boolean;
     onClose: () => void;
@@ -363,14 +364,20 @@ const PaymentModal = ({
     selectedCustomer: CreditCustomer | null;
     setSelectedCustomer: (c: CreditCustomer | null) => void;
     loadCreditCustomers: () => void;
-    mpesaApiUrl?: string | null;    // outlet-specific, falls back to Silibwet hardcoded
-    mpesaAnonKey?: string | null;   // outlet-specific, falls back to Silibwet hardcoded
+    mpesaApiUrl?: string | null;    // outlet M-Pesa API URL — null = M-Pesa disabled for this outlet
+    mpesaAnonKey?: string | null;   // outlet M-Pesa anon key — null = M-Pesa disabled for this outlet
+    mpesaUseSystem?: boolean | null; // TRUE = use system hardcoded fallback (Main Outlet, Chebunyo)
 }) => {
     const [paymentMethod, setPaymentMethod] = useState('cash');
     const [amountPaid, setAmountPaid] = useState('');
-    // ── Resolve effective M-Pesa config: outlet-specific ?? fallback to Silibwet ──
-    const MPESA_API_URL         = mpesaApiUrl  || MPESA_API_URL_FALLBACK;
-    const MPESA_SUPABASE_ANON_KEY = mpesaAnonKey || MPESA_ANON_KEY_FALLBACK;
+    // ── M-Pesa credential routing ──
+    // Priority 1: outlet has its own credentials → use them
+    // Priority 2: mpesa_use_system = true → use system hardcoded fallback (Main / Chebunyo)
+    // Priority 3: neither → M-Pesa tab disabled
+    const mpesaHasOwn   = !!(mpesaApiUrl && mpesaAnonKey);
+    const mpesaEnabled  = mpesaHasOwn || !!mpesaUseSystem;
+    const MPESA_API_URL           = mpesaHasOwn ? mpesaApiUrl! : (mpesaUseSystem ? MPESA_API_URL_FALLBACK : '');
+    const MPESA_SUPABASE_ANON_KEY = mpesaHasOwn ? mpesaAnonKey! : (mpesaUseSystem ? MPESA_ANON_KEY_FALLBACK : '');
     const [isSaving, setIsSaving] = useState(false);
     const [mpesaPhone, setMpesaPhone] = useState('');
     const [mpesaReceipt, setMpesaReceipt] = useState('');
@@ -641,23 +648,35 @@ const PaymentModal = ({
                 {/* Payment Methods */}
                 <div className="grid grid-cols-4 gap-2 mb-6">
                     {[
-                        { id: 'cash', icon: '💵', label: 'Cash' },
-                        { id: 'mpesa', icon: '📱', label: 'M-Pesa' },
-                        { id: 'card', icon: '💳', label: 'Card' },
+                        { id: 'cash',   icon: '💵', label: 'Cash' },
+                        { id: 'mpesa',  icon: '📱', label: 'M-Pesa' },
+                        { id: 'card',   icon: '💳', label: 'Card' },
                         { id: 'credit', icon: '📋', label: 'Credit' },
-                    ].map(method => (
-                        <button
-                            key={method.id}
-                            onClick={() => { setPaymentMethod(method.id); resetMpesaState(); }}
-                            className={`p-3 rounded-xl border-2 transition-all ${paymentMethod === method.id
-                                ? 'border-green-500 bg-green-50'
-                                : 'border-gray-200 hover:border-gray-300 bg-gray-50'
+                    ].map(method => {
+                        const isMpesa = method.id === 'mpesa';
+                        const isDisabled = isMpesa && !mpesaEnabled;
+                        return (
+                            <button
+                                key={method.id}
+                                disabled={isDisabled}
+                                onClick={() => { if (!isDisabled) { setPaymentMethod(method.id); resetMpesaState(); } }}
+                                title={isDisabled ? 'M-Pesa not configured for this outlet. Contact Super Admin.' : method.label}
+                                className={`p-3 rounded-xl border-2 transition-all relative ${
+                                    isDisabled
+                                        ? 'border-gray-100 bg-gray-50 opacity-40 cursor-not-allowed'
+                                        : paymentMethod === method.id
+                                            ? 'border-green-500 bg-green-50'
+                                            : 'border-gray-200 hover:border-gray-300 bg-gray-50'
                                 }`}
-                        >
-                            <span className="text-2xl block mb-1">{method.icon}</span>
-                            <span className="text-xs font-medium text-gray-600">{method.label}</span>
-                        </button>
-                    ))}
+                            >
+                                <span className="text-2xl block mb-1">{isDisabled ? '🔒' : method.icon}</span>
+                                <span className="text-xs font-medium text-gray-600">{method.label}</span>
+                                {isDisabled && (
+                                    <span className="absolute -top-1.5 -right-1.5 text-[9px] bg-gray-400 text-white px-1 py-0.5 rounded-full font-bold">OFF</span>
+                                )}
+                            </button>
+                        );
+                    })}
                 </div>
 
                 {/* Cash Input */}
@@ -2766,6 +2785,7 @@ export default function RetailPOSPage() {
                 loadCreditCustomers={loadCreditCustomers}
                 mpesaApiUrl={activeOutlet?.mpesa_api_url}
                 mpesaAnonKey={activeOutlet?.mpesa_anon_key}
+                mpesaUseSystem={activeOutlet?.mpesa_use_system}
             />
 
             <DiscountModal

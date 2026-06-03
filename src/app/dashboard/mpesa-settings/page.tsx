@@ -28,6 +28,7 @@ interface MpesaConfig {
     mpesa_consumer_key: string;
     mpesa_consumer_secret: string;
     mpesa_callback_url: string;
+    mpesa_use_system: boolean;
 }
 
 const EMPTY_CONFIG: MpesaConfig = {
@@ -38,6 +39,7 @@ const EMPTY_CONFIG: MpesaConfig = {
     mpesa_consumer_key: '',
     mpesa_consumer_secret: '',
     mpesa_callback_url: '',
+    mpesa_use_system: false,
 };
 
 // ── Field definitions ───────────────────────────────────────────────
@@ -122,7 +124,7 @@ export default function MpesaSettingsPage() {
     const loadConfig = useCallback(async (outletId: number) => {
         const { data, error } = await supabase
             .from('retail_outlets')
-            .select('mpesa_api_url,mpesa_anon_key,mpesa_shortcode,mpesa_passkey,mpesa_consumer_key,mpesa_consumer_secret,mpesa_callback_url')
+            .select('mpesa_api_url,mpesa_anon_key,mpesa_shortcode,mpesa_passkey,mpesa_consumer_key,mpesa_consumer_secret,mpesa_callback_url,mpesa_use_system')
             .eq('outlet_id', outletId)
             .single();
 
@@ -136,6 +138,7 @@ export default function MpesaSettingsPage() {
             mpesa_consumer_key:    data.mpesa_consumer_key    || '',
             mpesa_consumer_secret: data.mpesa_consumer_secret || '',
             mpesa_callback_url:    data.mpesa_callback_url    || '',
+            mpesa_use_system:      data.mpesa_use_system      ?? false,
         };
         setConfig(loaded);
         setOriginalConfig(loaded);
@@ -163,6 +166,7 @@ export default function MpesaSettingsPage() {
                 mpesa_consumer_key:    config.mpesa_consumer_key    || null,
                 mpesa_consumer_secret: config.mpesa_consumer_secret || null,
                 mpesa_callback_url:    config.mpesa_callback_url    || null,
+                mpesa_use_system:      config.mpesa_use_system,
             })
             .eq('outlet_id', selectedOutletId);
         setSaving(false);
@@ -170,7 +174,7 @@ export default function MpesaSettingsPage() {
         if (error) { showToast('error', 'Save failed: ' + error.message); return; }
         setOriginalConfig({ ...config });
         await reloadOutlets();
-        showToast('success', 'M-Pesa credentials saved successfully!');
+        showToast('success', 'M-Pesa settings saved successfully!');
     };
 
     const handleTest = async () => {
@@ -248,11 +252,21 @@ export default function MpesaSettingsPage() {
                 </div>
 
                 {/* Status pill */}
-                <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold mt-2 ${isConfigured ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-amber-100 text-amber-700 border border-amber-200'}`}>
-                    <span className={`w-2 h-2 rounded-full ${isConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold mt-2 ${
+                    isConfigured ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                    : config.mpesa_use_system ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                    : 'bg-amber-100 text-amber-700 border border-amber-200'
+                }`}>
+                    <span className={`w-2 h-2 rounded-full ${
+                        isConfigured ? 'bg-emerald-500 animate-pulse'
+                        : config.mpesa_use_system ? 'bg-blue-500 animate-pulse'
+                        : 'bg-amber-500'
+                    }`} />
                     {isConfigured
-                        ? `${currentOutlet?.outlet_name} — M-Pesa configured`
-                        : 'No M-Pesa config — using system fallback (Silibwet)'}
+                        ? `${currentOutlet?.outlet_name} — Custom M-Pesa credentials active`
+                        : config.mpesa_use_system
+                            ? `${currentOutlet?.outlet_name} — Using system M-Pesa (hardcoded)`
+                            : `${currentOutlet?.outlet_name || 'No outlet selected'} — M-Pesa DISABLED`}
                 </div>
             </div>
 
@@ -264,8 +278,13 @@ export default function MpesaSettingsPage() {
                         <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Select Outlet</p>
                         <div className="space-y-2">
                             {outlets.map(outlet => {
-                                const hasMpesa = !!(outlet as any).mpesa_api_url;
+                                const o = outlet as any;
+                                const hasOwn   = !!o.mpesa_api_url;
+                                const usesSys  = !!o.mpesa_use_system;
                                 const isActive = outlet.outlet_id === selectedOutletId;
+                                const badge = hasOwn ? { label: '✓ OWN', cls: 'bg-emerald-100 text-emerald-700' }
+                                            : usesSys ? { label: '⚡ SYS', cls: 'bg-blue-100 text-blue-700' }
+                                            : { label: 'OFF', cls: 'bg-gray-100 text-gray-500' };
                                 return (
                                     <button
                                         key={outlet.outlet_id}
@@ -276,8 +295,8 @@ export default function MpesaSettingsPage() {
                                             <p className={`text-sm font-bold ${isActive ? 'text-violet-800' : 'text-gray-700'}`}>{outlet.outlet_name}</p>
                                             <p className="text-[11px] text-gray-400">{outlet.outlet_code}</p>
                                         </div>
-                                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${hasMpesa ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-                                            {hasMpesa ? '✓ SET' : 'NOT SET'}
+                                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${badge.cls}`}>
+                                            {badge.label}
                                         </span>
                                     </button>
                                 );
@@ -290,24 +309,20 @@ export default function MpesaSettingsPage() {
                         <p className="text-xs font-black opacity-70 uppercase tracking-wider mb-3">How It Works</p>
                         <div className="space-y-3 text-sm">
                             <div className="flex items-start gap-2">
-                                <span className="text-lg">1️⃣</span>
-                                <p className="opacity-90">Select an outlet from the left panel</p>
+                                <span className="text-lg">⚡</span>
+                                <p className="opacity-90"><strong>SYS</strong> — Uses system hardcoded credentials (Main / Chebunyo)</p>
                             </div>
                             <div className="flex items-start gap-2">
-                                <span className="text-lg">2️⃣</span>
-                                <p className="opacity-90">Enter their M-Pesa credentials</p>
+                                <span className="text-lg">✓</span>
+                                <p className="opacity-90"><strong>OWN</strong> — Has its own Safaricom Daraja credentials</p>
                             </div>
                             <div className="flex items-start gap-2">
-                                <span className="text-lg">3️⃣</span>
-                                <p className="opacity-90">Click <strong>Test Connection</strong> to verify</p>
-                            </div>
-                            <div className="flex items-start gap-2">
-                                <span className="text-lg">4️⃣</span>
-                                <p className="opacity-90">Save — the POS will use these credentials automatically</p>
+                                <span className="text-lg">🔒</span>
+                                <p className="opacity-90"><strong>OFF</strong> — M-Pesa tab disabled in POS until configured</p>
                             </div>
                         </div>
                         <div className="mt-4 pt-4 border-t border-white/20 text-[11px] opacity-70">
-                            💡 Outlets with no config fall back to the system default (Silibwet credentials)
+                            💡 New customers must register on Safaricom Daraja portal and enter their own credentials here.
                         </div>
                     </div>
 
@@ -336,16 +351,47 @@ export default function MpesaSettingsPage() {
                         </div>
 
                         <div className="p-6 space-y-5">
+                            {/* System M-Pesa Toggle — for Main/Chebunyo outlets */}
+                            <div className={`flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-all ${
+                                config.mpesa_use_system
+                                    ? 'border-blue-300 bg-blue-50'
+                                    : 'border-gray-200 bg-gray-50'
+                            }`}>
+                                <div>
+                                    <p className="text-sm font-bold text-gray-800">⚡ Use System M-Pesa</p>
+                                    <p className="text-[11px] text-gray-500 mt-0.5">Enable for Main Outlet & Chebunyo — uses hardcoded Safaricom credentials. Disable for new customers who have their own Daraja account.</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setConfig(prev => ({ ...prev, mpesa_use_system: !prev.mpesa_use_system }))}
+                                    className={`relative w-12 h-6 rounded-full transition-all flex-shrink-0 ml-4 ${
+                                        config.mpesa_use_system ? 'bg-blue-500' : 'bg-gray-300'
+                                    }`}
+                                >
+                                    <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${
+                                        config.mpesa_use_system ? 'left-6' : 'left-0.5'
+                                    }`} />
+                                </button>
+                            </div>
+
+                            {/* Credential fields — only relevant when NOT using system M-Pesa */}
+                            {config.mpesa_use_system && (
+                                <div className="flex items-center gap-2 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700 font-medium">
+                                    ℹ️ System M-Pesa is ON — credential fields below are ignored. Turn off to use custom Daraja credentials.
+                                </div>
+                            )}
+
+                            <div className={config.mpesa_use_system ? 'opacity-40 pointer-events-none' : ''}>
                             {FIELDS.map(field => (
-                                <div key={field.key}>
+                                <div key={field.key} className="mb-5">
                                     <label className="flex items-center gap-2 text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wider">
                                         <span>{field.icon}</span>
                                         {field.label}
                                     </label>
                                     <div className="relative">
                                         <input
-                                            type={field.sensitive && !showSecrets[field.key] ? 'password' : 'text'}
-                                            value={config[field.key]}
+                                            type={field.sensitive && !showSecrets[field.key as string] ? 'password' : 'text'}
+                                            value={config[field.key] as string}
                                             onChange={e => setConfig(prev => ({ ...prev, [field.key]: e.target.value }))}
                                             placeholder={field.placeholder}
                                             className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-violet-400 focus:ring-2 focus:ring-violet-100 outline-none transition-all text-sm font-mono pr-10"
@@ -353,17 +399,18 @@ export default function MpesaSettingsPage() {
                                         {field.sensitive && (
                                             <button
                                                 type="button"
-                                                onClick={() => toggleSecret(field.key)}
+                                                onClick={() => toggleSecret(field.key as string)}
                                                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 text-sm"
-                                                title={showSecrets[field.key] ? 'Hide' : 'Show'}
+                                                title={showSecrets[field.key as string] ? 'Hide' : 'Show'}
                                             >
-                                                {showSecrets[field.key] ? '🙈' : '👁️'}
+                                                {showSecrets[field.key as string] ? '🙈' : '👁️'}
                                             </button>
                                         )}
                                     </div>
                                     <p className="text-[11px] text-gray-400 mt-1 ml-1">{field.hint}</p>
                                 </div>
                             ))}
+                            </div>
                         </div>
 
                         {/* Action buttons */}
