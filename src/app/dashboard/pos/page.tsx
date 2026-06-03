@@ -2258,7 +2258,17 @@ export default function RetailPOSPage() {
                             <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6V11c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
                         </svg>
                         {/* Ring pulse when items are low */}
-             {/* ═══ Main Controls Bar — Perfectly Aligned, No Labels, Uniform h-9 ═══ */}
+                        {lowStockItems.length > 0 && (
+                            <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-slate-800 animate-pulse" />
+                        )}
+                    </span>
+                    <span className="text-[10px] font-bold tabular-nums leading-none">
+                        {lowStockItems.length > 0 ? lowStockItems.length : '✓'}
+                    </span>
+                </button>
+            </div>
+
+            {/* ═══ Main Controls Bar — Perfectly Aligned, No Labels, Uniform h-9 ═══ */}
             <div className="bg-white border-b border-gray-100 px-4 py-2 shadow-sm">
                 <div className="flex items-center gap-2">
 
