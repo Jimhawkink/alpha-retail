@@ -1139,10 +1139,18 @@ export default function RetailPOSPage() {
                 if (t === 'superadmin' || t === 'superuser') setIsSuperAdminUser(true);
             }
         } catch { /* silent */ }
-        supabase.from('organisation_settings').select('setting_value')
-            .eq('setting_key', 'pos_default_price').single()
-            .then(({ data }) => { if (data?.setting_value === 'retail') setPosDefaultPrice('retail'); });
     }, []);
+
+    // Reload per-outlet price mode whenever the active outlet changes
+    useEffect(() => {
+        if (!outletId) return;
+        supabase.from('license_settings').select('setting_value')
+            .eq('setting_key', `pos_price_mode_${outletId}`).single()
+            .then(({ data }) => {
+                setPosDefaultPrice(data?.setting_value === 'retail' ? 'retail' : 'wholesale');
+            });
+    }, [outletId]);
+
 
 
     useEffect(() => {

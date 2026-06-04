@@ -78,15 +78,23 @@ export default function CompanyPage() {
     const [testEmail, setTestEmail]   = useState('');
     const [userType, setUserType]     = useState('');
     const [activeTab, setActiveTab]   = useState<'general' | 'location' | 'receipt' | 'system' | 'email'>('general');
-    const [posDefaultPrice, setPosDefaultPrice] = useState<'retail' | 'wholesale'>('wholesale');
+    const [outlets, setOutlets]       = useState<Array<{ outlet_id: number; outlet_name: string; outlet_code: string }>>([]);
+    const [outletPriceModes, setOutletPriceModes] = useState<Record<number,'retail'|'wholesale'>>({});
+
 
     const isSuperAdmin = ['superadmin', 'superuser'].includes((userType || '').toLowerCase().replace(/\s/g, ''));
 
     // ── Load settings ─────────────────────────────────────────────────
     const loadAll = useCallback(async () => {
         setLoading(true);
+        let isSA = false;
         const raw = localStorage.getItem('user');
-        if (raw) setUserType(JSON.parse(raw).userType || '');
+        if (raw) {
+            const u = JSON.parse(raw);
+            setUserType(u.userType || '');
+            const t = (u.userType || '').toLowerCase().replace(/\s/g, '');
+            isSA = t === 'superadmin' || t === 'superuser';
+        }
 
         // Load org settings
         const { data: orgData } = await supabase.from('organisation_settings').select('setting_key,setting_value');
@@ -101,10 +109,6 @@ export default function CompanyPage() {
                 }
             });
             setOrg(o);
-            // Load pos_default_price separately (not in OrgSettings interface)
-            const pdp = orgData.find((r: any) => r.setting_key === 'pos_default_price');
-            if (pdp?.setting_value === 'retail') setPosDefaultPrice('retail');
-            else setPosDefaultPrice('wholesale');
         }
 
         // Load smtp settings
@@ -116,8 +120,24 @@ export default function CompanyPage() {
             smtpData.forEach((r: any) => { (s as any)[r.setting_key] = r.setting_value || ''; });
             setSmtp(s);
         }
+
+        // Load outlets + per-outlet POS price modes (SuperAdmin only)
+        if (isSA) {
+            const { data: outletData } = await supabase.from('retail_outlets').select('outlet_id,outlet_name,outlet_code').eq('active', true).order('outlet_name');
+            if (outletData) {
+                setOutlets(outletData);
+                const modes: Record<number,'retail'|'wholesale'> = {};
+                for (const o of outletData) {
+                    const { data: pm } = await supabase.from('license_settings').select('setting_value').eq('setting_key', `pos_price_mode_${o.outlet_id}`).single();
+                    modes[o.outlet_id] = pm?.setting_value === 'retail' ? 'retail' : 'wholesale';
+                }
+                setOutletPriceModes(modes);
+            }
+        }
         setLoading(false);
     }, []);
+
+
 
     useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -132,15 +152,18 @@ export default function CompanyPage() {
                     { onConflict: 'setting_key' }
                 );
             }
+            // Save per-outlet POS price modes to license_settings
+            for (const [outletId, mode] of Object.entries(outletPriceModes)) {
+                await supabase.from('license_settings').upsert(
+                    { setting_key: `pos_price_mode_${outletId}`, setting_value: mode },
+                    { onConflict: 'setting_key' }
+                );
+            }
             toast.success('✅ Company settings saved!');
         } catch { toast.error('Save failed. Please try again.'); }
-        // Also save pos_default_price
-        await supabase.from('organisation_settings').upsert(
-            { setting_key: 'pos_default_price', setting_value: posDefaultPrice, updated_at: new Date().toISOString() },
-            { onConflict: 'setting_key' }
-        );
         setSaving(false);
     };
+
 
     // ── Save SMTP settings ────────────────────────────────────────────
     const saveSmtp = async () => {
@@ -437,40 +460,47 @@ export default function CompanyPage() {
                             ))}
                         </div>
 
-                        {/* ─── POS Price Display (SuperAdmin only) ─── */}
-                        {isSuperAdmin && (
+                        {/* ─── POS Price Display per outlet (SuperAdmin only) ─── */}
+                        {isSuperAdmin && outlets.length > 0 && (
                             <div className="p-5 rounded-2xl border-2 border-violet-200 bg-violet-50/40">
-                                <div className="flex items-center gap-2 mb-3">
+                                <div className="flex items-center gap-2 mb-4">
                                     <span className="text-lg">🏷️</span>
                                     <div>
-                                        <p className="font-bold text-sm text-violet-800">POS Product Card — Default Price Display</p>
-                                        <p className="text-[11px] text-violet-500">Choose which price is shown on product cards in the POS screen for cashiers</p>
+                                        <p className="font-bold text-sm text-violet-800">POS Product Card — Price Display per Outlet</p>
+                                        <p className="text-[11px] text-violet-500">Set which price shows on product cards in the POS for each outlet independently</p>
                                     </div>
-                                    <span className="ml-auto text-[9px] font-black px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 flex items-center gap-1"><FiShield size={9} /> SUPERADMIN</span>
+                                    <span className="ml-auto text-[9px] font-black px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 flex items-center gap-1 shrink-0"><FiShield size={9} /> SUPERADMIN ONLY</span>
                                 </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    {[
-                                        { v: 'retail',    icon: '🏪', label: 'Retail Price',    sub: 'Show sales_cost — standard customer price' },
-                                        { v: 'wholesale', icon: '🤝', label: 'Wholesale Price',  sub: 'Show wholesale_price — bulk/trade price' },
-                                    ].map(opt => (
-                                        <button key={opt.v} type="button" onClick={() => setPosDefaultPrice(opt.v as any)}
-                                            className={`flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all ${
-                                                posDefaultPrice === opt.v
-                                                    ? 'border-violet-500 bg-violet-50 shadow-sm'
-                                                    : 'border-gray-200 bg-white hover:border-violet-300'
-                                            }`}>
-                                            <span className="text-2xl">{opt.icon}</span>
+                                <div className="space-y-2">
+                                    {outlets.map(outlet => (
+                                        <div key={outlet.outlet_id} className="flex items-center justify-between bg-white rounded-xl px-4 py-3 border border-violet-100 shadow-sm">
                                             <div>
-                                                <p className={`text-sm font-bold ${posDefaultPrice === opt.v ? 'text-violet-700' : 'text-gray-700'}`}>{opt.label}</p>
-                                                <p className="text-[10px] text-gray-400">{opt.sub}</p>
+                                                <p className="text-sm font-bold text-gray-800">{outlet.outlet_name}</p>
+                                                <p className="text-[10px] text-gray-400 uppercase tracking-wider">{outlet.outlet_code}</p>
                                             </div>
-                                            {posDefaultPrice === opt.v && <FiCheck className="ml-auto text-violet-600 shrink-0" size={16} />}
-                                        </button>
+                                            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                                                {(['retail', 'wholesale'] as const).map(mode => (
+                                                    <button
+                                                        key={mode}
+                                                        type="button"
+                                                        onClick={() => setOutletPriceModes(prev => ({ ...prev, [outlet.outlet_id]: mode }))}
+                                                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                                                            (outletPriceModes[outlet.outlet_id] ?? 'wholesale') === mode
+                                                                ? 'bg-violet-600 text-white shadow-sm'
+                                                                : 'text-gray-500 hover:text-violet-600'
+                                                        }`}
+                                                    >
+                                                        {mode === 'retail' ? '🏪 Retail' : '🤝 Wholesale'}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
                                     ))}
                                 </div>
-                                <p className="text-[11px] text-violet-400 mt-2">💡 This setting is saved when you click <strong>Save Changes</strong> above. The POS reads it automatically on next load.</p>
+                                <p className="text-[11px] text-violet-400 mt-3">💡 Click <strong>Save Changes</strong> above to apply. Each outlet&apos;s POS updates on next page load.</p>
                             </div>
                         )}
+
 
                         {/* System info card */}
                         <div className="rounded-2xl overflow-hidden border border-gray-200">
