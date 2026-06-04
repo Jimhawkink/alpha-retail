@@ -102,6 +102,7 @@ export default function ProductsPage() {
     const [pieceStockData, setPieceStockData] = useState<Record<number, number>>({});
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
     const [showValuation, setShowValuation] = useState(true);
+    const [hasValuationAccess, setHasValuationAccess] = useState(false);
     const [page, setPage] = useState(1);
     const [perPage, setPerPage] = useState(20);
 
@@ -222,6 +223,22 @@ export default function ProductsPage() {
 
     useEffect(() => { loadProducts(); loadStockData(); loadCategories(); loadSuppliers(); loadUnits(); loadCompanyName(); },
         [loadProducts, loadStockData, loadCategories, loadSuppliers, loadUnits, loadCompanyName]);
+
+    // ─── LICENSE CHECK ───
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem('user');
+            if (!raw) return;
+            const u = JSON.parse(raw);
+            const t = (u.userType || '').toLowerCase().replace(/\s/g, '');
+            if (t === 'superadmin' || t === 'superuser') { setHasValuationAccess(true); return; }
+            // Check outlet license
+            const oid = activeOutlet?.outlet_id || 1;
+            supabase.from('license_settings').select('setting_value')
+                .eq('setting_key', `outlet_license_active_${oid}`).single()
+                .then(({ data }) => { if (data?.setting_value === 'true') setHasValuationAccess(true); });
+        } catch { /* silent */ }
+    }, [activeOutlet]);
 
     const getKitchenSupplier = () => companyName || 'Kitchen';
 
@@ -552,6 +569,20 @@ export default function ProductsPage() {
         return s + (b * ppp * wsPrice) + (pc * wsPrice);
     }, 0);
     const potentialProfit = stockValSales - stockValCost;
+    // Retail value at sales_cost
+    const stockValRetail = products.reduce((s, p) => {
+        const b = bagStockData[p.pid] || 0; const pc = pieceStockData[p.pid] || 0;
+        const ppp = p.pieces_per_package || 1; const rp = p.sales_cost || 0;
+        return s + (b * ppp * rp) + (pc * rp);
+    }, 0);
+    // Wholesale value at wholesale_price specifically
+    const stockValWholesale = products.reduce((s, p) => {
+        const b = bagStockData[p.pid] || 0; const pc = pieceStockData[p.pid] || 0;
+        const ppp = p.pieces_per_package || 1; const wp = (p as any).wholesale_price || 0;
+        return s + (b * ppp * wp) + (pc * wp);
+    }, 0);
+    const stockRetailProfit = stockValRetail - stockValCost;
+    const stockWholesaleProfit = stockValWholesale - stockValCost;
 
     // ─── UI ───
     return (
@@ -590,93 +621,79 @@ export default function ProductsPage() {
                 </div>
             </div>
 
-            {/* ━━━ PREMIUM STAT CARDS ━━━ */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Total Products */}
-                <div className="relative overflow-hidden rounded-2xl bg-white border border-blue-100 p-5 shadow-sm hover:shadow-xl transition-all group">
-                    <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-gradient-to-br from-blue-100 to-blue-50 opacity-60 group-hover:scale-125 transition-transform" />
-                    <div className="relative flex items-center justify-between">
-                        <div>
-                            <p className="text-xs font-bold text-blue-500 uppercase tracking-wider">Total Products</p>
-                            <p className="text-3xl font-black text-gray-800 mt-1">{products.length}</p>
-                            <p className="text-[10px] text-gray-400 mt-1">All items in database</p>
+            {/* ━━━ COMPACT WATCHLIST-STYLE STAT CARDS ━━━ */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {([
+                    { label: 'Total Products', value: products.length, sub: 'All items in DB', color: '#3B82F6', bg: '#EFF6FF', Icon: FiPackage, spark: [20,16,18,10,14,8,5] },
+                    { label: 'Active SKUs', value: products.filter(p => p.active).length, sub: 'Available for sale', color: '#10B981', bg: '#F0FDF4', Icon: FiCheck, spark: [18,14,12,16,10,8,4] },
+                    { label: 'Categories', value: categories.length, sub: 'Product groups', color: '#8B5CF6', bg: '#F5F3FF', Icon: FiLayers, spark: [20,18,16,14,12,14,10] },
+                    { label: 'Low Inventory', value: lowStock, sub: lowStock > 0 ? 'Items need restock' : 'All stocked well', color: lowStock > 0 ? '#EF4444' : '#14B8A6', bg: lowStock > 0 ? '#FEF2F2' : '#F0FDFA', Icon: FiAlertTriangle, spark: [5,8,10,14,16,18,20] },
+                ] as const).map(card => {
+                    const sparkPath = card.spark.map((y: number, i: number) => `${i * 7},${y}`).join(' ');
+                    return (
+                        <div key={card.label} className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 p-3.5 flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl shrink-0 flex items-center justify-center" style={{ background: card.bg }}>
+                                <card.Icon size={16} style={{ color: card.color }} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-[10px] font-black uppercase tracking-widest truncate" style={{ color: card.color }}>{card.label}</p>
+                                <p className="text-2xl font-black text-gray-800 leading-tight">{Number(card.value).toLocaleString()}</p>
+                                <p className="text-[10px] text-gray-400 truncate">{card.sub}</p>
+                            </div>
+                            <div className="shrink-0 text-right">
+                                <svg width="42" height="22" viewBox="0 0 42 22">
+                                    <polyline points={sparkPath} fill="none" stroke={card.color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" opacity="0.65" />
+                                </svg>
+                            </div>
                         </div>
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-300/30 group-hover:scale-110 transition-transform">
-                            <FiPackage className="text-white" size={22} />
-                        </div>
-                    </div>
-                </div>
-                {/* Active SKUs */}
-                <div className="relative overflow-hidden rounded-2xl bg-white border border-emerald-100 p-5 shadow-sm hover:shadow-xl transition-all group">
-                    <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-gradient-to-br from-emerald-100 to-green-50 opacity-60 group-hover:scale-125 transition-transform" />
-                    <div className="relative flex items-center justify-between">
-                        <div>
-                            <p className="text-xs font-bold text-emerald-500 uppercase tracking-wider">Active SKUs</p>
-                            <p className="text-3xl font-black text-gray-800 mt-1">{products.filter(p => p.active).length}</p>
-                            <p className="text-[10px] text-gray-400 mt-1">Available for sale</p>
-                        </div>
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-300/30 group-hover:scale-110 transition-transform">
-                            <FiCheck className="text-white" size={22} />
-                        </div>
-                    </div>
-                </div>
-                {/* Categories */}
-                <div className="relative overflow-hidden rounded-2xl bg-white border border-purple-100 p-5 shadow-sm hover:shadow-xl transition-all group">
-                    <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-gradient-to-br from-purple-100 to-violet-50 opacity-60 group-hover:scale-125 transition-transform" />
-                    <div className="relative flex items-center justify-between">
-                        <div>
-                            <p className="text-xs font-bold text-purple-500 uppercase tracking-wider">Categories</p>
-                            <p className="text-3xl font-black text-gray-800 mt-1">{categories.length}</p>
-                            <p className="text-[10px] text-gray-400 mt-1">Product groups</p>
-                        </div>
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-purple-300/30 group-hover:scale-110 transition-transform">
-                            <FiLayers className="text-white" size={22} />
-                        </div>
-                    </div>
-                </div>
-                {/* Low Inventory */}
-                <div className={`relative overflow-hidden rounded-2xl bg-white border p-5 shadow-sm hover:shadow-xl transition-all group ${lowStock > 0 ? 'border-red-100' : 'border-teal-100'}`}>
-                    <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full opacity-60 group-hover:scale-125 transition-transform ${lowStock > 0 ? 'bg-gradient-to-br from-red-100 to-orange-50' : 'bg-gradient-to-br from-teal-100 to-cyan-50'}`} />
-                    <div className="relative flex items-center justify-between">
-                        <div>
-                            <p className={`text-xs font-bold uppercase tracking-wider ${lowStock > 0 ? 'text-red-500' : 'text-teal-500'}`}>Low Inventory</p>
-                            <p className="text-3xl font-black text-gray-800 mt-1">{lowStock}</p>
-                            <p className="text-[10px] text-gray-400 mt-1">{lowStock > 0 ? 'Items need restock' : 'All stocked well'}</p>
-                        </div>
-                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform ${lowStock > 0 ? 'bg-gradient-to-br from-red-500 to-orange-600 shadow-red-300/30' : 'bg-gradient-to-br from-teal-500 to-cyan-600 shadow-teal-300/30'}`}>
-                            <FiAlertTriangle className="text-white" size={22} />
-                        </div>
-                    </div>
-                </div>
+                    );
+                })}
             </div>
 
-            {/* ━━━ STOCK VALUATION CARDS ━━━ */}
-            {showValuation && <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                {/* Stock Value - Cost */}
-                <div className="rounded-2xl bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 p-5 text-white shadow-lg shadow-blue-400/20 hover:shadow-xl transition-all relative overflow-hidden">
-                    <div className="absolute right-3 top-3 w-16 h-16 rounded-full bg-white/10 blur-lg" />
-                    <div className="absolute right-8 bottom-2 opacity-10"><FiDollarSign size={70} /></div>
-                    <p className="text-xs font-bold text-blue-200 uppercase tracking-wider">Stock Value — Purchase Cost</p>
-                    <p className="text-3xl font-black mt-2">Ksh {stockValCost.toLocaleString()}</p>
-                    <div className="flex items-center gap-2 mt-2"><FiTrendingUp size={14} className="text-blue-200" /><span className="text-xs text-blue-200">Total cost of all stock at buying price</span></div>
+            {/* ━━━ VALUATION INTELLIGENCE CARDS (SuperAdmin / Licensed Outlets Only) ━━━ */}
+            {hasValuationAccess && showValuation && (
+                <div>
+                    <div className="flex items-center gap-2 mb-2.5">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-full flex items-center gap-1">
+                            📊 Stock Valuation Intelligence
+                        </span>
+                        <span className="text-[10px] text-gray-400">{products.length} products · {Object.keys(stockData).length} stocked</span>
+                    </div>
+                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                        {([
+                            { label: 'Cost Value',       value: stockValCost,         sub: 'At purchase price',  color: '#4F46E5', bg: '#EEF2FF', Icon: FiDollarSign,  spark: [20,18,16,14,12,10,8],  trend: 'Cost basis',        up: true  },
+                            { label: 'Retail Value',     value: stockValRetail,       sub: 'At selling price',   color: '#059669', bg: '#F0FDF4', Icon: FiTrendingUp,  spark: [8,10,12,14,16,18,20],  trend: `${stockValCost > 0 ? ((stockRetailProfit/stockValCost)*100).toFixed(1) : '0'}% above cost`, up: true  },
+                            { label: 'Wholesale Value',  value: stockValWholesale,    sub: 'At wholesale price', color: '#0EA5E9', bg: '#F0F9FF', Icon: FiLayers,      spark: [12,10,14,16,12,18,16], trend: 'B2B valuation',     up: true  },
+                            { label: 'Retail Profit',    value: stockRetailProfit,    sub: 'If sold at retail',  color: '#10B981', bg: '#F0FDF4', Icon: FiZap,         spark: [6,8,12,14,18,16,20],   trend: `${stockValCost > 0 ? ((stockRetailProfit/stockValCost)*100).toFixed(1) : '0'}% margin`, up: stockRetailProfit >= 0 },
+                            { label: 'Wholesale Profit', value: stockWholesaleProfit, sub: 'If sold wholesale',  color: '#F59E0B', bg: '#FFFBEB', Icon: FiTrendingUp,  spark: [4,6,10,8,12,14,18],   trend: `${stockValCost > 0 ? ((stockWholesaleProfit/stockValCost)*100).toFixed(1) : '0'}% margin`, up: stockWholesaleProfit >= 0 },
+                        ] as const).map(c => {
+                            const sparkPath = c.spark.map((y: number, i: number) => `${i * 7},${y}`).join(' ');
+                            return (
+                                <div key={c.label} className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 p-3.5">
+                                    <div className="flex items-start justify-between mb-1.5">
+                                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: c.bg }}>
+                                            <c.Icon size={14} style={{ color: c.color }} />
+                                        </div>
+                                        <div className="text-right">
+                                            <svg width="42" height="20" viewBox="0 0 42 20">
+                                                <polyline points={sparkPath} fill="none" stroke={c.color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
+                                            </svg>
+                                            <span className={`text-[9px] font-bold ${c.up ? 'text-emerald-600' : 'text-red-500'}`}>
+                                                {c.up ? '▲' : '▼'} {c.trend}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 truncate mb-0.5">{c.label}</p>
+                                    <p className="text-base font-black text-gray-800 leading-tight">Ksh {Math.abs(c.value).toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                                    <p className="text-[10px] text-gray-400 mt-0.5 truncate">{c.sub}</p>
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
-                {/* Stock Value - Sales */}
-                <div className="rounded-2xl bg-gradient-to-br from-emerald-500 via-green-600 to-teal-700 p-5 text-white shadow-lg shadow-emerald-400/20 hover:shadow-xl transition-all relative overflow-hidden">
-                    <div className="absolute right-3 top-3 w-16 h-16 rounded-full bg-white/10 blur-lg" />
-                    <div className="absolute right-8 bottom-2 opacity-10"><FiTrendingUp size={70} /></div>
-                    <p className="text-xs font-bold text-emerald-200 uppercase tracking-wider">Stock Value — Sales Rate</p>
-                    <p className="text-3xl font-black mt-2">Ksh {stockValSales.toLocaleString()}</p>
-                    <div className="flex items-center gap-2 mt-2"><FiTrendingUp size={14} className="text-emerald-200" /><span className="text-xs text-emerald-200">Total value if all stock sold at sell price</span></div>
-                </div>
-                {/* Potential Profit */}
-                <div className="rounded-2xl bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 p-5 text-white shadow-lg shadow-orange-400/20 hover:shadow-xl transition-all relative overflow-hidden">
-                    <div className="absolute right-3 top-3 w-16 h-16 rounded-full bg-white/10 blur-lg" />
-                    <div className="absolute right-8 bottom-2 opacity-10"><FiZap size={70} /></div>
-                    <p className="text-xs font-bold text-amber-100 uppercase tracking-wider">Potential Profit</p>
-                    <p className="text-3xl font-black mt-2">Ksh {potentialProfit.toLocaleString()}</p>
-                    <div className="flex items-center gap-2 mt-2"><FiZap size={14} className="text-amber-100" /><span className="text-xs text-amber-100">Profit if all stock sold • Margin: {stockValCost > 0 ? ((potentialProfit / stockValCost) * 100).toFixed(1) : '0'}%</span></div>
-                </div>
-            </div>}
+            )}
+
+
 
             {/* ━━━ SEARCH & FILTER BAR ━━━ */}
             <div className="glass-card p-4 flex flex-col lg:flex-row gap-3 items-center">
