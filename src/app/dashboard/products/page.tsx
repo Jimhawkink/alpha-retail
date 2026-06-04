@@ -102,7 +102,10 @@ export default function ProductsPage() {
     const [pieceStockData, setPieceStockData] = useState<Record<number, number>>({});
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
     const [showValuation, setShowValuation] = useState(true);
-    const [hasValuationAccess, setHasValuationAccess] = useState(false);
+    const [hasRetailProfitFeature,    setHasRetailProfitFeature]    = useState(false);
+    const [hasWholesaleProfitFeature,  setHasWholesaleProfitFeature]  = useState(false);
+    const [hasValuationCardsFeature,   setHasValuationCardsFeature]   = useState(false);
+    const hasValuationAccess = hasValuationCardsFeature; // alias — cards/valuation sections use this
     const [page, setPage] = useState(1);
     const [perPage, setPerPage] = useState(20);
 
@@ -224,19 +227,30 @@ export default function ProductsPage() {
     useEffect(() => { loadProducts(); loadStockData(); loadCategories(); loadSuppliers(); loadUnits(); loadCompanyName(); },
         [loadProducts, loadStockData, loadCategories, loadSuppliers, loadUnits, loadCompanyName]);
 
-    // ─── LICENSE CHECK ───
+    // ─── GRANULAR FEATURE FLAGS — per outlet from license_settings ───
     useEffect(() => {
         try {
             const raw = localStorage.getItem('user');
             if (!raw) return;
             const u = JSON.parse(raw);
             const t = (u.userType || '').toLowerCase().replace(/\s/g, '');
-            if (t === 'superadmin' || t === 'superuser') { setHasValuationAccess(true); return; }
-            // Check outlet license
+            if (t === 'superadmin' || t === 'superuser') {
+                setHasRetailProfitFeature(true);
+                setHasWholesaleProfitFeature(true);
+                setHasValuationCardsFeature(true);
+                return;
+            }
             const oid = activeOutlet?.outlet_id || 1;
             supabase.from('license_settings').select('setting_value')
-                .eq('setting_key', `outlet_license_active_${oid}`).single()
-                .then(({ data }) => { if (data?.setting_value === 'true') setHasValuationAccess(true); });
+                .eq('setting_key', `outlet_features_${oid}`).single()
+                .then(({ data }) => {
+                    try {
+                        const features: string[] = JSON.parse(data?.setting_value || '[]');
+                        setHasRetailProfitFeature(features.includes('retail_profit'));
+                        setHasWholesaleProfitFeature(features.includes('wholesale_profit'));
+                        setHasValuationCardsFeature(features.includes('valuation_cards'));
+                    } catch { /* silent */ }
+                });
         } catch { /* silent */ }
     }, [activeOutlet]);
 
@@ -1124,10 +1138,8 @@ export default function ProductsPage() {
                                                 onChange={e => { const cpp = parseFloat(e.target.value) || 0; setFormData({ ...formData, purchase_cost: Math.round(cpp * (formData.pieces_per_package || 1) * 100) / 100 }); }}
                                                 className="w-full px-2 py-1.5 bg-white border border-blue-300 rounded-lg text-sm font-bold text-blue-800 focus:border-blue-500 outline-none" min="0" step="0.01" />
                                         </div>
-                                        {/* Retail Profit, WS Profit, Profit/Bag — PREMIUM ONLY */}
-                                        {hasValuationAccess && <>
-                                        {/* Retail Profit Per Piece */}
-                                        {formData.sales_cost > 0 && (() => {
+                                        {/* ── RETAIL PROFIT — gated by retail_profit feature ── */}
+                                        {hasRetailProfitFeature && formData.sales_cost > 0 && (() => {
                                             const cpp = formData.purchase_cost / (formData.pieces_per_package || 1);
                                             const rProfit = formData.sales_cost - cpp;
                                             return (
@@ -1138,8 +1150,8 @@ export default function ProductsPage() {
                                                 </div>
                                             );
                                         })()}
-                                        {/* Profit Per Piece (Wholesale) */}
-                                        {formData.wholesale_price > 0 && (
+                                        {/* ── WS PROFIT/Pc — gated by wholesale_profit feature ── */}
+                                        {hasWholesaleProfitFeature && formData.wholesale_price > 0 && (
                                             <div className={`rounded-xl p-3 border ${(formData.wholesale_price - formData.purchase_cost / (formData.pieces_per_package || 1)) > 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
                                                 <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">🤝 WS Profit / {formData.sales_unit}</p>
                                                 <p className={`text-lg font-black mt-0.5 ${(formData.wholesale_price - formData.purchase_cost / (formData.pieces_per_package || 1)) > 0 ? 'text-emerald-700' : 'text-red-700'}`}>
@@ -1148,8 +1160,8 @@ export default function ProductsPage() {
                                                 <p className="text-[10px] text-gray-400">Wholesale − Cost/Pc</p>
                                             </div>
                                         )}
-                                        {/* Profit Per Bag (Wholesale) */}
-                                        {formData.wholesale_price > 0 && formData.pieces_per_package > 1 && (
+                                        {/* ── PROFIT/BAG — gated by wholesale_profit feature ── */}
+                                        {hasWholesaleProfitFeature && formData.wholesale_price > 0 && formData.pieces_per_package > 1 && (
                                             <div className={`rounded-xl p-3 border ${(formData.wholesale_price * formData.pieces_per_package - formData.purchase_cost) > 0 ? 'bg-indigo-50 border-indigo-200' : 'bg-red-50 border-red-200'}`}>
                                                 <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Profit / {formData.purchase_unit}</p>
                                                 <p className={`text-lg font-black mt-0.5 ${(formData.wholesale_price * formData.pieces_per_package - formData.purchase_cost) > 0 ? 'text-indigo-700' : 'text-red-700'}`}>
@@ -1158,10 +1170,10 @@ export default function ProductsPage() {
                                                 <p className="text-[10px] text-gray-400">(WS × {formData.pieces_per_package}) − Buy</p>
                                             </div>
                                         )}
-                                        </>}
 
-                                        {/* Margin / Profit per piece — PREMIUM ONLY */}
-                                        {hasValuationAccess && (
+                                        {/* ── MARGIN/PIECE — gated by wholesale_profit feature ── */}
+                                        {hasWholesaleProfitFeature && (
+
                                         <div className="bg-white rounded-xl p-3 border border-gray-200">
                                             <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Profit/Piece</p>
                                             {(() => {
