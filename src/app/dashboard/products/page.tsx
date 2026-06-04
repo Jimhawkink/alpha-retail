@@ -1124,6 +1124,8 @@ export default function ProductsPage() {
                                                 onChange={e => { const cpp = parseFloat(e.target.value) || 0; setFormData({ ...formData, purchase_cost: Math.round(cpp * (formData.pieces_per_package || 1) * 100) / 100 }); }}
                                                 className="w-full px-2 py-1.5 bg-white border border-blue-300 rounded-lg text-sm font-bold text-blue-800 focus:border-blue-500 outline-none" min="0" step="0.01" />
                                         </div>
+                                        {/* Retail Profit, WS Profit, Profit/Bag — PREMIUM ONLY */}
+                                        {hasValuationAccess && <>
                                         {/* Retail Profit Per Piece */}
                                         {formData.sales_cost > 0 && (() => {
                                             const cpp = formData.purchase_cost / (formData.pieces_per_package || 1);
@@ -1156,7 +1158,10 @@ export default function ProductsPage() {
                                                 <p className="text-[10px] text-gray-400">(WS × {formData.pieces_per_package}) − Buy</p>
                                             </div>
                                         )}
-                                        {/* Margin / Profit per piece */}
+                                        </>}
+
+                                        {/* Margin / Profit per piece — PREMIUM ONLY */}
+                                        {hasValuationAccess && (
                                         <div className="bg-white rounded-xl p-3 border border-gray-200">
                                             <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Profit/Piece</p>
                                             {(() => {
@@ -1173,6 +1178,8 @@ export default function ProductsPage() {
                                                 );
                                             })()}
                                         </div>
+                                        )}
+
                                     </div>
                                 )}
                             </div>
