@@ -623,36 +623,44 @@ export default function ProductsPage() {
 
             {/* ━━━ STAT CARDS ━━━ */}
             {hasValuationAccess ? (
-                /* NEW: Glassmorphic watchlist cards — Licensed/SuperAdmin */
+                /* NEW: Individual colored glassmorphic cards — Licensed/SuperAdmin */
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {([
-                        { label: 'Total Products', value: products.length, sub: 'All items in DB', color: '#3B82F6', bg: '#EFF6FF', Icon: FiPackage, spark: [20,16,18,10,14,8,5] },
-                        { label: 'Active SKUs', value: products.filter(p => p.active).length, sub: 'Available for sale', color: '#10B981', bg: '#F0FDF4', Icon: FiCheck, spark: [18,14,12,16,10,8,4] },
-                        { label: 'Categories', value: categories.length, sub: 'Product groups', color: '#8B5CF6', bg: '#F5F3FF', Icon: FiLayers, spark: [20,18,16,14,12,14,10] },
-                        { label: 'Low Inventory', value: lowStock, sub: lowStock > 0 ? 'Items need restock' : 'All stocked well', color: lowStock > 0 ? '#EF4444' : '#14B8A6', bg: lowStock > 0 ? '#FEF2F2' : '#F0FDFA', Icon: FiAlertTriangle, spark: [5,8,10,14,16,18,20] },
+                        { label: 'Total Products', value: products.length, sub: 'All items in DB', color: '#3B82F6', rgb: '59,130,246', Icon: FiPackage, spark: [20,16,18,10,14,8,5] },
+                        { label: 'Active SKUs', value: products.filter(p => p.active).length, sub: 'Available for sale', color: '#10B981', rgb: '16,185,129', Icon: FiCheck, spark: [18,14,12,16,10,8,4] },
+                        { label: 'Categories', value: categories.length, sub: 'Product groups', color: '#8B5CF6', rgb: '139,92,246', Icon: FiLayers, spark: [20,18,16,14,12,14,10] },
+                        { label: 'Low Inventory', value: lowStock, sub: lowStock > 0 ? 'Items need restock' : 'All stocked well', color: lowStock > 0 ? '#EF4444' : '#14B8A6', rgb: lowStock > 0 ? '239,68,68' : '20,184,166', Icon: FiAlertTriangle, spark: [5,8,10,14,16,18,20] },
                     ] as const).map(card => {
                         const sparkPath = card.spark.map((y: number, i: number) => `${i * 7},${y}`).join(' ');
                         return (
                             <div key={card.label}
-                                className="rounded-xl hover:shadow-lg transition-all duration-200 p-3.5 flex items-center gap-3"
-                                style={{ background: 'rgba(255,255,255,0.70)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', border: '1px solid rgba(255,255,255,0.55)', boxShadow: '0 4px 24px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.9)' }}>
-                                <div className="w-9 h-9 rounded-xl shrink-0 flex items-center justify-center" style={{ background: card.bg }}>
-                                    <card.Icon size={16} style={{ color: card.color }} />
+                                className="rounded-2xl p-4 flex items-center gap-3 hover:scale-[1.02] transition-all duration-200 cursor-default"
+                                style={{
+                                    background: `linear-gradient(135deg, rgba(${card.rgb},0.09) 0%, rgba(255,255,255,0.92) 100%)`,
+                                    backdropFilter: 'blur(20px)',
+                                    WebkitBackdropFilter: 'blur(20px)',
+                                    border: `1.5px solid rgba(${card.rgb},0.22)`,
+                                    boxShadow: `0 8px 32px rgba(${card.rgb},0.13), 0 2px 8px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.95)`,
+                                }}>
+                                <div className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center"
+                                    style={{ background: `rgba(${card.rgb},0.12)`, border: `1px solid rgba(${card.rgb},0.2)` }}>
+                                    <card.Icon size={18} style={{ color: card.color }} />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className="text-[10px] font-black uppercase tracking-widest truncate" style={{ color: card.color }}>{card.label}</p>
                                     <p className="text-2xl font-black text-gray-800 leading-tight">{Number(card.value).toLocaleString()}</p>
                                     <p className="text-[10px] text-gray-400 truncate">{card.sub}</p>
                                 </div>
-                                <div className="shrink-0 text-right">
+                                <div className="shrink-0">
                                     <svg width="42" height="22" viewBox="0 0 42 22">
-                                        <polyline points={sparkPath} fill="none" stroke={card.color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" opacity="0.65" />
+                                        <polyline points={sparkPath} fill="none" stroke={card.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" />
                                     </svg>
                                 </div>
                             </div>
                         );
                     })}
                 </div>
+
             ) : (
                 /* OLD: Big cards — for unlicensed outlets (Main, Chebunyo, etc.) */
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -697,25 +705,34 @@ export default function ProductsPage() {
                     </div>
                     <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
                         {([
-                            { label: 'Cost Value',       value: stockValCost,         sub: 'At purchase price',  color: '#4F46E5', bg: '#EEF2FF', Icon: FiDollarSign,  spark: [20,18,16,14,12,10,8],  trend: 'Cost basis',        up: true  },
-                            { label: 'Retail Value',     value: stockValRetail,       sub: 'At selling price',   color: '#059669', bg: '#F0FDF4', Icon: FiTrendingUp,  spark: [8,10,12,14,16,18,20],  trend: `${stockValCost > 0 ? ((stockRetailProfit/stockValCost)*100).toFixed(1) : '0'}% above cost`, up: true  },
-                            { label: 'Wholesale Value',  value: stockValWholesale,    sub: 'At wholesale price', color: '#0EA5E9', bg: '#F0F9FF', Icon: FiLayers,      spark: [12,10,14,16,12,18,16], trend: 'B2B valuation',     up: true  },
-                            { label: 'Retail Profit',    value: stockRetailProfit,    sub: 'If sold at retail',  color: '#10B981', bg: '#F0FDF4', Icon: FiZap,         spark: [6,8,12,14,18,16,20],   trend: `${stockValCost > 0 ? ((stockRetailProfit/stockValCost)*100).toFixed(1) : '0'}% margin`, up: stockRetailProfit >= 0 },
-                            { label: 'Wholesale Profit', value: stockWholesaleProfit, sub: 'If sold wholesale',  color: '#F59E0B', bg: '#FFFBEB', Icon: FiTrendingUp,  spark: [4,6,10,8,12,14,18],   trend: `${stockValCost > 0 ? ((stockWholesaleProfit/stockValCost)*100).toFixed(1) : '0'}% margin`, up: stockWholesaleProfit >= 0 },
+                            { label: 'Cost Value',       value: stockValCost,         sub: 'At purchase price',  color: '#4F46E5', rgb: '79,70,229',   Icon: FiDollarSign,  spark: [20,18,16,14,12,10,8],  trend: 'Cost basis',        up: true  },
+                            { label: 'Retail Value',     value: stockValRetail,       sub: 'At selling price',   color: '#059669', rgb: '5,150,105',   Icon: FiTrendingUp,  spark: [8,10,12,14,16,18,20],  trend: `${stockValCost > 0 ? ((stockRetailProfit/stockValCost)*100).toFixed(1) : '0'}% above cost`, up: true  },
+                            { label: 'Wholesale Value',  value: stockValWholesale,    sub: 'At wholesale price', color: '#0EA5E9', rgb: '14,165,233',  Icon: FiLayers,      spark: [12,10,14,16,12,18,16], trend: 'B2B valuation',     up: true  },
+                            { label: 'Retail Profit',    value: stockRetailProfit,    sub: 'If sold at retail',  color: '#10B981', rgb: '16,185,129',  Icon: FiZap,         spark: [6,8,12,14,18,16,20],   trend: `${stockValCost > 0 ? ((stockRetailProfit/stockValCost)*100).toFixed(1) : '0'}% margin`, up: stockRetailProfit >= 0 },
+                            { label: 'Wholesale Profit', value: stockWholesaleProfit, sub: 'If sold wholesale',  color: '#F59E0B', rgb: '245,158,11',  Icon: FiTrendingUp,  spark: [4,6,10,8,12,14,18],   trend: `${stockValCost > 0 ? ((stockWholesaleProfit/stockValCost)*100).toFixed(1) : '0'}% margin`, up: stockWholesaleProfit >= 0 },
                         ] as const).map(c => {
                             const sparkPath = c.spark.map((y: number, i: number) => `${i * 7},${y}`).join(' ');
                             return (
                                 <div key={c.label}
-                                    className="rounded-xl hover:shadow-lg transition-all duration-200 p-3.5"
-                                    style={{ background: 'rgba(255,255,255,0.70)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', border: '1px solid rgba(255,255,255,0.55)', boxShadow: '0 4px 24px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.9)' }}>
-                                    <div className="flex items-start justify-between mb-1.5">
-                                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: c.bg }}><c.Icon size={14} style={{ color: c.color }} /></div>
+                                    className="rounded-2xl p-3.5 hover:scale-[1.02] transition-all duration-200 cursor-default"
+                                    style={{
+                                        background: `linear-gradient(135deg, rgba(${c.rgb},0.09) 0%, rgba(255,255,255,0.92) 100%)`,
+                                        backdropFilter: 'blur(20px)',
+                                        WebkitBackdropFilter: 'blur(20px)',
+                                        border: `1.5px solid rgba(${c.rgb},0.22)`,
+                                        boxShadow: `0 8px 32px rgba(${c.rgb},0.12), 0 2px 8px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.95)`,
+                                    }}>
+                                    <div className="flex items-start justify-between mb-2">
+                                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                                            style={{ background: `rgba(${c.rgb},0.12)`, border: `1px solid rgba(${c.rgb},0.2)` }}>
+                                            <c.Icon size={14} style={{ color: c.color }} />
+                                        </div>
                                         <div className="text-right">
-                                            <svg width="42" height="20" viewBox="0 0 42 20"><polyline points={sparkPath} fill="none" stroke={c.color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" /></svg>
+                                            <svg width="42" height="20" viewBox="0 0 42 20"><polyline points={sparkPath} fill="none" stroke={c.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" /></svg>
                                             <span className={`text-[9px] font-bold ${c.up ? 'text-emerald-600' : 'text-red-500'}`}>{c.up ? '▲' : '▼'} {c.trend}</span>
                                         </div>
                                     </div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 truncate mb-0.5">{c.label}</p>
+                                    <p className="text-[10px] font-black uppercase tracking-widest truncate mb-0.5" style={{ color: c.color }}>{c.label}</p>
                                     <p className="text-base font-black text-gray-800 leading-tight">Ksh {Math.abs(c.value).toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
                                     <p className="text-[10px] text-gray-400 mt-0.5 truncate">{c.sub}</p>
                                 </div>
@@ -724,6 +741,7 @@ export default function ProductsPage() {
                     </div>
                 </div>
             )}
+
             {!hasValuationAccess && showValuation && (
                 /* OLD: 3 gradient cards — unlicensed outlets keep their original view */
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
