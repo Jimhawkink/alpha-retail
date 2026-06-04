@@ -80,7 +80,7 @@ export default function CompanyPage() {
     const [activeTab, setActiveTab]   = useState<'general' | 'location' | 'receipt' | 'system' | 'email'>('general');
     const [outlets, setOutlets]       = useState<Array<{ outlet_id: number; outlet_name: string; outlet_code: string }>>([]);
     const [outletPriceModes, setOutletPriceModes] = useState<Record<number,'retail'|'wholesale'>>({});
-
+    const [outletPremiumAccess, setOutletPremiumAccess] = useState<Record<number, boolean>>({});
 
     const isSuperAdmin = ['superadmin', 'superuser'].includes((userType || '').toLowerCase().replace(/\s/g, ''));
 
@@ -127,11 +127,15 @@ export default function CompanyPage() {
             if (outletData) {
                 setOutlets(outletData);
                 const modes: Record<number,'retail'|'wholesale'> = {};
+                const premium: Record<number, boolean> = {};
                 for (const o of outletData) {
                     const { data: pm } = await supabase.from('license_settings').select('setting_value').eq('setting_key', `pos_price_mode_${o.outlet_id}`).single();
                     modes[o.outlet_id] = pm?.setting_value === 'retail' ? 'retail' : 'wholesale';
+                    const { data: lic } = await supabase.from('license_settings').select('setting_value').eq('setting_key', `outlet_license_active_${o.outlet_id}`).single();
+                    premium[o.outlet_id] = lic?.setting_value === 'true';
                 }
                 setOutletPriceModes(modes);
+                setOutletPremiumAccess(premium);
             }
         }
         setLoading(false);
@@ -152,10 +156,16 @@ export default function CompanyPage() {
                     { onConflict: 'setting_key' }
                 );
             }
-            // Save per-outlet POS price modes to license_settings
+            // Save per-outlet POS price modes + premium access to license_settings
             for (const [outletId, mode] of Object.entries(outletPriceModes)) {
                 await supabase.from('license_settings').upsert(
                     { setting_key: `pos_price_mode_${outletId}`, setting_value: mode },
+                    { onConflict: 'setting_key' }
+                );
+            }
+            for (const [outletId, active] of Object.entries(outletPremiumAccess)) {
+                await supabase.from('license_settings').upsert(
+                    { setting_key: `outlet_license_active_${outletId}`, setting_value: String(active) },
                     { onConflict: 'setting_key' }
                 );
             }
@@ -459,6 +469,46 @@ export default function CompanyPage() {
                                 </div>
                             ))}
                         </div>
+
+                        {/* ─── Premium Features per outlet (SuperAdmin only) ─── */}
+                        {isSuperAdmin && outlets.length > 0 && (
+                            <div className="p-5 rounded-2xl border-2 border-emerald-200 bg-emerald-50/40">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <span className="text-lg">⭐</span>
+                                    <div>
+                                        <p className="font-bold text-sm text-emerald-800">Premium Features — Per Outlet</p>
+                                        <p className="text-[11px] text-emerald-600">Enable or disable ALL premium features for each outlet (valuation cards, profit analytics, glassmorphic UI)</p>
+                                    </div>
+                                    <span className="ml-auto text-[9px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 flex items-center gap-1 shrink-0"><FiShield size={9} /> SUPERADMIN ONLY</span>
+                                </div>
+                                <div className="space-y-2">
+                                    {outlets.map(outlet => {
+                                        const isActive = outletPremiumAccess[outlet.outlet_id] ?? false;
+                                        return (
+                                            <div key={outlet.outlet_id} className="flex items-center justify-between bg-white rounded-xl px-4 py-3 border border-emerald-100 shadow-sm">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-gray-300'}`} />
+                                                    <div>
+                                                        <p className="text-sm font-bold text-gray-800">{outlet.outlet_name}</p>
+                                                        <p className="text-[10px] uppercase tracking-wider text-gray-400">{outlet.outlet_code}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                                                        {isActive ? '✅ PREMIUM' : '🔒 STANDARD'}
+                                                    </span>
+                                                    <Toggle
+                                                        checked={isActive}
+                                                        onChange={() => setOutletPremiumAccess(prev => ({ ...prev, [outlet.outlet_id]: !isActive }))}
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <p className="text-[11px] text-emerald-500 mt-3">💡 Toggle then click <strong>Save Changes</strong> above. Takes effect immediately on next page load for that outlet.</p>
+                            </div>
+                        )}
 
                         {/* ─── POS Price Display per outlet (SuperAdmin only) ─── */}
                         {isSuperAdmin && outlets.length > 0 && (
