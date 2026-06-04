@@ -235,7 +235,7 @@ const CategoryButton = ({
 );
 
 // Product Card — Premium Compact Design: name + price on same line
-const ProductCard = ({ product, onAdd }: { product: Product; onAdd: () => void }) => (
+const ProductCard = ({ product, onAdd, posDefaultPrice }: { product: Product; onAdd: () => void; posDefaultPrice?: 'retail' | 'wholesale' }) => (
     <div
         className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col cursor-pointer group transition-all duration-200 hover:shadow-xl hover:border-emerald-300 hover:-translate-y-0.5"
         title={product.name}
@@ -271,7 +271,7 @@ const ProductCard = ({ product, onAdd }: { product: Product; onAdd: () => void }
                     {product.name}
                 </h3>
                 <span className="text-[12px] font-black text-emerald-600 whitespace-nowrap shrink-0 ml-1 mt-px">
-                    Ksh {product.salesPrice.toLocaleString()}
+                    Ksh {(posDefaultPrice === 'retail' ? (product.retailPrice ?? product.salesPrice) : product.salesPrice).toLocaleString()}
                 </span>
             </div>
 
@@ -1123,9 +1123,28 @@ export default function RetailPOSPage() {
     // ─── QUICK ACTIONS FAB ───
     const [showQuickActions, setShowQuickActions] = useState(false);
     const [qaSearch, setQaSearch] = useState('');
+    // ─── POS DEFAULT PRICE MODE (retail | wholesale) — SuperAdmin setting ───
+    const [posDefaultPrice, setPosDefaultPrice] = useState<'retail' | 'wholesale'>('wholesale');
+    const [isSuperAdminUser, setIsSuperAdminUser] = useState(false);
     // ── Premium FAB: only show for licensed/Silibwet outlets ──
     const showQuickActionsFAB = (activeOutlet?.outlet_code || '').toUpperCase().includes('SILB') ||
         (activeOutlet?.outlet_name || '').toLowerCase().includes('silibwet');
+    // ─── LOAD POS PRICE MODE + SUPERADMIN CHECK ───
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem('user');
+            if (raw) {
+                const u = JSON.parse(raw);
+                const t = (u.userType || '').toLowerCase().replace(/\s/g, '');
+                if (t === 'superadmin' || t === 'superuser') setIsSuperAdminUser(true);
+            }
+        } catch { /* silent */ }
+        supabase.from('organisation_settings').select('setting_value')
+            .eq('setting_key', 'pos_default_price').single()
+            .then(({ data }) => { if (data?.setting_value === 'retail') setPosDefaultPrice('retail'); });
+    }, []);
+
+
     useEffect(() => {
         const handleQAKey = (e: KeyboardEvent) => {
             if (e.altKey && e.key.toLowerCase() === 'q') { e.preventDefault(); setShowQuickActions(prev => !prev); }
@@ -2467,6 +2486,7 @@ export default function RetailPOSPage() {
                                                     key={product.id}
                                                     product={product}
                                                     onAdd={() => addToCart(product)}
+                                                    posDefaultPrice={posDefaultPrice}
                                                 />
                                             ))}
                                         </div>

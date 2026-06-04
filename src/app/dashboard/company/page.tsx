@@ -78,6 +78,7 @@ export default function CompanyPage() {
     const [testEmail, setTestEmail]   = useState('');
     const [userType, setUserType]     = useState('');
     const [activeTab, setActiveTab]   = useState<'general' | 'location' | 'receipt' | 'system' | 'email'>('general');
+    const [posDefaultPrice, setPosDefaultPrice] = useState<'retail' | 'wholesale'>('wholesale');
 
     const isSuperAdmin = ['superadmin', 'superuser'].includes((userType || '').toLowerCase().replace(/\s/g, ''));
 
@@ -100,6 +101,10 @@ export default function CompanyPage() {
                 }
             });
             setOrg(o);
+            // Load pos_default_price separately (not in OrgSettings interface)
+            const pdp = orgData.find((r: any) => r.setting_key === 'pos_default_price');
+            if (pdp?.setting_value === 'retail') setPosDefaultPrice('retail');
+            else setPosDefaultPrice('wholesale');
         }
 
         // Load smtp settings
@@ -129,6 +134,11 @@ export default function CompanyPage() {
             }
             toast.success('✅ Company settings saved!');
         } catch { toast.error('Save failed. Please try again.'); }
+        // Also save pos_default_price
+        await supabase.from('organisation_settings').upsert(
+            { setting_key: 'pos_default_price', setting_value: posDefaultPrice, updated_at: new Date().toISOString() },
+            { onConflict: 'setting_key' }
+        );
         setSaving(false);
     };
 
@@ -426,6 +436,41 @@ export default function CompanyPage() {
                                 </div>
                             ))}
                         </div>
+
+                        {/* ─── POS Price Display (SuperAdmin only) ─── */}
+                        {isSuperAdmin && (
+                            <div className="p-5 rounded-2xl border-2 border-violet-200 bg-violet-50/40">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <span className="text-lg">🏷️</span>
+                                    <div>
+                                        <p className="font-bold text-sm text-violet-800">POS Product Card — Default Price Display</p>
+                                        <p className="text-[11px] text-violet-500">Choose which price is shown on product cards in the POS screen for cashiers</p>
+                                    </div>
+                                    <span className="ml-auto text-[9px] font-black px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 flex items-center gap-1"><FiShield size={9} /> SUPERADMIN</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {[
+                                        { v: 'retail',    icon: '🏪', label: 'Retail Price',    sub: 'Show sales_cost — standard customer price' },
+                                        { v: 'wholesale', icon: '🤝', label: 'Wholesale Price',  sub: 'Show wholesale_price — bulk/trade price' },
+                                    ].map(opt => (
+                                        <button key={opt.v} type="button" onClick={() => setPosDefaultPrice(opt.v as any)}
+                                            className={`flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all ${
+                                                posDefaultPrice === opt.v
+                                                    ? 'border-violet-500 bg-violet-50 shadow-sm'
+                                                    : 'border-gray-200 bg-white hover:border-violet-300'
+                                            }`}>
+                                            <span className="text-2xl">{opt.icon}</span>
+                                            <div>
+                                                <p className={`text-sm font-bold ${posDefaultPrice === opt.v ? 'text-violet-700' : 'text-gray-700'}`}>{opt.label}</p>
+                                                <p className="text-[10px] text-gray-400">{opt.sub}</p>
+                                            </div>
+                                            {posDefaultPrice === opt.v && <FiCheck className="ml-auto text-violet-600 shrink-0" size={16} />}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-[11px] text-violet-400 mt-2">💡 This setting is saved when you click <strong>Save Changes</strong> above. The POS reads it automatically on next load.</p>
+                            </div>
+                        )}
 
                         {/* System info card */}
                         <div className="rounded-2xl overflow-hidden border border-gray-200">
