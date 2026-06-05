@@ -81,6 +81,7 @@ export default function CompanyPage() {
     const [outlets, setOutlets]       = useState<Array<{ outlet_id: number; outlet_name: string; outlet_code: string }>>([]);
     const [outletPriceModes, setOutletPriceModes]     = useState<Record<number,'retail'|'wholesale'>>({});
     const [outletFeatures, setOutletFeatures]          = useState<Record<number, string[]>>({});
+    const [outletNames, setOutletNames]               = useState<Record<number, string>>({}); // editable outlet names
 
     const isSuperAdmin = ['superadmin', 'superuser'].includes((userType || '').toLowerCase().replace(/\s/g, ''));
 
@@ -128,14 +129,17 @@ export default function CompanyPage() {
                 setOutlets(outletData);
                 const modes: Record<number,'retail'|'wholesale'> = {};
                 const features: Record<number, string[]> = {};
+                const names: Record<number, string> = {};
                 for (const o of outletData) {
                     const { data: pm } = await supabase.from('license_settings').select('setting_value').eq('setting_key', `pos_price_mode_${o.outlet_id}`).single();
                     modes[o.outlet_id] = pm?.setting_value === 'retail' ? 'retail' : 'wholesale';
                     const { data: ft } = await supabase.from('license_settings').select('setting_value').eq('setting_key', `outlet_features_${o.outlet_id}`).single();
                     try { features[o.outlet_id] = JSON.parse(ft?.setting_value || '[]'); } catch { features[o.outlet_id] = []; }
+                    names[o.outlet_id] = o.outlet_name; // current name
                 }
                 setOutletPriceModes(modes);
                 setOutletFeatures(features);
+                setOutletNames(names);
 
 
             }
@@ -165,10 +169,27 @@ export default function CompanyPage() {
                     { onConflict: 'setting_key' }
                 );
             }
-
             toast.success('✅ Company settings saved!');
         } catch { toast.error('Save failed. Please try again.'); }
         setSaving(false);
+    };
+
+    // ── Save outlet names (SuperAdmin only) ──────────────────────────
+    const saveOutletNames = async () => {
+        if (!isSuperAdmin) return;
+        try {
+            for (const [idStr, name] of Object.entries(outletNames)) {
+                const id = parseInt(idStr);
+                if (!name.trim()) continue;
+                const { error } = await supabase
+                    .from('retail_outlets')
+                    .update({ outlet_name: name.trim() })
+                    .eq('outlet_id', id);
+                if (error) throw error;
+            }
+            toast.success('✅ Outlet names saved!');
+            loadAll();
+        } catch { toast.error('Failed to save outlet names'); }
     };
 
 
@@ -307,7 +328,7 @@ export default function CompanyPage() {
                             <input type="text" value={org.company_name} onChange={e => setOrg({ ...org, company_name: e.target.value })}
                                 placeholder="e.g. Alpha Supermarket Ltd"
                                 className="w-full px-5 py-4 rounded-xl border-2 border-indigo-300 bg-white text-gray-800 text-base font-bold placeholder:text-gray-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all" />
-                            <p className="text-[11px] text-indigo-500 mt-1.5">⚡ Appears on receipts, reports, emails and login screen</p>
+                            <p className="text-[11px] text-indigo-500 mt-1.5">🏷️ This is your <strong>software/brand name</strong> — shown in sidebar &amp; login screen. <span className="text-red-500 font-semibold">NOT printed on receipts.</span> Set outlet names below for receipts.</p>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -338,6 +359,46 @@ export default function CompanyPage() {
                                     onChange={e => setOrg({ ...org, vat_rate: parseFloat(e.target.value) || 0 })} placeholder="16" className={inp} />
                             </Field>
                         </div>
+
+                        {/* ── Outlet Display Names — SuperAdmin ONLY ── */}
+                        {isSuperAdmin && outlets.length > 0 && (
+                            <div className="p-5 rounded-2xl border-2 border-purple-200 bg-purple-50/40">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div>
+                                        <h4 className="text-sm font-black text-purple-800">📍 Outlet Display Names</h4>
+                                        <p className="text-[11px] text-purple-500 mt-0.5">
+                                            These names print on <strong>receipts</strong> and show throughout the system per outlet.
+                                            <span className="ml-1 font-bold text-red-500">SuperAdmin only — Admin cannot edit this.</span>
+                                        </p>
+                                    </div>
+                                    <span className="text-[10px] font-black px-2.5 py-1 bg-purple-600 text-white rounded-full tracking-wider">SUPER ADMIN</span>
+                                </div>
+                                <div className="space-y-3">
+                                    {outlets.map(o => (
+                                        <div key={o.outlet_id} className="flex items-center gap-3">
+                                            <div className="flex-shrink-0 w-24">
+                                                <span className="text-[10px] font-black px-2.5 py-2 bg-purple-100 text-purple-700 rounded-lg block text-center">{o.outlet_code}</span>
+                                            </div>
+                                            <input
+                                                type="text"
+                                                value={outletNames[o.outlet_id] ?? o.outlet_name}
+                                                onChange={e => setOutletNames(prev => ({ ...prev, [o.outlet_id]: e.target.value }))}
+                                                placeholder="e.g. Bomet Stores"
+                                                className="flex-1 px-4 py-2.5 rounded-xl border-2 border-purple-200 bg-white text-gray-800 text-sm font-semibold placeholder:text-gray-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-100 outline-none transition-all"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={saveOutletNames}
+                                    className="mt-4 flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold rounded-xl transition-all text-sm shadow-md shadow-purple-200"
+                                >
+                                    <FiSave size={14} /> Save Outlet Names
+                                </button>
+                            </div>
+                        )}
+
                     </div>
                 )}
 
