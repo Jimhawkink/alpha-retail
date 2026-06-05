@@ -167,10 +167,16 @@ function OutletSwitcher() {
 function CompanyBrand() {
     const name = useCompanyName();
     const { activeOutlet } = useOutlet();
+    const isMain = activeOutlet?.is_main ?? true;
+    const displayName = activeOutlet && !isMain
+        ? `${name || 'Alpha Retail'} - ${activeOutlet.outlet_name}`
+        : (name || 'Alpha Retail');
     return (
         <div className="min-w-0">
-            <p className="text-sm font-black text-gray-800 truncate leading-tight">{name || 'Alpha Retail'}</p>
-            {activeOutlet && <p className="text-[10px] text-indigo-500 font-semibold truncate">📍 {activeOutlet.outlet_name}</p>}
+            <p className="text-sm font-black text-gray-800 truncate leading-tight">{displayName}</p>
+            {activeOutlet && !isMain && (
+                <p className="text-[10px] text-indigo-500 font-semibold truncate">📍 {activeOutlet.outlet_code}</p>
+            )}
         </div>
     );
 }

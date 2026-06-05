@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { logActivity } from '@/lib/supabase';
 import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
-import { FiPackage, FiPlus, FiEdit2, FiTrash2, FiShoppingCart, FiDownload, FiRefreshCw, FiSearch, FiGrid, FiList, FiChevronLeft, FiChevronRight, FiX, FiUpload, FiCheck, FiAlertTriangle, FiTag, FiDollarSign, FiLayers, FiFilter, FiTrendingUp, FiImage, FiPrinter, FiZap, FiClock, FiSliders, FiEye, FiChevronsLeft, FiChevronsRight, FiFileText } from 'react-icons/fi';
+import { FiPackage, FiPlus, FiEdit2, FiTrash2, FiShoppingCart, FiDownload, FiRefreshCw, FiSearch, FiGrid, FiList, FiChevronLeft, FiChevronRight, FiX, FiUpload, FiCheck, FiAlertTriangle, FiTag, FiDollarSign, FiLayers, FiFilter, FiTrendingUp, FiImage, FiPrinter, FiZap, FiClock, FiSliders, FiEye, FiEyeOff, FiChevronsLeft, FiChevronsRight, FiFileText } from 'react-icons/fi';
 
 interface Product {
     pid: number; product_code: string; product_name: string; alias: string;
@@ -106,6 +106,7 @@ export default function ProductsPage() {
     const [hasWholesaleProfitFeature,  setHasWholesaleProfitFeature]  = useState(false);
     const [hasValuationCardsFeature,   setHasValuationCardsFeature]   = useState(false);
     const hasValuationAccess = hasValuationCardsFeature; // alias — cards/valuation sections use this
+    const [showInactive, setShowInactive] = useState(false);
     const [page, setPage] = useState(1);
     const [perPage, setPerPage] = useState(20);
 
@@ -367,9 +368,21 @@ export default function ProductsPage() {
     };
 
     const deleteProduct = async (p: Product) => {
-        if (!confirm(`Delete "${p.product_name}"?`)) return;
+        if (!confirm(`Delete "${p.product_name}"? This is permanent.`)) return;
         try { const { error } = await supabase.from('retail_products').delete().eq('pid', p.pid); if (error) throw error; toast.success('Deleted'); logActivity('Delete', `Deleted product: ${p.product_name}`, `PID: ${p.pid}, Code: ${p.product_code}`); loadProducts(); }
         catch { toast.error('Failed'); }
+    };
+
+    const deactivateProduct = async (p: Product) => {
+        const action = p.active ? 'Deactivate' : 'Reactivate';
+        if (!confirm(`${action} "${p.product_name}"?`)) return;
+        try {
+            const { error } = await supabase.from('retail_products').update({ active: !p.active }).eq('pid', p.pid);
+            if (error) throw error;
+            toast.success(`${p.active ? '🔒 Deactivated' : '✅ Reactivated'}: ${p.product_name}`);
+            logActivity(action, `${action}d product: ${p.product_name}`, `PID: ${p.pid}`);
+            loadProducts();
+        } catch { toast.error(`Failed to ${action.toLowerCase()} product`); }
     };
 
     const exportCSV = () => {
@@ -562,6 +575,7 @@ export default function ProductsPage() {
     };
 
     const filtered = products.filter(p => {
+        if (!showInactive && !p.active) return false; // hide inactive by default
         const q = searchQuery.toLowerCase();
         return (p.product_name.toLowerCase().includes(q) || p.product_code.toLowerCase().includes(q) || (p.barcode && p.barcode.includes(searchQuery)))
             && (filterCategory === 'All' || p.category === filterCategory);
@@ -625,6 +639,9 @@ export default function ProductsPage() {
                     </button>
                     <button onClick={exportCSV} className="px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:text-blue-600 hover:border-blue-300 transition-all text-sm font-semibold flex items-center gap-2 shadow-sm">
                         <FiDownload size={14} /> Export
+                    </button>
+                    <button onClick={() => setShowInactive(v => !v)} className={`px-4 py-2.5 rounded-xl border transition-all text-sm font-semibold flex items-center gap-2 shadow-sm ${showInactive ? 'bg-orange-50 border-orange-300 text-orange-600' : 'bg-white border-gray-200 text-gray-600 hover:border-orange-300 hover:text-orange-500'}`} title="Show/hide deactivated products">
+                        {showInactive ? <FiEyeOff size={14} /> : <FiEye size={14} />} {showInactive ? 'Hide Inactive' : 'Show Inactive'}
                     </button>
                     <button onClick={() => { setShowImportModal(true); setImportFile(null); setImportStatus('idle'); setImportErrors([]); setImportProgress(0); setImportMode('add_new'); }} className="px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:text-emerald-600 hover:border-emerald-300 transition-all text-sm font-semibold flex items-center gap-2 shadow-sm">
                         <FiUpload size={14} /> Import
@@ -844,6 +861,9 @@ export default function ProductsPage() {
                                     )}
                                     <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <button onClick={() => openEditModal(p)} className="p-1.5 bg-white/90 rounded-lg text-blue-600 hover:bg-white shadow-sm"><FiEdit2 size={12} /></button>
+                                        <button onClick={() => deactivateProduct(p)} className={`p-1.5 bg-white/90 rounded-lg shadow-sm ${p.active ? 'text-orange-500 hover:text-orange-700' : 'text-emerald-600 hover:text-emerald-700'}`} title={p.active ? 'Deactivate' : 'Reactivate'}>
+                                            {p.active ? <FiEyeOff size={12} /> : <FiEye size={12} />}
+                                        </button>
                                         <button onClick={() => deleteProduct(p)} className="p-1.5 bg-white/90 rounded-lg text-red-500 hover:bg-white shadow-sm"><FiTrash2 size={12} /></button>
                                     </div>
                                     <span className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold ${p.active ? 'bg-emerald-500 text-white' : 'bg-gray-500 text-white'}`}>{p.active ? 'ACTIVE' : 'OFF'}</span>
@@ -951,7 +971,10 @@ export default function ProductsPage() {
                                                     <button onClick={() => openStockHistory(p)} className="p-1.5 rounded-lg bg-cyan-50 text-cyan-600 hover:bg-cyan-100 transition-all" title="Stock History"><FiClock size={12} /></button>
                                                     <button onClick={() => openPriceHistory(p)} className="p-1.5 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all" title="Price History"><FiTrendingUp size={12} /></button>
                                                     <button onClick={() => openStockAdjust(p)} className="p-1.5 rounded-lg bg-purple-50 text-purple-600 hover:bg-purple-100 transition-all" title="Stock Adjust"><FiSliders size={12} /></button>
-                                                    <button onClick={() => deleteProduct(p)} className="p-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-all" title="Delete"><FiTrash2 size={12} /></button>
+                                                    <button onClick={() => deactivateProduct(p)} className={`p-1.5 rounded-lg transition-all ${p.active ? 'bg-orange-50 text-orange-500 hover:bg-orange-100' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`} title={p.active ? 'Deactivate' : 'Reactivate'}>
+                                                        {p.active ? <FiEyeOff size={12} /> : <FiEye size={12} />}
+                                                    </button>
+                                                    <button onClick={() => deleteProduct(p)} className="p-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-all" title="Delete Permanently"><FiTrash2 size={12} /></button>
                                                 </div>
                                             </td>
                                         </tr>

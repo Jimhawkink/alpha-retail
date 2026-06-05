@@ -14,7 +14,6 @@ export interface Outlet {
     active: boolean;
     enable_expiry_tracking?: boolean;
     allowed_quick_actions?: Record<string, boolean>;
-    // ── M-Pesa credentials (optional — null = use system fallback if mpesa_use_system=true) ──
     mpesa_api_url?:          string | null;
     mpesa_anon_key?:         string | null;
     mpesa_shortcode?:        string | null;
@@ -22,21 +21,18 @@ export interface Outlet {
     mpesa_consumer_key?:     string | null;
     mpesa_consumer_secret?:  string | null;
     mpesa_callback_url?:     string | null;
-    // TRUE  → outlet uses system/hardcoded credentials (Main Outlet, Chebunyo)
-    // FALSE → outlet must have own credentials, or M-Pesa tab is disabled
     mpesa_use_system?:       boolean | null;
-    // ── Tier 2 multi-tenant (optional — null = public schema) ──
     db_schema?:              string | null;
 }
 
 interface OutletContextType {
     activeOutlet: Outlet | null;
-    outlets: Outlet[];
+    outlets: Outlet[];       // ← filtered to user's assigned outlet(s) for non-admins
     isMainOutlet: boolean;
-    expiryEnabled: boolean; // true if active outlet has expiry tracking ON
+    expiryEnabled: boolean;
     switchOutlet: (outletId: number) => void;
     reloadOutlets: () => Promise<void>;
-    outletFilter: (query: any) => any; // helper to add .eq('outlet_id', id) to Supabase queries
+    outletFilter: (query: any) => any;
 }
 
 const OutletContext = createContext<OutletContextType>({
@@ -51,40 +47,69 @@ const OutletContext = createContext<OutletContextType>({
 
 export const useOutlet = () => useContext(OutletContext);
 
+// ── Roles that can see ALL outlets ──────────────────────────────────────────
+const MULTI_OUTLET_ROLES = ['super admin', 'superadmin', 'manager'];
+
 export function OutletProvider({ children }: { children: ReactNode }) {
     const [activeOutlet, setActiveOutlet] = useState<Outlet | null>(null);
     const [outlets, setOutlets] = useState<Outlet[]>([]);
 
     const loadOutlets = useCallback(async () => {
         try {
-            const { data, error } = await supabase
+            // Load all active outlets from DB
+            const { data: allOutlets, error } = await supabase
                 .from('retail_outlets')
                 .select('*')
                 .eq('active', true)
                 .order('is_main', { ascending: false })
                 .order('outlet_name');
             if (error) throw error;
-            setOutlets(data || []);
 
-            // Restore active outlet from localStorage
-            const savedOutletId = localStorage.getItem('activeOutletId');
-            if (savedOutletId && data) {
-                const found = data.find(o => o.outlet_id === parseInt(savedOutletId));
-                if (found) {
-                    setActiveOutlet(found);
-                    return;
+            // ── User-outlet restriction ──────────────────────────────────
+            let visibleOutlets = allOutlets || [];
+            try {
+                const raw = localStorage.getItem('user');
+                if (raw) {
+                    const user = JSON.parse(raw);
+                    const userType = (user.userType || user.user_type || '').toLowerCase();
+                    const isPrivileged = MULTI_OUTLET_ROLES.some(r => userType.includes(r));
+
+                    if (!isPrivileged && user.userId) {
+                        // Look up assigned outlet in license_settings
+                        const { data: setting } = await supabase
+                            .from('license_settings')
+                            .select('setting_value')
+                            .eq('setting_key', `user_outlet_${user.userId}`)
+                            .single();
+
+                        if (setting?.setting_value) {
+                            const assignedId = parseInt(setting.setting_value);
+                            const assigned = visibleOutlets.filter(o => o.outlet_id === assignedId);
+                            if (assigned.length > 0) visibleOutlets = assigned;
+                        }
+                    }
                 }
+            } catch {
+                // If user parse fails, show all outlets
             }
-            // Default to main outlet or first outlet
-            if (data && data.length > 0) {
-                const main = data.find(o => o.is_main) || data[0];
+
+            setOutlets(visibleOutlets);
+
+            // Restore active outlet from localStorage (must be in visible list)
+            const savedOutletId = localStorage.getItem('activeOutletId');
+            if (savedOutletId) {
+                const found = visibleOutlets.find(o => o.outlet_id === parseInt(savedOutletId));
+                if (found) { setActiveOutlet(found); return; }
+            }
+            // Default to first visible outlet
+            if (visibleOutlets.length > 0) {
+                const main = visibleOutlets.find(o => o.is_main) || visibleOutlets[0];
                 setActiveOutlet(main);
                 localStorage.setItem('activeOutletId', String(main.outlet_id));
                 localStorage.setItem('activeOutletName', main.outlet_name);
             }
         } catch (err) {
             console.error('Failed to load outlets:', err);
-            // Fallback: create a default outlet object
             const fallback: Outlet = {
                 outlet_id: 1, outlet_name: 'Main Outlet', outlet_code: 'MAIN',
                 address: '', city: '', phone: '', is_main: true, active: true,
@@ -105,11 +130,8 @@ export function OutletProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    // Helper: adds outlet_id filter to any Supabase query
     const outletFilter = (query: any) => {
-        if (activeOutlet) {
-            return query.eq('outlet_id', activeOutlet.outlet_id);
-        }
+        if (activeOutlet) return query.eq('outlet_id', activeOutlet.outlet_id);
         return query;
     };
 

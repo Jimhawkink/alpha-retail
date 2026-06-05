@@ -17,6 +17,12 @@ interface User {
     created_at: string;
 }
 
+interface Outlet {
+    outlet_id: number;
+    outlet_name: string;
+    outlet_code: string;
+}
+
 interface UserRole {
     role_id: number;
     role_name: string;
@@ -33,6 +39,9 @@ const defaultRoles: UserRole[] = [
 
 export default function UsersPage() {
     const [users, setUsers] = useState<User[]>([]);
+    const [outlets, setOutlets] = useState<Outlet[]>([]);
+    const [userOutlets, setUserOutlets] = useState<Record<number, number>>({}); // user_id -> outlet_id
+    const [isSuperAdmin, setIsSuperAdmin] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -50,18 +59,49 @@ export default function UsersPage() {
         password: '',
         pin: '',
         active: true,
+        assigned_outlet_id: 0, // 0 = no restriction (sees all)
     });
 
     const loadUsers = useCallback(async () => {
         setIsLoading(true);
         try {
+            // Check if current user is SuperAdmin
+            const raw = localStorage.getItem('user');
+            if (raw) {
+                const u = JSON.parse(raw);
+                const ut = (u.userType || u.user_type || '').toLowerCase();
+                setIsSuperAdmin(ut.includes('super'));
+            }
+
             const { data, error } = await supabase
                 .from('retail_users')
                 .select('*')
                 .order('created_at', { ascending: false });
-
             if (error) throw error;
             setUsers(data || []);
+
+            // Load outlets
+            const { data: outletData } = await supabase
+                .from('retail_outlets')
+                .select('outlet_id,outlet_name,outlet_code')
+                .eq('active', true)
+                .order('outlet_name');
+            setOutlets(outletData || []);
+
+            // Load user->outlet assignments from license_settings
+            if (data && data.length > 0) {
+                const keys = data.map((u: User) => `user_outlet_${u.user_id}`);
+                const { data: settings } = await supabase
+                    .from('license_settings')
+                    .select('setting_key,setting_value')
+                    .in('setting_key', keys);
+                const map: Record<number, number> = {};
+                (settings || []).forEach((s: { setting_key: string; setting_value: string }) => {
+                    const uid = parseInt(s.setting_key.replace('user_outlet_', ''));
+                    map[uid] = parseInt(s.setting_value);
+                });
+                setUserOutlets(map);
+            }
         } catch (err) {
             console.error('Error loading users:', err);
             toast.error('Failed to load users');
@@ -84,14 +124,9 @@ export default function UsersPage() {
 
     const openAddModal = async () => {
         setFormData({
-            user_name: '',
-            name: '',
-            user_type: 'Cashier',
-            email: '',
-            phone: '',
-            password: '',
-            pin: '',
-            active: true,
+            user_name: '', name: '', user_type: 'Cashier',
+            email: '', phone: '', password: '', pin: '', active: true,
+            assigned_outlet_id: 0,
         });
         setEditingUser(null);
         setShowModal(true);
@@ -107,6 +142,7 @@ export default function UsersPage() {
             password: '',
             pin: user.pin || '',
             active: user.active,
+            assigned_outlet_id: userOutlets[user.user_id] || 0,
         });
         setEditingUser(user);
         setShowModal(true);
@@ -156,6 +192,16 @@ export default function UsersPage() {
                 if (error) throw error;
                 toast.success('User updated successfully! ✅');
                 logActivity('Update', `Updated user: ${formData.name}`, `Username: ${formData.user_name}, Role: ${formData.user_type}`);
+
+                // Save outlet assignment
+                if (isSuperAdmin) {
+                    const key = `user_outlet_${editingUser.user_id}`;
+                    if (formData.assigned_outlet_id > 0) {
+                        await supabase.from('license_settings').upsert({ setting_key: key, setting_value: String(formData.assigned_outlet_id) }, { onConflict: 'setting_key' });
+                    } else {
+                        await supabase.from('license_settings').delete().eq('setting_key', key);
+                    }
+                }
             } else {
                 // Create new user
                 const { data, error } = await supabase
@@ -177,6 +223,14 @@ export default function UsersPage() {
 
                 toast.success('User created successfully! 🎉');
                 logActivity('Create', `Created user: ${formData.name}`, `Username: ${formData.user_name}, Role: ${formData.user_type}`);
+
+                // Save outlet assignment for new user
+                if (isSuperAdmin && formData.assigned_outlet_id > 0 && data?.user_id) {
+                    await supabase.from('license_settings').upsert(
+                        { setting_key: `user_outlet_${data.user_id}`, setting_value: String(formData.assigned_outlet_id) },
+                        { onConflict: 'setting_key' }
+                    );
+                }
             }
 
             setShowModal(false);
@@ -617,6 +671,28 @@ export default function UsersPage() {
                                     </span>
                                 </label>
                             </div>
+
+                            {/* Outlet Assignment — SuperAdmin only */}
+                            {isSuperAdmin && (
+                                <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-xl">
+                                    <label className="block text-sm font-semibold text-indigo-700 mb-2">
+                                        📍 Assigned Outlet <span className="text-xs font-normal text-indigo-500">(restricts user to this outlet only)</span>
+                                    </label>
+                                    <select
+                                        value={formData.assigned_outlet_id}
+                                        onChange={(e) => setFormData({ ...formData, assigned_outlet_id: parseInt(e.target.value) })}
+                                        className="w-full px-4 py-3 bg-white border border-indigo-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-400/20 cursor-pointer"
+                                    >
+                                        <option value={0}>🌐 All Outlets (no restriction)</option>
+                                        {outlets.map(o => (
+                                            <option key={o.outlet_id} value={o.outlet_id}>
+                                                📍 {o.outlet_name} ({o.outlet_code})
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-indigo-500 mt-1">SuperAdmin &amp; Manager roles always see all outlets regardless of this setting.</p>
+                                </div>
+                            )}
 
                             {/* Actions */}
                             <div className="flex flex-col md:flex-row gap-3 pt-4">

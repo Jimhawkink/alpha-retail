@@ -2097,6 +2097,13 @@ export default function RetailPOSPage() {
                 try {
                     console.log('🖨️ Auto-printing M-Pesa receipt...');
                     const company = await loadCompanyInfo();
+                    // ── Override with active outlet info ──
+                    if (activeOutlet?.outlet_name) {
+                        company.name = activeOutlet.outlet_name.toUpperCase();
+                        const addr = [activeOutlet.address, activeOutlet.city].filter(Boolean).join(', ');
+                        if (addr) company.address = addr;
+                        if (activeOutlet.phone) company.phone = activeOutlet.phone;
+                    }
                     const now = new Date();
                     const receiptData: ReceiptData = {
                         invoiceNo: freshReceiptNo,
@@ -2133,6 +2140,13 @@ export default function RetailPOSPage() {
             if (method.toUpperCase() === 'CASH') {
                 try {
                     const company = await loadCompanyInfo();
+                    // ── Receipt shows OUTLET NAME only ──
+                    if (activeOutlet?.outlet_name) {
+                        company.name = activeOutlet.outlet_name.toUpperCase();
+                        const addr = [activeOutlet.address, activeOutlet.city].filter(Boolean).join(', ');
+                        if (addr) company.address = addr;
+                        if (activeOutlet.phone) company.phone = activeOutlet.phone;
+                    }
                     const now = new Date();
                     const receiptData: ReceiptData = {
                         invoiceNo: freshReceiptNo,
@@ -2149,7 +2163,7 @@ export default function RetailPOSPage() {
                         discount: totalDiscount,
                         tax: 0,
                         total: grandTotal,
-        paymentMethod: 'CASH',
+                        paymentMethod: 'CASH',
                         amountPaid: amountPaid,
                         change: Math.max(0, amountPaid - grandTotal),
                         customerName: custName,
@@ -2160,6 +2174,7 @@ export default function RetailPOSPage() {
                     console.error('Cash receipt print error:', printErr);
                 }
             }
+
 
             // If credit sale, update customer balance + insert credit payment record
             if (method.toUpperCase() === 'CREDIT' && selectedCustomer) {
