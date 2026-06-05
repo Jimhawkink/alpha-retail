@@ -105,8 +105,9 @@ export default function ProductsPage() {
     const [hasRetailProfitFeature,    setHasRetailProfitFeature]    = useState(false);
     const [hasWholesaleProfitFeature,  setHasWholesaleProfitFeature]  = useState(false);
     const [hasValuationCardsFeature,   setHasValuationCardsFeature]   = useState(false);
-    const hasValuationAccess = hasValuationCardsFeature; // alias — cards/valuation sections use this
+    const hasValuationAccess = hasValuationCardsFeature;
     const [showInactive, setShowInactive] = useState(false);
+    const [selectedPids, setSelectedPids] = useState<Set<number>>(new Set());
     const [page, setPage] = useState(1);
     const [perPage, setPerPage] = useState(20);
 
@@ -385,6 +386,48 @@ export default function ProductsPage() {
         } catch { toast.error(`Failed to ${action.toLowerCase()} product`); }
     };
 
+    // ── BULK DEACTIVATE ──
+    const toggleSelect = (pid: number) => {
+        setSelectedPids(prev => {
+            const next = new Set(prev);
+            if (next.has(pid)) next.delete(pid); else next.add(pid);
+            return next;
+        });
+    };
+    const toggleSelectAll = () => {
+        if (selectedPids.size === paginated.length) {
+            setSelectedPids(new Set());
+        } else {
+            setSelectedPids(new Set(paginated.map(p => p.pid)));
+        }
+    };
+    const bulkDeactivate = async () => {
+        if (selectedPids.size === 0) return;
+        if (!confirm(`Deactivate ${selectedPids.size} selected product(s)? They will be hidden from the system.`)) return;
+        try {
+            const pids = Array.from(selectedPids);
+            const { error } = await supabase.from('retail_products').update({ active: false }).in('pid', pids);
+            if (error) throw error;
+            toast.success(`🔒 ${pids.length} product(s) deactivated`);
+            logActivity('Deactivate', `Bulk deactivated ${pids.length} products`, `PIDs: ${pids.join(', ')}`);
+            setSelectedPids(new Set());
+            loadProducts();
+        } catch { toast.error('Bulk deactivate failed'); }
+    };
+    const bulkDelete = async () => {
+        if (selectedPids.size === 0) return;
+        if (!confirm(`PERMANENTLY DELETE ${selectedPids.size} selected product(s)? This cannot be undone.`)) return;
+        try {
+            const pids = Array.from(selectedPids);
+            const { error } = await supabase.from('retail_products').delete().in('pid', pids);
+            if (error) throw error;
+            toast.success(`🗑️ ${pids.length} product(s) deleted`);
+            logActivity('Delete', `Bulk deleted ${pids.length} products`, `PIDs: ${pids.join(', ')}`);
+            setSelectedPids(new Set());
+            loadProducts();
+        } catch { toast.error('Bulk delete failed'); }
+    };
+
     const exportCSV = () => {
         const csv = [['Code', 'Name', 'Category', 'Buy', 'Sell', 'Wholesale', 'Stock', 'Margin', 'Status'].join(','),
         ...filtered.map(p => { const cpp = (p.purchase_cost || 0) / (p.pieces_per_package || 1); const sp = (p as any).wholesale_price || p.sales_cost || 0; return [p.product_code, `"${p.product_name}"`, p.category || '', p.purchase_cost, p.sales_cost, (p as any).wholesale_price || 0, stockData[p.pid] || 0, (sp - cpp).toFixed(0), p.active ? 'Active' : 'Off'].join(','); })].join('\n');
@@ -582,14 +625,16 @@ export default function ProductsPage() {
     });
     const totalPages = Math.ceil(filtered.length / perPage);
     const paginated = filtered.slice((page - 1) * perPage, page * perPage);
-    const lowStock = products.filter(p => (stockData[p.pid] || 0) <= (p.reorder_point || 10) && p.active).length;
-    const stockValCost = products.reduce((s, p) => {
+    // Only ACTIVE products count in valuations and low-stock alerts
+    const activeProducts = products.filter(p => p.active);
+    const lowStock = activeProducts.filter(p => (stockData[p.pid] || 0) <= (p.reorder_point || 10)).length;
+    const stockValCost = activeProducts.reduce((s, p) => {
         const b = bagStockData[p.pid] || 0;
         const pc = pieceStockData[p.pid] || 0;
         const ppp = p.pieces_per_package || 1;
         return s + (b * (p.purchase_cost || 0)) + (pc * ((p.purchase_cost || 0) / ppp));
     }, 0);
-    const stockValSales = products.reduce((s, p) => {
+    const stockValSales = activeProducts.reduce((s, p) => {
         const b = bagStockData[p.pid] || 0;
         const pc = pieceStockData[p.pid] || 0;
         const ppp = p.pieces_per_package || 1;
@@ -598,13 +643,13 @@ export default function ProductsPage() {
     }, 0);
     const potentialProfit = stockValSales - stockValCost;
     // Retail value at sales_cost
-    const stockValRetail = products.reduce((s, p) => {
+    const stockValRetail = activeProducts.reduce((s, p) => {
         const b = bagStockData[p.pid] || 0; const pc = pieceStockData[p.pid] || 0;
         const ppp = p.pieces_per_package || 1; const rp = p.sales_cost || 0;
         return s + (b * ppp * rp) + (pc * rp);
     }, 0);
-    // Wholesale value at wholesale_price specifically
-    const stockValWholesale = products.reduce((s, p) => {
+    // Wholesale value at wholesale_price
+    const stockValWholesale = activeProducts.reduce((s, p) => {
         const b = bagStockData[p.pid] || 0; const pc = pieceStockData[p.pid] || 0;
         const ppp = p.pieces_per_package || 1; const wp = (p as any).wholesale_price || 0;
         return s + (b * ppp * wp) + (pc * wp);
@@ -834,6 +879,26 @@ export default function ProductsPage() {
             </div>
 
             {/* ━━━ CONTENT ━━━ */}
+
+            {/* ── Bulk Action Bar (appears when items are selected) ── */}
+            {selectedPids.size > 0 && (
+                <div className="flex items-center justify-between gap-3 px-5 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl text-white shadow-lg shadow-indigo-300/40 animate-in slide-in-from-top-2">
+                    <div className="flex items-center gap-3">
+                        <span className="text-2xl font-black">{selectedPids.size}</span>
+                        <span className="text-sm font-medium opacity-90">product{selectedPids.size !== 1 ? 's' : ''} selected</span>
+                        <button onClick={() => setSelectedPids(new Set())} className="text-xs underline opacity-70 hover:opacity-100">Clear</button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button onClick={bulkDeactivate} className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl transition-all text-sm shadow">
+                            <FiEyeOff size={14} /> Deactivate All
+                        </button>
+                        <button onClick={bulkDelete} className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl transition-all text-sm shadow">
+                            <FiTrash2 size={14} /> Delete All
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {isLoading ? (
                 <div className="flex flex-col items-center justify-center py-20">
                     <div className="w-14 h-14 border-4 border-blue-200 border-t-indigo-600 rounded-full animate-spin" />
