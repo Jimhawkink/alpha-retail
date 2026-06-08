@@ -153,14 +153,45 @@ function canSee(roles: string, userType: string) {
 
 function OutletSwitcher() {
     const { activeOutlet, outlets, switchOutlet } = useOutlet();
-    if (outlets.length <= 1) return null;
+
+    // Read user role from localStorage
+    const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem('user');
+            if (raw) {
+                const u = JSON.parse(raw);
+                const t = (u.userType || '').toLowerCase().replace(/\s/g, '');
+                setIsSuperAdmin(t === 'superadmin' || t === 'superuser');
+            }
+        } catch {}
+    }, []);
+
+    if (!activeOutlet) return null;
+
+    // SuperAdmin: full dropdown to switch between all outlets
+    if (isSuperAdmin && outlets.length > 1) {
+        return (
+            <select
+                value={activeOutlet.outlet_id}
+                onChange={e => switchOutlet(Number(e.target.value))}
+                className="px-3 py-1.5 bg-indigo-50 border border-indigo-200 rounded-xl text-xs font-bold text-indigo-700 outline-none cursor-pointer"
+            >
+                {outlets.map(o => (
+                    <option key={o.outlet_id} value={o.outlet_id}>
+                        {o.is_main ? '⭐ ' : '📍 '}{o.outlet_name}
+                    </option>
+                ))}
+            </select>
+        );
+    }
+
+    // Everyone else: just a read-only badge — no switching allowed
     return (
-        <select value={activeOutlet?.outlet_id || ''} onChange={e => switchOutlet(Number(e.target.value))}
-            className="px-3 py-1.5 bg-indigo-50 border border-indigo-200 rounded-xl text-xs font-bold text-indigo-700 outline-none cursor-pointer">
-            {outlets.map(o => (
-                <option key={o.outlet_id} value={o.outlet_id}>{o.is_main ? '⭐ ' : '📍 '}{o.outlet_name}</option>
-            ))}
-        </select>
+        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-xl">
+            <span className="text-xs">📍</span>
+            <span className="text-xs font-bold text-gray-700">{activeOutlet.outlet_name}</span>
+        </div>
     );
 }
 

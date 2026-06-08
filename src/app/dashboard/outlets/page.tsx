@@ -11,6 +11,21 @@ export default function OutletsPage() {
     const [allOutlets, setAllOutlets] = useState<Outlet[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState('');
+    const [isSuperAdmin, setIsSuperAdmin] = useState<boolean | null>(null);
+
+    // SuperAdmin guard
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem('user');
+            if (raw) {
+                const u = JSON.parse(raw);
+                const t = (u.userType || '').toLowerCase().replace(/\s/g, '');
+                setIsSuperAdmin(t === 'superadmin' || t === 'superuser');
+            } else {
+                setIsSuperAdmin(false);
+            }
+        } catch { setIsSuperAdmin(false); }
+    }, []);
 
     // Modal
     const [showModal, setShowModal] = useState(false);
@@ -157,6 +172,22 @@ export default function OutletsPage() {
     });
 
     const activeCount = allOutlets.filter(o => o.active).length;
+
+    if (isSuperAdmin === null) return (
+        <div className="flex flex-col items-center justify-center h-96">
+            <div className="w-14 h-14 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+        </div>
+    );
+
+    if (!isSuperAdmin) return (
+        <div className="flex flex-col items-center justify-center h-96 text-center">
+            <div className="w-20 h-20 rounded-full bg-red-100 flex items-center justify-center mb-4">
+                <span className="text-4xl">🔒</span>
+            </div>
+            <h2 className="text-2xl font-black text-gray-800">Access Denied</h2>
+            <p className="text-gray-500 mt-2 max-w-xs">Only <span className="font-bold text-indigo-600">SuperAdmin</span> can manage outlets. Contact your system administrator.</p>
+        </div>
+    );
 
     if (isLoading) return (
         <div className="flex flex-col items-center justify-center h-96">
