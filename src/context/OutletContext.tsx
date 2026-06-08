@@ -83,9 +83,26 @@ export function OutletProvider({ children }: { children: ReactNode }) {
                             .single();
 
                         if (setting?.setting_value) {
-                            const assignedId = parseInt(setting.setting_value);
-                            const assigned = visibleOutlets.filter(o => o.outlet_id === assignedId);
-                            if (assigned.length > 0) visibleOutlets = assigned;
+                            try {
+                                const val = setting.setting_value.trim();
+                                let assignedIds: number[] = [];
+
+                                if (val.startsWith('[')) {
+                                    // New format: JSON array e.g. [1,3]
+                                    assignedIds = JSON.parse(val);
+                                } else {
+                                    // Legacy format: single number e.g. "1"
+                                    const n = parseInt(val);
+                                    if (!isNaN(n)) assignedIds = [n];
+                                }
+
+                                if (assignedIds.length > 0) {
+                                    const assigned = visibleOutlets.filter(o => assignedIds.includes(o.outlet_id));
+                                    if (assigned.length > 0) visibleOutlets = assigned;
+                                }
+                            } catch {
+                                // fallback: show all
+                            }
                         }
                     }
                 }

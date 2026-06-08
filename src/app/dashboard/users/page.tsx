@@ -40,7 +40,7 @@ const defaultRoles: UserRole[] = [
 export default function UsersPage() {
     const [users, setUsers] = useState<User[]>([]);
     const [outlets, setOutlets] = useState<Outlet[]>([]);
-    const [userOutlets, setUserOutlets] = useState<Record<number, number>>({}); // user_id -> outlet_id
+    const [userOutlets, setUserOutlets] = useState<Record<number, number[]>>({}); // user_id -> outlet_ids[]
     const [isSuperAdmin, setIsSuperAdmin] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
@@ -59,7 +59,7 @@ export default function UsersPage() {
         password: '',
         pin: '',
         active: true,
-        assigned_outlet_id: 0, // 0 = no restriction (sees all)
+        assigned_outlet_ids: [] as number[], // [] = no restriction (sees all)
     });
 
     const loadUsers = useCallback(async () => {
@@ -95,10 +95,18 @@ export default function UsersPage() {
                     .from('license_settings')
                     .select('setting_key,setting_value')
                     .in('setting_key', keys);
-                const map: Record<number, number> = {};
+                const map: Record<number, number[]> = {};
                 (settings || []).forEach((s: { setting_key: string; setting_value: string }) => {
                     const uid = parseInt(s.setting_key.replace('user_outlet_', ''));
-                    map[uid] = parseInt(s.setting_value);
+                    try {
+                        const val = s.setting_value.trim();
+                        if (val.startsWith('[')) {
+                            map[uid] = JSON.parse(val);
+                        } else {
+                            const n = parseInt(val);
+                            if (!isNaN(n) && n > 0) map[uid] = [n];
+                        }
+                    } catch { map[uid] = []; }
                 });
                 setUserOutlets(map);
             }
@@ -126,7 +134,7 @@ export default function UsersPage() {
         setFormData({
             user_name: '', name: '', user_type: 'Cashier',
             email: '', phone: '', password: '', pin: '', active: true,
-            assigned_outlet_id: 0,
+            assigned_outlet_ids: [] as number[],
         });
         setEditingUser(null);
         setShowModal(true);
@@ -142,7 +150,7 @@ export default function UsersPage() {
             password: '',
             pin: user.pin || '',
             active: user.active,
-            assigned_outlet_id: userOutlets[user.user_id] || 0,
+            assigned_outlet_ids: userOutlets[user.user_id] || [],
         });
         setEditingUser(user);
         setShowModal(true);
@@ -193,12 +201,17 @@ export default function UsersPage() {
                 toast.success('User updated successfully! ✅');
                 logActivity('Update', `Updated user: ${formData.name}`, `Username: ${formData.user_name}, Role: ${formData.user_type}`);
 
-                // Save outlet assignment
+                // Save outlet assignments (SuperAdmin only)
                 if (isSuperAdmin) {
                     const key = `user_outlet_${editingUser.user_id}`;
-                    if (formData.assigned_outlet_id > 0) {
-                        await supabase.from('license_settings').upsert({ setting_key: key, setting_value: String(formData.assigned_outlet_id) }, { onConflict: 'setting_key' });
+                    const ids = formData.assigned_outlet_ids;
+                    if (ids.length > 0) {
+                        await supabase.from('license_settings').upsert(
+                            { setting_key: key, setting_value: JSON.stringify(ids) },
+                            { onConflict: 'setting_key' }
+                        );
                     } else {
+                        // No outlets selected = no restriction, remove the key
                         await supabase.from('license_settings').delete().eq('setting_key', key);
                     }
                 }
@@ -224,12 +237,15 @@ export default function UsersPage() {
                 toast.success('User created successfully! 🎉');
                 logActivity('Create', `Created user: ${formData.name}`, `Username: ${formData.user_name}, Role: ${formData.user_type}`);
 
-                // Save outlet assignment for new user
-                if (isSuperAdmin && formData.assigned_outlet_id > 0 && data?.user_id) {
-                    await supabase.from('license_settings').upsert(
-                        { setting_key: `user_outlet_${data.user_id}`, setting_value: String(formData.assigned_outlet_id) },
-                        { onConflict: 'setting_key' }
-                    );
+                // Save outlet assignments for new user (SuperAdmin only)
+                if (isSuperAdmin && data?.user_id) {
+                    const ids = formData.assigned_outlet_ids;
+                    if (ids.length > 0) {
+                        await supabase.from('license_settings').upsert(
+                            { setting_key: `user_outlet_${data.user_id}`, setting_value: JSON.stringify(ids) },
+                            { onConflict: 'setting_key' }
+                        );
+                    }
                 }
             }
 
@@ -672,25 +688,58 @@ export default function UsersPage() {
                                 </label>
                             </div>
 
-                            {/* Outlet Assignment — SuperAdmin only */}
+                            {/* Outlet Assignment — SuperAdmin ONLY */}
                             {isSuperAdmin && (
-                                <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-xl">
-                                    <label className="block text-sm font-semibold text-indigo-700 mb-2">
-                                        📍 Assigned Outlet <span className="text-xs font-normal text-indigo-500">(restricts user to this outlet only)</span>
+                                <div className="p-4 bg-indigo-50 border-2 border-indigo-200 rounded-xl">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div>
+                                            <p className="text-sm font-black text-indigo-800">📍 Assigned Outlets</p>
+                                            <p className="text-[11px] text-indigo-500 mt-0.5">User will only see checked outlets. Leave all unchecked = sees all.</p>
+                                        </div>
+                                        <span className="text-[10px] font-black px-2 py-1 bg-indigo-600 text-white rounded-full">SUPER ADMIN</span>
+                                    </div>
+
+                                    {/* All Outlets toggle */}
+                                    <label className="flex items-center gap-3 p-2.5 mb-2 bg-white border border-indigo-200 rounded-xl cursor-pointer hover:bg-indigo-50 transition-all">
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.assigned_outlet_ids.length === 0}
+                                            onChange={() => setFormData({ ...formData, assigned_outlet_ids: [] })}
+                                            className="w-4 h-4 accent-indigo-600"
+                                        />
+                                        <span className="text-sm font-bold text-indigo-700">🌐 All Outlets (no restriction)</span>
                                     </label>
-                                    <select
-                                        value={formData.assigned_outlet_id}
-                                        onChange={(e) => setFormData({ ...formData, assigned_outlet_id: parseInt(e.target.value) })}
-                                        className="w-full px-4 py-3 bg-white border border-indigo-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-400/20 cursor-pointer"
-                                    >
-                                        <option value={0}>🌐 All Outlets (no restriction)</option>
-                                        {outlets.map(o => (
-                                            <option key={o.outlet_id} value={o.outlet_id}>
-                                                📍 {o.outlet_name} ({o.outlet_code})
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <p className="text-xs text-indigo-500 mt-1">SuperAdmin &amp; Manager roles always see all outlets regardless of this setting.</p>
+
+                                    {/* Individual outlet checkboxes */}
+                                    <div className="space-y-2">
+                                        {outlets.map(o => {
+                                            const checked = formData.assigned_outlet_ids.includes(o.outlet_id);
+                                            return (
+                                                <label key={o.outlet_id} className={`flex items-center gap-3 p-2.5 rounded-xl border-2 cursor-pointer transition-all ${
+                                                    checked ? 'bg-indigo-100 border-indigo-400' : 'bg-white border-gray-200 hover:border-indigo-300'
+                                                }`}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={checked}
+                                                        onChange={() => {
+                                                            const ids = formData.assigned_outlet_ids;
+                                                            setFormData({
+                                                                ...formData,
+                                                                assigned_outlet_ids: checked
+                                                                    ? ids.filter(id => id !== o.outlet_id)
+                                                                    : [...ids, o.outlet_id]
+                                                            });
+                                                        }}
+                                                        className="w-4 h-4 accent-indigo-600"
+                                                    />
+                                                    <span className="text-[10px] font-black px-2 py-0.5 bg-indigo-100 text-indigo-600 rounded-md">{o.outlet_code}</span>
+                                                    <span className="text-sm font-semibold text-gray-700 flex-1">{o.outlet_name}</span>
+                                                    {checked && <span className="text-[10px] text-indigo-600 font-bold">✓ Assigned</span>}
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                    <p className="text-[10px] text-red-500 font-semibold mt-2">⚠️ Only YOU (SuperAdmin) can change this. Admins &amp; Managers cannot.</p>
                                 </div>
                             )}
 
