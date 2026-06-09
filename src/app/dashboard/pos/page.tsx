@@ -2103,6 +2103,9 @@ export default function RetailPOSPage() {
                         const addr = [activeOutlet.address, activeOutlet.city].filter(Boolean).join(', ');
                         if (addr) company.address = addr;
                         if (activeOutlet.phone) company.phone = activeOutlet.phone;
+                        // Email: use outlet email if set, otherwise keep org email
+                        if (activeOutlet.email) company.email = activeOutlet.email;
+                        else if (!company.email || company.email === 'info@alphaplus.co.ke') company.email = '';
                     }
                     const now = new Date();
                     const receiptData: ReceiptData = {
@@ -2140,12 +2143,15 @@ export default function RetailPOSPage() {
             if (method.toUpperCase() === 'CASH') {
                 try {
                     const company = await loadCompanyInfo();
-                    // ── Receipt shows OUTLET NAME only ──
+                    // ── Receipt shows OUTLET NAME + info only ──
                     if (activeOutlet?.outlet_name) {
                         company.name = activeOutlet.outlet_name.toUpperCase();
                         const addr = [activeOutlet.address, activeOutlet.city].filter(Boolean).join(', ');
                         if (addr) company.address = addr;
                         if (activeOutlet.phone) company.phone = activeOutlet.phone;
+                        // Email: use outlet email if set, otherwise keep org email
+                        if (activeOutlet.email) company.email = activeOutlet.email;
+                        else if (!company.email || company.email === 'info@alphaplus.co.ke') company.email = '';
                     }
                     const now = new Date();
                     const receiptData: ReceiptData = {

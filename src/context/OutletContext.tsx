@@ -10,6 +10,7 @@ export interface Outlet {
     address: string;
     city: string;
     phone: string;
+    email?: string;
     is_main: boolean;
     active: boolean;
     enable_expiry_tracking?: boolean;

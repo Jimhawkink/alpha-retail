@@ -65,15 +65,15 @@ const defaultCompanyInfo: CompanyInfo = {
   name: 'ALPHA PLUS RESTAURANT',
   address: 'Main Street, Nairobi',
   phone: '+254 712 345 678',
-  email: 'info@alphaplus.co.ke',
-  pin: 'P051234567X',
+  email: '',
+  pin: '',
   slogan: 'Quality Food, Great Service!'
 };
 
 // Load company info from database (organisation_settings table)
 export async function loadCompanyInfo(): Promise<CompanyInfo> {
-  if (cachedCompanyInfo) return cachedCompanyInfo;
-
+  // Always reload fresh from DB (don't use stale cache)
+  cachedCompanyInfo = null;
   try {
     // First try localStorage cache
     const storedSettings = localStorage.getItem('company_settings');

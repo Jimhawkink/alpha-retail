@@ -76,7 +76,7 @@ export default function OutletsPage() {
 
     const openEdit = (o: Outlet) => {
         setEditingOutlet(o);
-        setForm({ outlet_name: o.outlet_name, outlet_code: o.outlet_code, address: o.address || '', city: o.city || '', phone: o.phone || '', email: '', is_main: o.is_main, enable_expiry_tracking: o.enable_expiry_tracking || false, allowed_quick_actions: { ...defaultQuickActions, ...(o.allowed_quick_actions || {}) } });
+        setForm({ outlet_name: o.outlet_name, outlet_code: o.outlet_code, address: o.address || '', city: o.city || '', phone: o.phone || '', email: o.email || '', is_main: o.is_main, enable_expiry_tracking: o.enable_expiry_tracking || false, allowed_quick_actions: { ...defaultQuickActions, ...(o.allowed_quick_actions || {}) } });
         setShowModal(true);
     };
 
@@ -87,7 +87,9 @@ export default function OutletsPage() {
             if (editingOutlet) {
                 const { error } = await supabase.from('retail_outlets').update({
                     outlet_name: form.outlet_name, outlet_code: form.outlet_code.toUpperCase(),
-                    address: form.address, city: form.city, phone: form.phone, is_main: form.is_main,
+                    address: form.address, city: form.city, phone: form.phone,
+                    email: form.email || null,
+                    is_main: form.is_main,
                     enable_expiry_tracking: form.enable_expiry_tracking,
                     allowed_quick_actions: form.allowed_quick_actions,
                     updated_at: new Date().toISOString(),
@@ -97,7 +99,9 @@ export default function OutletsPage() {
             } else {
                 const { error } = await supabase.from('retail_outlets').insert({
                     outlet_name: form.outlet_name, outlet_code: form.outlet_code.toUpperCase(),
-                    address: form.address, city: form.city, phone: form.phone, is_main: form.is_main,
+                    address: form.address, city: form.city, phone: form.phone,
+                    email: form.email || null,
+                    is_main: form.is_main,
                     enable_expiry_tracking: form.enable_expiry_tracking,
                     allowed_quick_actions: form.allowed_quick_actions,
                     active: true,
@@ -238,6 +242,11 @@ export default function OutletsPage() {
                                     <input type="text" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="0720..."
                                         className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:border-indigo-500 outline-none" />
                                 </div>
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase mb-0.5 block">📧 Email <span className="text-indigo-400 normal-case font-normal">(printed on receipts)</span></label>
+                                <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="e.g. bomet@mystore.co.ke"
+                                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:border-indigo-500 outline-none" />
                             </div>
                             {/* Compact toggles row */}
                             <div className="grid grid-cols-2 gap-2">
