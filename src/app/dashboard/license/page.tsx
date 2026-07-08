@@ -45,6 +45,29 @@ export default function LicensePage() {
     const [loading, setLoading]     = useState(true);
     const [saving, setSaving]       = useState<number | null>(null);
     const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+    const [demoSaving, setDemoSaving] = useState<number | null>(null);
+
+    // ── Demo mode handler ─────────────────────────────────────────────
+    const activateDemo = async (lic: OutletLicense, days: 3 | 5) => {
+        setDemoSaving(lic.outlet_id);
+        try {
+            const expiry = new Date();
+            expiry.setDate(expiry.getDate() + days);
+            const expiryStr = expiry.toISOString().split('T')[0];
+            const demoLic = { ...lic, active_license: true, expires_at: expiryStr };
+            const upserts = [
+                { setting_key: `outlet_license_active_${lic.outlet_id}`,  setting_value: 'true', description: `License active for outlet ${lic.outlet_id}`, updated_at: new Date().toISOString() },
+                { setting_key: `outlet_license_expires_${lic.outlet_id}`, setting_value: expiryStr, description: `Demo expiry for outlet ${lic.outlet_id}`, updated_at: new Date().toISOString() },
+                { setting_key: `outlet_features_${lic.outlet_id}`,        setting_value: JSON.stringify(demoLic.features), description: `Features for outlet ${lic.outlet_id}`, updated_at: new Date().toISOString() },
+            ];
+            for (const row of upserts) {
+                await supabase.from('license_settings').upsert(row, { onConflict: 'setting_key' });
+            }
+            toast.success(`🎯 ${days}-day demo activated for ${lic.outlet_name} — expires ${expiryStr}`);
+            loadLicenses();
+        } catch { toast.error('Failed to activate demo.'); }
+        setDemoSaving(null);
+    };
 
     // ── Auth guard ────────────────────────────────────────────────────
     useEffect(() => {
@@ -203,6 +226,49 @@ export default function LicensePage() {
                 </div>
             </div>
 
+            {/* ── Demo Mode Panel ── */}
+            <div className="mb-5 p-5 bg-gradient-to-r from-violet-50 to-indigo-50 border border-violet-200 rounded-2xl">
+                <div className="flex items-start gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center text-xl shrink-0">🎯</div>
+                    <div>
+                        <p className="font-black text-violet-800 text-sm">Demo Mode — Quick Activation</p>
+                        <p className="text-violet-600 text-xs mt-0.5">Grant a client a timed demo trial with one click. License auto-expires after 3 or 5 days. All features are enabled during demo.</p>
+                    </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {licenses.map(lic => {
+                        const isExpired = lic.expires_at && new Date(lic.expires_at) < new Date();
+                        const daysLeft  = lic.expires_at ? Math.ceil((new Date(lic.expires_at).getTime() - Date.now()) / 86400000) : null;
+                        return (
+                            <div key={lic.outlet_id} className="bg-white rounded-xl border border-violet-100 p-4 shadow-sm">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-xs font-black shrink-0">{lic.outlet_name.charAt(0)}</div>
+                                    <div className="min-w-0">
+                                        <p className="font-bold text-gray-800 text-xs truncate">{lic.outlet_name}</p>
+                                        {daysLeft !== null && (
+                                            <p className={`text-[10px] font-bold ${isExpired ? 'text-red-500' : daysLeft <= 3 ? 'text-amber-500' : 'text-emerald-600'}`}>
+                                                {isExpired ? '⛔ Demo expired' : `⏰ ${daysLeft}d remaining`}
+                                            </p>
+                                        )}
+                                        {!lic.expires_at && <p className="text-[10px] text-gray-400">No expiry set</p>}
+                                    </div>
+                                </div>
+                                <div className="flex gap-2">
+                                    {([3, 5] as const).map(days => (
+                                        <button key={days}
+                                            onClick={() => activateDemo(lic, days)}
+                                            disabled={demoSaving === lic.outlet_id}
+                                            className="flex-1 py-2 rounded-lg text-xs font-black transition-all border border-violet-200 hover:bg-violet-500 hover:text-white hover:border-violet-500 text-violet-700 bg-violet-50 disabled:opacity-50">
+                                            {demoSaving === lic.outlet_id ? '⏳' : `${days}-Day Demo`}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
             {/* ── Outlet License Cards ── */}
             <div className="space-y-4 fu">
                 {licenses.map(lic => {
@@ -240,6 +306,17 @@ export default function LicensePage() {
                                 </div>
 
                                 <div className="flex items-center gap-3">
+                                    {/* Demo quick buttons */}
+                                    <div className="hidden sm:flex gap-1.5 border-r border-gray-100 pr-3 mr-1">
+                                        {([3, 5] as const).map(days => (
+                                            <button key={days}
+                                                onClick={() => activateDemo(lic, days)}
+                                                disabled={demoSaving === lic.outlet_id}
+                                                className="px-2.5 py-1.5 rounded-lg text-[10px] font-black bg-violet-50 text-violet-600 border border-violet-200 hover:bg-violet-500 hover:text-white transition-all disabled:opacity-50">
+                                                🎯 {days}d Demo
+                                            </button>
+                                        ))}
+                                    </div>
                                     {/* Master license toggle */}
                                     <div className="flex items-center gap-2">
                                         <span className="text-xs font-semibold text-gray-500">License Active</span>

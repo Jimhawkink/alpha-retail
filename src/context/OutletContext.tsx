@@ -48,8 +48,8 @@ const OutletContext = createContext<OutletContextType>({
 
 export const useOutlet = () => useContext(OutletContext);
 
-// ── Roles that can see ALL outlets ──────────────────────────────────────────
-const MULTI_OUTLET_ROLES = ['super admin', 'superadmin', 'manager'];
+
+
 
 export function OutletProvider({ children }: { children: ReactNode }) {
     const [activeOutlet, setActiveOutlet] = useState<Outlet | null>(null);
@@ -66,17 +66,22 @@ export function OutletProvider({ children }: { children: ReactNode }) {
                 .order('outlet_name');
             if (error) throw error;
 
-            // ── User-outlet restriction ──────────────────────────────────
             let visibleOutlets = allOutlets || [];
+
+            // ── Per-user outlet restriction ──────────────────────────────
+            // Priority: explicit assignment in license_settings ALWAYS wins,
+            // regardless of role. This allows a manager to be scoped to 1
+            // outlet (Dusit) while another manager has [Main, Chebunyo].
+            // Only falls back to "show all" if NO assignment is set.
             try {
                 const raw = localStorage.getItem('user');
                 if (raw) {
                     const user = JSON.parse(raw);
                     const userType = (user.userType || user.user_type || '').toLowerCase();
-                    const isPrivileged = MULTI_OUTLET_ROLES.some(r => userType.includes(r));
+                    const isSuperAdmin = userType.includes('superadmin') || userType.includes('super admin') || userType.includes('superuser');
 
-                    if (!isPrivileged && user.userId) {
-                        // Look up assigned outlet in license_settings
+                    if (user.userId) {
+                        // Always check for an explicit assignment first
                         const { data: setting } = await supabase
                             .from('license_settings')
                             .select('setting_value')
@@ -84,27 +89,29 @@ export function OutletProvider({ children }: { children: ReactNode }) {
                             .single();
 
                         if (setting?.setting_value) {
+                            // ── Explicit assignment exists → ENFORCE IT ──
                             try {
                                 const val = setting.setting_value.trim();
                                 let assignedIds: number[] = [];
-
                                 if (val.startsWith('[')) {
-                                    // New format: JSON array e.g. [1,3]
                                     assignedIds = JSON.parse(val);
                                 } else {
-                                    // Legacy format: single number e.g. "1"
                                     const n = parseInt(val);
                                     if (!isNaN(n)) assignedIds = [n];
                                 }
-
                                 if (assignedIds.length > 0) {
                                     const assigned = visibleOutlets.filter(o => assignedIds.includes(o.outlet_id));
                                     if (assigned.length > 0) visibleOutlets = assigned;
                                 }
                             } catch {
-                                // fallback: show all
+                                // parse failed — show all as fallback
                             }
+                        } else if (!isSuperAdmin) {
+                            // ── No assignment + not superadmin → show all ──
+                            // (backward compatibility: existing non-assigned
+                            //  managers/admins keep seeing all outlets)
                         }
+                        // ── No assignment + superadmin → show all (default) ──
                     }
                 }
             } catch {
