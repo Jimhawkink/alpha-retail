@@ -2958,9 +2958,6 @@ export default function RetailPOSPage() {
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => setUnitPickerQty(q => Math.max(1, q - 1))}
-
-
-                                    }}
                                     className="w-10 h-10 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-bold text-xl flex items-center justify-center shadow-sm"
                                 >−</button>
                                 <input
@@ -2974,18 +2971,12 @@ export default function RetailPOSPage() {
                                 />
                                 <button
                                     onClick={() => setUnitPickerQty(q => q + 1)}
-
-
-                                    }}
                                     className="w-10 h-10 rounded-lg bg-green-500 hover:bg-green-600 text-white font-bold text-xl flex items-center justify-center shadow-sm"
                                 >+</button>
                             </div>
                             <div className="flex gap-1.5 mt-2">
                                 {[1, 5, 10, 20, 50, 100].map(q => (
                                     <button key={q} onClick={() => setUnitPickerQty(q)}
-
-
-                                    }}
                                     className="flex-1 py-1 bg-white border border-blue-200 hover:bg-blue-100 rounded-lg text-xs font-semibold text-blue-700 transition-colors"
                                     >{q}</button>
                                 ))}
