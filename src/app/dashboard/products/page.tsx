@@ -618,10 +618,14 @@ export default function ProductsPage() {
     };
 
     const filtered = products.filter(p => {
-        if (!showInactive && !p.active) return false; // hide inactive by default
+        if (!showInactive && !p.active) return false;
         const q = searchQuery.toLowerCase();
-        return (p.product_name.toLowerCase().includes(q) || p.product_code.toLowerCase().includes(q) || (p.barcode && p.barcode.includes(searchQuery)))
-            && (filterCategory === 'All' || p.category === filterCategory);
+        return (
+            (p.product_name || '').toLowerCase().includes(q) ||
+            (p.product_code || '').toLowerCase().includes(q) ||
+            (p.barcode || '').includes(searchQuery) ||
+            (p.category || '').toLowerCase().includes(q)
+        ) && (filterCategory === 'All' || p.category === filterCategory);
     });
     const totalPages = Math.ceil(filtered.length / perPage);
     const paginated = filtered.slice((page - 1) * perPage, page * perPage);

@@ -1139,6 +1139,7 @@ export default function RetailPOSPage() {
     // Unit picker state
     const [showUnitPicker, setShowUnitPicker] = useState(false);
     const [unitPickerProduct, setUnitPickerProduct] = useState<Product | null>(null);
+    const [unitPickerQty, setUnitPickerQty] = useState(1);
 
     // ─── EXPIRY BATCH MODAL (only for expiry-enabled outlets) ───
     const [showBatchModal, setShowBatchModal] = useState(false);
@@ -1691,6 +1692,7 @@ export default function RetailPOSPage() {
         // Same unit — always show Retail vs Wholesale picker
         setUnitPickerProduct(product);
         setShowUnitPicker(true);
+        setUnitPickerQty(1);
     }, [addToCartWithUnit, expiryEnabled, outletId]);
 
     // Handle batch selection from expiry modal
@@ -1725,6 +1727,7 @@ export default function RetailPOSPage() {
 
         setUnitPickerProduct(product);
         setShowUnitPicker(true);
+        setUnitPickerQty(1);
     }, [batchModalProduct]);
 
     // Handle keyboard navigation in search results
@@ -2954,33 +2957,34 @@ export default function RetailPOSPage() {
                             <label className="text-xs font-bold text-blue-700 uppercase tracking-wider mb-1.5 block">🔢 Quantity</label>
                             <div className="flex items-center gap-2">
                                 <button
-                                    onClick={() => {
-                                        const el = document.getElementById('unit-picker-qty') as HTMLInputElement;
-                                        if (el) { const v = Math.max(1, (parseInt(el.value) || 1) - 1); el.value = v.toString(); }
+                                    onClick={() => setUnitPickerQty(q => Math.max(1, q - 1))}
+
+
                                     }}
                                     className="w-10 h-10 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-bold text-xl flex items-center justify-center shadow-sm"
                                 >−</button>
                                 <input
-                                    id="unit-picker-qty"
+
                                     type="number"
-                                    defaultValue={1}
+                                    value={unitPickerQty}
                                     min={1}
                                     className="flex-1 text-center text-2xl font-bold py-2 border-2 border-blue-300 rounded-xl focus:outline-none focus:border-blue-500 bg-white"
-                                    onFocus={(e) => e.target.select()}
+                                    onChange={e => setUnitPickerQty(Math.max(1, parseInt(e.target.value) || 1))}
+                                    onFocus={e => e.target.select()}
                                 />
                                 <button
-                                    onClick={() => {
-                                        const el = document.getElementById('unit-picker-qty') as HTMLInputElement;
-                                        if (el) { const v = (parseInt(el.value) || 1) + 1; el.value = v.toString(); }
+                                    onClick={() => setUnitPickerQty(q => q + 1)}
+
+
                                     }}
                                     className="w-10 h-10 rounded-lg bg-green-500 hover:bg-green-600 text-white font-bold text-xl flex items-center justify-center shadow-sm"
                                 >+</button>
                             </div>
                             <div className="flex gap-1.5 mt-2">
                                 {[1, 5, 10, 20, 50, 100].map(q => (
-                                    <button key={q} onClick={() => {
-                                        const el = document.getElementById('unit-picker-qty') as HTMLInputElement;
-                                        if (el) el.value = q.toString();
+                                    <button key={q} onClick={() => setUnitPickerQty(q)}
+
+
                                     }}
                                     className="flex-1 py-1 bg-white border border-blue-200 hover:bg-blue-100 rounded-lg text-xs font-semibold text-blue-700 transition-colors"
                                     >{q}</button>
@@ -2993,10 +2997,10 @@ export default function RetailPOSPage() {
                             {/* Retail Price */}
                             <button
                                 onClick={() => {
-                                    const qty = parseInt((document.getElementById('unit-picker-qty') as HTMLInputElement)?.value) || 1;
-                                    addToCartWithUnit(unitPickerProduct, unitPickerProduct.salesUnit || 'Piece', 1, retailPrice, qty);
+                                    addToCartWithUnit(unitPickerProduct, unitPickerProduct.salesUnit || 'Piece', 1, retailPrice, unitPickerQty);
                                     setShowUnitPicker(false);
                                     setUnitPickerProduct(null);
+                                    setUnitPickerQty(1);
                                 }}
                                 className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 transition-all"
                             >
@@ -3013,10 +3017,10 @@ export default function RetailPOSPage() {
                             {/* Wholesale Price */}
                             <button
                                 onClick={() => {
-                                    const qty = parseInt((document.getElementById('unit-picker-qty') as HTMLInputElement)?.value) || 1;
-                                    addToCartWithUnit(unitPickerProduct, unitPickerProduct.salesUnit || 'Piece', 1, wholesalePrice, qty);
+                                    addToCartWithUnit(unitPickerProduct, unitPickerProduct.salesUnit || 'Piece', 1, wholesalePrice, unitPickerQty);
                                     setShowUnitPicker(false);
                                     setUnitPickerProduct(null);
+                                    setUnitPickerQty(1);
                                 }}
                                 className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-green-200 bg-green-50 hover:bg-green-100 transition-all"
                             >
@@ -3037,10 +3041,10 @@ export default function RetailPOSPage() {
                             {/* Big Quantity / Bag Price */}
                             <button
                                 onClick={() => {
-                                    const qty = parseInt((document.getElementById('unit-picker-qty') as HTMLInputElement)?.value) || 1;
-                                    addToCartWithUnit(unitPickerProduct, unitPickerProduct.purchaseUnit || 'Bag', ppp, bigQtyPrice, qty);
+                                    addToCartWithUnit(unitPickerProduct, unitPickerProduct.purchaseUnit || 'Bag', ppp, bigQtyPrice, unitPickerQty);
                                     setShowUnitPicker(false);
                                     setUnitPickerProduct(null);
+                                    setUnitPickerQty(1);
                                 }}
                                 className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-purple-200 bg-purple-50 hover:bg-purple-100 transition-all"
                             >
