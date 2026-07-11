@@ -2940,17 +2940,61 @@ export default function RetailPOSPage() {
                 onSave={saveItemDiscount}
             />
 
-                 {/* Unit Picker Modal — shows Retail, Wholesale, Big Qty prices + QUANTITY INPUT */}
+                 {/* Unit Picker Modal */}
             {showUnitPicker && unitPickerProduct && (() => {
-                const ppp = unitPickerProduct.piecesPerPackage || 1;
-                const retailPrice = unitPickerProduct.retailPrice || unitPickerProduct.salesPrice;
+                const ppp        = unitPickerProduct.piecesPerPackage || 1;
+                const retailPrice    = unitPickerProduct.retailPrice || unitPickerProduct.salesPrice;
                 const wholesalePrice = unitPickerProduct.salesPrice;
-                const bigQtyPrice = wholesalePrice * ppp;
+                const bigQtyPrice    = wholesalePrice * ppp;
+
+                // ── Unit-aware stock ──────────────────────────────────────────
+                // bagQty  = full bags/boxes/dozens
+                // pieceQty = loose pieces
+                // Total pieces available = bagQty * ppp + pieceQty
+                const availBags        = unitPickerProduct.bagQty   ?? 0;
+                const availPieces      = unitPickerProduct.pieceQty ?? 0;
+                const totalAvailPieces = availBags * ppp + availPieces;
+
+                // Over-stock flags (only enforced when STRICT is ON)
+                const pieceOverStock = preventNegativeStock && unitPickerQty > totalAvailPieces;
+                const bagOverStock   = preventNegativeStock && unitPickerQty > availBags;
+
+                // Capped increment for + button
+                const incrementPieceQty = () => {
+                    if (preventNegativeStock) setUnitPickerQty(q => Math.min(q + 1, totalAvailPieces > 0 ? totalAvailPieces : q + 1));
+                    else setUnitPickerQty(q => q + 1);
+                };
+
+                const closeUnitPicker = () => { setShowUnitPicker(false); setUnitPickerProduct(null); setUnitPickerQty(1); };
+
                 return (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowUnitPicker(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl p-6 w-[440px] max-w-[95vw]" onClick={e => e.stopPropagation()}>
-                        <h3 className="text-lg font-bold text-gray-800 mb-1">📦 Select Selling Unit & Price</h3>
-                        <p className="text-sm text-gray-500 mb-3">{unitPickerProduct.name}</p>
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={closeUnitPicker}>
+                    <div className="bg-white rounded-2xl shadow-2xl p-6 w-[460px] max-w-[95vw]" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-lg font-bold text-gray-800 mb-1">📦 Select Selling Unit &amp; Price</h3>
+                        <p className="text-sm text-gray-500 mb-2">{unitPickerProduct.name}</p>
+
+                        {/* ── Stock Banner ── */}
+                        <div className={`flex flex-wrap items-center gap-2 mb-3 p-2 rounded-xl border ${
+                            totalAvailPieces === 0 ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200'
+                        }`}>
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">In Stock:</span>
+                            {availBags > 0 && (
+                                <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-indigo-100 text-indigo-700">
+                                    📦 {availBags} {unitPickerProduct.purchaseUnit || 'Bag'}
+                                </span>
+                            )}
+                            <span className={`px-2 py-0.5 rounded-lg text-[11px] font-bold ${
+                                availPieces > 0 ? 'bg-emerald-100 text-emerald-700' : totalAvailPieces > 0 ? 'bg-gray-100 text-gray-500' : 'bg-red-100 text-red-700'
+                            }`}>
+                                🔢 {availPieces} {unitPickerProduct.salesUnit || 'Pc'}
+                            </span>
+                            {ppp > 1 && totalAvailPieces > 0 && (
+                                <span className="text-[10px] text-gray-400 font-medium">(Total: {totalAvailPieces} {unitPickerProduct.salesUnit})</span>
+                            )}
+                            {totalAvailPieces === 0 && (
+                                <span className="text-xs font-bold text-red-600">⚠️ OUT OF STOCK</span>
+                            )}
+                        </div>
 
                         {/* ── QUANTITY INPUT ── */}
                         <div className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
@@ -2961,45 +3005,72 @@ export default function RetailPOSPage() {
                                     className="w-10 h-10 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-bold text-xl flex items-center justify-center shadow-sm"
                                 >−</button>
                                 <input
-
                                     type="number"
                                     value={unitPickerQty}
                                     min={1}
-                                    className="flex-1 text-center text-2xl font-bold py-2 border-2 border-blue-300 rounded-xl focus:outline-none focus:border-blue-500 bg-white"
-                                    onChange={e => setUnitPickerQty(Math.max(1, parseInt(e.target.value) || 1))}
+                                    max={preventNegativeStock ? totalAvailPieces : undefined}
+                                    onChange={e => {
+                                        const v = Math.max(1, parseInt(e.target.value) || 1);
+                                        setUnitPickerQty(preventNegativeStock ? Math.min(v, totalAvailPieces || v) : v);
+                                    }}
                                     onFocus={e => e.target.select()}
+                                    className={`flex-1 text-center text-2xl font-bold py-2 border-2 rounded-xl focus:outline-none bg-white ${
+                                        pieceOverStock ? 'border-red-400 text-red-600' : 'border-blue-300 focus:border-blue-500'
+                                    }`}
                                 />
                                 <button
-                                    onClick={() => setUnitPickerQty(q => q + 1)}
-                                    className="w-10 h-10 rounded-lg bg-green-500 hover:bg-green-600 text-white font-bold text-xl flex items-center justify-center shadow-sm"
+                                    onClick={incrementPieceQty}
+                                    disabled={preventNegativeStock && unitPickerQty >= totalAvailPieces}
+                                    className="w-10 h-10 rounded-lg bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold text-xl flex items-center justify-center shadow-sm"
                                 >+</button>
                             </div>
+                            {/* Preset quick-qty buttons — capped at available when strict */}
                             <div className="flex gap-1.5 mt-2">
-                                {[1, 5, 10, 20, 50, 100].map(q => (
-                                    <button key={q} onClick={() => setUnitPickerQty(q)}
-                                    className="flex-1 py-1 bg-white border border-blue-200 hover:bg-blue-100 rounded-lg text-xs font-semibold text-blue-700 transition-colors"
-                                    >{q}</button>
-                                ))}
+                                {[1, 5, 10, 20, 50, 100].map(q => {
+                                    const blocked = preventNegativeStock && q > totalAvailPieces;
+                                    return (
+                                        <button key={q}
+                                            onClick={() => { if (!blocked) setUnitPickerQty(q); }}
+                                            disabled={blocked}
+                                            className={`flex-1 py-1 rounded-lg text-xs font-semibold transition-colors border ${
+                                                blocked
+                                                    ? 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed'
+                                                    : 'bg-white border-blue-200 hover:bg-blue-100 text-blue-700'
+                                            }`}
+                                        >{q}</button>
+                                    );
+                                })}
                             </div>
+                            {pieceOverStock && (
+                                <p className="text-xs text-red-600 font-bold mt-1.5 text-center">
+                                    🚫 Max available: {totalAvailPieces} {unitPickerProduct.salesUnit}
+                                </p>
+                            )}
                         </div>
 
+                        {/* ── PER PIECE / SALES UNIT ── */}
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Per {unitPickerProduct.salesUnit}</p>
                         <div className="space-y-2 mb-4">
                             {/* Retail Price */}
                             <button
+                                disabled={pieceOverStock || totalAvailPieces === 0}
                                 onClick={() => {
+                                    if (pieceOverStock || totalAvailPieces === 0) return;
                                     addToCartWithUnit(unitPickerProduct, unitPickerProduct.salesUnit || 'Piece', 1, retailPrice, unitPickerQty);
-                                    setShowUnitPicker(false);
-                                    setUnitPickerProduct(null);
-                                    setUnitPickerQty(1);
+                                    closeUnitPicker();
                                 }}
-                                className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 transition-all"
+                                className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
+                                    pieceOverStock || totalAvailPieces === 0
+                                        ? 'border-red-200 bg-red-50 opacity-60 cursor-not-allowed'
+                                        : 'border-blue-200 bg-blue-50 hover:bg-blue-100'
+                                }`}
                             >
                                 <div className="flex items-center gap-3">
                                     <span className="text-2xl">🏷️</span>
                                     <div className="text-left">
                                         <p className="font-bold text-gray-800">Retail Price</p>
-                                        <p className="text-xs text-gray-500">Per {unitPickerProduct.salesUnit}</p>
+                                        <p className="text-xs text-gray-500">Per {unitPickerProduct.salesUnit} × {unitPickerQty}</p>
+                                        {pieceOverStock && <p className="text-[10px] text-red-600 font-bold">Only {totalAvailPieces} available</p>}
                                     </div>
                                 </div>
                                 <span className="text-lg font-bold text-blue-700">Ksh {retailPrice.toLocaleString()}</span>
@@ -3007,43 +3078,53 @@ export default function RetailPOSPage() {
 
                             {/* Wholesale Price */}
                             <button
+                                disabled={pieceOverStock || totalAvailPieces === 0}
                                 onClick={() => {
+                                    if (pieceOverStock || totalAvailPieces === 0) return;
                                     addToCartWithUnit(unitPickerProduct, unitPickerProduct.salesUnit || 'Piece', 1, wholesalePrice, unitPickerQty);
-                                    setShowUnitPicker(false);
-                                    setUnitPickerProduct(null);
-                                    setUnitPickerQty(1);
+                                    closeUnitPicker();
                                 }}
-                                className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-green-200 bg-green-50 hover:bg-green-100 transition-all"
+                                className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
+                                    pieceOverStock || totalAvailPieces === 0
+                                        ? 'border-red-200 bg-red-50 opacity-60 cursor-not-allowed'
+                                        : 'border-green-200 bg-green-50 hover:bg-green-100'
+                                }`}
                             >
                                 <div className="flex items-center gap-3">
                                     <span className="text-2xl">💰</span>
                                     <div className="text-left">
                                         <p className="font-bold text-gray-800">Wholesale Price</p>
-                                        <p className="text-xs text-gray-500">Per {unitPickerProduct.salesUnit}</p>
+                                        <p className="text-xs text-gray-500">Per {unitPickerProduct.salesUnit} × {unitPickerQty}</p>
+                                        {pieceOverStock && <p className="text-[10px] text-red-600 font-bold">Only {totalAvailPieces} available</p>}
                                     </div>
                                 </div>
                                 <span className="text-lg font-bold text-green-700">Ksh {wholesalePrice.toLocaleString()}</span>
                             </button>
                         </div>
 
+                        {/* ── PER BAG / PURCHASE UNIT ── */}
                         {ppp > 1 && (<>
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Per {unitPickerProduct.purchaseUnit}</p>
                         <div className="space-y-2">
-                            {/* Big Quantity / Bag Price */}
                             <button
+                                disabled={bagOverStock || availBags === 0}
                                 onClick={() => {
+                                    if (bagOverStock || availBags === 0) return;
                                     addToCartWithUnit(unitPickerProduct, unitPickerProduct.purchaseUnit || 'Bag', ppp, bigQtyPrice, unitPickerQty);
-                                    setShowUnitPicker(false);
-                                    setUnitPickerProduct(null);
-                                    setUnitPickerQty(1);
+                                    closeUnitPicker();
                                 }}
-                                className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-purple-200 bg-purple-50 hover:bg-purple-100 transition-all"
+                                className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
+                                    bagOverStock || availBags === 0
+                                        ? 'border-red-200 bg-red-50 opacity-60 cursor-not-allowed'
+                                        : 'border-purple-200 bg-purple-50 hover:bg-purple-100'
+                                }`}
                             >
                                 <div className="flex items-center gap-3">
                                     <span className="text-2xl">📦</span>
                                     <div className="text-left">
                                         <p className="font-bold text-gray-800">Per {unitPickerProduct.purchaseUnit}</p>
-                                        <p className="text-xs text-gray-500">1 {unitPickerProduct.purchaseUnit} = {ppp} {unitPickerProduct.salesUnit}</p>
+                                        <p className="text-xs text-gray-500">1 {unitPickerProduct.purchaseUnit} = {ppp} {unitPickerProduct.salesUnit} × {unitPickerQty}</p>
+                                        {bagOverStock && <p className="text-[10px] text-red-600 font-bold">Only {availBags} {unitPickerProduct.purchaseUnit} available</p>}
                                     </div>
                                 </div>
                                 <span className="text-lg font-bold text-purple-700">Ksh {bigQtyPrice.toLocaleString()}</span>
@@ -3052,7 +3133,7 @@ export default function RetailPOSPage() {
                         </>)}
 
                         <button
-                            onClick={() => { setShowUnitPicker(false); setUnitPickerProduct(null); }}
+                            onClick={closeUnitPicker}
                             className="w-full mt-4 py-2 text-sm text-gray-500 hover:text-gray-700 font-medium"
                         >
                             Cancel
@@ -3061,6 +3142,7 @@ export default function RetailPOSPage() {
                 </div>
                 );
             })()}
+
 
             {/* Opening Drop Modal */}
             {showOpeningDrop && (
