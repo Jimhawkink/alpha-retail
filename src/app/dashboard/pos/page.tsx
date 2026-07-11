@@ -100,7 +100,6 @@ const ProductRow = ({
     </tr>
 );
 
-// Cart Item Row Component — qty is clickable to type a custom number
 const CartItemRow = ({
     item,
     onIncrease,
@@ -108,6 +107,8 @@ const CartItemRow = ({
     onRemove,
     onEditDiscount,
     onSetQty,
+    onEditPrice,
+    minPrice,
     canDiscount = true
 }: {
     item: CartItem;
@@ -116,16 +117,32 @@ const CartItemRow = ({
     onRemove: () => void;
     onEditDiscount: () => void;
     onSetQty: (qty: number) => void;
+    onEditPrice?: (newPrice: number) => void;
+    minPrice?: number;
     canDiscount?: boolean;
 }) => {
     const [editingQty, setEditingQty] = useState(false);
     const [qtyInput, setQtyInput] = useState(item.qty.toString());
+    const [editingPrice, setEditingPrice] = useState(false);
+    const [priceInput, setPriceInput] = useState(item.effectivePrice.toString());
     const itemTotal = (item.effectivePrice * item.qty) - item.discount;
 
     const handleQtySubmit = () => {
         const newQty = parseInt(qtyInput) || 1;
         if (newQty > 0) onSetQty(newQty);
         setEditingQty(false);
+    };
+
+    const handlePriceSubmit = () => {
+        const newPrice = parseFloat(priceInput) || item.effectivePrice;
+        const min = minPrice ?? 1;
+        const safePrice = Math.max(min, newPrice);
+        if (safePrice !== newPrice) {
+            // Snapped to minimum — alert user
+            setPriceInput(safePrice.toFixed(2));
+        }
+        if (onEditPrice) onEditPrice(safePrice);
+        setEditingPrice(false);
     };
 
     return (
@@ -136,11 +153,41 @@ const CartItemRow = ({
                 <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-800 text-sm truncate leading-tight">{item.name}</p>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="text-[10px] text-gray-400">@ Ksh {item.effectivePrice.toLocaleString()} / {item.sellingUnit || item.salesUnit || 'Pc'}</span>
-                        {item.unitMultiplier > 1 && (
+                        {/* Price — click to edit if allowed */}
+                        {editingPrice ? (
+                            <input
+                                type="number"
+                                value={priceInput}
+                                onChange={e => setPriceInput(e.target.value)}
+                                onBlur={handlePriceSubmit}
+                                onKeyDown={e => { if (e.key === 'Enter') handlePriceSubmit(); if (e.key === 'Escape') setEditingPrice(false); }}
+                                className="w-24 h-5 text-[10px] text-center font-bold text-blue-700 border border-blue-400 rounded focus:outline-none focus:ring-1 focus:ring-blue-400 bg-blue-50"
+                                autoFocus
+                                min={minPrice}
+                                step="0.01"
+                            />
+                        ) : (
+                            <span
+                                className={`text-[10px] text-gray-400 ${
+                                    onEditPrice ? 'cursor-pointer hover:text-blue-500 hover:underline decoration-dotted' : ''
+                                }`}
+                                onClick={() => {
+                                    if (onEditPrice) { setPriceInput(item.effectivePrice.toString()); setEditingPrice(true); }
+                                }}
+                                title={onEditPrice ? `Click to edit price (min: Ksh ${(minPrice || 0).toLocaleString()})` : undefined}
+                            >
+                                @ Ksh {item.effectivePrice.toLocaleString()} / {item.sellingUnit || item.salesUnit || 'Pc'}
+                                {onEditPrice && <span className="ml-1 text-[8px] text-blue-400">✏️</span>}
+                            </span>
+                        )}
+                        {item.unitMultiplier > 1 && !editingPrice && (
                             <span className="text-[9px] text-purple-600 font-semibold bg-purple-50 px-1 py-0.5 rounded">×{item.unitMultiplier}</span>
                         )}
                     </div>
+                    {/* Min price hint when editing */}
+                    {editingPrice && minPrice && (
+                        <p className="text-[9px] text-amber-600 mt-0.5">Min: Ksh {minPrice.toLocaleString()} (cost + margin)</p>
+                    )}
                 </div>
 
                 {/* Qty pill controls */}
@@ -1120,12 +1167,16 @@ export default function RetailPOSPage() {
     const [showLowStockModal, setShowLowStockModal] = useState(false);
     const [lowStockItems, setLowStockItems] = useState<Array<{ name: string; pieceQty: number; bagQty: number; salesUnit: string; purchaseUnit: string }>>([]);
 
-    // ─── QUICK ACTIONS FAB ───
+    // ── QUICK ACTIONS FAB ───
     const [showQuickActions, setShowQuickActions] = useState(false);
     const [qaSearch, setQaSearch] = useState('');
-    // ─── POS DEFAULT PRICE MODE (retail | wholesale) — SuperAdmin setting ───
+    // ── POS DEFAULT PRICE MODE (retail | wholesale) — SuperAdmin setting ───
     const [posDefaultPrice, setPosDefaultPrice] = useState<'retail' | 'wholesale'>('wholesale');
     const [isSuperAdminUser, setIsSuperAdminUser] = useState(false);
+    // ── PREVENT NEGATIVE STOCK ───
+    const [preventNegativeStock, setPreventNegativeStockPOS] = useState(false);
+    // ── CART PRICE EDITING ───
+    const [_editPriceDummy, _setEditPriceDummy] = useState(0); // trigger re-render
     // ── Premium FAB: only show for licensed/Silibwet outlets ──
     const showQuickActionsFAB = (activeOutlet?.outlet_code || '').toUpperCase().includes('SILB') ||
         (activeOutlet?.outlet_name || '').toLowerCase().includes('silibwet');
@@ -1141,7 +1192,7 @@ export default function RetailPOSPage() {
         } catch { /* silent */ }
     }, []);
 
-    // Reload per-outlet price mode whenever the active outlet changes
+    // Reload per-outlet price mode + global prevent-negative-stock whenever outlet changes
     useEffect(() => {
         if (!outletId) return;
         supabase.from('license_settings').select('setting_value')
@@ -1149,7 +1200,37 @@ export default function RetailPOSPage() {
             .then(({ data }) => {
                 setPosDefaultPrice(data?.setting_value === 'retail' ? 'retail' : 'wholesale');
             });
+        // Load prevent-negative-stock global setting
+        supabase.from('organisation_settings').select('setting_value')
+            .eq('setting_key', 'prevent_negative_stock').single()
+            .then(({ data }) => {
+                setPreventNegativeStockPOS(data?.setting_value === 'true');
+            });
     }, [outletId]);
+
+    // ── Cart price editing helpers ────────────────────────────────────────────
+    // getMinPrice: minimum selling price = cost-per-selling-unit + 1 KES profit
+    // costPrice = purchase_cost (full package cost), piecesPerPackage = ppp
+    // For piece sales (unitMultiplier === 1): minPrice = ceil(costPrice / ppp) + 1
+    // For bag/package sales (unitMultiplier > 1): minPrice = costPrice + 1
+    const getMinPrice = (item: CartItem): number => {
+        const rawCost = item.costPrice || 0;
+        if (item.unitMultiplier > 1) {
+            // Bag/package sale — cost is per full bag
+            return Math.ceil(rawCost) + 1;
+        }
+        // Piece sale — cost is per piece = purchase_cost / piecesPerPackage
+        const ppp = item.piecesPerPackage || 1;
+        return Math.ceil(rawCost / ppp) + 1;
+    };
+
+    const handleSetPrice = (id: number, sellingUnit: string, newPrice: number) => {
+        setCart(prev => prev.map(item =>
+            item.id === id && item.sellingUnit === sellingUnit
+                ? { ...item, effectivePrice: newPrice }
+                : item
+        ));
+    };
 
 
 
@@ -1895,6 +1976,16 @@ export default function RetailPOSPage() {
 
     // Complete sale
     const completeSale = async (method: string, amountPaid: number, mpesaReceipt?: string, customerName?: string, checkoutRequestId?: string, customerPhone?: string) => {
+        // ── PREVENT NEGATIVE STOCK CHECK ────────────────────────────────────────────
+        // When setting is ON, block sales if any item quantity exceeds available stock
+        if (preventNegativeStock) {
+            const overStock = cart.filter(item => item.qty > item.availableQty);
+            if (overStock.length > 0) {
+                const names = overStock.map(i => i.name).join(', ');
+                toast.error(`❌ Cannot complete sale — insufficient stock for: ${names}. Negative stock sales are disabled. Please adjust quantities.`, { duration: 6000 });
+                return;
+            }
+        }
         try {
             // Use selected customer info if available
             const custName = selectedCustomer ? selectedCustomer.customer_name : (customerName || 'Walk-in Customer');
@@ -2593,6 +2684,8 @@ export default function RetailPOSPage() {
                                     onEditDiscount={() => openDiscountModal(item)}
                                     onSetQty={(qty) => setCartItemQty(item.id, item.sellingUnit, qty)}
                                     canDiscount={canDiscount}
+                                    onEditPrice={(p) => handleSetPrice(item.id, item.sellingUnit, p)}
+                                    minPrice={getMinPrice(item)}
                                 />
                             ))
                         )}

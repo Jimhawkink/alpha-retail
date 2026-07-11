@@ -47,6 +47,10 @@ export default function LicensePage() {
     const [isSuperAdmin, setIsSuperAdmin] = useState(false);
     const [demoSaving, setDemoSaving] = useState<number | null>(null);
 
+    // ── POS Operations Settings ───────────────────────────────────────
+    const [preventNegativeStock, setPreventNegativeStock] = useState(false);
+    const [savingPosSettings, setSavingPosSettings] = useState(false);
+
     // ── Demo mode handler ─────────────────────────────────────────────
     const activateDemo = async (lic: OutletLicense, days: 3 | 5) => {
         setDemoSaving(lic.outlet_id);
@@ -114,6 +118,27 @@ export default function LicensePage() {
     }, []);
 
     useEffect(() => { loadLicenses(); }, [loadLicenses]);
+
+    // Load POS settings
+    useEffect(() => {
+        supabase.from('organisation_settings').select('setting_value')
+            .eq('setting_key', 'prevent_negative_stock').single()
+            .then(({ data }) => { if (data) setPreventNegativeStock(data.setting_value === 'true'); });
+    }, []);
+
+    const savePosSettings = async () => {
+        setSavingPosSettings(true);
+        try {
+            await supabase.from('organisation_settings').upsert({
+                setting_key: 'prevent_negative_stock',
+                setting_value: String(preventNegativeStock),
+                setting_type: 'boolean',
+                description: 'Prevent cashiers from selling items when stock is 0 or would go negative'
+            }, { onConflict: 'setting_key' });
+            toast.success('✅ POS settings saved successfully!');
+        } catch { toast.error('Failed to save POS settings.'); }
+        setSavingPosSettings(false);
+    };
 
     // ── Mutate helpers ────────────────────────────────────────────────
     const updateLicense = (id: number, patch: Partial<OutletLicense>) => {
@@ -267,6 +292,54 @@ export default function LicensePage() {
                         );
                     })}
                 </div>
+            </div>
+
+            {/* ── POS Operations Settings ── */}
+            <div className="mb-5 p-5 bg-gradient-to-r from-rose-50 to-orange-50 border border-rose-200 rounded-2xl">
+                <div className="flex items-start gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center text-xl shrink-0">🛡️</div>
+                    <div className="flex-1">
+                        <p className="font-black text-rose-800 text-sm">POS Operations Settings</p>
+                        <p className="text-rose-600 text-xs mt-0.5">Global settings that apply across all outlets at the Point of Sale. Changes take effect immediately.</p>
+                    </div>
+                </div>
+
+                {/* Prevent Negative Stock */}
+                <div className="bg-white rounded-xl border border-rose-100 p-4 mb-3">
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <span className="text-2xl shrink-0">📦</span>
+                            <div className="min-w-0">
+                                <p className="font-bold text-gray-800 text-sm">Prevent Negative Stock Sales</p>
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                    <strong className={preventNegativeStock ? 'text-red-600' : 'text-gray-400'}>When ON</strong> — cashiers cannot complete a sale if stock quantity is 0 or would go negative. &nbsp;
+                                    <strong className={!preventNegativeStock ? 'text-green-600' : 'text-gray-400'}>When OFF</strong> — sales proceed even with zero/negative stock (default).
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                            <span className={`text-xs font-black px-2.5 py-1 rounded-full border ${
+                                preventNegativeStock
+                                    ? 'bg-red-50 text-red-600 border-red-200'
+                                    : 'bg-gray-50 text-gray-400 border-gray-200'
+                            }`}>
+                                {preventNegativeStock ? '🔒 STRICT' : '🔓 OFF'}
+                            </span>
+                            <Toggle checked={preventNegativeStock} onChange={() => setPreventNegativeStock(v => !v)} />
+                        </div>
+                    </div>
+                </div>
+
+                <button
+                    onClick={savePosSettings}
+                    disabled={savingPosSettings}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-xs font-black transition-all hover:scale-[1.02] disabled:opacity-60 shadow"
+                    style={{ background: 'linear-gradient(135deg,#f43f5e,#e11d48)' }}
+                >
+                    {savingPosSettings
+                        ? <><div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />Saving...</>
+                        : <><FiSave size={12} />Save POS Settings</>}
+                </button>
             </div>
 
             {/* ── Outlet License Cards ── */}
