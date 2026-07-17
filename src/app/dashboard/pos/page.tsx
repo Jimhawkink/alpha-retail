@@ -367,8 +367,8 @@ const ProductCard = ({ product, onAdd, posDefaultPrice }: { product: Product; on
 
 // M-Pesa API fallback — used when outlet has no custom M-Pesa config
 // (Silibwet's live credentials — DO NOT REMOVE, they are the working fallback)
-const MPESA_API_URL_FALLBACK = 'https://enlqpifpxuecxxozyiak.supabase.co/functions/v1';
-const MPESA_ANON_KEY_FALLBACK = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVubHFwaWZweHVlY3h4b3p5aWFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYwMjUzNjgsImV4cCI6MjA4MTYwMTM2OH0.-z3-2Mf3SkkZR3ZryOGyG-60jWERX9YLKIee048OziE';
+const MPESA_API_URL_FALLBACK = 'https://zkamuhvrmazozhudbtuw.supabase.co/functions/v1';
+const MPESA_ANON_KEY_FALLBACK = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InprYW11aHZybWF6b3podWRidHV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyNDE3OTYsImV4cCI6MjA5OTgxNzc5Nn0.Y6gkKQDWuLxcmhlYTZvKase7MzDO_Ehymitef6OE5JU';
 
 // Format phone number for M-Pesa
 const formatMpesaPhone = (phone: string): string => {
