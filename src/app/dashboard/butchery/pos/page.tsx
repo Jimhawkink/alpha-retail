@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import Link from 'next/link';
 
 // M-Pesa API URL - uses Supabase Edge Functions
-const MPESA_API_URL = 'https://pxcdaivlvltmdifxietb.supabase.co/functions/v1';
+const MPESA_API_URL = 'https://zkamuhvrmazozhudbtuw.supabase.co/functions/v1';
 
 interface MeatStock {
     stock_id: number;
