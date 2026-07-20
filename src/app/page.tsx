@@ -125,6 +125,14 @@ export default function LoginPage() {
 
             if (linkErr) console.warn('retail_user_outlets error:', linkErr.message);
 
+            // Detect if user is super admin (sees ALL outlets)
+            const isSuperAdmin =
+                data.is_super_admin === true ||
+                ['superadmin', 'super admin', 'superuser', 'super user', 'admin']
+                    .includes((data.user_type || '').toLowerCase()) ||
+                ['superadmin', 'superuser', 'admin']
+                    .includes((data.user_name || '').toLowerCase());
+
             let available: any[] = [];
             if (links && links.length > 0) {
                 // User has specific outlet assignments — load only those
@@ -137,8 +145,8 @@ export default function LoginPage() {
                     .order('is_main', { ascending: false })  // main outlet first
                     .order('outlet_name');
                 available = od || [];
-            } else {
-                // No specific assignments — user sees ALL active outlets (super admin / unrestricted)
+            } else if (isSuperAdmin) {
+                // Super admin with no specific assignment — sees ALL active outlets
                 const { data: od } = await supabase
                     .from('retail_outlets')
                     .select('outlet_id,outlet_name,outlet_code,is_main')
@@ -146,6 +154,26 @@ export default function LoginPage() {
                     .order('is_main', { ascending: false })
                     .order('outlet_name');
                 available = od || [];
+            } else {
+                // Regular user with no assignment — default to main outlet only
+                const { data: mainOutlet } = await supabase
+                    .from('retail_outlets')
+                    .select('outlet_id,outlet_name,outlet_code,is_main')
+                    .eq('active', true)
+                    .eq('is_main', true)
+                    .maybeSingle();
+                if (mainOutlet) {
+                    available = [mainOutlet];
+                } else {
+                    // No main outlet — grab first active outlet
+                    const { data: firstOd } = await supabase
+                        .from('retail_outlets')
+                        .select('outlet_id,outlet_name,outlet_code,is_main')
+                        .eq('active', true)
+                        .order('outlet_id')
+                        .limit(1);
+                    available = firstOd || [];
+                }
             }
 
             // 4. Single outlet → auto-login; Multiple → show picker
