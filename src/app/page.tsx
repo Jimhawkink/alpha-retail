@@ -85,39 +85,86 @@ export default function LoginPage() {
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        setIsLoading(true); setError('');
-        if (!username || !password) { setError('Enter your username and password.'); setIsLoading(false); return; }
-
+        setError('');
+        if (!username.trim() || !password.trim()) {
+            setError('Enter your username and password.');
+            return;
+        }
+        setIsLoading(true);
         try {
+            // 1. Find user (case-insensitive username)
             const { data, error: dbError } = await supabase
-                .from('retail_users').select('*').ilike('user_name', username).eq('active', true).single();
+                .from('retail_users')
+                .select('*')
+                .ilike('user_name', username.trim())
+                .eq('active', true)
+                .maybeSingle();  // maybeSingle — no error if 0 rows
 
-            if (dbError || !data) {
+            if (dbError) throw dbError;
+            if (!data) {
                 setError('Invalid username or password.');
-                logActivity('Login Failed', `Bad credentials for: ${username}`);
-                setIsLoading(false); return;
+                logActivity('Login Failed', `User not found: ${username}`);
+                return;
             }
 
-            const ok = await verifyPassword(password, data.password_hash);
-            if (ok || data.pin === password) {
-                const { data: links } = await supabase.from('retail_user_outlets').select('outlet_id').eq('user_id', data.user_id);
-                let available: any[] = [];
-                if (links && links.length > 0) {
-                    const ids = links.map((l: any) => l.outlet_id);
-                    const { data: od } = await supabase.from('retail_outlets').select('outlet_id,outlet_name,outlet_code,is_main').in('outlet_id', ids).eq('active', true);
-                    available = od || [];
-                } else {
-                    const { data: od } = await supabase.from('retail_outlets').select('outlet_id,outlet_name,outlet_code,is_main').eq('active', true);
-                    available = od || [];
-                }
-                if (available.length > 1) { setPendingUser(data); setUserOutlets(available); setShowOutletPicker(true); }
-                else { const o = available[0] || { outlet_id: 1, outlet_name: 'Main Outlet' }; completeLogin(data, o.outlet_id, o.outlet_name); }
+            // 2. Verify password — PBKDF2 hash OR plain text OR PIN (String comparison to avoid type mismatch)
+            const ok = await verifyPassword(password, data.password_hash || '');
+            const pinMatch = data.pin != null && String(data.pin).trim() === String(password).trim();
+
+            if (!ok && !pinMatch) {
+                setError('Invalid username or password.');
+                logActivity('Login Failed', `Wrong password for: ${username}`);
+                return;
+            }
+
+            // 3. Load assigned outlets from retail_user_outlets
+            const { data: links, error: linkErr } = await supabase
+                .from('retail_user_outlets')
+                .select('outlet_id')
+                .eq('user_id', data.user_id);
+
+            if (linkErr) console.warn('retail_user_outlets error:', linkErr.message);
+
+            let available: any[] = [];
+            if (links && links.length > 0) {
+                // User has specific outlet assignments — load only those
+                const ids = links.map((l: any) => l.outlet_id);
+                const { data: od } = await supabase
+                    .from('retail_outlets')
+                    .select('outlet_id,outlet_name,outlet_code,is_main')
+                    .in('outlet_id', ids)
+                    .eq('active', true)
+                    .order('is_main', { ascending: false })  // main outlet first
+                    .order('outlet_name');
+                available = od || [];
             } else {
-                setError('Invalid username or password.');
+                // No specific assignments — user sees ALL active outlets (super admin / unrestricted)
+                const { data: od } = await supabase
+                    .from('retail_outlets')
+                    .select('outlet_id,outlet_name,outlet_code,is_main')
+                    .eq('active', true)
+                    .order('is_main', { ascending: false })
+                    .order('outlet_name');
+                available = od || [];
             }
-        } catch { setError('Connection error. Please try again.'); }
-        setIsLoading(false);
+
+            // 4. Single outlet → auto-login; Multiple → show picker
+            if (available.length > 1) {
+                setPendingUser(data);
+                setUserOutlets(available);
+                setShowOutletPicker(true);
+            } else {
+                const o = available[0] || { outlet_id: 1, outlet_name: 'Main Outlet', outlet_code: 'MAIN' };
+                completeLogin(data, o.outlet_id, o.outlet_name);
+            }
+        } catch (err: any) {
+            console.error('Login error:', err);
+            setError('Connection error. Please check your internet and try again.');
+        } finally {
+            setIsLoading(false);
+        }
     };
+
 
     const handleForgotPassword = async (e: React.FormEvent) => {
         e.preventDefault();
