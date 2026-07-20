@@ -88,25 +88,17 @@ export default function UsersPage() {
                 .order('outlet_name');
             setOutlets(outletData || []);
 
-            // Load user->outlet assignments from license_settings
+            // Load user->outlet assignments from retail_user_outlets (same table login uses)
             if (data && data.length > 0) {
-                const keys = data.map((u: User) => `user_outlet_${u.user_id}`);
-                const { data: settings } = await supabase
-                    .from('license_settings')
-                    .select('setting_key,setting_value')
-                    .in('setting_key', keys);
+                const userIds = data.map((u: User) => u.user_id);
+                const { data: ruoData } = await supabase
+                    .from('retail_user_outlets')
+                    .select('user_id,outlet_id')
+                    .in('user_id', userIds);
                 const map: Record<number, number[]> = {};
-                (settings || []).forEach((s: { setting_key: string; setting_value: string }) => {
-                    const uid = parseInt(s.setting_key.replace('user_outlet_', ''));
-                    try {
-                        const val = s.setting_value.trim();
-                        if (val.startsWith('[')) {
-                            map[uid] = JSON.parse(val);
-                        } else {
-                            const n = parseInt(val);
-                            if (!isNaN(n) && n > 0) map[uid] = [n];
-                        }
-                    } catch { map[uid] = []; }
+                (ruoData || []).forEach((row: { user_id: number; outlet_id: number }) => {
+                    if (!map[row.user_id]) map[row.user_id] = [];
+                    map[row.user_id].push(row.outlet_id);
                 });
                 setUserOutlets(map);
             }
@@ -201,18 +193,26 @@ export default function UsersPage() {
                 toast.success('User updated successfully! ✅');
                 logActivity('Update', `Updated user: ${formData.name}`, `Username: ${formData.user_name}, Role: ${formData.user_type}`);
 
-                // Save outlet assignments (SuperAdmin only)
+                // Save outlet assignments to retail_user_outlets (SuperAdmin only)
+                // This is the SAME table the login reads from — so it works immediately
                 if (isSuperAdmin) {
-                    const key = `user_outlet_${editingUser.user_id}`;
+                    const uid = editingUser.user_id;
                     const ids = formData.assigned_outlet_ids;
+                    // Always delete existing rows for this user first
+                    await supabase.from('retail_user_outlets').delete().eq('user_id', uid);
                     if (ids.length > 0) {
-                        await supabase.from('license_settings').upsert(
-                            { setting_key: key, setting_value: JSON.stringify(ids) },
-                            { onConflict: 'setting_key' }
-                        );
+                        // Insert one row per outlet
+                        const rows = ids.map((oid: number, idx: number) => ({
+                            user_id: uid,
+                            outlet_id: oid,
+                            is_default: idx === 0,  // first selected = default
+                        }));
+                        const { error: ruoErr } = await supabase.from('retail_user_outlets').insert(rows);
+                        if (ruoErr) console.error('Error saving outlet assignments:', ruoErr.message);
+                        else toast.success(`✅ Outlet access saved — ${ids.length} outlet(s) assigned`);
                     } else {
-                        // No outlets selected = no restriction, remove the key
-                        await supabase.from('license_settings').delete().eq('setting_key', key);
+                        // No outlets selected = user sees all outlets (no restriction)
+                        toast.success('✅ User updated — no outlet restriction (sees all outlets)');
                     }
                 }
             } else {
@@ -237,14 +237,17 @@ export default function UsersPage() {
                 toast.success('User created successfully! 🎉');
                 logActivity('Create', `Created user: ${formData.name}`, `Username: ${formData.user_name}, Role: ${formData.user_type}`);
 
-                // Save outlet assignments for new user (SuperAdmin only)
+                // Save outlet assignments for new user to retail_user_outlets (SuperAdmin only)
                 if (isSuperAdmin && data?.user_id) {
                     const ids = formData.assigned_outlet_ids;
                     if (ids.length > 0) {
-                        await supabase.from('license_settings').upsert(
-                            { setting_key: `user_outlet_${data.user_id}`, setting_value: JSON.stringify(ids) },
-                            { onConflict: 'setting_key' }
-                        );
+                        const rows = ids.map((oid: number, idx: number) => ({
+                            user_id: data.user_id,
+                            outlet_id: oid,
+                            is_default: idx === 0,
+                        }));
+                        const { error: ruoErr } = await supabase.from('retail_user_outlets').insert(rows);
+                        if (ruoErr) console.error('Error saving outlet assignments for new user:', ruoErr.message);
                     }
                 }
             }
