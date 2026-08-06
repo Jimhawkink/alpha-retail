@@ -1547,22 +1547,28 @@ export default function RetailPOSPage() {
         }
     }, []);
 
-    // Load active shift (persists across sessions)
+    // Load active shift — filtered by outlet so each outlet tracks its own register
     const loadActiveShift = useCallback(async () => {
+        if (!outletId) return;
         try {
             const { data } = await supabase
                 .from('retail_shifts')
                 .select('*')
                 .eq('status', 'Open')
+                .eq('outlet_id', outletId)  // ← per-outlet filter
                 .order('shift_id', { ascending: false })
                 .limit(1)
                 .maybeSingle();
             if (data) {
                 setCurrentShiftId(data.shift_id);
                 setRegisterOpen(true);
+            } else {
+                // No open shift for this outlet — ensure register shows as closed
+                setCurrentShiftId(null);
+                setRegisterOpen(false);
             }
         } catch (err) { console.error('Load shift error:', err); }
-    }, []);
+    }, [outletId]);
 
     // Initial load
     useEffect(() => {
@@ -1572,7 +1578,12 @@ export default function RetailPOSPage() {
         loadNextReceiptNo();
         loadCreditCustomers();
         loadActiveShift();
-    }, [loadProducts, loadCategories, loadStoreName, loadNextReceiptNo, loadCreditCustomers]);
+    }, [loadProducts, loadCategories, loadStoreName, loadNextReceiptNo, loadCreditCustomers, loadActiveShift]);
+
+    // Re-check register state whenever outlet changes
+    useEffect(() => {
+        if (outletId) loadActiveShift();
+    }, [outletId, loadActiveShift]);
 
     // Search products when query changes
     useEffect(() => {
@@ -1791,7 +1802,8 @@ export default function RetailPOSPage() {
                 start_time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
                 opening_cash: amount,
                 status: 'Open',
-                opened_by: 'Cashier'
+                opened_by: 'Cashier',
+                outlet_id: outletId  // ← tag shift to this outlet only
             }).select('shift_id').single();
 
             if (error) throw error;
