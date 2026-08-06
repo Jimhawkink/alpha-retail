@@ -2082,7 +2082,11 @@ export default function RetailPOSPage() {
 
             for (const item of cart) {
                 const sellingUnit = (item.sellingUnit || 'Piece').toLowerCase();
-                const isBagSale = ['bag', 'bags', 'box', 'carton', 'crate', 'pack', 'dozen'].includes(sellingUnit);
+                // isBagSale: true only when the unit name is a bulk/package unit AND
+                // the multiplier confirms it's a multi-piece sale (not an individual piece
+                // sold under a unit whose name happens to be 'dozen' due to migration data issue).
+                const isBagSale = ['bag', 'bags', 'box', 'carton', 'crate', 'pack', 'dozen'].includes(sellingUnit)
+                    && (item.unitMultiplier || 1) > 1;
 
                 let deductStorageType: string;
                 let deductQty: number;

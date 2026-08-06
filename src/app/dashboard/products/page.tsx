@@ -1013,7 +1013,7 @@ export default function ProductsPage() {
                                                     {(bagStockData[p.pid] || 0) > 0 && (
                                                         <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-100 text-indigo-700">📦 {bagStockData[p.pid]} {p.purchase_unit}</span>
                                                     )}
-                                                    <span className={`inline-block min-w-[36px] px-2 py-0.5 rounded-md text-[10px] font-bold ${(pieceStockData[p.pid] || 0) > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>🔢 {pieceStockData[p.pid] || 0} {p.sales_unit}</span>
+                                                    <span className={`inline-block min-w-[36px] px-2 py-0.5 rounded-md text-[10px] font-bold ${(pieceStockData[p.pid] || 0) > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>🔢 {pieceStockData[p.pid] || 0} {p.sales_unit?.toLowerCase() === p.purchase_unit?.toLowerCase() ? 'Piece' : p.sales_unit}</span>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3 text-center hidden lg:table-cell">
@@ -1135,7 +1135,7 @@ export default function ProductsPage() {
                                             className="w-full px-4 py-3 bg-indigo-50 border-2 border-indigo-200 rounded-xl focus:border-indigo-500 outline-none text-sm font-bold text-indigo-700" />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-bold text-emerald-600 mb-1.5 uppercase tracking-wider">🔢 Opening {formData.sales_unit}s (Pieces)</label>
+                                        <label className="block text-xs font-bold text-emerald-600 mb-1.5 uppercase tracking-wider">🔢 Opening {formData.sales_unit?.toLowerCase() === formData.purchase_unit?.toLowerCase() ? 'Piece' : formData.sales_unit}s (Pieces)</label>
                                         <input type="number" value={openingPieces} onChange={e => setOpeningPieces(Number(e.target.value))} min="0" placeholder="e.g. 20"
                                             className="w-full px-4 py-3 bg-emerald-50 border-2 border-emerald-200 rounded-xl focus:border-emerald-500 outline-none text-sm font-bold text-emerald-700" />
                                     </div>
@@ -1149,7 +1149,7 @@ export default function ProductsPage() {
                                                 📦 {bagStockData[editingProduct.pid] || 0} {editingProduct.purchase_unit}(s)
                                             </div>
                                             <div className="flex-1 px-4 py-3 bg-emerald-50 border-2 border-emerald-200 rounded-xl text-sm font-bold text-emerald-700">
-                                                🔢 {pieceStockData[editingProduct.pid] || 0} {editingProduct.sales_unit}(s)
+                                                🔢 {pieceStockData[editingProduct.pid] || 0} {editingProduct.sales_unit?.toLowerCase() === editingProduct.purchase_unit?.toLowerCase() ? 'Piece' : editingProduct.sales_unit}(s)
                                             </div>
                                         </div>
                                         <p className="text-[10px] text-gray-400 mt-1">Use Stock Adjust button in the products list to modify stock quantities</p>
@@ -1217,7 +1217,7 @@ export default function ProductsPage() {
                                 </div>
                                 {formData.pieces_per_package > 1 && formData.purchase_cost > 0 && (
                                     <div className="mt-3 p-3 bg-orange-50 rounded-xl border border-orange-200 text-sm">
-                                        <span className="font-bold text-orange-700">📦 Conversion:</span> 1 {formData.purchase_unit} = <span className="font-bold text-orange-800">{formData.pieces_per_package}</span> {formData.sales_unit}(s)
+                                        <span className="font-bold text-orange-700">📦 Conversion:</span> 1 {formData.purchase_unit} = <span className="font-bold text-orange-800">{formData.pieces_per_package}</span> {formData.sales_unit?.toLowerCase() === formData.purchase_unit?.toLowerCase() ? 'Piece' : formData.sales_unit}(s)
                                     </div>
                                 )}
                                 {/* Cost Per Piece + Profit Breakdown */}
@@ -1225,7 +1225,7 @@ export default function ProductsPage() {
                                     <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
                                         {/* Cost Per Piece - editable input */}
                                         <div className="bg-blue-50 rounded-xl p-3 border border-blue-200">
-                                            <label className="block text-[10px] font-bold text-blue-600 mb-1 uppercase tracking-wider">Cost / {formData.sales_unit}</label>
+                                            <label className="block text-[10px] font-bold text-blue-600 mb-1 uppercase tracking-wider">Cost / {formData.sales_unit?.toLowerCase() === formData.purchase_unit?.toLowerCase() ? 'Piece' : formData.sales_unit}</label>
                                             <input type="number" value={Number((formData.purchase_cost / (formData.pieces_per_package || 1)).toFixed(2))}
                                                 onChange={e => { const cpp = parseFloat(e.target.value) || 0; setFormData({ ...formData, purchase_cost: Math.round(cpp * (formData.pieces_per_package || 1) * 100) / 100 }); }}
                                                 className="w-full px-2 py-1.5 bg-white border border-blue-300 rounded-lg text-sm font-bold text-blue-800 focus:border-blue-500 outline-none" min="0" step="0.01" />
@@ -1236,7 +1236,7 @@ export default function ProductsPage() {
                                             const rProfit = formData.sales_cost - cpp;
                                             return (
                                                 <div className={`rounded-xl p-3 border ${rProfit > 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                                                    <p className="text-[10px] font-bold text-green-700 uppercase tracking-wider">🏷️ Retail Profit / {formData.sales_unit}</p>
+                                                    <p className="text-[10px] font-bold text-green-700 uppercase tracking-wider">🏷️ Retail Profit / {formData.sales_unit?.toLowerCase() === formData.purchase_unit?.toLowerCase() ? 'Piece' : formData.sales_unit}</p>
                                                     <p className={`text-lg font-black mt-0.5 ${rProfit > 0 ? 'text-green-700' : 'text-red-700'}`}>Ksh {rProfit.toFixed(2)}</p>
                                                     <p className="text-[10px] text-gray-400">Retail − Cost/Pc</p>
                                                 </div>
@@ -1245,7 +1245,7 @@ export default function ProductsPage() {
                                         {/* ── WS PROFIT/Pc — gated by wholesale_profit feature ── */}
                                         {hasWholesaleProfitFeature && formData.wholesale_price > 0 && (
                                             <div className={`rounded-xl p-3 border ${(formData.wholesale_price - formData.purchase_cost / (formData.pieces_per_package || 1)) > 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
-                                                <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">🤝 WS Profit / {formData.sales_unit}</p>
+                                                <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">🤝 WS Profit / {formData.sales_unit?.toLowerCase() === formData.purchase_unit?.toLowerCase() ? 'Piece' : formData.sales_unit}</p>
                                                 <p className={`text-lg font-black mt-0.5 ${(formData.wholesale_price - formData.purchase_cost / (formData.pieces_per_package || 1)) > 0 ? 'text-emerald-700' : 'text-red-700'}`}>
                                                     Ksh {(formData.wholesale_price - formData.purchase_cost / (formData.pieces_per_package || 1)).toFixed(2)}
                                                 </p>
@@ -1622,9 +1622,9 @@ export default function ProductsPage() {
                                     </div>
                                     <div className="grid grid-cols-2 gap-3 mt-4">
                                         <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Category</p><p className="font-bold text-sm">{lookupResult.category || 'N/A'}</p></div>
-                                        <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Stock</p><div className="space-y-0.5">{(bagStockData[lookupResult.pid] || 0) > 0 && <p className="font-bold text-xs text-indigo-700">📦 {bagStockData[lookupResult.pid]} {lookupResult.purchase_unit}(s)</p>}<p className="font-bold text-xs text-emerald-700">🔢 {pieceStockData[lookupResult.pid] || 0} {lookupResult.sales_unit}(s)</p></div></div>
+                                        <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Stock</p><div className="space-y-0.5">{(bagStockData[lookupResult.pid] || 0) > 0 && <p className="font-bold text-xs text-indigo-700">📦 {bagStockData[lookupResult.pid]} {lookupResult.purchase_unit}(s)</p>}<p className="font-bold text-xs text-emerald-700">🔢 {pieceStockData[lookupResult.pid] || 0} {lookupResult.sales_unit?.toLowerCase() === lookupResult.purchase_unit?.toLowerCase() ? 'Piece' : lookupResult.sales_unit}(s)</p></div></div>
                                         <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Buy Price</p><p className="font-bold text-sm">Ksh {(lookupResult.purchase_cost || 0).toLocaleString()} / {lookupResult.purchase_unit}</p></div>
-                                        <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Sell Price</p><p className="font-bold text-sm text-green-700">Ksh {(lookupResult.sales_cost || 0).toLocaleString()} / {lookupResult.sales_unit}</p></div>
+                                        <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Sell Price</p><p className="font-bold text-sm text-green-700">Ksh {(lookupResult.sales_cost || 0).toLocaleString()} / {lookupResult.sales_unit?.toLowerCase() === lookupResult.purchase_unit?.toLowerCase() ? 'Piece' : lookupResult.sales_unit}</p></div>
                                         <div className="bg-white p-3 rounded-xl border border-purple-100"><p className="text-[10px] text-purple-500 uppercase">Wholesale</p><p className="font-bold text-sm text-purple-700">{(lookupResult as any).wholesale_price ? `Ksh ${((lookupResult as any).wholesale_price || 0).toLocaleString()}` : 'N/A'}</p></div>
                                         <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Pcs/Package</p><p className="font-bold text-sm">{lookupResult.pieces_per_package || 1}</p></div>
                                         <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Profit/Piece</p><p className={`font-bold text-sm ${(() => { const cpp = (lookupResult.purchase_cost || 0) / (lookupResult.pieces_per_package || 1); const sp = (lookupResult as any).wholesale_price || lookupResult.sales_cost || 0; return (sp - cpp) >= 0 ? 'text-emerald-700' : 'text-red-600'; })()}`}>Ksh {(() => { const cpp = (lookupResult.purchase_cost || 0) / (lookupResult.pieces_per_package || 1); const sp = (lookupResult as any).wholesale_price || lookupResult.sales_cost || 0; return Math.round((sp - cpp) * 100) / 100; })().toLocaleString()}</p></div>
@@ -1701,7 +1701,7 @@ export default function ProductsPage() {
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50" onClick={() => setShowStockAdjustModal(false)}>
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
                         <div className="bg-gradient-to-r from-purple-500 to-indigo-600 px-6 py-4 text-white flex items-center justify-between rounded-t-3xl">
-                            <div><h2 className="text-lg font-bold flex items-center gap-2"><FiSliders size={18} /> Stock Adjustment</h2><p className="text-purple-100 text-xs">{adjustProduct.product_name} — 📦 {bagStockData[adjustProduct.pid] || 0} {adjustProduct.purchase_unit}(s) • 🔢 {pieceStockData[adjustProduct.pid] || 0} {adjustProduct.sales_unit}(s)</p></div>
+                            <div><h2 className="text-lg font-bold flex items-center gap-2"><FiSliders size={18} /> Stock Adjustment</h2><p className="text-purple-100 text-xs">{adjustProduct.product_name} — 📦 {bagStockData[adjustProduct.pid] || 0} {adjustProduct.purchase_unit}(s) • 🔢 {pieceStockData[adjustProduct.pid] || 0} {adjustProduct.sales_unit?.toLowerCase() === adjustProduct.purchase_unit?.toLowerCase() ? 'Piece' : adjustProduct.sales_unit}(s)</p></div>
                             <button onClick={() => setShowStockAdjustModal(false)} className="p-2 hover:bg-white/20 rounded-xl"><FiX size={18} /></button>
                         </div>
                         <div className="p-5 space-y-4">
@@ -1716,7 +1716,7 @@ export default function ProductsPage() {
                                         className="w-full px-4 py-3 bg-indigo-50 border-2 border-indigo-200 rounded-xl text-lg font-bold text-center text-indigo-700 focus:border-indigo-500 outline-none" autoFocus />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-emerald-600 mb-1 uppercase">🔢 {adjustProduct.sales_unit}s (Pieces)</label>
+                                    <label className="block text-xs font-bold text-emerald-600 mb-1 uppercase">🔢 {adjustProduct.sales_unit?.toLowerCase() === adjustProduct.purchase_unit?.toLowerCase() ? 'Piece' : adjustProduct.sales_unit}s (Pieces)</label>
                                     <input type="number" value={adjustPieces} onChange={e => setAdjustPieces(parseFloat(e.target.value) || 0)} min="0" step="1" placeholder="0"
                                         className="w-full px-4 py-3 bg-emerald-50 border-2 border-emerald-200 rounded-xl text-lg font-bold text-center text-emerald-700 focus:border-emerald-500 outline-none" />
                                 </div>
@@ -1726,7 +1726,7 @@ export default function ProductsPage() {
                                     {adjustType === 'add' ? '➕' : '➖'}{' '}
                                     {adjustBags > 0 && <><span className="font-bold text-indigo-700">{adjustBags}</span> {adjustProduct.purchase_unit}(s) </>}
                                     {adjustBags > 0 && adjustPieces > 0 && <span className="text-gray-400">+ </span>}
-                                    {adjustPieces > 0 && <><span className="font-bold text-emerald-700">{adjustPieces}</span> {adjustProduct.sales_unit}(s)</>}
+                                    {adjustPieces > 0 && <><span className="font-bold text-emerald-700">{adjustPieces}</span> {adjustProduct.sales_unit?.toLowerCase() === adjustProduct.purchase_unit?.toLowerCase() ? 'Piece' : adjustProduct.sales_unit}(s)</>}
                                 </div>
                             )}
                             <div>
