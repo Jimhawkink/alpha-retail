@@ -405,15 +405,16 @@ const PaymentModal = ({
     isOpen: boolean;
     onClose: () => void;
     total: number;
-    onComplete: (method: string, amountPaid: number, mpesaReceipt?: string, customerName?: string, checkoutRequestId?: string, customerPhone?: string) => void;
+    onComplete: (method: string, amountPaid: number, mpesaReceipt?: string, customerName?: string, checkoutRequestId?: string, customerPhone?: string, partialPayMethod?: string) => void;
     receiptNo: string;
     creditCustomers: CreditCustomer[];
     selectedCustomer: CreditCustomer | null;
     setSelectedCustomer: (c: CreditCustomer | null) => void;
     loadCreditCustomers: () => void;
-    mpesaApiUrl?: string | null;    // outlet M-Pesa API URL — null = M-Pesa disabled for this outlet
-    mpesaAnonKey?: string | null;   // outlet M-Pesa anon key — null = M-Pesa disabled for this outlet
-    mpesaUseSystem?: boolean | null; // TRUE = use system hardcoded fallback (Main Outlet, Chebunyo)
+    outletId: number;
+    mpesaApiUrl?: string | null;
+    mpesaAnonKey?: string | null;
+    mpesaUseSystem?: boolean | null;
 }) => {
     const [paymentMethod, setPaymentMethod] = useState('cash');
     const [amountPaid, setAmountPaid] = useState('');
@@ -433,6 +434,10 @@ const PaymentModal = ({
     const [newCreditName, setNewCreditName] = useState('');
     const [newCreditPhone, setNewCreditPhone] = useState('');
     const [addingCustomer, setAddingCustomer] = useState(false);
+    // Partial payment (credit + pay some now)
+    const [partialCashPaid, setPartialCashPaid] = useState('');
+    const [partialMpesaCode, setPartialMpesaCode] = useState('');
+    const [partialPayMethod, setPartialPayMethod] = useState<'cash' | 'mpesa'>('cash');
 
     // M-Pesa STK Push State
     const [mpesaStatus, setMpesaStatus] = useState<'idle' | 'sending' | 'waiting' | 'success' | 'failed'>('idle');
@@ -858,8 +863,8 @@ const PaymentModal = ({
                 {/* Credit Customer Selection */}
                 {paymentMethod === 'credit' && (
                     <div className="space-y-3 mb-6">
-                        <div className="p-3 bg-orange-50 rounded-xl border border-orange-200">
-                            <p className="text-orange-700 text-sm font-medium">Select a credit customer to proceed with credit sale</p>
+                        <div className="p-3 bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl border border-orange-200">
+                            <p className="text-orange-700 text-sm font-semibold">📋 Credit Sale — Select customer &amp; optionally collect partial payment now</p>
                         </div>
                         {/* Search */}
                         <input
@@ -870,7 +875,7 @@ const PaymentModal = ({
                             className="w-full p-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-orange-400 focus:outline-none text-sm"
                         />
                         {/* Customer List */}
-                        <div className="max-h-44 overflow-y-auto rounded-xl border border-gray-200 bg-white">
+                        <div className="max-h-40 overflow-y-auto rounded-xl border border-gray-200 bg-white">
                             {creditCustomers.filter(c =>
                                 !creditSearch ||
                                 c.customer_name?.toLowerCase().includes(creditSearch.toLowerCase()) ||
@@ -885,7 +890,7 @@ const PaymentModal = ({
                                 ).map(c => (
                                     <button
                                         key={c.customer_id}
-                                        onClick={() => { setSelectedCustomer(c); setCustomerName(c.customer_name); setCreditSearch(''); }}
+                                        onClick={() => { setSelectedCustomer(c); setCustomerName(c.customer_name); setCreditSearch(''); setPartialCashPaid(''); }}
                                         className={`w-full text-left px-4 py-3 border-b border-gray-100 last:border-0 transition-colors ${
                                             selectedCustomer?.customer_id === c.customer_id
                                             ? 'bg-orange-50 border-l-4 border-l-orange-500'
@@ -895,33 +900,114 @@ const PaymentModal = ({
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="font-semibold text-gray-800 text-sm">{c.customer_name}</p>
-                                                <p className="text-xs text-gray-500">{c.phone || 'No phone'}</p>
+                                                <p className="text-xs text-gray-500">{c.phone || 'No phone'} · {c.customer_code}</p>
                                             </div>
                                             <div className="text-right">
-                                                <p className={`text-sm font-bold ${(c.current_balance || 0) > 0 ? 'text-red-500' : 'text-green-600'}`}>
-                                                    Ksh {(c.current_balance || 0).toLocaleString()}
+                                                <p className={`text-sm font-bold ${(c.current_balance || 0) > 0 ? 'text-red-500' : c.current_balance < 0 ? 'text-purple-600' : 'text-green-600'}`}>
+                                                    Ksh {Math.abs(c.current_balance || 0).toLocaleString()}
                                                 </p>
-                                                <p className="text-[10px] text-gray-400">Balance</p>
+                                                <p className="text-[10px] text-gray-400">{c.current_balance < 0 ? 'Prepaid' : c.current_balance > 0 ? 'Owes' : 'Clear'}</p>
+                                                {c.credit_limit > 0 && <p className="text-[9px] text-blue-400">Limit: Ksh {c.credit_limit.toLocaleString()}</p>}
                                             </div>
                                         </div>
                                     </button>
                                 ))
                             )}
                         </div>
-                        {/* Selected Customer */}
-                        {selectedCustomer && (
-                            <div className="flex items-center gap-3 p-3 bg-green-50 rounded-xl border border-green-200">
-                                <div className="flex-1">
-                                    <p className="font-bold text-green-800 text-sm">{selectedCustomer.customer_name}</p>
-                                    <p className="text-xs text-green-600">
-                                        Current: Ksh {(selectedCustomer.current_balance || 0).toLocaleString()} →
-                                        After: Ksh {((selectedCustomer.current_balance || 0) + total).toLocaleString()}
-                                    </p>
+
+                        {/* Selected Customer + Partial Payment */}
+                        {selectedCustomer && (() => {
+                            const partialAmt = Number(partialCashPaid) || 0;
+                            const creditAmt = Math.max(0, total - partialAmt);
+                            const newBal = (selectedCustomer.current_balance || 0) + creditAmt;
+                            const isOverLimit = selectedCustomer.credit_limit > 0 && newBal > selectedCustomer.credit_limit;
+                            return (
+                                <div className="space-y-3">
+                                    {/* Customer badge */}
+                                    <div className="flex items-center gap-3 p-3 bg-green-50 rounded-xl border border-green-200">
+                                        <div className="flex-1">
+                                            <p className="font-bold text-green-800 text-sm">{selectedCustomer.customer_name}</p>
+                                            <p className="text-xs text-green-600">{selectedCustomer.phone || 'No phone'} · Current bal: Ksh {(selectedCustomer.current_balance || 0).toLocaleString()}</p>
+                                        </div>
+                                        <button onClick={() => { setSelectedCustomer(null); setCustomerName(''); setPartialCashPaid(''); }}
+                                            className="text-red-400 hover:text-red-600 text-xs font-bold px-2 py-1 hover:bg-red-50 rounded-lg transition-all">✕ Clear</button>
+                                    </div>
+
+                                    {/* Partial payment section */}
+                                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <p className="font-bold text-blue-800 text-sm">💰 Amount Paid Now</p>
+                                            <p className="text-xs text-blue-500">Leave 0 = full credit</p>
+                                        </div>
+                                        <input
+                                            type="number"
+                                            value={partialCashPaid}
+                                            onChange={e => setPartialCashPaid(e.target.value)}
+                                            placeholder="0 (optional)"
+                                            min="0" max={total}
+                                            className="w-full p-3 bg-white border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:outline-none text-lg font-bold text-center"
+                                        />
+                                        {/* Quick amounts */}
+                                        <div className="grid grid-cols-5 gap-1">
+                                            {[0, 100, 200, 500, total].map(amt => (
+                                                <button key={amt} onClick={() => setPartialCashPaid(amt === 0 ? '' : String(amt))}
+                                                    className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                                        (partialCashPaid === String(amt) || (amt === 0 && !partialCashPaid))
+                                                        ? 'bg-blue-500 text-white' : 'bg-white border border-blue-200 text-blue-700 hover:bg-blue-100'
+                                                    }`}>
+                                                    {amt === 0 ? 'None' : amt === total ? 'Full' : amt.toLocaleString()}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        {/* Pay method for partial */}
+                                        {partialAmt > 0 && (
+                                            <div className="space-y-2">
+                                                <p className="text-xs font-bold text-blue-700">Paid via:</p>
+                                                <div className="flex gap-2">
+                                                    {(['cash', 'mpesa'] as const).map(m => (
+                                                        <button key={m} onClick={() => setPartialPayMethod(m)}
+                                                            className={`flex-1 py-2 rounded-xl text-xs font-bold capitalize transition-all ${
+                                                                partialPayMethod === m ? 'bg-blue-500 text-white shadow-md' : 'bg-white border border-blue-200 text-blue-700'
+                                                            }`}>
+                                                            {m === 'cash' ? '💵' : '📱'} {m.toUpperCase()}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                {partialPayMethod === 'mpesa' && (
+                                                    <input
+                                                        value={partialMpesaCode}
+                                                        onChange={e => setPartialMpesaCode(e.target.value.toUpperCase())}
+                                                        placeholder="M-Pesa receipt e.g. RLJ5XXXXXX"
+                                                        className="w-full p-2.5 bg-white border-2 border-green-300 rounded-xl focus:border-green-500 focus:outline-none text-sm font-mono"
+                                                    />
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Live Breakdown */}
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <div className="bg-green-50 border border-green-200 p-3 rounded-xl text-center">
+                                            <p className="text-[10px] text-green-600 font-semibold mb-0.5">💵 Paid Now</p>
+                                            <p className="font-bold text-green-700 text-base">Ksh {partialAmt.toLocaleString()}</p>
+                                            {partialAmt > 0 && <p className="text-[9px] text-green-500 mt-0.5">{partialPayMethod.toUpperCase()}</p>}
+                                        </div>
+                                        <div className="bg-orange-50 border border-orange-200 p-3 rounded-xl text-center">
+                                            <p className="text-[10px] text-orange-600 font-semibold mb-0.5">📋 On Credit</p>
+                                            <p className="font-bold text-orange-700 text-base">Ksh {creditAmt.toLocaleString()}</p>
+                                        </div>
+                                        <div className={`p-3 rounded-xl text-center border ${
+                                            isOverLimit ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200'
+                                        }`}>
+                                            <p className={`text-[10px] font-semibold mb-0.5 ${isOverLimit ? 'text-red-600' : 'text-gray-600'}`}>New Balance</p>
+                                            <p className={`font-bold text-base ${isOverLimit ? 'text-red-700' : 'text-gray-700'}`}>Ksh {newBal.toLocaleString()}</p>
+                                            {isOverLimit && <p className="text-[9px] text-red-500 mt-0.5">⚠ Over Limit!</p>}
+                                        </div>
+                                    </div>
                                 </div>
-                                <button onClick={() => { setSelectedCustomer(null); setCustomerName(''); }}
-                                    className="text-red-400 hover:text-red-600 text-xs font-bold px-2">Clear</button>
-                            </div>
-                        )}
+                            );
+                        })()}
+
                         {/* Add New Customer */}
                         {!selectedCustomer && (
                             <div className="border-t border-gray-200 pt-3">
@@ -940,20 +1026,15 @@ const PaymentModal = ({
                                                 const { data, error } = await supabase.from('retail_credit_customers').insert({
                                                     customer_name: newCreditName.trim(),
                                                     phone: newCreditPhone.trim() || null,
-                                                    current_balance: 0,
-                                                    credit_limit: 0,
-                                                    active: true,
+                                                    current_balance: 0, credit_limit: 0, active: true,
+                                                    outlet_id: outletId || 1,
                                                 }).select().single();
                                                 if (error) throw error;
-                                                toast.success(`Added ${newCreditName}`);
-                                                setSelectedCustomer(data);
-                                                setCustomerName(data.customer_name);
-                                                setNewCreditName('');
-                                                setNewCreditPhone('');
+                                                toast.success(`✅ Added ${newCreditName}`);
+                                                setSelectedCustomer(data); setCustomerName(data.customer_name);
+                                                setNewCreditName(''); setNewCreditPhone('');
                                                 loadCreditCustomers();
-                                            } catch (err: any) {
-                                                toast.error(err?.message || 'Failed to add');
-                                            }
+                                            } catch (err: any) { toast.error(err?.message || 'Failed to add'); }
                                             setAddingCustomer(false);
                                         }}
                                         className="px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
@@ -985,11 +1066,14 @@ const PaymentModal = ({
                                 try {
                                     await onComplete(
                                         paymentMethod === 'mpesa' ? 'MPESA' : paymentMethod.toUpperCase(),
-                                        Number(amountPaid) || total,
-                                        mpesaReceipt,
+                                        paymentMethod === 'credit'
+                                            ? (Number(partialCashPaid) || 0)  // partial amount paid now
+                                            : (Number(amountPaid) || total),
+                                        paymentMethod === 'credit' ? (partialMpesaCode || undefined) : mpesaReceipt,
                                         selectedCustomer ? selectedCustomer.customer_name : customerName,
                                         checkoutRequestId,
-                                        selectedCustomer ? (selectedCustomer.phone || undefined) : undefined
+                                        selectedCustomer ? (selectedCustomer.phone || undefined) : undefined,
+                                        paymentMethod === 'credit' ? partialPayMethod : undefined
                                     );
                                 } catch (err) {
                                     console.error('Complete sale error:', err);
@@ -1990,7 +2074,7 @@ export default function RetailPOSPage() {
     const grandTotal = subtotal - totalDiscount;
 
     // Complete sale
-    const completeSale = async (method: string, amountPaid: number, mpesaReceipt?: string, customerName?: string, checkoutRequestId?: string, customerPhone?: string) => {
+    const completeSale = async (method: string, amountPaid: number, mpesaReceipt?: string, customerName?: string, checkoutRequestId?: string, customerPhone?: string, partialPayMethod?: string) => {
         // ── PREVENT NEGATIVE STOCK CHECK ────────────────────────────────────────────
         // When setting is ON, block sales if any item quantity exceeds available stock
         if (preventNegativeStock) {
@@ -2044,8 +2128,8 @@ export default function RetailPOSPage() {
                     discount: totalDiscount,
                     total_amount: grandTotal,
                     payment_method: method.toUpperCase(),
-                    amount_paid: method.toUpperCase() === 'CREDIT' ? 0 : amountPaid,
-                    change_amount: Math.max(0, amountPaid - grandTotal),
+                    amount_paid: method.toUpperCase() === 'CREDIT' ? amountPaid : amountPaid, // for credit: partial cash paid now
+                    change_amount: method.toUpperCase() === 'CREDIT' ? 0 : Math.max(0, amountPaid - grandTotal),
                     mpesa_code: mpesaReceipt || null,
                     checkout_request_id: checkoutRequestId || null,
                     status: 'Completed',
@@ -2292,24 +2376,104 @@ export default function RetailPOSPage() {
             }
 
 
-            // If credit sale, update customer balance + insert credit payment record
+            // ═══════════════════════════════════════════════════════════════
+            // CREDIT SALE: Update customer balance + record ALL details
+            // ═══════════════════════════════════════════════════════════════
             if (method.toUpperCase() === 'CREDIT' && selectedCustomer) {
-                const newBalance = (selectedCustomer.current_balance || 0) + grandTotal;
-                await supabase.from('retail_credit_customers')
-                    .update({ current_balance: newBalance })
-                    .eq('customer_id', selectedCustomer.customer_id);
+                const partialPaid = amountPaid || 0;          // Cash/Mpesa paid right now
+                const creditAmount = grandTotal - partialPaid; // Amount going on credit tab
+                const balanceBefore = selectedCustomer.current_balance || 0;
+                const balanceAfter = balanceBefore + creditAmount;  // Only credit portion added
+                const now = new Date().toISOString();
+                const saleDate = now.split('T')[0];
 
-                // Insert credit payment record for statement/history
-                await supabase.from('retail_credit_payments').insert({
-                    customer_id: selectedCustomer.customer_id,
-                    amount: grandTotal,
-                    payment_type: 'CREDIT_SALE',
-                    payment_method: 'Credit',
-                    reference: freshReceiptNo,
-                    notes: `Credit sale - ${freshReceiptNo}`,
-                    outlet_id: outletId,
-                    balance_after: newBalance,
-                });
+                // 1. Update customer running balance (only credit portion)
+                const { error: balErr } = await supabase
+                    .from('retail_credit_customers')
+                    .update({
+                        current_balance: balanceAfter,
+                    })
+                    .eq('customer_id', selectedCustomer.customer_id);
+                if (balErr) console.error('❌ Credit balance update failed:', balErr.message);
+
+                // 2. Record the CREDIT SALE transaction in credit_payments ledger
+                if (creditAmount > 0) {
+                    const { error: cpErr } = await supabase.from('retail_credit_payments').insert({
+                        customer_id:       selectedCustomer.customer_id,
+                        sale_id:           sale.sale_id,
+                        receipt_no:        freshReceiptNo,
+                        payment_date:      saleDate,
+                        payment_datetime:  now,
+                        amount_paid:       creditAmount,         // Only the credit portion
+                        balance_before:    balanceBefore,
+                        balance_after:     balanceAfter,
+                        payment_method:    'CREDIT',
+                        transaction_type:  'credit_sale',
+                        payment_note:      `Credit sale · Receipt: ${freshReceiptNo}${partialPaid > 0 ? ` · Partial paid: Ksh ${partialPaid.toLocaleString()} via ${(partialPayMethod || 'cash').toUpperCase()}` : ''}`,
+                        outlet_id:         outletId,
+                    });
+                    if (cpErr) console.error('❌ Credit payment record failed:', cpErr.message);
+                }
+
+                // 3. If customer also paid some cash/mpesa NOW, record that as a separate payment
+                if (partialPaid > 0) {
+                    const balAfterPartial = balanceAfter - partialPaid; // Further reduced by partial pay
+                    const pMethod = (partialPayMethod || 'cash').toUpperCase();
+                    const { error: ppErr } = await supabase.from('retail_credit_payments').insert({
+                        customer_id:       selectedCustomer.customer_id,
+                        sale_id:           sale.sale_id,
+                        receipt_no:        freshReceiptNo,
+                        payment_date:      saleDate,
+                        payment_datetime:  now,
+                        amount_paid:       partialPaid,
+                        balance_before:    balanceAfter,       // After credit sale added
+                        balance_after:     balAfterPartial,   // After partial payment deducted
+                        payment_method:    pMethod,
+                        mpesa_code:        pMethod === 'MPESA' ? (mpesaReceipt || null) : null,
+                        transaction_type:  'partial_payment',
+                        payment_note:      `Partial payment on credit sale · Receipt: ${freshReceiptNo}`,
+                        outlet_id:         outletId,
+                    });
+                    if (ppErr) console.error('❌ Partial payment record failed:', ppErr.message);
+
+                    // Also update customer balance to reflect partial payment deduction
+                    await supabase
+                        .from('retail_credit_customers')
+                        .update({ current_balance: balAfterPartial })
+                        .eq('customer_id', selectedCustomer.customer_id);
+                }
+
+                // 4. Print credit sale receipt
+                try {
+                    const company = await loadCompanyInfo();
+                    if (activeOutlet?.outlet_name) {
+                        company.name = activeOutlet.outlet_name.toUpperCase();
+                        const addr = [activeOutlet.address, activeOutlet.city].filter(Boolean).join(', ');
+                        if (addr) company.address = addr;
+                        if (activeOutlet.phone) company.phone = activeOutlet.phone;
+                        if (activeOutlet.email) company.email = activeOutlet.email;
+                    }
+                    const nowD = new Date();
+                    const receiptData = {
+                        invoiceNo: freshReceiptNo,
+                        date: nowD.toLocaleDateString('en-GB'),
+                        time: nowD.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+                        cashier: 'Cashier',
+                        items: cart.map(item => ({
+                            name: `${item.name}${item.unitMultiplier > 1 ? ` (${item.sellingUnit})` : ''}`,
+                            qty: item.qty, price: item.effectivePrice,
+                            total: (item.effectivePrice * item.qty) - item.discount
+                        })),
+                        subtotal, discount: totalDiscount, tax: 0, total: grandTotal,
+                        paymentMethod: partialPaid > 0 ? `CREDIT + ${(partialPayMethod || 'CASH').toUpperCase()}` : 'CREDIT',
+                        amountPaid: partialPaid,
+                        change: 0,
+                        customerName: selectedCustomer.customer_name,
+                        customerPhone: selectedCustomer.phone || undefined,
+                        isPaid: false
+                    };
+                    printCustomerReceipt(receiptData, company);
+                } catch (printErr) { console.error('Credit receipt print error:', printErr); }
             }
 
             toast.success('Sale completed successfully!');
@@ -2944,6 +3108,7 @@ export default function RetailPOSPage() {
                 selectedCustomer={selectedCustomer}
                 setSelectedCustomer={setSelectedCustomer}
                 loadCreditCustomers={loadCreditCustomers}
+                outletId={outletId}
                 mpesaApiUrl={activeOutlet?.mpesa_api_url}
                 mpesaAnonKey={activeOutlet?.mpesa_anon_key}
                 mpesaUseSystem={activeOutlet?.mpesa_use_system}

@@ -105,10 +105,11 @@ const menuGroups = [
         { href: '/dashboard/expiry-register', label: 'Expiry Register', icon: FiClock,       roles: 'all' },
     ]},
     { label: 'Finance', icon: FiDollarSign, name: 'finance', collapsible: true, items: [
-        { href: '/dashboard/expenses',         label: 'Expenses',         icon: FiTrendingDown, roles: 'all' },
-        { href: '/dashboard/credit-customers', label: 'Credit Customers', icon: FiUsers,        roles: 'all' },
-        { href: '/dashboard/credit-payments',  label: 'Credit Payments',  icon: FiCreditCard,   roles: 'all' },
-        { href: '/dashboard/mpesa',            label: 'M-Pesa',           icon: FiSmartphone,   roles: 'all' },
+        { href: '/dashboard/expenses',          label: 'Expenses',           icon: FiTrendingDown, roles: 'all' },
+        { href: '/dashboard/credit-customers',  label: 'Credit Customers',   icon: FiUsers,        roles: 'all' },
+        { href: '/dashboard/credit-payments',   label: 'Credit Payments',    icon: FiCreditCard,   roles: 'all' },
+        { href: '/dashboard/credit-statements', label: 'Credit Statements',  icon: FiFileText,     roles: 'all', badge: 'NEW' },
+        { href: '/dashboard/mpesa',             label: 'M-Pesa',             icon: FiSmartphone,   roles: 'all' },
     ]},
     { label: 'HR & Payroll', icon: FiUsers, name: 'hr', collapsible: true, items: [
         { href: '/dashboard/payroll',       label: 'Payroll',       icon: FiDollarSign, roles: 'all' },
