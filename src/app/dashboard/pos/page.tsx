@@ -345,10 +345,10 @@ const ProductCard = ({ product, onAdd, posDefaultPrice }: { product: Product; on
 
             {/* Add to Cart Button — Super Premium */}
             <button
-                onClick={(e) => { e.stopPropagation(); if (product.availableQty > 0) onAdd(); }}
-                disabled={product.availableQty === 0}
+                onClick={(e) => { e.stopPropagation(); if (!preventNegativeStock || product.availableQty > 0) onAdd(); }}
+                disabled={preventNegativeStock && product.availableQty === 0}
                 className={`mt-1.5 w-full py-2 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all duration-200 relative overflow-hidden ${
-                    product.availableQty === 0
+                    preventNegativeStock && product.availableQty === 0
                         ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                         : 'bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white active:scale-[0.97] shadow-md shadow-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/45'
                 }`}
@@ -359,7 +359,7 @@ const ProductCard = ({ product, onAdd, posDefaultPrice }: { product: Product; on
                 <svg className="relative w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
-                <span className="relative">{product.availableQty === 0 ? 'Out of Stock' : 'Add to Cart'}</span>
+                <span className="relative">{(preventNegativeStock && product.availableQty === 0) ? 'Out of Stock' : 'Add to Cart'}</span>
             </button>
         </div>
     </div>
@@ -1789,8 +1789,8 @@ export default function RetailPOSPage() {
 
     // Add product to cart (checks for unit picker)
     const addToCart = useCallback((product: Product) => {
-        if (product.availableQty === 0) {
-            toast.error('Out of stock!');
+        if (preventNegativeStock && product.availableQty === 0) {
+            toast.error('Out of stock! Enable "Allow Negative Stock" in Company Settings to sell anyway.');
             return;
         }
 
@@ -3293,14 +3293,14 @@ export default function RetailPOSPage() {
                         <div className="space-y-2 mb-4">
                             {/* Retail Price */}
                             <button
-                                disabled={pieceOverStock || totalAvailPieces === 0}
+                                disabled={pieceOverStock || (preventNegativeStock && totalAvailPieces === 0)}
                                 onClick={() => {
-                                    if (pieceOverStock || totalAvailPieces === 0) return;
+                                    if (pieceOverStock || (preventNegativeStock && totalAvailPieces === 0)) return;
                                     addToCartWithUnit(unitPickerProduct, unitPickerProduct.salesUnit || 'Piece', 1, retailPrice, unitPickerQty);
                                     closeUnitPicker();
                                 }}
                                 className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
-                                    pieceOverStock || totalAvailPieces === 0
+                                    pieceOverStock || (preventNegativeStock && totalAvailPieces === 0)
                                         ? 'border-red-200 bg-red-50 opacity-60 cursor-not-allowed'
                                         : 'border-blue-200 bg-blue-50 hover:bg-blue-100'
                                 }`}
@@ -3318,14 +3318,14 @@ export default function RetailPOSPage() {
 
                             {/* Wholesale Price */}
                             <button
-                                disabled={pieceOverStock || totalAvailPieces === 0}
+                                disabled={pieceOverStock || (preventNegativeStock && totalAvailPieces === 0)}
                                 onClick={() => {
-                                    if (pieceOverStock || totalAvailPieces === 0) return;
+                                    if (pieceOverStock || (preventNegativeStock && totalAvailPieces === 0)) return;
                                     addToCartWithUnit(unitPickerProduct, unitPickerProduct.salesUnit || 'Piece', 1, wholesalePrice, unitPickerQty);
                                     closeUnitPicker();
                                 }}
                                 className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
-                                    pieceOverStock || totalAvailPieces === 0
+                                    pieceOverStock || (preventNegativeStock && totalAvailPieces === 0)
                                         ? 'border-red-200 bg-red-50 opacity-60 cursor-not-allowed'
                                         : 'border-green-200 bg-green-50 hover:bg-green-100'
                                 }`}
