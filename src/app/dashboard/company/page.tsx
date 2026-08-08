@@ -159,16 +159,34 @@ export default function CompanyPage() {
 
     useEffect(() => { loadAll(); }, [loadAll]);
 
+    // ── Reliable save: UPDATE existing row, INSERT if none found ──────────
+    const saveOrgSetting = async (key: string, value: string): Promise<string | null> => {
+        const now = new Date().toISOString();
+        // Try UPDATE first
+        const { data: updated, error: updateErr } = await supabase
+            .from('organisation_settings')
+            .update({ setting_value: value, updated_at: now })
+            .eq('setting_key', key)
+            .select('setting_key');
+        if (updateErr) return updateErr.message;
+        if (!updated || updated.length === 0) {
+            // Row doesn't exist — INSERT
+            const { error: insertErr } = await supabase
+                .from('organisation_settings')
+                .insert({ setting_key: key, setting_value: value, updated_at: now });
+            if (insertErr) return insertErr.message;
+        }
+        return null; // null = success
+    };
+
+
     // ── Save org settings ─────────────────────────────────────────────
     const saveOrg = async () => {
         if (!org.company_name.trim()) { toast.error('Company name is required!'); return; }
         setSaving(true);
         try {
             for (const [key, value] of Object.entries(org)) {
-                await supabase.from('organisation_settings').upsert(
-                    { setting_key: key, setting_value: String(value), updated_at: new Date().toISOString() },
-                    { onConflict: 'setting_key' }
-                );
+                await saveOrgSetting(key, String(value));
             }
             // Save per-outlet features JSON to license_settings
             for (const [outletId, feats] of Object.entries(outletFeatures)) {
@@ -535,13 +553,10 @@ export default function CompanyPage() {
                                     <Toggle checked={(org as any)[item.key]} onChange={async () => {
                                         const newVal = !(org as any)[item.key];
                                         setOrg({ ...org, [item.key]: newVal });
-                                        const { error } = await supabase.from('organisation_settings').upsert(
-                                            { setting_key: item.key, setting_value: String(newVal), updated_at: new Date().toISOString() },
-                                            { onConflict: 'setting_key' }
-                                        );
-                                        if (error) {
-                                            toast.error(`❌ Save failed: ${error.message}`);
-                                            setOrg({ ...org, [item.key]: !newVal }); // revert
+                                        const err = await saveOrgSetting(item.key, String(newVal));
+                                        if (err) {
+                                            toast.error(`❌ Save failed: ${err}`);
+                                            setOrg({ ...org, [item.key]: !newVal });
                                         } else {
                                             toast.success(`✅ ${item.label}: ${newVal ? 'ON' : 'OFF'} — saved!`);
                                         }
@@ -657,13 +672,9 @@ export default function CompanyPage() {
                                                         onClick={async () => {
                                                             const newVal = !outletNegativeStock[outlet.outlet_id];
                                                             setOutletNegativeStock(prev => ({ ...prev, [outlet.outlet_id]: newVal }));
-                                                            const { error } = await supabase.from('organisation_settings').upsert(
-                                                                { setting_key: `allow_negative_stock_${outlet.outlet_id}`, setting_value: String(newVal), updated_at: new Date().toISOString() },
-                                                                { onConflict: 'setting_key' }
-                                                            );
-                                                            if (error) {
-                                                                toast.error(`❌ Save failed: ${error.message}`);
-                                                                // Revert local state
+                                                            const err = await saveOrgSetting(`allow_negative_stock_${outlet.outlet_id}`, String(newVal));
+                                                            if (err) {
+                                                                toast.error(`❌ Save failed: ${err}`);
                                                                 setOutletNegativeStock(prev => ({ ...prev, [outlet.outlet_id]: !newVal }));
                                                             } else {
                                                                 toast.success(`${outlet.outlet_name}: ${newVal ? '✅ 0-Stock Sales ALLOWED' : '🚫 0-Stock Sales BLOCKED'} — saved!`);
