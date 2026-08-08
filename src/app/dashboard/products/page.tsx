@@ -157,18 +157,35 @@ export default function ProductsPage() {
 
     // ─── DATA LOADING ───
     const loadProducts = useCallback(async () => {
-        if (!activeOutlet) return; // Wait for outlet context to load on refresh
+        if (!activeOutlet) return;
         setIsLoading(true);
         try {
-            // Try with outlet_id filter first
-            let { data, error } = await supabase.from('retail_products').select('*').eq('outlet_id', outletId).order('pid', { ascending: false });
-            // Fallback if outlet_id column doesn't exist
-            if (error) {
-                const fb = await supabase.from('retail_products').select('*').order('pid', { ascending: false });
-                data = fb.data; error = fb.error;
+            // Paginated fetch — Supabase caps at 1000 rows per request
+            const PAGE = 1000;
+            let allProducts: any[] = [];
+            let from = 0;
+            let keepGoing = true;
+            while (keepGoing) {
+                let { data, error } = await supabase
+                    .from('retail_products').select('*')
+                    .eq('outlet_id', outletId)
+                    .order('pid', { ascending: false })
+                    .range(from, from + PAGE - 1);
+                if (error) {
+                    // fallback without outlet filter
+                    const fb = await supabase.from('retail_products').select('*')
+                        .order('pid', { ascending: false }).range(from, from + PAGE - 1);
+                    if (fb.error || !fb.data?.length) break;
+                    allProducts = allProducts.concat(fb.data);
+                    if (fb.data.length < PAGE) keepGoing = false;
+                } else {
+                    if (!data?.length) break;
+                    allProducts = allProducts.concat(data);
+                    if (data.length < PAGE) keepGoing = false;
+                }
+                from += PAGE;
             }
-            if (error) throw error;
-            setProducts(data || []);
+            setProducts(allProducts);
         }
         catch { toast.error('Failed to load products'); }
         setIsLoading(false);

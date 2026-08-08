@@ -398,6 +398,7 @@ const PaymentModal = ({
     selectedCustomer,
     setSelectedCustomer,
     loadCreditCustomers,
+    outletId,
     mpesaApiUrl,
     mpesaAnonKey,
     mpesaUseSystem,
@@ -427,6 +428,10 @@ const PaymentModal = ({
     const MPESA_API_URL           = mpesaHasOwn ? mpesaApiUrl! : (mpesaUseSystem ? MPESA_API_URL_FALLBACK : '');
     const MPESA_SUPABASE_ANON_KEY = mpesaHasOwn ? mpesaAnonKey! : (mpesaUseSystem ? MPESA_ANON_KEY_FALLBACK : '');
     const [isSaving, setIsSaving] = useState(false);
+    // Pledge (payment promise) state
+    const [pledgeDate, setPledgeDate] = useState('');
+    const [pledgeAmount, setPledgeAmount] = useState('');
+    const [pledgeNote, setPledgeNote] = useState('');
     const [mpesaPhone, setMpesaPhone] = useState('');
     const [mpesaReceipt, setMpesaReceipt] = useState('');
     const [customerName, setCustomerName] = useState('');
@@ -1008,6 +1013,35 @@ const PaymentModal = ({
                             );
                         })()}
 
+                        {/* ━━━ PLEDGE DATE (Payment Promise) ━━━ */}
+                        {selectedCustomer && paymentMethod === 'credit' && (
+                            <div className="mt-3 border border-amber-200 rounded-xl overflow-hidden" style={{ background: 'linear-gradient(135deg,#FFFBEB,#FEF3C7)' }}>
+                                <div className="px-3 py-2 border-b border-amber-200 flex items-center gap-1.5">
+                                    <span className="text-base">📅</span>
+                                    <span className="text-xs font-bold text-amber-700">Payment Pledge <span className="font-normal text-amber-500">(optional — customer promises to pay by this date)</span></span>
+                                </div>
+                                <div className="p-3 grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="text-[10px] font-bold text-amber-600 uppercase tracking-wide block mb-1">Promise to Pay By</label>
+                                        <input type="date" value={pledgeDate} onChange={e => setPledgeDate(e.target.value)}
+                                            min={new Date().toISOString().split('T')[0]}
+                                            className="w-full px-2.5 py-2 bg-white border border-amber-200 rounded-lg text-xs focus:outline-none focus:border-amber-400 transition-all" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-amber-600 uppercase tracking-wide block mb-1">Amount to Pledge (Ksh)</label>
+                                        <input type="number" value={pledgeAmount} onChange={e => setPledgeAmount(e.target.value)}
+                                            placeholder={String(total)}
+                                            className="w-full px-2.5 py-2 bg-white border border-amber-200 rounded-lg text-xs focus:outline-none focus:border-amber-400 transition-all" />
+                                    </div>
+                                    <div className="col-span-2">
+                                        <input value={pledgeNote} onChange={e => setPledgeNote(e.target.value)}
+                                            placeholder="Note: e.g. 'Will pay after salary on 25th'..."
+                                            className="w-full px-2.5 py-2 bg-white border border-amber-200 rounded-lg text-xs focus:outline-none focus:border-amber-400 transition-all" />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Add New Customer */}
                         {!selectedCustomer && (
                             <div className="border-t border-gray-200 pt-3">
@@ -1075,6 +1109,20 @@ const PaymentModal = ({
                                         selectedCustomer ? (selectedCustomer.phone || undefined) : undefined,
                                         paymentMethod === 'credit' ? partialPayMethod : undefined
                                     );
+                                    // ── Save pledge if date was set ──
+                                    if (paymentMethod === 'credit' && selectedCustomer && pledgeDate) {
+                                        const creditAmt = total - (Number(partialCashPaid) || 0);
+                                        await supabase.from('retail_credit_pledges').insert({
+                                            customer_id: selectedCustomer.customer_id,
+                                            outlet_id: outletId,
+                                            pledge_date: pledgeDate,
+                                            pledge_amount: Number(pledgeAmount) || creditAmt,
+                                            note: pledgeNote || null,
+                                            status: 'pending',
+                                        });
+                                        toast.success(`📅 Pledge recorded — ${selectedCustomer.customer_name} to pay by ${new Date(pledgeDate).toLocaleDateString()}`);
+                                        setPledgeDate(''); setPledgeAmount(''); setPledgeNote('');
+                                    }
                                 } catch (err) {
                                     console.error('Complete sale error:', err);
                                 } finally {
@@ -1464,15 +1512,23 @@ export default function RetailPOSPage() {
             // NOTE: Auto-convert Bags→Pieces is ONLY done at SALE TIME (when pieces reach 0).
             // We do NOT convert on page load — bags and pieces are kept separate until needed.
 
-            // Load products from retail_products table - FILTERED BY OUTLET
-            const { data, error } = await supabase
-                .from('retail_products')
-                .select('*')
-                .eq('active', true)
-                .eq('outlet_id', outletId)
-                .order('product_name');
-
-            if (error) throw error;
+            // Load products — paginated to get all rows (Supabase caps at 1000/request)
+            const PAGE = 1000;
+            let allProds: any[] = [];
+            let from = 0;
+            let keepGoing = true;
+            while (keepGoing) {
+                const { data, error } = await supabase
+                    .from('retail_products').select('*')
+                    .eq('active', true).eq('outlet_id', outletId)
+                    .order('product_name')
+                    .range(from, from + PAGE - 1);
+                if (error || !data?.length) break;
+                allProds = allProds.concat(data);
+                if (data.length < PAGE) keepGoing = false;
+                from += PAGE;
+            }
+            const data = allProds;
 
             // Load stock data from retail_stock table - PAGINATED TO GET ALL ROWS
             // Supabase enforces 1000-row server limit, so we must paginate
@@ -1620,16 +1676,19 @@ export default function RetailPOSPage() {
     // Load credit customers for dropdown
     const loadCreditCustomers = useCallback(async () => {
         try {
-            const { data } = await supabase
+            let q = supabase
                 .from('retail_credit_customers')
-                .select('customer_id, customer_code, customer_name, phone, current_balance, credit_limit')
+                .select('customer_id, customer_code, customer_name, phone, current_balance, credit_limit, outlet_id')
                 .eq('active', true)
                 .order('customer_name');
+            // ── STRICT per-outlet filter — only show THIS outlet's customers ──
+            if (outletId) q = q.eq('outlet_id', outletId);
+            const { data } = await q;
             setCreditCustomers(data || []);
         } catch (err) {
             console.error('Error loading customers:', err);
         }
-    }, []);
+    }, [outletId]);
 
     // Load active shift — filtered by outlet so each outlet tracks its own register
     const loadActiveShift = useCallback(async () => {

@@ -16,6 +16,7 @@ interface OrgSettings {
     location_type: 'single' | 'multi'; location_name: string;
     footer_note: string; receipt_header: string; receipt_footer: string;
     logo_url: string; enable_shifts: boolean; enable_loyalty: boolean; vat_rate: number;
+    prevent_negative_stock: boolean;
 }
 interface SmtpSettings {
     smtp_host: string; smtp_port: string; smtp_user: string;
@@ -29,6 +30,7 @@ const defaultOrg: OrgSettings = {
     location_name: '', footer_note: 'Thank you for your business!',
     receipt_header: '', receipt_footer: 'Thank you for visiting us!',
     logo_url: '', enable_shifts: true, enable_loyalty: false, vat_rate: 16,
+    prevent_negative_stock: true,
 };
 const defaultSmtp: SmtpSettings = {
     smtp_host: 'smtp.gmail.com', smtp_port: '587',
@@ -512,8 +514,9 @@ export default function CompanyPage() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {[
-                                { key: 'enable_shifts',  emoji: '⏰', label: 'Shift Management',  sub: 'Track sales by day/night shift' },
-                                { key: 'enable_loyalty', emoji: '🎁', label: 'Loyalty Program',    sub: 'Customer points & rewards' },
+                                { key: 'enable_shifts',          emoji: '⏰', label: 'Shift Management',          sub: 'Track sales by day/night shift' },
+                                { key: 'enable_loyalty',         emoji: '🎁', label: 'Loyalty Program',            sub: 'Customer points & rewards' },
+                                { key: 'prevent_negative_stock', emoji: '🚫', label: 'Prevent Negative Stock Sales', sub: 'Block selling items with zero stock. Turn OFF to allow sales even when stock is 0.' },
                             ].map(item => (
                                 <div key={item.key} className="flex items-center justify-between p-5 bg-gray-50 rounded-2xl border border-gray-100">
                                     <div className="flex items-center gap-3">
