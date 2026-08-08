@@ -345,21 +345,14 @@ const ProductCard = ({ product, onAdd, posDefaultPrice }: { product: Product; on
 
             {/* Add to Cart Button — Super Premium */}
             <button
-                onClick={(e) => { e.stopPropagation(); if (!preventNegativeStock || product.availableQty > 0) onAdd(); }}
-                disabled={preventNegativeStock && product.availableQty === 0}
-                className={`mt-1.5 w-full py-2 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all duration-200 relative overflow-hidden ${
-                    preventNegativeStock && product.availableQty === 0
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        : 'bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white active:scale-[0.97] shadow-md shadow-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/45'
-                }`}
+                onClick={(e) => { e.stopPropagation(); onAdd(); }}
+                className="mt-1.5 w-full py-2 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all duration-200 relative overflow-hidden bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white active:scale-[0.97] shadow-md shadow-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/45"
             >
-                {product.availableQty > 0 && (
-                    <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-[200%] transition-transform duration-700 ease-in-out pointer-events-none" />
-                )}
+                <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-[200%] transition-transform duration-700 ease-in-out pointer-events-none" />
                 <svg className="relative w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
-                <span className="relative">{(preventNegativeStock && product.availableQty === 0) ? 'Out of Stock' : 'Add to Cart'}</span>
+                <span className="relative">Add to Cart</span>
             </button>
         </div>
     </div>
