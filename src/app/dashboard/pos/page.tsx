@@ -1326,11 +1326,20 @@ export default function RetailPOSPage() {
             .then(({ data }) => {
                 setPosDefaultPrice(data?.setting_value === 'retail' ? 'retail' : 'wholesale');
             });
-        // Load prevent-negative-stock global setting
+        // Load per-outlet negative stock setting (allow_negative_stock_{outletId})
+        // allow=true means selling with 0 stock IS allowed → preventNegativeStock=false
         supabase.from('organisation_settings').select('setting_value')
-            .eq('setting_key', 'prevent_negative_stock').single()
+            .eq('setting_key', `allow_negative_stock_${outletId}`).single()
             .then(({ data }) => {
-                setPreventNegativeStockPOS(data?.setting_value === 'true');
+                if (data) {
+                    // allow=true → do NOT prevent; allow=false → DO prevent
+                    setPreventNegativeStockPOS(data.setting_value !== 'true');
+                } else {
+                    // No per-outlet setting found — fall back to global prevent_negative_stock
+                    supabase.from('organisation_settings').select('setting_value')
+                        .eq('setting_key', 'prevent_negative_stock').single()
+                        .then(({ data: gd }) => setPreventNegativeStockPOS(gd?.setting_value === 'true'));
+                }
             });
     }, [outletId]);
 

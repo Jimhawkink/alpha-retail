@@ -83,7 +83,8 @@ export default function CompanyPage() {
     const [outlets, setOutlets]       = useState<Array<{ outlet_id: number; outlet_name: string; outlet_code: string }>>([]);
     const [outletPriceModes, setOutletPriceModes]     = useState<Record<number,'retail'|'wholesale'>>({});
     const [outletFeatures, setOutletFeatures]          = useState<Record<number, string[]>>({});
-    const [outletNames, setOutletNames]               = useState<Record<number, string>>({}); // editable outlet names
+    const [outletNames, setOutletNames]               = useState<Record<number, string>>({});
+    const [outletNegativeStock, setOutletNegativeStock] = useState<Record<number, boolean>>({}); // editable outlet names
 
     const isSuperAdmin = ['superadmin', 'superuser'].includes((userType || '').toLowerCase().replace(/\s/g, ''));
 
@@ -132,16 +133,21 @@ export default function CompanyPage() {
                 const modes: Record<number,'retail'|'wholesale'> = {};
                 const features: Record<number, string[]> = {};
                 const names: Record<number, string> = {};
+                const negStock: Record<number, boolean> = {};
                 for (const o of outletData) {
                     const { data: pm } = await supabase.from('license_settings').select('setting_value').eq('setting_key', `pos_price_mode_${o.outlet_id}`).single();
                     modes[o.outlet_id] = pm?.setting_value === 'retail' ? 'retail' : 'wholesale';
                     const { data: ft } = await supabase.from('license_settings').select('setting_value').eq('setting_key', `outlet_features_${o.outlet_id}`).single();
                     try { features[o.outlet_id] = JSON.parse(ft?.setting_value || '[]'); } catch { features[o.outlet_id] = []; }
-                    names[o.outlet_id] = o.outlet_name; // current name
+                    names[o.outlet_id] = o.outlet_name;
+                    // Load per-outlet negative stock setting
+                    const { data: ns } = await supabase.from('organisation_settings').select('setting_value').eq('setting_key', `allow_negative_stock_${o.outlet_id}`).single();
+                    negStock[o.outlet_id] = ns?.setting_value === 'true';
                 }
                 setOutletPriceModes(modes);
                 setOutletFeatures(features);
                 setOutletNames(names);
+                setOutletNegativeStock(negStock);
 
 
             }
@@ -612,26 +618,52 @@ export default function CompanyPage() {
                                                 <p className="text-sm font-bold text-gray-800">{outlet.outlet_name}</p>
                                                 <p className="text-[10px] text-gray-400 uppercase tracking-wider">{outlet.outlet_code}</p>
                                             </div>
-                                            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-                                                {(['retail', 'wholesale'] as const).map(mode => (
+                                            <div className="flex items-center gap-4">
+                                                {/* Price mode toggle */}
+                                                <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                                                    {(['retail', 'wholesale'] as const).map(mode => (
+                                                        <button
+                                                            key={mode}
+                                                            type="button"
+                                                            onClick={() => setOutletPriceModes(prev => ({ ...prev, [outlet.outlet_id]: mode }))}
+                                                            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                                                                (outletPriceModes[outlet.outlet_id] ?? 'wholesale') === mode
+                                                                    ? 'bg-violet-600 text-white shadow-sm'
+                                                                    : 'text-gray-500 hover:text-violet-600'
+                                                            }`}
+                                                        >
+                                                            {mode === 'retail' ? '🏪 Retail' : '🤝 Wholesale'}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                {/* Allow negative stock toggle — AUTO-SAVES immediately */}
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] text-gray-500 font-semibold">Allow 0-Stock Sales</span>
                                                     <button
-                                                        key={mode}
                                                         type="button"
-                                                        onClick={() => setOutletPriceModes(prev => ({ ...prev, [outlet.outlet_id]: mode }))}
-                                                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
-                                                            (outletPriceModes[outlet.outlet_id] ?? 'wholesale') === mode
-                                                                ? 'bg-violet-600 text-white shadow-sm'
-                                                                : 'text-gray-500 hover:text-violet-600'
+                                                        onClick={async () => {
+                                                            const newVal = !outletNegativeStock[outlet.outlet_id];
+                                                            setOutletNegativeStock(prev => ({ ...prev, [outlet.outlet_id]: newVal }));
+                                                            await supabase.from('organisation_settings').upsert(
+                                                                { setting_key: `allow_negative_stock_${outlet.outlet_id}`, setting_value: String(newVal) },
+                                                                { onConflict: 'setting_key' }
+                                                            );
+                                                            toast.success(`${outlet.outlet_name}: ${newVal ? '✅ Negative stock allowed' : '🚫 Negative stock blocked'}`);
+                                                        }}
+                                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                                            outletNegativeStock[outlet.outlet_id] ? 'bg-emerald-500' : 'bg-gray-300'
                                                         }`}
                                                     >
-                                                        {mode === 'retail' ? '🏪 Retail' : '🤝 Wholesale'}
+                                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                                                            outletNegativeStock[outlet.outlet_id] ? 'translate-x-6' : 'translate-x-1'
+                                                        }`} />
                                                     </button>
-                                                ))}
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
-                                <p className="text-[11px] text-violet-400 mt-3">💡 Click <strong>Save Changes</strong> above to apply. Each outlet&apos;s POS updates on next page load.</p>
+                                <p className="text-[11px] text-violet-400 mt-3">💡 Price mode: click <strong>Save Changes</strong> above. Negative stock toggle: <strong>saves immediately</strong> per outlet.</p>
                             </div>
                         )}
 
