@@ -141,7 +141,8 @@ export default function CompanyPage() {
                     try { features[o.outlet_id] = JSON.parse(ft?.setting_value || '[]'); } catch { features[o.outlet_id] = []; }
                     names[o.outlet_id] = o.outlet_name;
                     // Load per-outlet negative stock setting
-                    const { data: ns } = await supabase.from('organisation_settings').select('setting_value').eq('setting_key', `allow_negative_stock_${o.outlet_id}`).single();
+                    const { data: ns } = await supabase.from('organisation_settings').select('setting_value').eq('setting_key', `prevent_negative_stock_${o.outlet_id}`).single();
+                    // true = blocked, false = allowed
                     negStock[o.outlet_id] = ns?.setting_value === 'true';
                 }
                 setOutletPriceModes(modes);
@@ -672,12 +673,12 @@ export default function CompanyPage() {
                                                         onClick={async () => {
                                                             const newVal = !outletNegativeStock[outlet.outlet_id];
                                                             setOutletNegativeStock(prev => ({ ...prev, [outlet.outlet_id]: newVal }));
-                                                            const err = await saveOrgSetting(`allow_negative_stock_${outlet.outlet_id}`, String(newVal));
+                                                            const err = await saveOrgSetting(`prevent_negative_stock_${outlet.outlet_id}`, String(newVal));
                                                             if (err) {
                                                                 toast.error(`❌ Save failed: ${err}`);
                                                                 setOutletNegativeStock(prev => ({ ...prev, [outlet.outlet_id]: !newVal }));
                                                             } else {
-                                                                toast.success(`${outlet.outlet_name}: ${newVal ? '✅ 0-Stock Sales ALLOWED' : '🚫 0-Stock Sales BLOCKED'} — saved!`);
+                                                                toast.success(`${outlet.outlet_name}: ${newVal ? '🚫 Negative stock BLOCKED' : '✅ Negative stock ALLOWED'} — saved!`);
                                                             }
                                                         }}
                                                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${

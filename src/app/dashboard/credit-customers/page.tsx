@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
 import {
     FiUsers, FiPlus, FiSearch, FiFilter, FiEdit2, FiTrash2, FiRefreshCw,
@@ -34,8 +35,8 @@ type Tab = typeof TABS[number];
 
 export default function CreditCustomersPage() {
     const [activeTab, setActiveTab] = useState<Tab>('customers');
-    const [outlets, setOutlets] = useState<Outlet[]>([]);
-    const [selectedOutletId, setSelectedOutletId] = useState<number | 'all'>('all');
+    const { activeOutlet, outlets } = useOutlet();
+    const outletId = activeOutlet?.outlet_id ?? null;
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -66,28 +67,19 @@ export default function CreditCustomersPage() {
     const fileRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        loadOutlets();
-        // Restore outlet from localStorage
-        const saved = localStorage.getItem('selectedOutletId');
-        if (saved) setSelectedOutletId(Number(saved));
-    }, []);
-
-    useEffect(() => { loadCustomers(); }, [selectedOutletId]);
-
-    const loadOutlets = async () => {
-        const { data } = await supabase.from('retail_outlets').select('outlet_id, outlet_name').order('outlet_name');
-        setOutlets(data || []);
-    };
+        loadCustomers();
+    }, [outletId]);
 
     const loadCustomers = useCallback(async () => {
         setLoading(true);
+        // ── STRICT per-outlet filter — always use the global outlet context ──
         let q = supabase.from('retail_credit_customers').select('*').order('customer_name');
-        if (selectedOutletId !== 'all') q = q.eq('outlet_id', selectedOutletId);
+        if (outletId) q = q.eq('outlet_id', outletId);
         const { data, error } = await q;
         if (error) toast.error('Failed to load customers');
         else setCustomers(data || []);
         setLoading(false);
-    }, [selectedOutletId]);
+    }, [outletId]);
 
     const loadCustomerDetails = async (c: Customer) => {
         setViewCustomer(c);
@@ -141,7 +133,7 @@ export default function CreditCustomersPage() {
 
     const openAddModal = () => {
         setEditingCustomer(null);
-        setFormData({ ...emptyForm, outlet_id: selectedOutletId === 'all' ? 1 : selectedOutletId });
+        setFormData({ ...emptyForm, outlet_id: outletId || 1 });
         setShowModal(true);
     };
 
@@ -297,13 +289,13 @@ export default function CreditCustomersPage() {
             const r = validRows[i];
             try {
                 const openBal = Number(r.opening_balance) || 0;
-                const outletId = selectedOutletId === 'all' ? 1 : selectedOutletId;
+                const importOutletId = outletId || 1;
                 const code = `CUST-${String(customers.length + i + 1).padStart(4, '0')}`;
                 const { data: nc, error } = await supabase.from('retail_credit_customers').insert({
                     customer_code: code, customer_name: r.customer_name, phone: r.phone || '',
                     email: r.email || '', address: r.address || '',
                     credit_limit: Number(r.credit_limit) || 0, opening_balance: openBal,
-                    current_balance: openBal, notes: r.notes || '', active: true, outlet_id: outletId
+                    current_balance: openBal, notes: r.notes || '', active: true, outlet_id: importOutletId
                 }).select().single();
                 if (error) throw error;
                 if (openBal !== 0 && nc) {
@@ -311,7 +303,7 @@ export default function CreditCustomersPage() {
                         customer_id: nc.customer_id, amount_paid: Math.abs(openBal),
                         balance_before: 0, balance_after: openBal,
                         payment_method: 'Opening Balance', transaction_type: openBal < 0 ? 'prepayment' : 'opening_balance',
-                        payment_note: openBal < 0 ? 'Opening prepayment (import)' : 'Opening balance (import)', outlet_id: outletId
+                        payment_note: openBal < 0 ? 'Opening prepayment (import)' : 'Opening balance (import)', outlet_id: importOutletId
                     });
                 }
                 results.success++;
@@ -328,52 +320,70 @@ export default function CreditCustomersPage() {
         else { setSortBy(field); setSortDir('asc'); }
     };
 
-    const SortIcon = ({ field }: { field: typeof sortBy }) =>
-        sortBy === field ? (sortDir === 'asc' ? <FiTrendingUp size={12} className="text-blue-300" /> : <FiTrendingDown size={12} className="text-blue-300" />) : null;
+    const SortIcon = ({ field }: { field: typeof sortBy }): JSX.Element | null => {
+        if (sortBy !== field) return null;
+        return sortDir === 'asc'
+            ? <FiTrendingUp size={12} className="text-indigo-300" />
+            : <FiTrendingDown size={12} className="text-indigo-300" />;
+    };
 
     return (
         <div className="space-y-5" style={{ fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
 
-            {/* ━━━ TOP BAR ━━━ */}
-            <div className="flex items-center justify-between flex-wrap gap-3">
-                <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-300/40">
-                        <FiUsers className="text-white" size={24} />
+            {/* ━━━ PREMIUM BANNER ━━━ */}
+            <div className="rounded-2xl overflow-hidden shadow-2xl" style={{ background: 'linear-gradient(135deg, #1E1B4B 0%, #312E81 50%, #4338CA 100%)' }}>
+                <div className="px-6 py-5">
+                    <div className="flex items-center gap-2 text-indigo-300 text-xs mb-3">
+                        <span>Dashboard</span><span className="opacity-50">/</span>
+                        <span>Finance</span><span className="opacity-50">/</span>
+                        <span className="text-indigo-200 font-semibold">👥 Credit Customers</span>
                     </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-800">Credit Customers</h1>
-                        <p className="text-gray-500 text-sm mt-0.5">Manage credit accounts · Balances · Import · Per-outlet</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                    {/* Outlet Selector */}
-                    <select value={selectedOutletId} onChange={e => { const v = e.target.value === 'all' ? 'all' : Number(e.target.value); setSelectedOutletId(v); if (v !== 'all') localStorage.setItem('selectedOutletId', String(v)); setPage(1); }}
-                        className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:outline-none focus:border-blue-500 shadow-sm">
-                        <option value="all">🏪 All Outlets</option>
-                        {outlets.map(o => <option key={o.outlet_id} value={o.outlet_id}>{o.outlet_name}</option>)}
-                    </select>
-                    <button onClick={loadCustomers} className="p-2.5 rounded-xl bg-white border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 transition-all shadow-sm" title="Refresh"><FiRefreshCw size={16} /></button>
-                    <button onClick={exportCSV} className="px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:text-blue-600 hover:border-blue-300 transition-all text-sm font-semibold flex items-center gap-2 shadow-sm"><FiDownload size={14} /> Export</button>
-                    <button onClick={openAddModal} className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold rounded-xl shadow-lg shadow-blue-300/40 hover:scale-105 active:scale-95 transition-all"><FiPlus size={16} strokeWidth={3} /> Add Customer</button>
-                </div>
-            </div>
-
-            {/* ━━━ STAT CARDS ━━━ */}
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                {[
-                    { label: 'Total Customers', value: customers.length, icon: FiUsers, g: 'from-blue-500 to-blue-600', bg: 'from-blue-50 to-blue-100 border-blue-200', t: 'text-blue-600' },
-                    { label: 'Active', value: activeCount, icon: FiUserCheck, g: 'from-green-500 to-green-600', bg: 'from-green-50 to-green-100 border-green-200', t: 'text-green-600' },
-                    { label: 'With Balance', value: withBalance, icon: FiAlertTriangle, g: 'from-orange-500 to-orange-600', bg: 'from-orange-50 to-orange-100 border-orange-200', t: 'text-orange-600' },
-                    { label: 'Total Owed', value: `Ksh ${totalOwed.toLocaleString()}`, icon: FiTrendingDown, g: 'from-red-500 to-red-600', bg: 'from-red-50 to-red-100 border-red-200', t: 'text-red-600' },
-                    { label: 'Prepayments', value: `Ksh ${totalPrepayment.toLocaleString()}`, icon: FiStar, g: 'from-purple-500 to-purple-600', bg: 'from-purple-50 to-purple-100 border-purple-200', t: 'text-purple-600' },
-                ].map((s, i) => (
-                    <div key={i} className={`bg-gradient-to-br ${s.bg} rounded-2xl p-4 border hover:shadow-lg transition-all group cursor-default`}>
-                        <div className="flex items-center gap-3">
-                            <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${s.g} flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform`}><s.icon size={18} /></div>
-                            <div><p className={`text-xs ${s.t} font-semibold`}>{s.label}</p><p className="text-xl font-bold text-gray-800">{s.value}</p></div>
+                    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                        <div className="flex items-start gap-4">
+                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0" style={{ background: 'linear-gradient(135deg, #6366F1, #4F46E5)' }}>
+                                <FiUsers size={26} color="#fff" />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2 flex-wrap mb-1">
+                                    <h1 className="text-2xl font-black text-white">Credit Customers</h1>
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-300 text-indigo-900">PER-OUTLET</span>
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400 text-amber-900">{outlets.find(o => o.outlet_id === outletId)?.outlet_name || 'All Outlets'}</span>
+                                </div>
+                                <p className="text-indigo-200 text-sm">Manage credit accounts · Balances · Import · Strict per-outlet</p>
+                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                    {['Opening Balance', 'Credit Limits', 'CSV Import', 'Prepayments', 'Statements', 'Per-Outlet'].map(tag => (
+                                        <span key={tag} className="px-2 py-0.5 rounded text-[10px] text-indigo-200 border border-white/10" style={{ background: 'rgba(255,255,255,0.07)' }}>{tag}</span>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            <button onClick={loadCustomers} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-indigo-200 hover:text-white hover:bg-white/10 border border-white/10 transition-all"><FiRefreshCw size={12} /> Refresh</button>
+                            <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-indigo-200 hover:text-white hover:bg-white/10 border border-white/10 transition-all"><FiDownload size={12} /> Export</button>
+                            <button onClick={openAddModal} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white shadow-lg active:scale-95 transition-all" style={{ background: 'linear-gradient(135deg, #059669, #10B981)' }}><FiPlus size={15} strokeWidth={3} /> Add Customer</button>
                         </div>
                     </div>
-                ))}
+                </div>
+                {/* KPI Bar */}
+                <div className="grid grid-cols-5 border-t border-white/10">
+                    {[
+                        { l: 'Total', v: String(customers.length), c: '#818CF8' },
+                        { l: 'Active', v: String(activeCount), c: '#34D399' },
+                        { l: 'With Balance', v: String(withBalance), c: '#FCD34D' },
+                        { l: 'Total Owed', v: `Ksh ${totalOwed.toLocaleString()}`, c: '#F87171' },
+                        { l: 'Prepayments', v: `Ksh ${totalPrepayment.toLocaleString()}`, c: '#A78BFA' },
+                    ].map((s, i) => (
+                        <div key={i} className="px-4 py-3 flex items-center gap-2 border-r border-white/10 last:border-0">
+                            <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: s.c + '22' }}>
+                                <FiUsers size={11} style={{ color: s.c }} />
+                            </div>
+                            <div>
+                                <div className="text-base font-black leading-none" style={{ color: s.c }}>{s.v}</div>
+                                <div className="text-[9px] text-indigo-300 leading-tight mt-0.5">{s.l}</div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </div>
 
             {/* ━━━ TABS ━━━ */}

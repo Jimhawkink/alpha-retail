@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
 import {
     FiDollarSign, FiSearch, FiFilter, FiUsers, FiCreditCard, FiCheck,
@@ -34,8 +35,8 @@ interface Payment {
 const PAYMENT_METHODS = ['Cash', 'M-Pesa', 'Card', 'Bank Transfer', 'Cheque'];
 
 export default function CreditPaymentsPage() {
-    const [outlets, setOutlets] = useState<Outlet[]>([]);
-    const [selectedOutletId, setSelectedOutletId] = useState<number | 'all'>('all');
+    const { activeOutlet, outlets } = useOutlet();
+    const outletId = activeOutlet?.outlet_id ?? null;
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
     const [customerSearch, setCustomerSearch] = useState('');
@@ -64,34 +65,30 @@ export default function CreditPaymentsPage() {
     const perPage = 15;
 
     useEffect(() => {
-        loadOutlets();
-        const saved = localStorage.getItem('selectedOutletId');
-        if (saved) setSelectedOutletId(Number(saved));
-    }, []);
-
-    useEffect(() => {
         loadCustomers();
         loadPaymentHistory();
-    }, [selectedOutletId]);
+    }, [outletId]);
 
     const loadOutlets = async () => {
         const { data } = await supabase.from('retail_outlets').select('outlet_id, outlet_name').order('outlet_name');
-        setOutlets(data || []);
+        // outlets come from context now
     };
 
     const loadCustomers = useCallback(async () => {
         let q = supabase.from('retail_credit_customers').select('*').eq('active', true).order('customer_name');
-        if (selectedOutletId !== 'all') q = q.eq('outlet_id', selectedOutletId);
+        // ── STRICT per-outlet filter ──
+        if (outletId) q = q.eq('outlet_id', outletId);
         const { data } = await q;
         setCustomers(data || []);
-    }, [selectedOutletId]);
+    }, [outletId]);
 
     const loadPaymentHistory = useCallback(async () => {
         setHistoryLoading(true);
         let q = supabase.from('retail_credit_payments').select(`
             *, retail_credit_customers(customer_name, phone)
         `).order('created_at', { ascending: false }).limit(500);
-        if (selectedOutletId !== 'all') q = q.eq('outlet_id', selectedOutletId);
+        // ── STRICT per-outlet filter ──
+        if (outletId) q = q.eq('outlet_id', outletId);
         const { data, error } = await q;
         if (!error) {
             const mapped = (data || []).map((p: any) => ({
@@ -102,7 +99,7 @@ export default function CreditPaymentsPage() {
             setPayments(mapped);
         }
         setHistoryLoading(false);
-    }, [selectedOutletId]);
+    }, [outletId]);
 
     const loadOutstandingSales = async (customerId: number) => {
         const { data } = await supabase.from('retail_sales')
@@ -159,7 +156,7 @@ export default function CreditPaymentsPage() {
                         : `General payment — balance cleared`),
                 received_by:      receivedBy.trim() || null,
                 transaction_type: 'payment',
-                outlet_id:        selectedOutletId === 'all' ? (selectedCustomer.outlet_id || 1) : selectedOutletId,
+                outlet_id: outletId || (selectedCustomer.outlet_id || 1),
             });
             if (payErr) throw payErr;
 
@@ -253,45 +250,62 @@ export default function CreditPaymentsPage() {
     return (
         <div className="space-y-5" style={{ fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
 
-            {/* ━━━ TOP BAR ━━━ */}
-            <div className="flex items-center justify-between flex-wrap gap-3">
-                <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-300/40">
-                        <FiDollarSign className="text-white" size={24} />
+            {/* ━━━ PREMIUM BANNER ━━━ */}
+            <div className="rounded-2xl overflow-hidden shadow-2xl" style={{ background: 'linear-gradient(135deg, #064E3B 0%, #065F46 50%, #047857 100%)' }}>
+                <div className="px-6 py-5">
+                    {/* Breadcrumb */}
+                    <div className="flex items-center gap-2 text-emerald-300 text-xs mb-3">
+                        <span>Dashboard</span><span className="opacity-50">/</span>
+                        <span>Finance</span><span className="opacity-50">/</span>
+                        <span className="text-green-300 font-semibold">💰 Credit Payments</span>
                     </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-800">Credit Payments</h1>
-                        <p className="text-gray-500 text-sm mt-0.5">Collect payments · Record transactions · Per-outlet</p>
+                    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                        <div className="flex items-start gap-4">
+                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0" style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}>
+                                <FiDollarSign size={26} color="#fff" />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2 flex-wrap mb-1">
+                                    <h1 className="text-2xl font-black text-white">Credit Payments</h1>
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-400 text-emerald-900">COLLECTIONS</span>
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400 text-amber-900">{outlets.find(o => o.outlet_id === outletId)?.outlet_name || 'All Outlets'}</span>
+                                </div>
+                                <p className="text-emerald-200 text-sm">Collect payments · Record transactions · Per-outlet strict filtering</p>
+                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                    {['Cash Payments', 'M-Pesa', 'Bank Transfer', 'Invoice Mode', 'Full Ledger', 'Balance Tracking'].map(tag => (
+                                        <span key={tag} className="px-2 py-0.5 rounded text-[10px] text-emerald-200 border border-white/10" style={{ background: 'rgba(255,255,255,0.07)' }}>{tag}</span>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            <button onClick={() => { loadCustomers(); loadPaymentHistory(); }} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-emerald-200 hover:text-white hover:bg-white/10 border border-white/10 transition-all"><FiRefreshCw size={12} /> Refresh</button>
+                            <button onClick={exportCSV} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white shadow-lg active:scale-95 transition-all" style={{ background: 'linear-gradient(135deg, #0284C7, #0EA5E9)' }}><FiDownload size={14} /> Export CSV</button>
+                        </div>
                     </div>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                    <select value={selectedOutletId}
-                        onChange={e => { const v = e.target.value === 'all' ? 'all' : Number(e.target.value); setSelectedOutletId(v); if (v !== 'all') localStorage.setItem('selectedOutletId', String(v)); setPage(1); }}
-                        className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:outline-none focus:border-green-500 shadow-sm">
-                        <option value="all">🏪 All Outlets</option>
-                        {outlets.map(o => <option key={o.outlet_id} value={o.outlet_id}>{o.outlet_name}</option>)}
-                    </select>
-                    <button onClick={() => { loadCustomers(); loadPaymentHistory(); }} className="p-2.5 rounded-xl bg-white border border-gray-200 text-gray-500 hover:text-green-600 hover:border-green-300 transition-all shadow-sm"><FiRefreshCw size={16} /></button>
-                    <button onClick={exportCSV} className="px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:text-green-600 hover:border-green-300 transition-all text-sm font-semibold flex items-center gap-2 shadow-sm"><FiDownload size={14} /> Export</button>
+                {/* KPI Bar */}
+                <div className="grid grid-cols-4 border-t border-white/10">
+                    {[
+                        { l: "Today's", v: `Ksh ${todayTotal.toLocaleString()}`, c: '#34D399' },
+                        { l: 'This Month', v: `Ksh ${monthTotal.toLocaleString()}`, c: '#60A5FA' },
+                        { l: 'Outstanding', v: `Ksh ${totalOutstanding.toLocaleString()}`, c: '#FCD34D' },
+                        { l: 'Prepayments', v: `Ksh ${totalPrepayments.toLocaleString()}`, c: '#A78BFA' },
+                    ].map((s, i) => (
+                        <div key={i} className="px-4 py-3 flex items-center gap-2 border-r border-white/10 last:border-0">
+                            <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: s.c + '22' }}>
+                                <FiDollarSign size={11} style={{ color: s.c }} />
+                            </div>
+                            <div>
+                                <div className="text-base font-black leading-none" style={{ color: s.c }}>{s.v}</div>
+                                <div className="text-[9px] text-emerald-300 leading-tight mt-0.5">{s.l}</div>
+                            </div>
+                        </div>
+                    ))}
                 </div>
             </div>
 
-            {/* ━━━ STAT CARDS ━━━ */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                {[
-                    { label: "Today's Collections", value: `Ksh ${todayTotal.toLocaleString()}`, sub: `${todayPayments.length} payments`, icon: FiCheckCircle, g: 'from-green-500 to-green-600', bg: 'from-green-50 to-green-100 border-green-200', t: 'text-green-600' },
-                    { label: 'This Month', value: `Ksh ${monthTotal.toLocaleString()}`, sub: `${monthPayments.length} payments`, icon: FiTrendingUp, g: 'from-blue-500 to-blue-600', bg: 'from-blue-50 to-blue-100 border-blue-200', t: 'text-blue-600' },
-                    { label: 'Total Outstanding', value: `Ksh ${totalOutstanding.toLocaleString()}`, sub: `${customers.filter(c => c.current_balance > 0).length} customers`, icon: FiAlertCircle, g: 'from-red-500 to-red-600', bg: 'from-red-50 to-red-100 border-red-200', t: 'text-red-600' },
-                    { label: 'Prepayments Held', value: `Ksh ${totalPrepayments.toLocaleString()}`, sub: `${customers.filter(c => c.current_balance < 0).length} customers`, icon: FiStar, g: 'from-purple-500 to-purple-600', bg: 'from-purple-50 to-purple-100 border-purple-200', t: 'text-purple-600' },
-                ].map((s, i) => (
-                    <div key={i} className={`bg-gradient-to-br ${s.bg} rounded-2xl p-4 border hover:shadow-lg transition-all group`}>
-                        <div className="flex items-center gap-3">
-                            <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${s.g} flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform`}><s.icon size={18} /></div>
-                            <div><p className={`text-xs ${s.t} font-semibold`}>{s.label}</p><p className="text-xl font-bold text-gray-800">{s.value}</p><p className="text-xs text-gray-500 mt-0.5">{s.sub}</p></div>
-                        </div>
-                    </div>
-                ))}
-            </div>
+
 
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
 

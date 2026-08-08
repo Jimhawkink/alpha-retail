@@ -14,7 +14,7 @@ import {
 } from 'react-icons/fi';
 import { SettingsProvider, useCompanyName } from '@/context/SettingsContext';
 import { OutletProvider, useOutlet } from '@/context/OutletContext';
-import { logActivity } from '@/lib/supabase';
+import { logActivity, supabase } from '@/lib/supabase';
 
 // ── Session timeout config ────────────────────────────────────────────
 const IDLE_TIMEOUT_MS    = 30 * 60 * 1000; // 30 minutes idle → show warning
@@ -142,6 +142,7 @@ const menuGroups = [
         { href: '/dashboard/reports/purchase-price-variance',    label: 'Purchase Price Variance', icon: FiTrendingDown,roles: 'all' },
         { href: '/dashboard/reports/stock-aging',                label: 'Stock Aging',             icon: FiClock,       roles: 'all' },
         { href: '/dashboard/reports/expense-trend',              label: 'Revenue vs Expenses',     icon: FiBarChart2,   roles: 'all' },
+        { href: '/dashboard/reports/customer-at-glance',         label: 'Customer at Glance',      icon: FiUsers,       roles: 'all', badge: 'NEW' },
     ]},
     { label: 'Operations', icon: FiZap, name: 'operations', collapsible: true, items: [
         { href: '/dashboard/promotions',      label: 'Promotions',       icon: FiTag,         roles: 'all', badge: 'NEW' },
@@ -170,6 +171,162 @@ const menuGroups = [
         { href: '/dashboard/license',        label: '🔐 License Mgmt', icon: FiShield, roles: 'superadmin', badge: 'SA' },
     ]},
 ];
+
+// ── Pledge Notification Bell ──────────────────────────────────────────
+interface PledgeNotif {
+    pledge_id: number; customer_id: number; pledge_date: string;
+    pledge_amount: number; note: string; status: string;
+    customer_name?: string; phone?: string;
+}
+
+function PledgeNotificationBell() {
+    const { activeOutlet } = useOutlet();
+    const outletId = activeOutlet?.outlet_id ?? null;
+    const [pledges, setPledges] = useState<PledgeNotif[]>([]);
+    const [open, setOpen]       = useState(false);
+    const [marking, setMarking] = useState<number | null>(null);
+    const ref = useRef<HTMLDivElement>(null);
+
+    const loadPledges = useCallback(async () => {
+        try {
+            let q = supabase
+                .from('retail_credit_pledges')
+                .select('*, retail_credit_customers(customer_name, phone)')
+                .eq('status', 'pending')
+                .lte('pledge_date', new Date().toISOString().split('T')[0])
+                .order('pledge_date');
+            if (outletId) q = q.eq('outlet_id', outletId);
+            const { data } = await q;
+            const mapped = (data || []).map((p: any) => ({
+                ...p,
+                customer_name: p.retail_credit_customers?.customer_name || 'Unknown',
+                phone: p.retail_credit_customers?.phone || '',
+            }));
+            setPledges(mapped);
+        } catch {}
+    }, [outletId]);
+
+    // Load on mount and every 5 minutes
+    useEffect(() => {
+        loadPledges();
+        const iv = setInterval(loadPledges, 5 * 60 * 1000);
+        return () => clearInterval(iv);
+    }, [loadPledges]);
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    const markPaid = async (pledgeId: number) => {
+        setMarking(pledgeId);
+        await supabase.from('retail_credit_pledges').update({ status: 'paid' }).eq('pledge_id', pledgeId);
+        setPledges(prev => prev.filter(p => p.pledge_id !== pledgeId));
+        setMarking(null);
+    };
+
+    const daysOverdue = (date: string) =>
+        Math.floor((Date.now() - new Date(date).getTime()) / 86400000);
+
+    const count = pledges.length;
+
+    return (
+        <div ref={ref} className="relative">
+            <button
+                onClick={() => setOpen(o => !o)}
+                className="relative p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors"
+            >
+                <FiBell size={17} className={count > 0 ? 'text-red-500' : ''} />
+                {count > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center border border-white animate-pulse">
+                        {count > 9 ? '9+' : count}
+                    </span>
+                )}
+            </button>
+
+            {open && (
+                <div className="absolute right-0 top-12 w-80 z-50 rounded-2xl shadow-2xl border border-red-100 overflow-hidden"
+                    style={{ background: 'linear-gradient(135deg,#FFF5F5,#FFFFFF)' }}>
+                    {/* Header */}
+                    <div className="px-4 py-3 flex items-center justify-between border-b border-red-100" style={{ background: 'linear-gradient(135deg,#FEE2E2,#FEF2F2)' }}>
+                        <div className="flex items-center gap-2">
+                            <FiBell size={14} className="text-red-500" />
+                            <span className="text-sm font-black text-red-700">Payment Pledges</span>
+                            {count > 0 && (
+                                <span className="px-1.5 py-0.5 bg-red-500 text-white text-[9px] font-black rounded-full">{count} overdue</span>
+                            )}
+                        </div>
+                        <button onClick={() => setOpen(false)} className="text-red-300 hover:text-red-600 transition-colors">
+                            <FiX size={14} />
+                        </button>
+                    </div>
+
+                    {/* Pledge list */}
+                    <div className="max-h-80 overflow-y-auto">
+                        {count === 0 ? (
+                            <div className="py-8 text-center">
+                                <div className="text-2xl mb-2">✅</div>
+                                <p className="text-sm font-semibold text-gray-600">No overdue pledges!</p>
+                                <p className="text-xs text-gray-400 mt-1">All payment promises are on track</p>
+                            </div>
+                        ) : (
+                            pledges.map(p => {
+                                const od = daysOverdue(p.pledge_date);
+                                return (
+                                    <div key={p.pledge_id} className="px-4 py-3 border-b border-red-50 hover:bg-red-50/50 transition-colors">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                    <span className="font-bold text-sm text-gray-800 truncate">{p.customer_name}</span>
+                                                    <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-red-100 text-red-600">{od}d overdue</span>
+                                                </div>
+                                                {p.phone && (
+                                                    <a href={`tel:${p.phone}`} className="flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-700 mt-0.5 font-medium">
+                                                        📞 {p.phone} — Call now!
+                                                    </a>
+                                                )}
+                                                <div className="text-xs text-gray-500 mt-0.5">
+                                                    Pledged: {new Date(p.pledge_date).toLocaleDateString()}
+                                                    {p.note && <span className="ml-1 italic text-gray-400">· "{p.note}"</span>}
+                                                </div>
+                                            </div>
+                                            <div className="text-right flex-shrink-0">
+                                                <div className="font-black text-red-600 text-sm">Ksh {(p.pledge_amount || 0).toLocaleString()}</div>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => markPaid(p.pledge_id)}
+                                            disabled={marking === p.pledge_id}
+                                            className="mt-2 w-full py-1.5 rounded-lg text-xs font-bold transition-all"
+                                            style={{ background: marking === p.pledge_id ? '#E5E7EB' : 'linear-gradient(135deg,#10B981,#059669)', color: marking === p.pledge_id ? '#9CA3AF' : '#fff' }}
+                                        >
+                                            {marking === p.pledge_id ? 'Marking...' : '✅ Mark as Paid / Dismiss'}
+                                        </button>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+
+                    {/* Footer */}
+                    <div className="px-4 py-2.5 border-t border-red-100 flex items-center justify-between">
+                        <button onClick={loadPledges} className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors">
+                            <FiRefreshCw size={10} /> Refresh
+                        </button>
+                        <a href="/dashboard/reports/customer-at-glance" className="text-xs text-indigo-500 hover:text-indigo-700 font-semibold transition-colors">
+                            View all →
+                        </a>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 
 function canSee(roles: string, userType: string) {
     if (roles === 'all') return true;
@@ -537,10 +694,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             </div>
                             <div className="flex items-center gap-2 ml-auto">
                                 <OutletSwitcher />
-                                <button className="relative p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors">
-                                    <FiBell size={17} />
-                                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
-                                </button>
+                                <PledgeNotificationBell />
                                 <button onClick={() => router.push('/dashboard/company')} className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors">
                                     <FiSettings size={17} />
                                 </button>

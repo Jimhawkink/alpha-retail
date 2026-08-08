@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
 import {
     FiFileText, FiSearch, FiPrinter, FiDownload, FiRefreshCw,
@@ -24,11 +25,12 @@ interface LedgerEntry {
 }
 interface Outlet { outlet_id: number; outlet_name: string; }
 
-export default function CreditStatementsPage() {
+function CreditStatementsInner() {
+    const { activeOutlet, outlets } = useOutlet();
+    const outletId = activeOutlet?.outlet_id ?? null;
     const searchParams = useSearchParams();
     const preselectedId = searchParams.get('customer');
 
-    const [outlets, setOutlets] = useState<Outlet[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
     const [customerSearch, setCustomerSearch] = useState('');
@@ -38,15 +40,11 @@ export default function CreditStatementsPage() {
     const [loadingCustomers, setLoadingCustomers] = useState(true);
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0]);
-    const [selectedOutletId, setSelectedOutletId] = useState<number | 'all'>('all');
     const [typeFilter, setTypeFilter] = useState<'all' | 'sale' | 'payment'>('all');
 
     useEffect(() => {
-        loadOutlets();
         loadCustomers();
-        const saved = localStorage.getItem('selectedOutletId');
-        if (saved) setSelectedOutletId(Number(saved));
-    }, []);
+    }, [outletId]);
 
     useEffect(() => {
         if (customers.length > 0 && preselectedId) {
@@ -59,14 +57,12 @@ export default function CreditStatementsPage() {
         if (selectedCustomer) buildLedger(selectedCustomer);
     }, [selectedCustomer, dateFrom, dateTo]);
 
-    const loadOutlets = async () => {
-        const { data } = await supabase.from('retail_outlets').select('outlet_id, outlet_name').order('outlet_name');
-        setOutlets(data || []);
-    };
-
     const loadCustomers = async () => {
         setLoadingCustomers(true);
-        const { data } = await supabase.from('retail_credit_customers').select('*').eq('active', true).order('customer_name');
+        // ── STRICT per-outlet filter — use global outlet context ──
+        let q = supabase.from('retail_credit_customers').select('*').eq('active', true).order('customer_name');
+        if (outletId) q = q.eq('outlet_id', outletId);
+        const { data } = await q;
         setCustomers(data || []);
         setLoadingCustomers(false);
     };
@@ -153,18 +149,16 @@ export default function CreditStatementsPage() {
 
     const filteredLedger = useMemo(() => {
         if (typeFilter === 'all') return ledger;
-        return ledger.filter(e => typeFilter === 'sale' ? e.type === 'sale' : e.type === 'payment');
+        return ledger.filter(e => typeFilter === 'sale' ? e.type === 'sale' : (e.type === 'payment' || e.type === 'prepayment'));
     }, [ledger, typeFilter]);
 
     const filteredCustomers = useMemo(() => {
         const q = customerSearch.toLowerCase();
-        let list = customers;
-        if (selectedOutletId !== 'all') list = list.filter(c => c.outlet_id === selectedOutletId);
-        return list.filter(c =>
+        return customers.filter(c =>
             c.customer_name?.toLowerCase().includes(q) ||
             c.phone?.includes(q) || c.customer_code?.toLowerCase().includes(q)
         );
-    }, [customers, customerSearch, selectedOutletId]);
+    }, [customers, customerSearch]);
 
     const totalDebit = filteredLedger.reduce((s, e) => s + e.debit, 0);
     const totalCredit = filteredLedger.reduce((s, e) => s + e.credit, 0);
@@ -189,25 +183,65 @@ export default function CreditStatementsPage() {
     return (
         <div className="space-y-5 print:space-y-3" style={{ fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
 
-            {/* ━━━ TOP BAR ━━━ */}
-            <div className="flex items-center justify-between flex-wrap gap-3 print:hidden">
-                <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-300/40">
-                        <FiFileText className="text-white" size={24} />
+            {/* ━━━ PREMIUM BANNER ━━━ */}
+            <div className="rounded-2xl overflow-hidden shadow-2xl print:hidden" style={{ background: 'linear-gradient(135deg, #2D1B69 0%, #4C1D95 50%, #6D28D9 100%)' }}>
+                <div className="px-6 py-5">
+                    <div className="flex items-center gap-2 text-purple-300 text-xs mb-3">
+                        <span>Dashboard</span><span className="opacity-50">/</span>
+                        <span>Finance</span><span className="opacity-50">/</span>
+                        <span className="text-violet-200 font-semibold">📋 Credit Statements</span>
                     </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-800">Customer Statements</h1>
-                        <p className="text-gray-500 text-sm mt-0.5">Full ledger · Running balance · Per-customer</p>
+                    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                        <div className="flex items-start gap-4">
+                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0" style={{ background: 'linear-gradient(135deg, #7C3AED, #6D28D9)' }}>
+                                <FiFileText size={26} color="#fff" />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2 flex-wrap mb-1">
+                                    <h1 className="text-2xl font-black text-white">Customer Statements</h1>
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-300 text-violet-900">FULL LEDGER</span>
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400 text-amber-900">
+                                        {outlets.find(o => o.outlet_id === outletId)?.outlet_name || 'All Outlets'}
+                                    </span>
+                                </div>
+                                <p className="text-purple-200 text-sm">Full Dr/Cr ledger · Running balance · Per-outlet strict · Print ready</p>
+                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                    {['Running Balance', 'Date Filter', 'Quick Periods', 'Print Statement', 'CSV Export', 'Credit Utilisation'].map(tag => (
+                                        <span key={tag} className="px-2 py-0.5 rounded text-[10px] text-purple-200 border border-white/10" style={{ background: 'rgba(255,255,255,0.07)' }}>{tag}</span>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            <button onClick={() => loadCustomers()} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-purple-200 hover:text-white hover:bg-white/10 border border-white/10 transition-all"><FiRefreshCw size={12} /> Refresh</button>
+                            {selectedCustomer && <>
+                                <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-purple-200 hover:text-white hover:bg-white/10 border border-white/10 transition-all"><FiDownload size={12} /> Export CSV</button>
+                                <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white shadow-lg active:scale-95 transition-all" style={{ background: 'linear-gradient(135deg, #059669, #10B981)' }}><FiPrinter size={14} /> Print</button>
+                            </>}
+                        </div>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <button onClick={() => loadCustomers()} className="p-2.5 rounded-xl bg-white border border-gray-200 text-gray-500 hover:text-indigo-600 hover:border-indigo-300 transition-all shadow-sm"><FiRefreshCw size={16} /></button>
-                    {selectedCustomer && <>
-                        <button onClick={exportCSV} className="px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:text-indigo-600 hover:border-indigo-300 transition-all text-sm font-semibold flex items-center gap-2 shadow-sm"><FiDownload size={14} /> Export CSV</button>
-                        <button onClick={handlePrint} className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-sm flex items-center gap-2 shadow-lg shadow-indigo-300/40 hover:scale-105 transition-all"><FiPrinter size={14} /> Print</button>
-                    </>}
+                {/* KPI Bar */}
+                <div className="grid grid-cols-4 border-t border-white/10">
+                    {[
+                        { l: 'Customers', v: String(customers.length), c: '#C4B5FD' },
+                        { l: 'Selected', v: selectedCustomer?.customer_name?.split(' ')[0] || '—', c: '#34D399' },
+                        { l: 'Balance', v: selectedCustomer ? `Ksh ${selectedCustomer.current_balance.toLocaleString()}` : '—', c: selectedCustomer && selectedCustomer.current_balance > 0 ? '#F87171' : '#34D399' },
+                        { l: 'Transactions', v: String(ledger.length), c: '#FCD34D' },
+                    ].map((s, i) => (
+                        <div key={i} className="px-4 py-3 flex items-center gap-2 border-r border-white/10 last:border-0">
+                            <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: s.c + '22' }}>
+                                <FiFileText size={11} style={{ color: s.c }} />
+                            </div>
+                            <div>
+                                <div className="text-base font-black leading-none truncate max-w-[100px]" style={{ color: s.c }}>{s.v}</div>
+                                <div className="text-[9px] text-purple-300 leading-tight mt-0.5">{s.l}</div>
+                            </div>
+                        </div>
+                    ))}
                 </div>
             </div>
+
 
             {/* ━━━ CUSTOMER SELECTOR + FILTERS ━━━ */}
             <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm print:hidden">
@@ -470,5 +504,20 @@ export default function CreditStatementsPage() {
                 }
             `}</style>
         </div>
+    );
+}
+
+export default function CreditStatementsPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex items-center justify-center h-64">
+                <div className="text-center">
+                    <div className="w-10 h-10 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                    <p className="text-gray-500 text-sm">Loading statements...</p>
+                </div>
+            </div>
+        }>
+            <CreditStatementsInner />
+        </Suspense>
     );
 }

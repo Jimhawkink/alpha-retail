@@ -1318,7 +1318,7 @@ export default function RetailPOSPage() {
         } catch { /* silent */ }
     }, []);
 
-    // Reload per-outlet price mode + global prevent-negative-stock whenever outlet changes
+    // Reload per-outlet price mode + negative stock setting whenever outlet changes
     useEffect(() => {
         if (!outletId) return;
         supabase.from('license_settings').select('setting_value')
@@ -1326,22 +1326,22 @@ export default function RetailPOSPage() {
             .then(({ data }) => {
                 setPosDefaultPrice(data?.setting_value === 'retail' ? 'retail' : 'wholesale');
             });
-        // Load per-outlet negative stock setting (allow_negative_stock_{outletId})
-        // allow=true means selling with 0 stock IS allowed → preventNegativeStock=false
+        // Load per-outlet negative stock setting
+        // Key: prevent_negative_stock_{outletId}  (true = block, false = allow)
+        // Falls back to global prevent_negative_stock if no per-outlet key
         supabase.from('organisation_settings').select('setting_value')
-            .eq('setting_key', `allow_negative_stock_${outletId}`).single()
+            .eq('setting_key', `prevent_negative_stock_${outletId}`).single()
             .then(({ data }) => {
                 if (data) {
-                    // allow=true → do NOT prevent; allow=false → DO prevent
-                    setPreventNegativeStockPOS(data.setting_value !== 'true');
+                    setPreventNegativeStockPOS(data.setting_value === 'true');
                 } else {
-                    // No per-outlet setting found — fall back to global prevent_negative_stock
                     supabase.from('organisation_settings').select('setting_value')
                         .eq('setting_key', 'prevent_negative_stock').single()
                         .then(({ data: gd }) => setPreventNegativeStockPOS(gd?.setting_value === 'true'));
                 }
             });
     }, [outletId]);
+
 
     // ── Cart price editing helpers ────────────────────────────────────────────
     // getMinPrice: minimum selling price = cost-per-selling-unit + 1 KES profit
