@@ -535,11 +535,16 @@ export default function CompanyPage() {
                                     <Toggle checked={(org as any)[item.key]} onChange={async () => {
                                         const newVal = !(org as any)[item.key];
                                         setOrg({ ...org, [item.key]: newVal });
-                                        await supabase.from('organisation_settings').upsert(
-                                            { setting_key: item.key, setting_value: String(newVal) },
+                                        const { error } = await supabase.from('organisation_settings').upsert(
+                                            { setting_key: item.key, setting_value: String(newVal), updated_at: new Date().toISOString() },
                                             { onConflict: 'setting_key' }
                                         );
-                                        toast.success(`✅ ${item.label}: ${newVal ? 'ON' : 'OFF'} — saved!`);
+                                        if (error) {
+                                            toast.error(`❌ Save failed: ${error.message}`);
+                                            setOrg({ ...org, [item.key]: !newVal }); // revert
+                                        } else {
+                                            toast.success(`✅ ${item.label}: ${newVal ? 'ON' : 'OFF'} — saved!`);
+                                        }
                                     }} />
                                 </div>
                             ))}
@@ -652,11 +657,17 @@ export default function CompanyPage() {
                                                         onClick={async () => {
                                                             const newVal = !outletNegativeStock[outlet.outlet_id];
                                                             setOutletNegativeStock(prev => ({ ...prev, [outlet.outlet_id]: newVal }));
-                                                            await supabase.from('organisation_settings').upsert(
-                                                                { setting_key: `allow_negative_stock_${outlet.outlet_id}`, setting_value: String(newVal) },
+                                                            const { error } = await supabase.from('organisation_settings').upsert(
+                                                                { setting_key: `allow_negative_stock_${outlet.outlet_id}`, setting_value: String(newVal), updated_at: new Date().toISOString() },
                                                                 { onConflict: 'setting_key' }
                                                             );
-                                                            toast.success(`${outlet.outlet_name}: ${newVal ? '✅ Negative stock allowed' : '🚫 Negative stock blocked'}`);
+                                                            if (error) {
+                                                                toast.error(`❌ Save failed: ${error.message}`);
+                                                                // Revert local state
+                                                                setOutletNegativeStock(prev => ({ ...prev, [outlet.outlet_id]: !newVal }));
+                                                            } else {
+                                                                toast.success(`${outlet.outlet_name}: ${newVal ? '✅ 0-Stock Sales ALLOWED' : '🚫 0-Stock Sales BLOCKED'} — saved!`);
+                                                            }
                                                         }}
                                                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                                                             outletNegativeStock[outlet.outlet_id] ? 'bg-emerald-500' : 'bg-gray-300'
