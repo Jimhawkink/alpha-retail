@@ -532,7 +532,15 @@ export default function CompanyPage() {
                                             <p className="text-[11px] text-gray-400">{item.sub}</p>
                                         </div>
                                     </div>
-                                    <Toggle checked={(org as any)[item.key]} onChange={() => setOrg({ ...org, [item.key]: !(org as any)[item.key] })} />
+                                    <Toggle checked={(org as any)[item.key]} onChange={async () => {
+                                        const newVal = !(org as any)[item.key];
+                                        setOrg({ ...org, [item.key]: newVal });
+                                        await supabase.from('organisation_settings').upsert(
+                                            { setting_key: item.key, setting_value: String(newVal) },
+                                            { onConflict: 'setting_key' }
+                                        );
+                                        toast.success(`✅ ${item.label}: ${newVal ? 'ON' : 'OFF'} — saved!`);
+                                    }} />
                                 </div>
                             ))}
                         </div>
