@@ -1849,7 +1849,7 @@ export default function RetailPOSPage() {
         setUnitPickerProduct(product);
         setShowUnitPicker(true);
         setUnitPickerQty(1);
-    }, [addToCartWithUnit, expiryEnabled, outletId]);
+    }, [addToCartWithUnit, expiryEnabled, outletId, preventNegativeStock]);
 
     // Handle batch selection from expiry modal
     const handleBatchSelect = useCallback((batch: typeof productBatches[0]) => {
