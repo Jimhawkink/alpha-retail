@@ -193,26 +193,32 @@ export default function UsersPage() {
                 toast.success('User updated successfully! ✅');
                 logActivity('Update', `Updated user: ${formData.name}`, `Username: ${formData.user_name}, Role: ${formData.user_type}`);
 
-                // Save outlet assignments to retail_user_outlets (SuperAdmin only)
-                // This is the SAME table the login reads from — so it works immediately
-                if (isSuperAdmin) {
-                    const uid = editingUser.user_id;
-                    const ids = formData.assigned_outlet_ids;
-                    // Always delete existing rows for this user first
-                    await supabase.from('retail_user_outlets').delete().eq('user_id', uid);
-                    if (ids.length > 0) {
-                        // Insert one row per outlet
-                        const rows = ids.map((oid: number, idx: number) => ({
-                            user_id: uid,
-                            outlet_id: oid,
-                            is_default: idx === 0,  // first selected = default
-                        }));
-                        const { error: ruoErr } = await supabase.from('retail_user_outlets').insert(rows);
-                        if (ruoErr) console.error('Error saving outlet assignments:', ruoErr.message);
-                        else toast.success(`✅ Outlet access saved — ${ids.length} outlet(s) assigned`);
-                    } else {
-                        // No outlets selected = user sees all outlets (no restriction)
-                        toast.success('✅ User updated — no outlet restriction (sees all outlets)');
+                // Save outlet assignments to retail_user_outlets
+                // SuperAdmin: uses selected outlet IDs from form
+                // Other admins: auto-assigns to their current active outlet
+                const uid = editingUser.user_id;
+                const ids = formData.assigned_outlet_ids;
+                // Always delete existing rows for this user first
+                await supabase.from('retail_user_outlets').delete().eq('user_id', uid);
+                if (ids.length > 0) {
+                    const rows = ids.map((oid: number, idx: number) => ({
+                        user_id: uid,
+                        outlet_id: oid,
+                        is_default: idx === 0,
+                    }));
+                    const { error: ruoErr } = await supabase.from('retail_user_outlets').insert(rows);
+                    if (ruoErr) console.error('Error saving outlet assignments:', ruoErr.message);
+                    else toast.success(`✅ Outlet access saved — ${ids.length} outlet(s) assigned`);
+                } else if (isSuperAdmin) {
+                    toast.success('✅ User updated — no outlet restriction (sees all outlets)');
+                } else {
+                    // Non-SuperAdmin: auto-assign to current session outlet
+                    const stored = localStorage.getItem('user');
+                    const sessionUser = stored ? JSON.parse(stored) : null;
+                    const currentOutletId = sessionUser?.outletId || sessionUser?.outlet_id;
+                    if (currentOutletId) {
+                        await supabase.from('retail_user_outlets').insert([{ user_id: uid, outlet_id: currentOutletId, is_default: true }]);
+                        toast.success('✅ User updated — assigned to your outlet');
                     }
                 }
             } else {
@@ -237,8 +243,9 @@ export default function UsersPage() {
                 toast.success('User created successfully! 🎉');
                 logActivity('Create', `Created user: ${formData.name}`, `Username: ${formData.user_name}, Role: ${formData.user_type}`);
 
-                // Save outlet assignments for new user to retail_user_outlets (SuperAdmin only)
-                if (isSuperAdmin && data?.user_id) {
+                // Save outlet assignments for new user
+                // SuperAdmin: uses selected IDs; Others: auto-assign to current outlet
+                if (data?.user_id) {
                     const ids = formData.assigned_outlet_ids;
                     if (ids.length > 0) {
                         const rows = ids.map((oid: number, idx: number) => ({
@@ -248,6 +255,16 @@ export default function UsersPage() {
                         }));
                         const { error: ruoErr } = await supabase.from('retail_user_outlets').insert(rows);
                         if (ruoErr) console.error('Error saving outlet assignments for new user:', ruoErr.message);
+                        else toast.success(`✅ Outlet assigned — ${ids.length} outlet(s)`);
+                    } else if (!isSuperAdmin) {
+                        // Auto-assign to current session's outlet
+                        const stored = localStorage.getItem('user');
+                        const sessionUser = stored ? JSON.parse(stored) : null;
+                        const currentOutletId = sessionUser?.outletId || sessionUser?.outlet_id;
+                        if (currentOutletId) {
+                            await supabase.from('retail_user_outlets').insert([{ user_id: data.user_id, outlet_id: currentOutletId, is_default: true }]);
+                            toast.success('✅ User created — assigned to your outlet automatically');
+                        }
                     }
                 }
             }

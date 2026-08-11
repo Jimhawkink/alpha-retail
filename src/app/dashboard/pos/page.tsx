@@ -1300,7 +1300,10 @@ export default function RetailPOSPage() {
     const [posDefaultPrice, setPosDefaultPrice] = useState<'retail' | 'wholesale'>('wholesale');
     const [isSuperAdminUser, setIsSuperAdminUser] = useState(false);
     // ── PREVENT NEGATIVE STOCK ───
+    const preventNegativeStockRef = useRef(false);
     const [preventNegativeStock, setPreventNegativeStockPOS] = useState(false);
+    // Keep ref in sync — read ref in callbacks to avoid stale closures without re-render deps
+    useEffect(() => { preventNegativeStockRef.current = preventNegativeStock; }, [preventNegativeStock]);
     // ── CART PRICE EDITING ───
     const [_editPriceDummy, _setEditPriceDummy] = useState(0); // trigger re-render
     // ── Premium FAB: only show for licensed/Silibwet outlets ──
@@ -1791,7 +1794,7 @@ export default function RetailPOSPage() {
 
     // Add product to cart (checks for unit picker)
     const addToCart = useCallback((product: Product) => {
-        if (preventNegativeStock && product.availableQty === 0) {
+        if (preventNegativeStockRef.current && product.availableQty === 0) {
             toast.error('Out of stock! Enable "Allow Negative Stock" in Company Settings to sell anyway.');
             return;
         }
@@ -1849,7 +1852,7 @@ export default function RetailPOSPage() {
         setUnitPickerProduct(product);
         setShowUnitPicker(true);
         setUnitPickerQty(1);
-    }, [addToCartWithUnit, expiryEnabled, outletId, preventNegativeStock]);
+    }, [addToCartWithUnit, expiryEnabled, outletId]);
 
     // Handle batch selection from expiry modal
     const handleBatchSelect = useCallback((batch: typeof productBatches[0]) => {

@@ -162,7 +162,17 @@ export default function CreditCustomersPage() {
                 toast.success('✅ Customer updated!');
             } else {
                 const openBal = Number(formData.opening_balance) || 0;
+                // Generate unique customer_id (column doesn't auto-assign)
+                const { data: maxRow } = await supabase
+                    .from('retail_credit_customers')
+                    .select('customer_id')
+                    .not('customer_id', 'is', null)
+                    .order('customer_id', { ascending: false })
+                    .limit(1)
+                    .single();
+                const nextCustId = (maxRow?.customer_id || 10000) + 1;
                 const { data: newCust, error } = await supabase.from('retail_credit_customers').insert({
+                    customer_id: nextCustId,
                     customer_code: generateCode(), customer_name: formData.customer_name.trim(),
                     phone: formData.phone.trim(), email: formData.email.trim(),
                     address: formData.address.trim(), credit_limit: Number(formData.credit_limit) || 0,
@@ -291,7 +301,13 @@ export default function CreditCustomersPage() {
                 const openBal = Number(r.opening_balance) || 0;
                 const importOutletId = outletId || 1;
                 const code = `CUST-${String(customers.length + i + 1).padStart(4, '0')}`;
+                // Get max customer_id for this import row (excluding nulls)
+                const { data: impMax } = await supabase.from('retail_credit_customers')
+                    .select('customer_id').not('customer_id', 'is', null)
+                    .order('customer_id', { ascending: false }).limit(1).single();
+                const impNextId = (impMax?.customer_id || 10000) + 1;
                 const { data: nc, error } = await supabase.from('retail_credit_customers').insert({
+                    customer_id: impNextId,
                     customer_code: code, customer_name: r.customer_name, phone: r.phone || '',
                     email: r.email || '', address: r.address || '',
                     credit_limit: Number(r.credit_limit) || 0, opening_balance: openBal,
@@ -865,7 +881,15 @@ export default function CreditCustomersPage() {
                                     {!editingCustomer && (
                                         <div>
                                             <label className="text-sm font-semibold text-gray-700 mb-1.5 block">Opening Balance (Ksh)</label>
-                                            <input type="number" value={formData.opening_balance} onChange={e => setFormData({ ...formData, opening_balance: Number(e.target.value) })}
+                                            <input type="number" value={formData.opening_balance} onChange={e => {
+                                                const val = Number(e.target.value);
+                                                // Fetch ID to ensure record inserts with ID
+                                                const getNextId = async () => {
+                                                   const { data: mxRow } = await supabase.from('retail_credit_customers').select('customer_id').order('customer_id', { ascending: false }).limit(1).single();
+                                                   return (mxRow?.customer_id || 10000) + 1;
+                                                };
+                                                setFormData({ ...formData, opening_balance: val });
+                                            }}
                                                 placeholder="0"
                                                 className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-400/20 transition-all" />
                                             <p className="text-xs text-gray-400 mt-1">Negative = prepayment</p>
