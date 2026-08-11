@@ -2617,30 +2617,20 @@ export default function RetailPOSPage() {
                     { key: 'payroll',          icon: '👥', label: 'Payroll',      href: '/dashboard/payroll',          cashierEnabled: false },
                 ].filter(btn => {
                     const qa = activeOutlet?.allowed_quick_actions;
+                    // Hide buttons that cashier/waiter cannot access — don't show disabled, just remove
+                    if (isWaiterUser && !btn.cashierEnabled) return false;
                     if (!qa || Object.keys(qa).length === 0) return true;
                     return qa[btn.key] === true;
-                }).map(btn => {
-                    const disabled = isWaiterUser && !btn.cashierEnabled;
-                    return disabled ? (
-                        <button
-                            key={btn.label}
-                            disabled
-                            className="w-9 h-9 flex items-center justify-center rounded-xl bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed text-[17px]"
-                            title={`${btn.label} (Admin only)`}
-                        >
-                            {btn.icon}
-                        </button>
-                    ) : (
-                        <a
-                            key={btn.label}
-                            href={btn.href}
-                            title={btn.label}
-                            className="w-9 h-9 flex items-center justify-center rounded-xl bg-gray-50 hover:bg-violet-50 border border-gray-200 hover:border-violet-300 transition-all duration-150 hover:scale-110 active:scale-95 shadow-sm text-[17px] no-underline"
-                        >
-                            {btn.icon}
-                        </a>
-                    );
-                })}
+                }).map(btn => (
+                    <a
+                        key={btn.label}
+                        href={btn.href}
+                        title={btn.label}
+                        className="w-9 h-9 flex items-center justify-center rounded-xl bg-gray-50 hover:bg-violet-50 border border-gray-200 hover:border-violet-300 transition-all duration-150 hover:scale-110 active:scale-95 shadow-sm text-[17px] no-underline"
+                    >
+                        {btn.icon}
+                    </a>
+                ))}
 
                 {/* Divider */}
                 <div className="h-5 w-px bg-gray-200 mx-1 shrink-0" />
