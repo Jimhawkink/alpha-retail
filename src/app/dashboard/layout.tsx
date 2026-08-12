@@ -118,6 +118,7 @@ const menuGroups = [
         { href: '/dashboard/shift-reports', label: 'Shift Reports', icon: FiFileText,   roles: 'all' },
     ]},
     { label: 'Reports', icon: FiBarChart2, name: 'reports', collapsible: true, items: [
+        { href: '/dashboard/reports/full-sales-report',              label: '⭐ Full Sales Report',      icon: FiBarChart2,   roles: 'all', badge: 'NEW' },
         { href: '/dashboard/sales-summary',                      label: 'Sales Summary',           icon: FiTrendingUp,  roles: 'all' },
         { href: '/dashboard/reports/sales',                      label: 'Sales Report',            icon: FiFileText,    roles: 'all' },
         { href: '/dashboard/reports/profit',                     label: 'Profit Report',           icon: FiPieChart,    roles: 'all' },
@@ -521,12 +522,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const filtered  = menuGroups.map(g => ({ ...g, items: g.items.filter(i => canSee(i.roles ?? 'all', user.userType)) })).filter(g => g.items.length > 0);
 
     // ── Cashier access restriction ────────────────────────────────────────────
-    // Cashiers can only access POS + Purchase Entry + Credit Customers + Credit Payments
+    // Cashiers can only access POS + Purchase Entry + Credit Customers + Credit Payments + Products (Add Product) + Returns + Summary
     const cashierAllowedPages = [
         '/dashboard/pos',
         '/dashboard/purchase',
         '/dashboard/credit-customers',
         '/dashboard/credit-payments',
+        '/dashboard/products',
+        '/dashboard/sales-return',
+        '/dashboard/sales-summary',
     ];
     if (isCashier && !cashierAllowedPages.some(p => pathname.startsWith(p))) {
         router.replace('/dashboard/pos');

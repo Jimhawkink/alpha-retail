@@ -2607,7 +2607,7 @@ export default function RetailPOSPage() {
             <div className={`bg-white border-b border-gray-100 px-4 py-1.5 flex items-center gap-1.5 z-10 shadow-sm transition-all ${showQuickActions ? 'hidden' : ''}`}>
 
                 {[
-                    { key: 'add_product',        icon: '➕', label: 'Add Product',    href: '/dashboard/products',          cashierEnabled: true  },
+                    { key: 'add_product',        icon: '➕', label: 'Add Product',    href: '/dashboard/products?action=add', cashierEnabled: true  },
                     { key: 'purchases',          icon: '📥', label: 'Purchases',       href: '/dashboard/purchase',          cashierEnabled: true  },
                     { key: 'credit_customers',   icon: '👤', label: 'New Customer',    href: '/dashboard/credit-customers',  cashierEnabled: true  },
                     { key: 'credit_payments',    icon: '💳', label: 'Recv Payment',    href: '/dashboard/credit-payments',   cashierEnabled: true  },
@@ -3017,6 +3017,7 @@ export default function RetailPOSPage() {
                     {/* Actions Grid */}
                     <div className="p-3 grid grid-cols-3 gap-2 max-h-[280px] overflow-y-auto">
                         {([
+                            { key: 'add_product', icon: '➕', label: 'Add Product',  href: '/dashboard/products?action=add', color: 'from-violet-400 to-purple-500' },
                             { key: 'purchases', icon: '📥', label: 'Purchases',     href: '/dashboard/purchases',       color: 'from-emerald-400 to-green-500'  },
                             { key: 'stock',     icon: '📦', label: 'Stock',         href: '/dashboard/products',        color: 'from-blue-400 to-blue-500'      },
                             { key: 'expiry',    icon: '⏰', label: 'Expiry',        href: '/dashboard/expiry-register', color: 'from-orange-400 to-amber-500'   },
@@ -3063,7 +3064,7 @@ export default function RetailPOSPage() {
                     {/* Footer */}
                     <div className="px-4 py-2 border-t border-gray-50 bg-gray-50">
                         <p className="text-[9px] text-gray-400 text-center">
-                            12 actions available · Press Esc to close
+                            13 actions available · Press Esc to close
                         </p>
                     </div>
                 </div>
