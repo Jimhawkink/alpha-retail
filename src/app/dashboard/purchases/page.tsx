@@ -94,17 +94,82 @@ export default function PurchasesPage() {
     const deletePurchase = async (purchase: Purchase) => {
         if (!confirm(`Delete purchase ${purchase.purchase_no}? This will also delete all items and reverse stock.`)) return;
         try {
-            const { data: items } = await supabase.from('retail_purchase_products').select('product_id, quantity').eq('purchase_id', purchase.purchase_id);
-            if (items) {
-                for (const item of items) {
-                    await supabase.from('retail_stock').insert({ pid: item.product_id, invoice_no: `DEL-${purchase.purchase_no}`, qty: -item.quantity, storage_type: 'Store', notes: `Purchase ${purchase.purchase_no} deleted` });
+            const hasId = !!(purchase.purchase_id && purchase.purchase_id !== null);
+
+            // ── Step 1: Load purchase items ──────────────────────────────────────
+            // Try with bag_qty/piece_qty first; fall back if columns don't exist in DB yet
+            let items: any[] = [];
+            try {
+                const q = supabase.from('retail_purchase_products').select('product_id, quantity, bag_qty, piece_qty');
+                const { data, error } = hasId ? await q.eq('purchase_id', purchase.purchase_id) : await q.eq('purchase_no', purchase.purchase_no);
+                if (error) throw error;
+                items = data || [];
+            } catch {
+                // Fallback: columns bag_qty/piece_qty may not exist yet — just get quantity
+                const q = supabase.from('retail_purchase_products').select('product_id, quantity');
+                const { data, error } = hasId ? await q.eq('purchase_id', purchase.purchase_id) : await q.eq('purchase_no', purchase.purchase_no);
+                if (error) throw new Error('Load items: ' + error.message);
+                items = data || [];
+            }
+            console.log('Delete: found', items.length, 'items, outletId:', outletId);
+
+            // ── Step 2: Reverse stock (ledger — insert negative rows) ────────────
+            for (const item of items) {
+                const bagQty   = Number(item.bag_qty)   || 0;
+                const pieceQty = Number(item.piece_qty) || 0;
+                const totalQty = Number(item.quantity)  || 0;
+
+                if (bagQty > 0 || pieceQty > 0) {
+                    // ── Dual-stock product (Box/Dozen + Pieces) ──
+                    if (bagQty > 0) {
+                        await supabase.from('retail_stock').insert({
+                            pid: item.product_id, outlet_id: outletId,
+                            invoice_no: `DEL-${purchase.purchase_no}`,
+                            qty: -bagQty, storage_type: 'Bags',
+                            notes: `Purchase ${purchase.purchase_no} deleted`,
+                        });
+                    }
+                    if (pieceQty > 0) {
+                        await supabase.from('retail_stock').insert({
+                            pid: item.product_id, outlet_id: outletId,
+                            invoice_no: `DEL-${purchase.purchase_no}`,
+                            qty: -pieceQty, storage_type: 'Pieces',
+                            notes: `Purchase ${purchase.purchase_no} deleted`,
+                        });
+                    }
+                } else {
+                    // ── Single-stock product (qty alone, e.g. pieces only) ──
+                    const { error: stockErr } = await supabase.from('retail_stock').insert({
+                        pid: item.product_id, outlet_id: outletId,
+                        invoice_no: `DEL-${purchase.purchase_no}`,
+                        qty: -totalQty, storage_type: 'Store',
+                        notes: `Purchase ${purchase.purchase_no} deleted`,
+                    });
+                    if (stockErr) throw new Error('Stock reversal: ' + stockErr.message);
                 }
             }
-            await supabase.from('retail_purchase_products').delete().eq('purchase_id', purchase.purchase_id);
-            const { error } = await supabase.from('retail_purchases').delete().eq('purchase_id', purchase.purchase_id);
-            if (error) throw error;
-            toast.success('Purchase deleted & stock reversed'); loadPurchases();
-        } catch { toast.error('Failed to delete purchase'); }
+
+            // ── Step 3: Delete purchase items ────────────────────────────────────
+            const delItemsQ = supabase.from('retail_purchase_products').delete();
+            const { error: delItemsErr } = hasId
+                ? await delItemsQ.eq('purchase_id', purchase.purchase_id)
+                : await delItemsQ.eq('purchase_no', purchase.purchase_no);
+            if (delItemsErr) throw new Error('Delete items: ' + delItemsErr.message);
+
+            // ── Step 4: Delete the purchase record ───────────────────────────────
+            const delQ = supabase.from('retail_purchases').delete();
+            const { error: delErr } = hasId
+                ? await delQ.eq('purchase_id', purchase.purchase_id)
+                : await delQ.eq('purchase_no', purchase.purchase_no);
+            if (delErr) throw new Error('Delete purchase: ' + delErr.message);
+
+            toast.success('✅ Purchase deleted & stock reversed');
+            loadPurchases();
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Unknown error';
+            console.error('Delete purchase error:', msg);
+            toast.error('Failed to delete purchase: ' + msg);
+        }
     };
 
     const exportPurchases = () => {

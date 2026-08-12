@@ -520,9 +520,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const isCashier = ['cashier', 'waiter'].includes((user.userType || '').toLowerCase());
     const filtered  = menuGroups.map(g => ({ ...g, items: g.items.filter(i => canSee(i.roles ?? 'all', user.userType)) })).filter(g => g.items.length > 0);
 
-    // ── Cashier access restriction: lock to POS only ────────────────────────
-    // If cashier/waiter is on any page other than POS, force redirect immediately
-    if (isCashier && pathname !== '/dashboard/pos') {
+    // ── Cashier access restriction ────────────────────────────────────────────
+    // Cashiers can only access POS + Purchase Entry + Credit Customers + Credit Payments
+    const cashierAllowedPages = [
+        '/dashboard/pos',
+        '/dashboard/purchase',
+        '/dashboard/credit-customers',
+        '/dashboard/credit-payments',
+    ];
+    if (isCashier && !cashierAllowedPages.some(p => pathname.startsWith(p))) {
         router.replace('/dashboard/pos');
         return null;
     }

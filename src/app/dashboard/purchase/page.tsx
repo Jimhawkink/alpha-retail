@@ -63,6 +63,8 @@ export default function PurchaseEntryPage() {
     const [price, setPrice] = useState<number>(0);
     const [purchaseUnit, setPurchaseUnit] = useState<string>('');
     const [availableQty, setAvailableQty] = useState<number>(0);
+    const [currentBagQty, setCurrentBagQty] = useState<number>(0);
+    const [currentPieceQty, setCurrentPieceQty] = useState<number>(0);
     // Bags & Pieces qty
     const [itemBagQty, setItemBagQty] = useState<number>(0);
     const [itemPieceQty, setItemPieceQty] = useState<number>(0);
@@ -109,11 +111,22 @@ export default function PurchaseEntryPage() {
 
     const generateInvoiceNo = async () => {
         try {
-            // Query ALL purchases globally (not per-outlet) since purchase_no has a global unique constraint
-            const { data } = await supabase.from('retail_purchases').select('purchase_no').order('purchase_id', { ascending: false }).limit(1);
-            let n = 1;
-            if (data?.[0]) { const m = data[0].purchase_no.match(/INV-(\d+)/); if (m) n = parseInt(m[1]) + 1; }
-            setInvoiceNo(`INV-${String(n).padStart(4, '0')}`);
+            // Fetch ALL INV-* purchase numbers and compute the TRUE max
+            const { data } = await supabase
+                .from('retail_purchases')
+                .select('purchase_no')
+                .like('purchase_no', 'INV-%');
+            let maxN = 0;
+            if (data && data.length > 0) {
+                for (const row of data) {
+                    const m = row.purchase_no?.match(/INV-(\d+)/);
+                    if (m) {
+                        const n = parseInt(m[1]);
+                        if (n > maxN) maxN = n;
+                    }
+                }
+            }
+            setInvoiceNo(`INV-${String(maxN + 1).padStart(4, '0')}`);
         } catch { setInvoiceNo(`INV-${Date.now().toString(36).toUpperCase()}`); }
     };
 
@@ -132,9 +145,21 @@ export default function PurchaseEntryPage() {
         setItemPieceQty(0);
         setItemBatchNumber('');
         setItemExpiryDate('');
-        // Load stock for this outlet
-        const { data: stockData } = await supabase.from('retail_stock').select('qty').eq('pid', product.pid).eq('outlet_id', outletId);
-        setAvailableQty(stockData?.reduce((s, r) => s + (r.qty || 0), 0) || 0);
+        // Load stock for this outlet — read Bags and Pieces separately
+        const loadStock = async (withOutlet: boolean) => {
+            let q = supabase.from('retail_stock').select('qty, storage_type').eq('pid', product.pid);
+            if (withOutlet) q = (q as any).eq('outlet_id', outletId);
+            const { data } = await q;
+            return data || [];
+        };
+        let stockRows = await loadStock(true);
+        // Fallback: if no stock found with outlet filter, try without
+        if (!stockRows || stockRows.length === 0) stockRows = await loadStock(false);
+        const bags   = stockRows.filter((r: any) => r.storage_type === 'Bags').reduce((s: number, r: any) => s + (Number(r.qty) || 0), 0);
+        const pieces = stockRows.filter((r: any) => r.storage_type !== 'Bags').reduce((s: number, r: any) => s + (Number(r.qty) || 0), 0);
+        setCurrentBagQty(bags);
+        setCurrentPieceQty(pieces);
+        setAvailableQty(bags + pieces);
     };
 
     // Detect price change
@@ -259,15 +284,28 @@ export default function PurchaseEntryPage() {
             const userData = localStorage.getItem('user');
             const user = userData ? JSON.parse(userData) : null;
             const supplier = suppliers.find(s => s.supplier_id === selectedSupplier);
+
+            // ── Generate purchase_id manually — filter NULLs first (NULLs sort first in DESC) ──
+            const { data: maxRow } = await supabase
+                .from('retail_purchases')
+                .select('purchase_id')
+                .not('purchase_id', 'is', null)
+                .order('purchase_id', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+            const nextPurchaseId = ((maxRow?.purchase_id as number) || 1000) + 1;
+
             const { data: purchaseData, error: pErr } = await supabase.from('retail_purchases').insert({
+                purchase_id: nextPurchaseId,
                 purchase_no: invoiceNo, purchase_date: purchaseDate,
                 supplier_id: selectedSupplier, supplier_name: supplier?.supplier_name || '',
                 supplier_invoice: supplierInvoiceNo, sub_total: subtotal, discount: 0, vat: 0, grand_total: total,
                 status: 'Completed', payment_status: paymentStatus, created_by: user?.name || 'Unknown',
                 outlet_id: outletId
             }).select().single();
-            if (pErr) throw pErr;
-            const pid = purchaseData.purchase_id;
+            if (pErr) throw new Error(`Save purchase header: ${pErr.message}`);
+            const pid = purchaseData?.purchase_id ?? nextPurchaseId;
+
 
             // Insert purchase items (try with new columns, fallback to base columns if they don't exist yet)
             const purchaseItemsData = items.map(i => ({
@@ -295,30 +333,39 @@ export default function PurchaseEntryPage() {
                 const hasDualQty = item.bagQty > 0 || item.pieceQty > 0;
 
                 if (hasDualQty) {
-                    // ─── DUAL STOCK: Separate Bags + Pieces rows (matching Add Product pattern) ───
+                    // ─── DUAL STOCK: Separate Bags + Pieces rows ───
                     if (item.bagQty > 0) {
-                        const { data: bagRow } = await supabase.from('retail_stock').select('st_id, qty').eq('pid', item.productId).eq('outlet_id', outletId).eq('storage_type', 'Bags').single();
+                        const { data: bagRow } = await supabase.from('retail_stock').select('st_id, qty')
+                            .eq('pid', item.productId).eq('outlet_id', outletId).eq('storage_type', 'Bags')
+                            .order('qty', { ascending: false }).limit(1).maybeSingle();
                         if (bagRow) {
-                            await supabase.from('retail_stock').update({ qty: (bagRow.qty || 0) + item.bagQty, invoice_no: invoiceNo, updated_at: new Date().toISOString() }).eq('st_id', bagRow.st_id);
+                            const { error: e } = await supabase.from('retail_stock').update({ qty: (bagRow.qty || 0) + item.bagQty, invoice_no: invoiceNo }).eq('pid', item.productId).eq('outlet_id', outletId).eq('storage_type', 'Bags');
+                            if (e) throw new Error(`Bags update: ${e.message}`);
                         } else {
-                            await supabase.from('retail_stock').insert({ pid: item.productId, invoice_no: invoiceNo, qty: item.bagQty, storage_type: 'Bags', outlet_id: outletId });
+                            const { error: e } = await supabase.from('retail_stock').insert({ pid: item.productId, invoice_no: invoiceNo, qty: item.bagQty, storage_type: 'Bags', outlet_id: outletId });
+                            if (e) throw new Error(`Bags insert: ${e.message}`);
                         }
                     }
                     if (item.pieceQty > 0) {
-                        const { data: pcRow } = await supabase.from('retail_stock').select('st_id, qty').eq('pid', item.productId).eq('outlet_id', outletId).eq('storage_type', 'Pieces').single();
+                        const { data: pcRow } = await supabase.from('retail_stock').select('st_id, qty')
+                            .eq('pid', item.productId).eq('outlet_id', outletId).eq('storage_type', 'Pieces')
+                            .order('qty', { ascending: false }).limit(1).maybeSingle();
                         if (pcRow) {
-                            await supabase.from('retail_stock').update({ qty: (pcRow.qty || 0) + item.pieceQty, invoice_no: invoiceNo, updated_at: new Date().toISOString() }).eq('st_id', pcRow.st_id);
+                            const { error: e } = await supabase.from('retail_stock').update({ qty: (pcRow.qty || 0) + item.pieceQty, invoice_no: invoiceNo }).eq('pid', item.productId).eq('outlet_id', outletId).eq('storage_type', 'Pieces');
+                            if (e) throw new Error(`Pieces update: ${e.message}`);
                         } else {
-                            await supabase.from('retail_stock').insert({ pid: item.productId, invoice_no: invoiceNo, qty: item.pieceQty, storage_type: 'Pieces', outlet_id: outletId });
+                            const { error: e } = await supabase.from('retail_stock').insert({ pid: item.productId, invoice_no: invoiceNo, qty: item.pieceQty, storage_type: 'Pieces', outlet_id: outletId });
+                            if (e) throw new Error(`Pieces insert: ${e.message}`);
                         }
                     }
                 } else {
                     // ─── LEGACY: Single qty stock row ───
                     const product = products.find(p => p.pid === item.productId);
                     const stockQty = product ? getStockQty(item.qty, item.purchaseUnit, product) : item.qty;
-                    const { data: sData } = await supabase.from('retail_stock').select('st_id, qty').eq('pid', item.productId).eq('outlet_id', outletId).single();
+                    const { data: sData } = await supabase.from('retail_stock').select('st_id, qty').eq('pid', item.productId).eq('outlet_id', outletId).order('qty', { ascending: false }).limit(1).maybeSingle();
                     if (sData) {
-                        await supabase.from('retail_stock').update({ qty: (sData.qty || 0) + stockQty, invoice_no: invoiceNo, updated_at: new Date().toISOString() }).eq('st_id', sData.st_id);
+                        const { error: e } = await supabase.from('retail_stock').update({ qty: (sData.qty || 0) + stockQty, invoice_no: invoiceNo }).eq('pid', item.productId).eq('outlet_id', outletId);
+                        if (e) throw new Error(`Stock update: ${e.message}`);
                     } else {
                         await supabase.from('retail_stock').insert({ pid: item.productId, invoice_no: invoiceNo, qty: stockQty, storage_type: 'Store', outlet_id: outletId });
                     }
@@ -583,7 +630,20 @@ export default function PurchaseEntryPage() {
                                     {/* Stock Info */}
                                     <div className="col-span-2 text-center">
                                         <p className="text-[9px] text-gray-400 uppercase mb-1">Current Stock</p>
-                                        <p className="text-sm font-bold text-blue-600">{availableQty}</p>
+                                        {(currentBagQty > 0 || currentPieceQty > 0) ? (
+                                            <div className="flex flex-col gap-0.5">
+                                                {currentBagQty > 0 && (
+                                                    <span className="text-xs font-bold text-orange-600 bg-orange-50 rounded px-1">📦 {currentBagQty} {selectedProduct?.purchase_unit || 'Box'}</span>
+                                                )}
+                                                {currentPieceQty > 0 && (
+                                                    <span className="text-xs font-bold text-blue-600 bg-blue-50 rounded px-1">🔵 {currentPieceQty} Pcs</span>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <p className={`text-sm font-bold ${availableQty > 0 ? 'text-blue-600' : 'text-gray-400'}`}>
+                                                {availableQty > 0 ? availableQty : '0'}
+                                            </p>
+                                        )}
                                     </div>
 
                                     {/* Line Total */}

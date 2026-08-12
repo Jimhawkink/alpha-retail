@@ -128,7 +128,7 @@ const CartItemRow = ({
     const itemTotal = (item.effectivePrice * item.qty) - item.discount;
 
     const handleQtySubmit = () => {
-        const newQty = parseInt(qtyInput) || 1;
+        const newQty = parseFloat(qtyInput) || 0.01;
         if (newQty > 0) onSetQty(newQty);
         setEditingQty(false);
     };
@@ -205,9 +205,10 @@ const CartItemRow = ({
                             onChange={(e) => setQtyInput(e.target.value)}
                             onBlur={handleQtySubmit}
                             onKeyDown={(e) => { if (e.key === 'Enter') handleQtySubmit(); }}
-                            className="w-10 h-7 text-center font-bold text-gray-800 text-sm bg-white border-x border-gray-200 focus:outline-none"
+                            className="w-12 h-7 text-center font-bold text-gray-800 text-sm bg-white border-x border-gray-200 focus:outline-none"
                             autoFocus
-                            min={1}
+                            min={0.01}
+                            step="any"
                         />
                     ) : (
                         <button
@@ -1763,7 +1764,7 @@ export default function RetailPOSPage() {
     // Add product to cart
     // Add to cart with specific unit selection — accepts optional qty (default 1)
     const addToCartWithUnit = useCallback((product: Product, sellingUnit: string, unitMultiplier: number, effectivePrice: number, qty: number = 1) => {
-        const addQty = Math.max(1, Math.floor(qty));
+        const addQty = Math.max(0.01, qty);
         setCart(prev => {
             // Check for existing item with SAME product AND SAME selling unit
             const existing = prev.find(item => item.id === product.id && item.sellingUnit === sellingUnit);
@@ -1784,7 +1785,7 @@ export default function RetailPOSPage() {
 
     // Set exact qty for a cart item (for clicking on qty to type)
     const setCartItemQty = useCallback((id: number, sellingUnit: string, qty: number) => {
-        const newQty = Math.max(1, Math.floor(qty));
+        const newQty = Math.max(0.01, qty);
         setCart(prev => prev.map(item =>
             item.id === id && item.sellingUnit === sellingUnit
                 ? { ...item, qty: newQty }
@@ -2606,19 +2607,25 @@ export default function RetailPOSPage() {
             <div className={`bg-white border-b border-gray-100 px-4 py-1.5 flex items-center gap-1.5 z-10 shadow-sm transition-all ${showQuickActions ? 'hidden' : ''}`}>
 
                 {[
-                    { key: 'purchases',        icon: '📥', label: 'Purchases',    href: '/dashboard/purchases',       cashierEnabled: false },
-                    { key: 'stock_available',  icon: '📦', label: 'Stock',        href: '/dashboard/products',         cashierEnabled: false },
-                    { key: 'expiry_register',  icon: '⏰', label: 'Expiry',       href: '/dashboard/expiry-register',  cashierEnabled: false },
-                    { key: 'sales_returns',    icon: '↩️', label: 'Returns',      href: '/dashboard/sales-return',     cashierEnabled: true  },
-                    { key: 'register_history', icon: '🧾', label: 'Register',     href: '/dashboard/shift-reports',    cashierEnabled: false },
-                    { key: 'reports',          icon: '📊', label: 'Reports',      href: '/dashboard/reports/sales',    cashierEnabled: false },
-                    { key: 'sales_summary',    icon: '📈', label: 'Summary',      href: '/dashboard/sales-summary',    cashierEnabled: true  },
-                    { key: 'expenses',         icon: '💸', label: 'Expenses',     href: '/dashboard/expenses',         cashierEnabled: false },
-                    { key: 'payroll',          icon: '👥', label: 'Payroll',      href: '/dashboard/payroll',          cashierEnabled: false },
+                    { key: 'add_product',        icon: '➕', label: 'Add Product',    href: '/dashboard/products',          cashierEnabled: true  },
+                    { key: 'purchases',          icon: '📥', label: 'Purchases',       href: '/dashboard/purchase',          cashierEnabled: true  },
+                    { key: 'credit_customers',   icon: '👤', label: 'New Customer',    href: '/dashboard/credit-customers',  cashierEnabled: true  },
+                    { key: 'credit_payments',    icon: '💳', label: 'Recv Payment',    href: '/dashboard/credit-payments',   cashierEnabled: true  },
+                    { key: 'stock_available',    icon: '📦', label: 'Stock',           href: '/dashboard/products',          cashierEnabled: false },
+                    { key: 'expiry_register',    icon: '⏰', label: 'Expiry',          href: '/dashboard/expiry-register',   cashierEnabled: false },
+                    { key: 'sales_returns',      icon: '↩️', label: 'Returns',         href: '/dashboard/sales-return',      cashierEnabled: true  },
+                    { key: 'register_history',   icon: '🧾', label: 'Register',        href: '/dashboard/shift-reports',     cashierEnabled: false },
+                    { key: 'reports',            icon: '📊', label: 'Reports',         href: '/dashboard/reports/sales',     cashierEnabled: false },
+                    { key: 'sales_summary',      icon: '📈', label: 'Summary',         href: '/dashboard/sales-summary',     cashierEnabled: true  },
+                    { key: 'expenses',           icon: '💸', label: 'Expenses',        href: '/dashboard/expenses',          cashierEnabled: false },
+                    { key: 'payroll',            icon: '👥', label: 'Payroll',         href: '/dashboard/payroll',           cashierEnabled: false },
                 ].filter(btn => {
-                    const qa = activeOutlet?.allowed_quick_actions;
-                    // Hide buttons that cashier/waiter cannot access — don't show disabled, just remove
+                    // Cashier-enabled buttons ALWAYS show for cashiers (bypass outlet config)
+                    if (isWaiterUser && btn.cashierEnabled) return true;
+                    // Non-cashier buttons: always hide for cashiers
                     if (isWaiterUser && !btn.cashierEnabled) return false;
+                    // For admins: apply outlet quick action config
+                    const qa = activeOutlet?.allowed_quick_actions;
                     if (!qa || Object.keys(qa).length === 0) return true;
                     return qa[btn.key] === true;
                 }).map(btn => (
@@ -2781,17 +2788,12 @@ export default function RetailPOSPage() {
                         )}
                     </div>
 
-                    {/* Open / Close Register */}
+                    {/* Open / Close Register — allowed for all users including cashiers */}
                     {!registerOpen ? (
                         <button
                             onClick={() => setShowOpeningDrop(true)}
-                            disabled={isWaiterUser}
-                            className={`h-9 px-4 rounded-lg text-sm font-semibold flex items-center gap-2 shrink-0 transition-all ${
-                                isWaiterUser
-                                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                    : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-sm hover:shadow-emerald-200 hover:shadow-md'
-                            }`}
-                            title={isWaiterUser ? 'Only admins can open the register' : 'Open Register'}
+                            className="h-9 px-4 rounded-lg text-sm font-semibold flex items-center gap-2 shrink-0 transition-all bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-sm hover:shadow-emerald-200 hover:shadow-md"
+                            title="Open Register"
                         >
                             <span className="w-2 h-2 rounded-full bg-green-200 animate-pulse shrink-0" />
                             Open Register
@@ -2799,13 +2801,8 @@ export default function RetailPOSPage() {
                     ) : (
                         <button
                             onClick={handleCloseRegister}
-                            disabled={isWaiterUser}
-                            className={`h-9 px-4 rounded-lg text-sm font-semibold flex items-center gap-2 shrink-0 transition-all ${
-                                isWaiterUser
-                                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                    : 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white shadow-sm hover:shadow-red-200 hover:shadow-md'
-                            }`}
-                            title={isWaiterUser ? 'Only admins can close the register' : 'Close Register'}
+                            className="h-9 px-4 rounded-lg text-sm font-semibold flex items-center gap-2 shrink-0 transition-all bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white shadow-sm hover:shadow-red-200 hover:shadow-md"
+                            title="Close Register"
                         >
                             <span className="w-2 h-2 rounded-full bg-red-200 animate-pulse shrink-0" />
                             Close Register
@@ -3236,16 +3233,17 @@ export default function RetailPOSPage() {
                             <label className="text-xs font-bold text-blue-700 uppercase tracking-wider mb-1.5 block">🔢 Quantity</label>
                             <div className="flex items-center gap-2">
                                 <button
-                                    onClick={() => setUnitPickerQty(q => Math.max(1, q - 1))}
+                                    onClick={() => setUnitPickerQty(q => Math.max(0.25, parseFloat((q - 0.25).toFixed(2))))}
                                     className="w-10 h-10 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-bold text-xl flex items-center justify-center shadow-sm"
                                 >−</button>
                                 <input
                                     type="number"
                                     value={unitPickerQty}
-                                    min={1}
+                                    min={0.01}
+                                    step="any"
                                     max={preventNegativeStock ? totalAvailPieces : undefined}
                                     onChange={e => {
-                                        const v = Math.max(1, parseInt(e.target.value) || 1);
+                                        const v = Math.max(0.01, parseFloat(e.target.value) || 0.01);
                                         setUnitPickerQty(preventNegativeStock ? Math.min(v, totalAvailPieces || v) : v);
                                     }}
                                     onFocus={e => e.target.select()}
@@ -3259,18 +3257,20 @@ export default function RetailPOSPage() {
                                     className="w-10 h-10 rounded-lg bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold text-xl flex items-center justify-center shadow-sm"
                                 >+</button>
                             </div>
-                            {/* Preset quick-qty buttons — capped at available when strict */}
-                            <div className="flex gap-1.5 mt-2">
-                                {[1, 5, 10, 20, 50, 100].map(q => {
+                            {/* Decimal + whole number quick-qty buttons */}
+                            <div className="flex gap-1 mt-2 flex-wrap">
+                                {[0.25, 0.5, 0.75, 1, 5, 10, 20, 50].map(q => {
                                     const blocked = preventNegativeStock && q > totalAvailPieces;
                                     return (
                                         <button key={q}
                                             onClick={() => { if (!blocked) setUnitPickerQty(q); }}
                                             disabled={blocked}
-                                            className={`flex-1 py-1 rounded-lg text-xs font-semibold transition-colors border ${
-                                                blocked
-                                                    ? 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed'
-                                                    : 'bg-white border-blue-200 hover:bg-blue-100 text-blue-700'
+                                            className={`flex-1 py-1 rounded-lg text-xs font-semibold transition-colors border min-w-[36px] ${
+                                                unitPickerQty === q
+                                                    ? 'bg-blue-500 border-blue-500 text-white'
+                                                    : blocked
+                                                        ? 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed'
+                                                        : 'bg-white border-blue-200 hover:bg-blue-100 text-blue-700'
                                             }`}
                                         >{q}</button>
                                     );

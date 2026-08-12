@@ -110,6 +110,8 @@ export default function ProductsPage() {
     const [selectedPids, setSelectedPids] = useState<Set<number>>(new Set());
     const [page, setPage] = useState(1);
     const [perPage, setPerPage] = useState(20);
+    // Add-product-only mode (when navigated from cashier quick action)
+    const [isAddMode, setIsAddMode] = useState(false);
 
     // New modal states
     const [showLabelModal, setShowLabelModal] = useState(false);
@@ -189,6 +191,10 @@ export default function ProductsPage() {
         }
         catch { toast.error('Failed to load products'); }
         setIsLoading(false);
+        // Auto-open add modal if ?action=add is in URL (cashier quick action)
+        if (typeof window !== 'undefined' && window.location.search.includes('action=add')) {
+            setIsAddMode(true);
+        }
     }, [activeOutlet, outletId]);
 
     const loadStockData = useCallback(async () => {
@@ -246,6 +252,14 @@ export default function ProductsPage() {
     useEffect(() => { loadProducts(); loadStockData(); loadCategories(); loadSuppliers(); loadUnits(); loadCompanyName(); },
         [loadProducts, loadStockData, loadCategories, loadSuppliers, loadUnits, loadCompanyName]);
 
+    // Auto-open add modal when navigated via ?action=add (cashier quick action)
+    useEffect(() => {
+        if (!isLoading && isAddMode && !showModal) {
+            openAddModal();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isLoading, isAddMode]);
+
     // ─── GRANULAR FEATURE FLAGS — per outlet from license_settings ───
     useEffect(() => {
         try {
@@ -302,6 +316,8 @@ export default function ProductsPage() {
         setFormData({ ...defaultProduct, barcode: bc, supplier_name: getKitchenSupplier() }); setOpeningBags(0); setOpeningPieces(0);
         setProductBatches([]); setShowBatchForm(false); setEditingBatchIdx(null);
         setShowModal(true);
+        // If in add-mode, set flag so we know to return to POS after save
+        if (typeof window !== 'undefined' && window.location.search.includes('action=add')) setIsAddMode(true);
     };
 
     const openEditModal = (p: Product) => {
@@ -719,7 +735,7 @@ export default function ProductsPage() {
             </div>
 
             {/* ━━━ STAT CARDS ━━━ */}
-            {hasValuationAccess ? (
+            {hasValuationAccess && !isAddMode ? (
                 /* NEW: Individual colored glassmorphic cards — Licensed/SuperAdmin */
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {([

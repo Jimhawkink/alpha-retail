@@ -44,6 +44,7 @@ export default function CreditPaymentsPage() {
     const [outstandingSales, setOutstandingSales] = useState<Sale[]>([]);
     const [selectedSales, setSelectedSales] = useState<number[]>([]);
     const [paymentAmount, setPaymentAmount] = useState('');
+    const [paidAmount, setPaidAmount] = useState('');  // cash tendered by customer
     const [paymentMethod, setPaymentMethod] = useState('Cash');
     const [mpesaCode, setMpesaCode] = useState('');
     const [referenceNo, setReferenceNo] = useState('');
@@ -52,6 +53,10 @@ export default function CreditPaymentsPage() {
     const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
     const [isProcessing, setIsProcessing] = useState(false);
     const [paymentMode, setPaymentMode] = useState<'general' | 'invoice'>('general');
+
+    // Computed change from cash tendered
+    const changeAmount = Math.max(0, (Number(paidAmount) || 0) - (Number(paymentAmount) || 0));
+    const insufficientCash = paidAmount !== '' && Number(paidAmount) < Number(paymentAmount);
 
     // History
     const [payments, setPayments] = useState<Payment[]>([]);
@@ -177,7 +182,7 @@ export default function CreditPaymentsPage() {
             toast.success(`✅ Payment of Ksh ${amount.toLocaleString()} recorded!`);
 
             // Reset form
-            setSelectedCustomer(null); setCustomerSearch(''); setPaymentAmount('');
+            setSelectedCustomer(null); setCustomerSearch(''); setPaymentAmount(''); setPaidAmount('');
             setMpesaCode(''); setReferenceNo(''); setPaymentNote(''); setReceivedBy('');
             setSelectedSales([]); setOutstandingSales([]);
             setPaymentDate(new Date().toISOString().split('T')[0]);
@@ -375,7 +380,7 @@ export default function CreditPaymentsPage() {
                                                     <span>{selectedCustomer.customer_code}</span>
                                                 </div>
                                             </div>
-                                            <button onClick={() => { setSelectedCustomer(null); setCustomerSearch(''); setOutstandingSales([]); setPaymentAmount(''); }}
+                                            <button onClick={() => { setSelectedCustomer(null); setCustomerSearch(''); setOutstandingSales([]); setPaymentAmount(''); setPaidAmount(''); }}
                                                 className="text-red-400 hover:text-red-600 p-1 hover:bg-red-50 rounded-lg transition-all"><FiX size={16} /></button>
                                         </div>
                                         <div className="grid grid-cols-3 gap-3 mt-3">
@@ -448,6 +453,56 @@ export default function CreditPaymentsPage() {
                                     </div>
                                 )}
                             </div>
+
+                            {/* Paid Amount (Cash Tendered) — only for Cash payments */}
+                            {paymentMethod === 'Cash' && (
+                                <div>
+                                    <label className="text-sm font-bold text-gray-700 mb-1.5 block flex items-center gap-2">
+                                        💵 Paid Amount (Cash Given)
+                                        {changeAmount > 0 && (
+                                            <span className="ml-auto text-green-600 font-bold text-base">Change: Ksh {changeAmount.toLocaleString()}</span>
+                                        )}
+                                        {insufficientCash && (
+                                            <span className="ml-auto text-red-500 font-bold text-xs">⚠️ Insufficient cash!</span>
+                                        )}
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={paidAmount}
+                                        onChange={e => setPaidAmount(e.target.value)}
+                                        placeholder="Enter amount customer gives..."
+                                        min="0"
+                                        className={`w-full px-4 py-3.5 bg-gray-50 border rounded-xl focus:outline-none focus:ring-2 text-xl font-bold transition-all ${
+                                            insufficientCash
+                                                ? 'border-red-400 focus:border-red-500 focus:ring-red-400/20'
+                                                : changeAmount > 0
+                                                    ? 'border-green-400 focus:border-green-500 focus:ring-green-400/20'
+                                                    : 'border-gray-200 focus:border-green-500 focus:ring-green-400/20'
+                                        }`}
+                                    />
+                                    {/* Common denomination quick-picks */}
+                                    <div className="flex gap-2 mt-2 flex-wrap">
+                                        {[50, 100, 200, 500, 1000, 2000, 5000].map(amt => (
+                                            <button key={amt} onClick={() => setPaidAmount(String(amt))}
+                                                className="px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg text-xs font-bold hover:bg-blue-100 transition-all">
+                                                {amt.toLocaleString()}
+                                            </button>
+                                        ))}
+                                        {paymentAmount && (
+                                            <button onClick={() => setPaidAmount(paymentAmount)}
+                                                className="px-3 py-1.5 bg-purple-50 border border-purple-200 text-purple-700 rounded-lg text-xs font-bold hover:bg-purple-100 transition-all">
+                                                Exact
+                                            </button>
+                                        )}
+                                    </div>
+                                    {changeAmount > 0 && (
+                                        <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-xl flex items-center justify-between">
+                                            <span className="text-sm font-semibold text-green-700">💰 Change to return:</span>
+                                            <span className="text-2xl font-black text-green-600">Ksh {changeAmount.toLocaleString()}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Payment Method */}
                             <div>
