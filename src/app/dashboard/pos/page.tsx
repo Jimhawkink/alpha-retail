@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
@@ -341,6 +341,21 @@ const ProductCard = ({ product, onAdd, posDefaultPrice }: { product: Product; on
                 }`}>🔢 {product.pieceQty || 0} {product.salesUnit}</span>
             </div>
 
+            {/* ── Price breakdown: Cost / Sales / Wholesale ── */}
+            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                <span className="text-[8px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded whitespace-nowrap">
+                    Cost: Ksh {product.costPrice.toLocaleString()}
+                </span>
+                <span className="text-[8px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded whitespace-nowrap">
+                    Sale: Ksh {product.retailPrice?.toLocaleString() ?? product.salesPrice.toLocaleString()}
+                </span>
+                {product.salesPrice !== product.retailPrice && product.salesPrice > 0 && (
+                    <span className="text-[8px] font-semibold text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded whitespace-nowrap">
+                        W/Sale: Ksh {product.salesPrice.toLocaleString()}
+                    </span>
+                )}
+            </div>
+
             {/* ── Spacer: pushes Add to Cart to the SAME position on every card ── */}
             <div className="flex-1" />
 
@@ -359,10 +374,7 @@ const ProductCard = ({ product, onAdd, posDefaultPrice }: { product: Product; on
     </div>
 );
 
-// M-Pesa API fallback — used when outlet has no custom M-Pesa config
-// (Silibwet's live credentials — DO NOT REMOVE, they are the working fallback)
-const MPESA_API_URL_FALLBACK = 'https://zkamuhvrmazozhudbtuw.supabase.co/functions/v1';
-const MPESA_ANON_KEY_FALLBACK = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InprYW11aHZybWF6b3podWRidHV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyNDE3OTYsImV4cCI6MjA5OTgxNzc5Nn0.Y6gkKQDWuLxcmhlYTZvKase7MzDO_Ehymitef6OE5JU';
+// M-Pesa is now handled by /api/mpesa/stk (Vercel route) — no fallback URL needed
 
 // Format phone number for M-Pesa
 const formatMpesaPhone = (phone: string): string => {
@@ -396,6 +408,13 @@ const PaymentModal = ({
     mpesaApiUrl,
     mpesaAnonKey,
     mpesaUseSystem,
+    mpesaConsumerKey,
+    mpesaConsumerSecret,
+    mpesaPasskey,
+    mpesaShortcode,
+    mpesaTillNumber,
+    mpesaCallbackUrl,
+    kcbEnabled,
 }: {
     isOpen: boolean;
     onClose: () => void;
@@ -410,17 +429,23 @@ const PaymentModal = ({
     mpesaApiUrl?: string | null;
     mpesaAnonKey?: string | null;
     mpesaUseSystem?: boolean | null;
+    mpesaConsumerKey?: string | null;
+    mpesaConsumerSecret?: string | null;
+    mpesaPasskey?: string | null;
+    mpesaShortcode?: string | null;
+    mpesaTillNumber?: string | null;
+    mpesaCallbackUrl?: string | null;
+    kcbEnabled?: boolean | null;
 }) => {
     const [paymentMethod, setPaymentMethod] = useState('cash');
     const [amountPaid, setAmountPaid] = useState('');
-    // ── M-Pesa credential routing ──
-    // Priority 1: outlet has its own credentials → use them
-    // Priority 2: mpesa_use_system = true → use system hardcoded fallback (Main / Chebunyo)
-    // Priority 3: neither → M-Pesa tab disabled
-    const mpesaHasOwn   = !!(mpesaApiUrl && mpesaAnonKey);
-    const mpesaEnabled  = mpesaHasOwn || !!mpesaUseSystem;
-    const MPESA_API_URL           = mpesaHasOwn ? mpesaApiUrl! : (mpesaUseSystem ? MPESA_API_URL_FALLBACK : '');
-    const MPESA_SUPABASE_ANON_KEY = mpesaHasOwn ? mpesaAnonKey! : (mpesaUseSystem ? MPESA_ANON_KEY_FALLBACK : '');
+    // ── M-Pesa routing ──
+    // Always use /api/mpesa/stk (Vercel route). Credentials are read from
+    // retail_outlets DB per outlet — nothing is hardcoded here.
+    // M-Pesa tab is enabled whenever the outlet has credentials OR uses system.
+    const mpesaEnabled = !!(mpesaConsumerKey && mpesaConsumerSecret) || !!mpesaUseSystem;
+    // Vercel API route — always the same URL, credentials passed in body
+    const MPESA_API_URL = '/api/mpesa';
     const [isSaving, setIsSaving] = useState(false);
     // Pledge (payment promise) state
     const [pledgeDate, setPledgeDate] = useState('');
@@ -438,12 +463,41 @@ const PaymentModal = ({
     const [partialMpesaCode, setPartialMpesaCode] = useState('');
     const [partialPayMethod, setPartialPayMethod] = useState<'cash' | 'mpesa'>('cash');
 
+    // ── Credit customer search — re-runs on every keystroke ─────────────────
+    const filteredSortedCustomers = useMemo(() => {
+        const q = (creditSearch || '').trim().toLowerCase();
+        if (!q) return creditCustomers; // keep original DB order by default
+        return creditCustomers
+            .filter(c => {
+                const name  = (c.customer_name  || '').toLowerCase();
+                const phone = (c.phone          || '').toLowerCase();
+                const code  = (c.customer_code  || '').toLowerCase();
+                return name.includes(q) || phone.includes(q) || code.includes(q);
+            })
+            .sort((a, b) => {
+                const aName = (a.customer_name || '').toLowerCase();
+                const bName = (b.customer_name || '').toLowerCase();
+                const aStarts = aName.startsWith(q) ? 0 : 1;
+                const bStarts = bName.startsWith(q) ? 0 : 1;
+                return aStarts - bStarts || aName.localeCompare(bName);
+            });
+    }, [creditSearch, creditCustomers]);
+
     // M-Pesa STK Push State
     const [mpesaStatus, setMpesaStatus] = useState<'idle' | 'sending' | 'waiting' | 'success' | 'failed'>('idle');
     const [mpesaStatusMessage, setMpesaStatusMessage] = useState('');
     const [checkoutRequestId, setCheckoutRequestId] = useState('');
     const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const saleCompletedRef = useRef<boolean>(false); // Prevent multiple sale completions
+
+    // ── KCB Buni State ──
+    const [kcbPhone, setKcbPhone] = useState('');
+    const [kcbReceipt, setKcbReceipt] = useState('');
+    const [kcbStatus, setKcbStatus] = useState<'idle' | 'sending' | 'waiting' | 'success' | 'failed'>('idle');
+    const [kcbStatusMsg, setKcbStatusMsg] = useState('');
+    const [kcbCheckoutId, setKcbCheckoutId] = useState('');
+    const kcbPollRef = useRef<NodeJS.Timeout | null>(null);
+    const kcbDoneRef = useRef<boolean>(false);
 
     const change = paymentMethod === 'cash' ? Math.max(0, Number(amountPaid) - total) : 0;
     const quickAmounts = [100, 200, 500, 1000, 2000, 5000];
@@ -468,7 +522,87 @@ const PaymentModal = ({
         saleCompletedRef.current = false; // Reset for next payment
     };
 
-    // Handle M-Pesa STK Push
+    // ── Reset KCB state ──
+    const resetKcbState = () => {
+        if (kcbPollRef.current) clearInterval(kcbPollRef.current);
+        setKcbStatus('idle');
+        setKcbStatusMsg('');
+        setKcbCheckoutId('');
+        kcbDoneRef.current = false;
+    };
+
+    // ── Handle KCB Buni STK Push ──
+    const handleKcbSTKPush = async () => {
+        if (!isValidKenyanPhone(kcbPhone)) {
+            toast.error('📱 Please enter a valid Kenyan phone number (e.g., 0712345678)');
+            return;
+        }
+        setKcbStatus('sending');
+        setKcbStatusMsg('📤 Sending KCB STK Push...');
+        try {
+            const response = await fetch('/api/kcb/stk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    phone: formatMpesaPhone(kcbPhone),
+                    amount: Math.ceil(total),
+                    outletId,
+                    saleId: receiptNo,
+                }),
+            });
+            const data = await response.json();
+            if (data.success && data.checkoutRequestId) {
+                setKcbCheckoutId(data.checkoutRequestId);
+                setKcbStatus('waiting');
+                setKcbStatusMsg('📲 Enter your M-Pesa PIN on your phone...');
+                // Poll every 5 seconds
+                let attempts = 0;
+                const maxAttempts = 24; // 2 minutes
+                kcbPollRef.current = setInterval(async () => {
+                    attempts++;
+                    try {
+                        const res = await fetch(`/api/kcb/status?checkoutRequestId=${encodeURIComponent(data.checkoutRequestId)}`);
+                        const result = await res.json();
+                        const status = (result?.status || '').toLowerCase();
+                        if (status === 'completed') {
+                            if (kcbPollRef.current) clearInterval(kcbPollRef.current);
+                            const receipt = result.receipt || `KCB-${Date.now().toString(36).toUpperCase()}`;
+                            setKcbStatus('success');
+                            setKcbStatusMsg(`✅ Payment received! Receipt: ${receipt}`);
+                            setKcbReceipt(receipt);
+                            toast.success(`✅ KCB payment successful! ${receipt}`);
+                            if (!kcbDoneRef.current) {
+                                kcbDoneRef.current = true;
+                                setTimeout(() => onComplete('KCB', total, receipt, customerName, data.checkoutRequestId, kcbPhone), 800);
+                            }
+                        } else if (status === 'failed' || status === 'cancelled') {
+                            if (kcbPollRef.current) clearInterval(kcbPollRef.current);
+                            setKcbStatus('failed');
+                            const msg = result.resultDesc || '❌ KCB payment failed. Try again.';
+                            setKcbStatusMsg(msg);
+                            toast.error(msg);
+                        } else if (attempts >= maxAttempts) {
+                            if (kcbPollRef.current) clearInterval(kcbPollRef.current);
+                            setKcbStatus('failed');
+                            setKcbStatusMsg('⏰ No response — enter KCB receipt manually or retry');
+                            toast.error('KCB payment timeout');
+                        }
+                    } catch { /* continue polling */ }
+                }, 5000);
+            } else {
+                setKcbStatus('failed');
+                const msg = data.error || 'KCB STK Push failed';
+                setKcbStatusMsg(`❌ ${msg}`);
+                toast.error(msg);
+            }
+        } catch (err: any) {
+            setKcbStatus('failed');
+            setKcbStatusMsg(`❌ ${err.message}`);
+            toast.error(`Network error: ${err.message}`);
+        }
+    };
+
+
     const handleMpesaSTKPush = async () => {
         if (!isValidKenyanPhone(mpesaPhone)) {
             toast.error('📱 Please enter a valid Kenyan phone number (e.g., 0712345678)');
@@ -483,18 +617,23 @@ const PaymentModal = ({
             console.log('🔵 Sending STK to:', `${MPESA_API_URL}/stkpush`);
             console.log('🔵 Phone:', phone, 'Amount:', Math.ceil(total));
 
-            const response = await fetch(`${MPESA_API_URL}/stkpush`, {
+            const response = await fetch(`${MPESA_API_URL}/stk`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'apikey': MPESA_SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${MPESA_SUPABASE_ANON_KEY}`
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     phone,
                     amount: Math.ceil(total),
                     accountReference: receiptNo,
                     transactionDesc: `Alpha Retail - ${receiptNo}`,
+                    outletId,
+                    // Credentials from retail_outlets table (per outlet, no hardcoding)
+                    ...(mpesaConsumerKey    && { consumerKey:    mpesaConsumerKey }),
+                    ...(mpesaConsumerSecret && { consumerSecret: mpesaConsumerSecret }),
+                    ...(mpesaPasskey        && { passKey:        mpesaPasskey }),
+                    ...(mpesaShortcode      && { shortCode:      mpesaShortcode }),
+                    ...(mpesaTillNumber     && { tillNumber:     mpesaTillNumber }),
+                    ...(mpesaCallbackUrl    && { callbackUrl:    mpesaCallbackUrl }),
+                    environment: 'production',
                 }),
             });
 
@@ -595,11 +734,8 @@ const PaymentModal = ({
                 } catch { /* Supabase check failed, continue to API check */ }
 
                 // ── SOURCE 2: Check the external API ──
-                const response = await fetch(`${MPESA_API_URL}/check-status?checkout_request_id=${requestId}`, {
-                    headers: {
-                        'apikey': MPESA_SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${MPESA_SUPABASE_ANON_KEY}`
-                    }
+                const response = await fetch(`${MPESA_API_URL}/check-status?checkout_request_id=${requestId}&outletId=${outletId}`, {
+                    headers: { 'Content-Type': 'application/json' }
                 });
                 const data = await response.json();
                 console.log(`🔵 Poll #${attempts} check-status:`, JSON.stringify(data, null, 2));
@@ -697,12 +833,13 @@ const PaymentModal = ({
                 </div>
 
                 {/* Payment Methods */}
-                <div className="grid grid-cols-4 gap-2 mb-6">
+                <div className={`grid gap-2 mb-6 ${kcbEnabled ? 'grid-cols-5' : 'grid-cols-4'}`}>
                     {[
                         { id: 'cash',   icon: '💵', label: 'Cash' },
                         { id: 'mpesa',  icon: '📱', label: 'M-Pesa' },
                         { id: 'card',   icon: '💳', label: 'Card' },
                         { id: 'credit', icon: '📋', label: 'Credit' },
+                        ...(kcbEnabled ? [{ id: 'kcb', icon: '🏦', label: 'KCB Buni' }] : []),
                     ].map(method => {
                         const isMpesa = method.id === 'mpesa';
                         const isDisabled = isMpesa && !mpesaEnabled;
@@ -710,13 +847,15 @@ const PaymentModal = ({
                             <button
                                 key={method.id}
                                 disabled={isDisabled}
-                                onClick={() => { if (!isDisabled) { setPaymentMethod(method.id); resetMpesaState(); } }}
+                                onClick={() => { if (!isDisabled) { setPaymentMethod(method.id); resetMpesaState(); resetKcbState(); } }}
                                 title={isDisabled ? 'M-Pesa not configured for this outlet. Contact Super Admin.' : method.label}
                                 className={`p-3 rounded-xl border-2 transition-all relative ${
                                     isDisabled
                                         ? 'border-gray-100 bg-gray-50 opacity-40 cursor-not-allowed'
                                         : paymentMethod === method.id
-                                            ? 'border-green-500 bg-green-50'
+                                            ? method.id === 'kcb'
+                                                ? 'border-blue-500 bg-blue-50'
+                                                : 'border-green-500 bg-green-50'
                                             : 'border-gray-200 hover:border-gray-300 bg-gray-50'
                                 }`}
                             >
@@ -859,7 +998,86 @@ const PaymentModal = ({
                     </div>
                 )}
 
+                {/* KCB Buni STK Section */}
+                {paymentMethod === 'kcb' && (
+                    <div className="space-y-4 mb-6">
+                        <div>
+                            <label className="text-sm font-medium text-gray-600 mb-2 block">🏦 Customer Phone Number (M-Pesa)</label>
+                            <input
+                                type="tel"
+                                value={kcbPhone}
+                                onChange={(e) => setKcbPhone(e.target.value)}
+                                placeholder="07XX XXX XXX"
+                                className="w-full p-4 bg-gray-50 border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:outline-none text-lg"
+                                disabled={kcbStatus === 'sending' || kcbStatus === 'waiting'}
+                            />
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium text-gray-600 mb-2 block">👤 Customer Name (Optional)</label>
+                            <input
+                                type="text"
+                                value={customerName}
+                                onChange={(e) => setCustomerName(e.target.value)}
+                                placeholder="Enter customer name"
+                                className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
+                                disabled={kcbStatus === 'sending' || kcbStatus === 'waiting'}
+                            />
+                        </div>
+
+                        {/* KCB Status Display */}
+                        {kcbStatus !== 'idle' && (
+                            <div className={`p-4 rounded-xl flex items-center gap-3 ${kcbStatus === 'sending' ? 'bg-amber-50 border border-amber-300' :
+                                kcbStatus === 'waiting' ? 'bg-blue-50 border border-blue-300' :
+                                    kcbStatus === 'success' ? 'bg-green-50 border border-green-300' :
+                                        'bg-red-50 border border-red-300'
+                            }`}>
+                                {(kcbStatus === 'sending' || kcbStatus === 'waiting') && (
+                                    <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                                )}
+                                <span className={`font-medium flex-1 ${kcbStatus === 'sending' ? 'text-amber-700' :
+                                    kcbStatus === 'waiting' ? 'text-blue-700' :
+                                        kcbStatus === 'success' ? 'text-green-700' :
+                                            'text-red-700'
+                                }`}>{kcbStatusMsg}</span>
+                            </div>
+                        )}
+
+                        {/* Cancel & Resend during waiting */}
+                        {kcbStatus === 'waiting' && (
+                            <button
+                                onClick={() => { resetKcbState(); toast('KCB STK cancelled — ready to resend', { icon: '🔄' }); }}
+                                className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2"
+                            >
+                                <span>🔄</span> Cancel & Resend KCB STK Push
+                            </button>
+                        )}
+
+                        {/* Send STK Button */}
+                        {(kcbStatus === 'idle' || kcbStatus === 'failed') && (
+                            <button
+                                onClick={handleKcbSTKPush}
+                                className="w-full py-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 shadow-lg"
+                            >
+                                <span>📲</span> {kcbStatus === 'failed' ? 'Resend KCB STK Push' : 'Send KCB STK Push'}
+                            </button>
+                        )}
+
+                        {/* Manual Receipt Entry */}
+                        <div className="pt-4 border-t border-gray-200">
+                            <p className="text-xs text-gray-500 mb-2 text-center">- OR enter KCB receipt manually if customer has already paid -</p>
+                            <input
+                                type="text"
+                                value={kcbReceipt}
+                                onChange={(e) => setKcbReceipt(e.target.value.toUpperCase())}
+                                placeholder="KCB Receipt number"
+                                className="w-full p-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
+                            />
+                        </div>
+                    </div>
+                )}
+
                 {/* Credit Customer Selection */}
+
                 {paymentMethod === 'credit' && (
                     <div className="space-y-3 mb-6">
                         <div className="p-3 bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl border border-orange-200">
@@ -869,49 +1087,52 @@ const PaymentModal = ({
                         <input
                             type="text"
                             value={creditSearch}
-                            onChange={(e) => setCreditSearch(e.target.value)}
+                            onChange={(e) => {
+                                console.log('[CreditSearch] typing:', e.target.value, '| customers loaded:', creditCustomers.length);
+                                setCreditSearch(e.target.value);
+                            }}
                             placeholder="Search customer name or phone..."
                             className="w-full p-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-orange-400 focus:outline-none text-sm"
                         />
+                        {/* 🔍 DEBUG BAR — shows live search state */}
+                        <div className="flex gap-2 text-[10px] font-mono px-1">
+                            <span className="text-blue-600">query: &quot;{creditSearch}&quot;</span>
+                            <span className="text-gray-400">|</span>
+                            <span className="text-green-600">loaded: {creditCustomers.length}</span>
+                            <span className="text-gray-400">|</span>
+                            <span className={filteredSortedCustomers.length === 0 && creditSearch ? 'text-red-600 font-bold' : 'text-purple-600'}>
+                                showing: {filteredSortedCustomers.length}
+                            </span>
+                        </div>
                         {/* Customer List */}
                         <div className="max-h-40 overflow-y-auto rounded-xl border border-gray-200 bg-white">
-                            {creditCustomers.filter(c =>
-                                !creditSearch ||
-                                c.customer_name?.toLowerCase().includes(creditSearch.toLowerCase()) ||
-                                c.phone?.includes(creditSearch)
-                            ).length === 0 ? (
+                            {filteredSortedCustomers.length === 0 ? (
                                 <p className="p-4 text-center text-gray-400 text-sm">No customers found</p>
-                            ) : (
-                                creditCustomers.filter(c =>
-                                    !creditSearch ||
-                                    c.customer_name?.toLowerCase().includes(creditSearch.toLowerCase()) ||
-                                    c.phone?.includes(creditSearch)
-                                ).map(c => (
-                                    <button
-                                        key={c.customer_id}
-                                        onClick={() => { setSelectedCustomer(c); setCustomerName(c.customer_name); setCreditSearch(''); setPartialCashPaid(''); }}
-                                        className={`w-full text-left px-4 py-3 border-b border-gray-100 last:border-0 transition-colors ${
-                                            selectedCustomer?.customer_id === c.customer_id
-                                            ? 'bg-orange-50 border-l-4 border-l-orange-500'
-                                            : 'hover:bg-gray-50'
-                                        }`}
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <p className="font-semibold text-gray-800 text-sm">{c.customer_name}</p>
-                                                <p className="text-xs text-gray-500">{c.phone || 'No phone'} · {c.customer_code}</p>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className={`text-sm font-bold ${(c.current_balance || 0) > 0 ? 'text-red-500' : c.current_balance < 0 ? 'text-purple-600' : 'text-green-600'}`}>
-                                                    Ksh {Math.abs(c.current_balance || 0).toLocaleString()}
-                                                </p>
-                                                <p className="text-[10px] text-gray-400">{c.current_balance < 0 ? 'Prepaid' : c.current_balance > 0 ? 'Owes' : 'Clear'}</p>
-                                                {c.credit_limit > 0 && <p className="text-[9px] text-blue-400">Limit: Ksh {c.credit_limit.toLocaleString()}</p>}
-                                            </div>
+                            ) : filteredSortedCustomers.map(c => (
+                                <button
+                                    key={c.customer_id}
+                                    onClick={() => { setSelectedCustomer(c); setCustomerName(c.customer_name); setCreditSearch(''); setPartialCashPaid(''); }}
+                                    className={`w-full text-left px-4 py-3 border-b border-gray-100 last:border-0 transition-colors ${
+                                        selectedCustomer?.customer_id === c.customer_id
+                                        ? 'bg-orange-50 border-l-4 border-l-orange-500'
+                                        : 'hover:bg-gray-50'
+                                    }`}
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="font-semibold text-gray-800 text-sm">{c.customer_name}</p>
+                                            <p className="text-xs text-gray-500">{c.phone || 'No phone'} · {c.customer_code}</p>
                                         </div>
-                                    </button>
-                                ))
-                            )}
+                                        <div className="text-right">
+                                            <p className={`text-sm font-bold ${(c.current_balance || 0) > 0 ? 'text-red-500' : c.current_balance < 0 ? 'text-purple-600' : 'text-green-600'}`}>
+                                                Ksh {Math.abs(c.current_balance || 0).toLocaleString()}
+                                            </p>
+                                            <p className="text-[10px] text-gray-400">{c.current_balance < 0 ? 'Prepaid' : c.current_balance > 0 ? 'Owes' : 'Clear'}</p>
+                                            {c.credit_limit > 0 && <p className="text-[9px] text-blue-400">Limit: Ksh {c.credit_limit.toLocaleString()}</p>}
+                                        </div>
+                                    </div>
+                                </button>
+                            ))}
                         </div>
 
                         {/* Selected Customer + Partial Payment */}
@@ -1078,11 +1299,11 @@ const PaymentModal = ({
                     <button
                         onClick={handleClose}
                         className="flex-1 py-3 border-2 border-gray-200 text-gray-600 rounded-xl font-semibold hover:bg-gray-50"
-                        disabled={mpesaStatus === 'sending' || mpesaStatus === 'waiting'}
+                        disabled={mpesaStatus === 'sending' || mpesaStatus === 'waiting' || kcbStatus === 'sending' || kcbStatus === 'waiting'}
                     >
                         Cancel
                     </button>
-                    {mpesaStatus !== 'waiting' && mpesaStatus !== 'sending' && (
+                    {mpesaStatus !== 'waiting' && mpesaStatus !== 'sending' && kcbStatus !== 'waiting' && kcbStatus !== 'sending' && (
                         <button
                             onClick={async () => {
                                 if (isSaving) return; // Prevent double-click
@@ -1093,13 +1314,15 @@ const PaymentModal = ({
                                 setIsSaving(true);
                                 try {
                                     await onComplete(
-                                        paymentMethod === 'mpesa' ? 'MPESA' : paymentMethod.toUpperCase(),
+                                        paymentMethod === 'mpesa' ? 'MPESA' : paymentMethod === 'kcb' ? 'KCB' : paymentMethod.toUpperCase(),
                                         paymentMethod === 'credit'
                                             ? (Number(partialCashPaid) || 0)  // partial amount paid now
-                                            : (Number(amountPaid) || total),
-                                        paymentMethod === 'credit' ? (partialMpesaCode || undefined) : mpesaReceipt,
+                                            : paymentMethod === 'kcb'
+                                                ? total
+                                                : (Number(amountPaid) || total),
+                                        paymentMethod === 'credit' ? (partialMpesaCode || undefined) : paymentMethod === 'kcb' ? kcbReceipt : mpesaReceipt,
                                         selectedCustomer ? selectedCustomer.customer_name : customerName,
-                                        checkoutRequestId,
+                                        paymentMethod === 'kcb' ? kcbCheckoutId : checkoutRequestId,
                                         selectedCustomer ? (selectedCustomer.phone || undefined) : undefined,
                                         paymentMethod === 'credit' ? partialPayMethod : undefined
                                     );
@@ -1123,11 +1346,13 @@ const PaymentModal = ({
                                     setIsSaving(false);
                                 }
                             }}
-                            disabled={isSaving || (paymentMethod === 'mpesa' && !mpesaReceipt && mpesaStatus !== 'success') || (paymentMethod === 'credit' && !selectedCustomer)}
+                            disabled={isSaving || (paymentMethod === 'mpesa' && !mpesaReceipt && mpesaStatus !== 'success') || (paymentMethod === 'kcb' && !kcbReceipt && kcbStatus !== 'success') || (paymentMethod === 'credit' && !selectedCustomer)}
                             className={`flex-1 py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 ${
-                                isSaving || (paymentMethod === 'mpesa' && !mpesaReceipt && mpesaStatus !== 'success') || (paymentMethod === 'credit' && !selectedCustomer)
+                                isSaving || (paymentMethod === 'mpesa' && !mpesaReceipt && mpesaStatus !== 'success') || (paymentMethod === 'kcb' && !kcbReceipt && kcbStatus !== 'success') || (paymentMethod === 'credit' && !selectedCustomer)
                                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-lg'
+                                : paymentMethod === 'kcb'
+                                    ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:shadow-lg'
+                                    : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-lg'
                                 }`}
                         >
                             <span>{isSaving ? '⏳' : '✅'}</span>
@@ -1330,20 +1555,26 @@ export default function RetailPOSPage() {
             .then(({ data }) => {
                 setPosDefaultPrice(data?.setting_value === 'retail' ? 'retail' : 'wholesale');
             });
-        // Load per-outlet negative stock setting
-        // Key: prevent_negative_stock_{outletId}  (true = block, false = allow)
-        // Falls back to global prevent_negative_stock if no per-outlet key
-        supabase.from('organisation_settings').select('setting_value')
-            .eq('setting_key', `prevent_negative_stock_${outletId}`).single()
-            .then(({ data }) => {
-                if (data) {
-                    setPreventNegativeStockPOS(data.setting_value === 'true');
-                } else {
-                    supabase.from('organisation_settings').select('setting_value')
-                        .eq('setting_key', 'prevent_negative_stock').single()
-                        .then(({ data: gd }) => setPreventNegativeStockPOS(gd?.setting_value === 'true'));
-                }
-            });
+        // ── Prevent Negative Stock — truly per-outlet ──────────────────────
+        // Each outlet has its OWN independent setting.
+        // If outlet has an EXPLICIT key → use it (regardless of global).
+        // If NO explicit key exists → inherit global as default.
+        // This means per-outlet CAN override global in EITHER direction.
+        (async () => {
+            const { data: perOutlet, error: perErr } = await supabase
+                .from('organisation_settings').select('setting_value')
+                .eq('setting_key', `prevent_negative_stock_${outletId}`).single();
+            if (perOutlet && !perErr) {
+                // Outlet has an explicit setting — use it
+                setPreventNegativeStockPOS(perOutlet.setting_value === 'true');
+            } else {
+                // No explicit per-outlet key — fall back to global default
+                const { data: globalData } = await supabase
+                    .from('organisation_settings').select('setting_value')
+                    .eq('setting_key', 'prevent_negative_stock').single();
+                setPreventNegativeStockPOS(globalData?.setting_value === 'true');
+            }
+        })();
     }, [outletId]);
 
 
@@ -1534,6 +1765,7 @@ export default function RetailPOSPage() {
                 if (data.length < PAGE) keepGoing = false;
                 from += PAGE;
             }
+            // Use all products returned by the outlet-filtered query
             const data = allProds;
 
             // Load stock data from retail_stock table - PAGINATED TO GET ALL ROWS
@@ -1682,12 +1914,12 @@ export default function RetailPOSPage() {
     // Load credit customers for dropdown
     const loadCreditCustomers = useCallback(async () => {
         try {
+            // ── STRICT per-outlet filter — only show THIS outlet's customers ──
             let q = supabase
                 .from('retail_credit_customers')
                 .select('customer_id, customer_code, customer_name, phone, current_balance, credit_limit, outlet_id')
                 .eq('active', true)
                 .order('customer_name');
-            // ── STRICT per-outlet filter — only show THIS outlet's customers ──
             if (outletId) q = q.eq('outlet_id', outletId);
             const { data } = await q;
             setCreditCustomers(data || []);
@@ -1743,10 +1975,12 @@ export default function RetailPOSPage() {
         }
 
         const query = searchQuery.toLowerCase();
+        // Search all products (no limit — handles 1300+ items safely)
         const results = products.filter(p =>
             p.name.toLowerCase().includes(query) ||
-            (p.barcode && p.barcode.toLowerCase().includes(query))
-        ).slice(0, 20); // Limit to 20 results
+            (p.barcode && p.barcode.toLowerCase().includes(query)) ||
+            p.category.toLowerCase().includes(query)
+        );
 
         setFilteredProducts(results);
         setSelectedProductIndex(results.length > 0 ? 0 : -1);
@@ -2166,23 +2400,54 @@ export default function RetailPOSPage() {
                     .eq('outlet_id', outletId)
                     .like('receipt_no', `${prefix}%`)
                     .order('sale_id', { ascending: false })
-                    .limit(1);
+                    .limit(500);
 
                 if (latestSales && latestSales.length > 0) {
                     const regex = new RegExp(`${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\d+)`);
-                    const match = latestSales[0].receipt_no?.match(regex);
-                    if (match) {
-                        freshReceiptNo = `${prefix}${String(parseInt(match[1]) + 1).padStart(2, '0')}`;
+                    let maxNum = 0;
+                    for (const row of latestSales) {
+                        const match = row.receipt_no?.match(regex);
+                        if (match) {
+                            const n = parseInt(match[1]);
+                            if (n > maxNum) maxNum = n;
+                        }
                     }
+                    if (maxNum > 0) {
+                        freshReceiptNo = `${prefix}${String(maxNum + 1).padStart(2, '0')}`;
+                    }
+                } else {
+                    freshReceiptNo = `${prefix}01`;
                 }
             } catch {
-                // Keep the current receipt number as-is, don't generate timestamps
+                // Keep current receiptNo on error
             }
 
             // Create sale record in retail_sales table
+            // Correct cost: piece sale = costPrice/piecesPerPackage, bag/package = full costPrice
+            const getEffectiveCost = (item: any): number => {
+                if ((item.unitMultiplier || 1) > 1) return item.costPrice || 0;
+                return Math.ceil((item.costPrice || 0) / (item.piecesPerPackage || 1));
+            };
+            const totalCost = cart.reduce((s, item) => s + getEffectiveCost(item) * (item.qty || 0), 0);
+            const saleProfit = grandTotal - totalCost;
+
+            // Generate explicit sale_id (retail_sales has no auto-increment sequence)
+            let freshSaleId: number = Date.now(); // timestamp fallback
+            try {
+                const { data: maxRow } = await supabase
+                    .from('retail_sales')
+                    .select('sale_id')
+                    .not('sale_id', 'is', null)
+                    .order('sale_id', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+                if (maxRow?.sale_id) freshSaleId = Number(maxRow.sale_id) + 1;
+            } catch { /* use timestamp fallback */ }
+
             const { data: sale, error: saleError } = await supabase
                 .from('retail_sales')
                 .insert([{
+                    sale_id: freshSaleId,
                     receipt_no: freshReceiptNo,
                     sale_date: new Date().toISOString().split('T')[0],
                     sale_datetime: new Date().toISOString(),
@@ -2192,12 +2457,15 @@ export default function RetailPOSPage() {
                     subtotal: subtotal,
                     discount: totalDiscount,
                     total_amount: grandTotal,
+                    total_cost: totalCost,
+                    profit: saleProfit,
                     payment_method: method.toUpperCase(),
-                    amount_paid: method.toUpperCase() === 'CREDIT' ? amountPaid : amountPaid, // for credit: partial cash paid now
+                    amount_paid: method.toUpperCase() === 'CREDIT' ? amountPaid : amountPaid,
                     change_amount: method.toUpperCase() === 'CREDIT' ? 0 : Math.max(0, amountPaid - grandTotal),
                     mpesa_code: mpesaReceipt || null,
                     checkout_request_id: checkoutRequestId || null,
                     status: 'Completed',
+                    created_by: loggedInUserName || null,
                     outlet_id: outletId
                 }])
                 .select()
@@ -2205,22 +2473,36 @@ export default function RetailPOSPage() {
 
             if (saleError) throw saleError;
 
-            // Create sale items
-            const saleItems = cart.map(item => ({
-                sale_id: sale.sale_id,
-                product_id: item.id,
-                product_name: item.name,
-                barcode: item.barcode,
-                quantity: item.qty,
-                unit_price: item.effectivePrice,
-                cost_price: item.costPrice,
-                discount: item.discount,
-                subtotal: (item.effectivePrice * item.qty) - item.discount,
-                notes: item.unitMultiplier > 1 ? `Sold as ${item.sellingUnit} (x${item.unitMultiplier})` : null
-            }));
+            // Create sale items using freshSaleId (explicitly generated — sale_id has no auto-increment)
+            const saleItems = cart.map(item => {
+                const effectiveCostPerUnit = getEffectiveCost(item);
+                const lineTotal = (item.effectivePrice * item.qty) - (item.discount || 0);
+                const lineCost = effectiveCostPerUnit * item.qty;
+                return {
+                    sale_id: freshSaleId,          // ← use our generated ID, not sale?.sale_id
+                    product_id: item.id,
+                    product_name: item.name,
+                    barcode: item.barcode || null,
+                    quantity: item.qty,
+                    unit_price: item.effectivePrice,
+                    cost_price: effectiveCostPerUnit,
+                    discount: item.discount || 0,
+                    subtotal: lineTotal,
+                    profit: lineTotal - lineCost,
+                    notes: (item.unitMultiplier || 1) > 1 ? `Sold as ${item.sellingUnit} (x${item.unitMultiplier})` : null
+                };
+            });
 
-            const { error: itemsError } = await supabase.from('retail_sales_items').insert(saleItems);
-            if (itemsError) console.error('❌ Failed to save sale items:', itemsError);
+            // Save items — direct supabase INSERT only (no API fallback to prevent double-insert race condition)
+            if (saleItems.length > 0) {
+                const { error: directError } = await supabase
+                    .from('retail_sales_items')
+                    .insert(saleItems);
+                if (directError) {
+                    console.error('❌ Items insert failed:', directError.message);
+                    toast.error(`Note: Item details not saved (${directError.message}) — sale was completed.`);
+                }
+            }
 
             // ═══════════════════════════════════════════════════════════════
             // STOCK DEDUCTION — BULLETPROOF, OUTLET-AWARE, UNIT-AWARE
@@ -2480,35 +2762,31 @@ export default function RetailPOSPage() {
                     if (cpErr) console.error('❌ Credit payment record failed:', cpErr.message);
                 }
 
-                // 3. If customer also paid some cash/mpesa NOW, record that as a separate payment
+                // 3. If customer also paid some cash/mpesa NOW, record that as a separate payment ledger entry
+                //    NOTE: partialPaid was ALREADY excluded from creditAmount above, so the balance
+                //    is already correct at balanceAfter. Do NOT deduct partialPaid again from balance.
                 if (partialPaid > 0) {
-                    const balAfterPartial = balanceAfter - partialPaid; // Further reduced by partial pay
                     const pMethod = (partialPayMethod || 'cash').toUpperCase();
                     const { error: ppErr } = await supabase.from('retail_credit_payments').insert({
                         customer_id:       selectedCustomer.customer_id,
-                        sale_id:           sale.sale_id,
+                        sale_id:           freshSaleId,
                         receipt_no:        freshReceiptNo,
                         payment_date:      saleDate,
                         payment_datetime:  now,
                         amount_paid:       partialPaid,
-                        balance_before:    balanceAfter,       // After credit sale added
-                        balance_after:     balAfterPartial,   // After partial payment deducted
+                        balance_before:    balanceAfter,   // Balance after credit sale
+                        balance_after:     balanceAfter,   // No further change (already excluded from credit)
                         payment_method:    pMethod,
                         mpesa_code:        pMethod === 'MPESA' ? (mpesaReceipt || null) : null,
                         transaction_type:  'partial_payment',
-                        payment_note:      `Partial payment on credit sale · Receipt: ${freshReceiptNo}`,
+                        payment_note:      `Upfront payment on credit sale · Receipt: ${freshReceiptNo}`,
                         outlet_id:         outletId,
                     });
                     if (ppErr) console.error('❌ Partial payment record failed:', ppErr.message);
-
-                    // Also update customer balance to reflect partial payment deduction
-                    await supabase
-                        .from('retail_credit_customers')
-                        .update({ current_balance: balAfterPartial })
-                        .eq('customer_id', selectedCustomer.customer_id);
+                    // ✅ NO second balance update here — partialPaid already excluded from creditAmount
                 }
 
-                // 4. Print credit sale receipt
+                // 4. Print credit sale receipt with full balance breakdown
                 try {
                     const company = await loadCompanyInfo();
                     if (activeOutlet?.outlet_name) {
@@ -2523,11 +2801,11 @@ export default function RetailPOSPage() {
                         invoiceNo: freshReceiptNo,
                         date: nowD.toLocaleDateString('en-GB'),
                         time: nowD.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-                        cashier: 'Cashier',
+                        cashier: loggedInUserName || 'Cashier',
                         items: cart.map(item => ({
-                            name: `${item.name}${item.unitMultiplier > 1 ? ` (${item.sellingUnit})` : ''}`,
+                            name: `${item.name}${(item.unitMultiplier || 1) > 1 ? ` (${item.sellingUnit})` : ''}`,
                             qty: item.qty, price: item.effectivePrice,
-                            total: (item.effectivePrice * item.qty) - item.discount
+                            total: (item.effectivePrice * item.qty) - (item.discount || 0)
                         })),
                         subtotal, discount: totalDiscount, tax: 0, total: grandTotal,
                         paymentMethod: partialPaid > 0 ? `CREDIT + ${(partialPayMethod || 'CASH').toUpperCase()}` : 'CREDIT',
@@ -2535,7 +2813,14 @@ export default function RetailPOSPage() {
                         change: 0,
                         customerName: selectedCustomer.customer_name,
                         customerPhone: selectedCustomer.phone || undefined,
-                        isPaid: false
+                        isPaid: false,
+                        // Credit balance breakdown for receipt
+                        creditInfo: {
+                            previousBalance: balanceBefore,
+                            creditAdded:     creditAmount,
+                            cashPaidNow:     partialPaid,
+                            newBalance:      balanceAfter,
+                        }
                     };
                     printCustomerReceipt(receiptData, company);
                 } catch (printErr) { console.error('Credit receipt print error:', printErr); }
@@ -2609,8 +2894,10 @@ export default function RetailPOSPage() {
                 {[
                     { key: 'add_product',        icon: '➕', label: 'Add Product',    href: '/dashboard/products?action=add', cashierEnabled: true  },
                     { key: 'purchases',          icon: '📥', label: 'Purchases',       href: '/dashboard/purchase',          cashierEnabled: true  },
+                    { key: 'suppliers',          icon: '🏭', label: 'Suppliers',       href: '/dashboard/suppliers',         cashierEnabled: true  },
                     { key: 'credit_customers',   icon: '👤', label: 'New Customer',    href: '/dashboard/credit-customers',  cashierEnabled: true  },
                     { key: 'credit_payments',    icon: '💳', label: 'Recv Payment',    href: '/dashboard/credit-payments',   cashierEnabled: true  },
+                    { key: 'full_sales_report',  icon: '📋', label: 'Sales Report',    href: '/dashboard/reports/full-sales-report', cashierEnabled: true  },
                     { key: 'stock_available',    icon: '📦', label: 'Stock',           href: '/dashboard/products',          cashierEnabled: false },
                     { key: 'expiry_register',    icon: '⏰', label: 'Expiry',          href: '/dashboard/expiry-register',   cashierEnabled: false },
                     { key: 'sales_returns',      icon: '↩️', label: 'Returns',         href: '/dashboard/sales-return',      cashierEnabled: true  },
@@ -3164,6 +3451,13 @@ export default function RetailPOSPage() {
                 mpesaApiUrl={activeOutlet?.mpesa_api_url}
                 mpesaAnonKey={activeOutlet?.mpesa_anon_key}
                 mpesaUseSystem={activeOutlet?.mpesa_use_system}
+                mpesaConsumerKey={activeOutlet?.mpesa_consumer_key}
+                mpesaConsumerSecret={activeOutlet?.mpesa_consumer_secret}
+                mpesaPasskey={activeOutlet?.mpesa_passkey}
+                mpesaShortcode={activeOutlet?.mpesa_shortcode}
+                mpesaTillNumber={(activeOutlet as any)?.mpesa_till_number}
+                mpesaCallbackUrl={activeOutlet?.mpesa_callback_url}
+                kcbEnabled={activeOutlet?.kcb_enabled}
             />
 
             <DiscountModal

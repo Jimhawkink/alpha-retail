@@ -140,10 +140,10 @@ export default function CompanyPage() {
                     const { data: ft } = await supabase.from('license_settings').select('setting_value').eq('setting_key', `outlet_features_${o.outlet_id}`).single();
                     try { features[o.outlet_id] = JSON.parse(ft?.setting_value || '[]'); } catch { features[o.outlet_id] = []; }
                     names[o.outlet_id] = o.outlet_name;
-                    // Load per-outlet negative stock setting
+                    // Load per-outlet negative stock — fall back to global setting if no per-outlet key
                     const { data: ns } = await supabase.from('organisation_settings').select('setting_value').eq('setting_key', `prevent_negative_stock_${o.outlet_id}`).single();
-                    // true = blocked, false = allowed
-                    negStock[o.outlet_id] = ns?.setting_value === 'true';
+                    // If outlet has explicit key, use it. If not, inherit from global (o.prevent_negative_stock)
+                    negStock[o.outlet_id] = ns ? ns.setting_value === 'true' : o.prevent_negative_stock;
                 }
                 setOutletPriceModes(modes);
                 setOutletFeatures(features);
@@ -665,30 +665,34 @@ export default function CompanyPage() {
                                                         </button>
                                                     ))}
                                                 </div>
-                                                {/* Allow negative stock toggle — AUTO-SAVES immediately */}
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-[10px] text-gray-500 font-semibold">Allow 0-Stock Sales</span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={async () => {
-                                                            const newVal = !outletNegativeStock[outlet.outlet_id];
-                                                            setOutletNegativeStock(prev => ({ ...prev, [outlet.outlet_id]: newVal }));
-                                                            const err = await saveOrgSetting(`prevent_negative_stock_${outlet.outlet_id}`, String(newVal));
-                                                            if (err) {
-                                                                toast.error(`❌ Save failed: ${err}`);
-                                                                setOutletNegativeStock(prev => ({ ...prev, [outlet.outlet_id]: !newVal }));
-                                                            } else {
-                                                                toast.success(`${outlet.outlet_name}: ${newVal ? '🚫 Negative stock BLOCKED' : '✅ Negative stock ALLOWED'} — saved!`);
-                                                            }
-                                                        }}
-                                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                                            outletNegativeStock[outlet.outlet_id] ? 'bg-emerald-500' : 'bg-gray-300'
-                                                        }`}
-                                                    >
-                                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                                                            outletNegativeStock[outlet.outlet_id] ? 'translate-x-6' : 'translate-x-1'
-                                                        }`} />
-                                                    </button>
+                                                {/* Prevent Negative Stock — per outlet — AUTO-SAVES immediately */}
+                                                <div className="flex flex-col items-end gap-0.5">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] text-gray-500 font-semibold">🚫 Block Neg. Stock</span>
+                                                        <button
+                                                            type="button"
+                                                            title={outletNegativeStock[outlet.outlet_id] ? 'Negative stock BLOCKED for this outlet — click to ALLOW' : 'Negative stock ALLOWED for this outlet — click to BLOCK'}
+                                                            onClick={async () => {
+                                                                const newVal = !outletNegativeStock[outlet.outlet_id];
+                                                                setOutletNegativeStock(prev => ({ ...prev, [outlet.outlet_id]: newVal }));
+                                                                const err = await saveOrgSetting(`prevent_negative_stock_${outlet.outlet_id}`, String(newVal));
+                                                                if (err) {
+                                                                    toast.error(`❌ Save failed: ${err}`);
+                                                                    setOutletNegativeStock(prev => ({ ...prev, [outlet.outlet_id]: !newVal }));
+                                                                } else {
+                                                                    toast.success(`${outlet.outlet_name}: ${newVal ? '🚫 Negative stock BLOCKED' : '✅ Negative stock ALLOWED (0-stock sales enabled)'} — saved!`);
+                                                                }
+                                                            }}
+                                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                                                outletNegativeStock[outlet.outlet_id] ? 'bg-red-500' : 'bg-gray-300'
+                                                            }`}
+                                                        >
+                                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                                                                outletNegativeStock[outlet.outlet_id] ? 'translate-x-6' : 'translate-x-1'
+                                                            }`} />
+                                                        </button>
+                                                    </div>
+                                                    <span className="text-[9px] text-gray-400">{outletNegativeStock[outlet.outlet_id] ? '🔴 Blocked' : '🟢 Allowed'}</span>
                                                 </div>
                                             </div>
                                         </div>

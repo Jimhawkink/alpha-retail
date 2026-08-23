@@ -91,6 +91,8 @@ export default function ProductsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const [previewPid, setPreviewPid] = useState<number | null>(null);
+    const [previewCode, setPreviewCode] = useState<string>('');
     const [formData, setFormData] = useState(defaultProduct);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterCategory, setFilterCategory] = useState('All');
@@ -168,23 +170,15 @@ export default function ProductsPage() {
             let from = 0;
             let keepGoing = true;
             while (keepGoing) {
-                let { data, error } = await supabase
+                const { data, error } = await supabase
                     .from('retail_products').select('*')
                     .eq('outlet_id', outletId)
                     .order('pid', { ascending: false })
                     .range(from, from + PAGE - 1);
-                if (error) {
-                    // fallback without outlet filter
-                    const fb = await supabase.from('retail_products').select('*')
-                        .order('pid', { ascending: false }).range(from, from + PAGE - 1);
-                    if (fb.error || !fb.data?.length) break;
-                    allProducts = allProducts.concat(fb.data);
-                    if (fb.data.length < PAGE) keepGoing = false;
-                } else {
-                    if (!data?.length) break;
-                    allProducts = allProducts.concat(data);
-                    if (data.length < PAGE) keepGoing = false;
-                }
+                // If error OR no data, stop — never fall back to loading all outlets
+                if (error || !data?.length) break;
+                allProducts = allProducts.concat(data);
+                if (data.length < PAGE) keepGoing = false;
                 from += PAGE;
             }
             setProducts(allProducts);
@@ -296,27 +290,39 @@ export default function ProductsPage() {
         } catch { return '101'; }
     };
 
-    const generateProductCode = async (): Promise<string> => {
+    const generateProductCode = async (): Promise<{ code: string; pid: number }> => {
         try {
-            // Use max pid to generate a unique product code
-            const { data } = await supabase.from('retail_products').select('pid').eq('outlet_id', outletId).order('pid', { ascending: false }).limit(1);
-            const maxPid = data?.[0]?.pid || 0;
-            const nextNum = maxPid + 1;
-            return `PRD-${String(nextNum).padStart(4, '0')}`;
+            // Query global max pid across ALL outlets, excluding NULLs
+            // NULLs sort first in DESC order and would cause PRD-0001 to be generated
+            const { data } = await supabase
+                .from('retail_products')
+                .select('pid')
+                .not('pid', 'is', null)
+                .order('pid', { ascending: false })
+                .limit(1);
+            const maxPid = Number(data?.[0]?.pid || 0);
+            const nextPid = maxPid + 1;
+            return { code: `PRD-${String(nextPid).padStart(4, '0')}`, pid: nextPid };
         } catch {
-            // Fallback: use timestamp to guarantee uniqueness
-            return `PRD-${Date.now().toString().slice(-6)}`;
+            // Fallback: timestamp-based unique values
+            const ts = Date.now();
+            return { code: `PRD-${ts.toString().slice(-6)}`, pid: ts };
         }
     };
 
     const calcMargin = (pc: number, sc: number) => pc <= 0 ? sc : Math.round((sc - pc) * 100) / 100;
 
     const openAddModal = async () => {
-        setEditingProduct(null); const bc = await generateBarcode();
-        setFormData({ ...defaultProduct, barcode: bc, supplier_name: getKitchenSupplier() }); setOpeningBags(0); setOpeningPieces(0);
+        setEditingProduct(null);
+        const bc = await generateBarcode();
+        // Pre-generate pid and code so user can see them before saving
+        const { code, pid: nextPid } = await generateProductCode();
+        setPreviewPid(nextPid);
+        setPreviewCode(code);
+        setFormData({ ...defaultProduct, barcode: bc, supplier_name: getKitchenSupplier() });
+        setOpeningBags(0); setOpeningPieces(0);
         setProductBatches([]); setShowBatchForm(false); setEditingBatchIdx(null);
         setShowModal(true);
-        // If in add-mode, set flag so we know to return to POS after save
         if (typeof window !== 'undefined' && window.location.search.includes('action=add')) setIsAddMode(true);
     };
 
@@ -373,8 +379,27 @@ export default function ProductsPage() {
                 if (error) throw new Error(error.message); toast.success('Product updated!');
                 logActivity('Update', `Updated product: ${formData.product_name}`, `PID: ${editingProduct.pid}, Buy: ${formData.purchase_cost}, Sell: ${formData.sales_cost}`);
             } else {
-                const code = await generateProductCode();
-                const { data: np, error } = await supabase.from('retail_products').insert({ ...d, product_code: code, outlet_id: outletId, created_at: new Date().toISOString() }).select().single();
+                // Check for duplicate product name in this outlet first
+                const { data: existing } = await supabase
+                    .from('retail_products')
+                    .select('pid, product_name')
+                    .eq('outlet_id', outletId)
+                    .ilike('product_name', formData.product_name.trim())
+                    .limit(1)
+                    .maybeSingle();
+                if (existing) {
+                    toast.error(`"${formData.product_name}" already exists in this outlet! Edit the existing product instead.`);
+                    setIsSaving(false);
+                    return;
+                }
+                const { code, pid: newPid } = previewCode && previewPid
+                    ? { code: previewCode, pid: previewPid }
+                    : await generateProductCode();
+                // INSERT with explicit pid — prevents pid=NULL which breaks delete and stock linking
+                const { data: np, error } = await supabase
+                    .from('retail_products')
+                    .insert({ ...d, pid: newPid, product_code: code, outlet_id: outletId, created_at: new Date().toISOString() })
+                    .select().single();
                 if (error) throw new Error(error.message);
                 if (np) {
                     const stockRecords: any[] = [];
@@ -402,9 +427,49 @@ export default function ProductsPage() {
     };
 
     const deleteProduct = async (p: Product) => {
-        if (!confirm(`Delete "${p.product_name}"? This is permanent.`)) return;
-        try { const { error } = await supabase.from('retail_products').delete().eq('pid', p.pid); if (error) throw error; toast.success('Deleted'); logActivity('Delete', `Deleted product: ${p.product_name}`, `PID: ${p.pid}, Code: ${p.product_code}`); loadProducts(); }
-        catch { toast.error('Failed'); }
+        if (!confirm(`Remove "${p.product_name}"?\n\nIf it has sales history it will be deactivated.\nIf no sales history it will be permanently deleted.`)) return;
+        try {
+            // Handle products with NULL pid (created by a bug — delete by name+outlet)
+            if (!p.pid) {
+                await supabase.from('retail_products')
+                    .delete()
+                    .eq('outlet_id', outletId)
+                    .eq('product_name', p.product_name);
+                toast.success(`"${p.product_name}" deleted`);
+                loadProducts(); loadStockData();
+                return;
+            }
+
+            // Check if product has any sales records
+            const { data: salesCheck } = await supabase
+                .from('retail_sales_items')
+                .select('sale_id')
+                .eq('pid', p.pid)
+                .limit(1)
+                .maybeSingle();
+
+            if (salesCheck) {
+                // Has sales history — DEACTIVATE instead of delete
+                const { error } = await supabase
+                    .from('retail_products')
+                    .update({ active: false })
+                    .eq('pid', p.pid);
+                if (error) throw error;
+                toast.success(`"${p.product_name}" deactivated (has sales history)`);
+                logActivity('Deactivate', `Deactivated product (has sales): ${p.product_name}`, `PID: ${p.pid}`);
+            } else {
+                // No sales history — PERMANENTLY DELETE
+                await supabase.from('retail_stock').delete().eq('pid', p.pid);
+                const { error } = await supabase.from('retail_products').delete().eq('pid', p.pid);
+                if (error) throw error;
+                toast.success(`"${p.product_name}" permanently deleted`);
+                logActivity('Delete', `Deleted product: ${p.product_name}`, `PID: ${p.pid}, Code: ${p.product_code}`);
+            }
+            loadProducts();
+            loadStockData();
+        } catch (err: any) {
+            toast.error(`Failed: ${err?.message || 'Unknown error'}`);
+        }
     };
 
     const deactivateProduct = async (p: Product) => {
@@ -1137,6 +1202,25 @@ export default function ProductsPage() {
                                     <input type="text" value={formData.product_name} onChange={e => setFormData({ ...formData, product_name: e.target.value })}
                                         placeholder="e.g., Sugar 2Kg" required className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-400/10 outline-none font-medium text-sm" />
                                 </div>
+                                {/* PID and Product Code preview — only shown when adding new product */}
+                                {!editingProduct && (
+                                    <div className="md:col-span-2 grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Product ID (PID)</label>
+                                            <div className="flex items-center gap-2 px-4 py-3 bg-blue-50 border-2 border-blue-200 rounded-xl">
+                                                <span className="font-bold text-blue-700 font-mono text-sm">{previewPid ?? '...'}</span>
+                                                <span className="ml-auto text-xs text-blue-400 italic">Auto-assigned</span>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Product Code</label>
+                                            <div className="flex items-center gap-2 px-4 py-3 bg-green-50 border-2 border-green-200 rounded-xl">
+                                                <span className="font-bold text-green-700 font-mono text-sm">{previewCode || '...'}</span>
+                                                <span className="ml-auto text-xs text-green-400 italic">Auto-assigned</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                                 <div>
                                     <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Alias</label>
                                     <input type="text" value={formData.alias} onChange={e => setFormData({ ...formData, alias: e.target.value })} placeholder="Short name"

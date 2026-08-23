@@ -30,6 +30,12 @@ export interface ReceiptData {
   orderNotes?: string;
   shiftCode?: string;
   isPaid?: boolean;
+  creditInfo?: {
+    previousBalance: number;
+    creditAdded: number;
+    cashPaidNow: number;
+    newBalance: number;
+  };
 }
 
 export interface KOTData {
@@ -540,6 +546,34 @@ export function generateCustomerBillHTML(data: ReceiptData, company: CompanyInfo
     </div>
     `}
   </div>
+
+  <!-- Credit Account Statement (only for credit sales) -->
+  ${data.creditInfo ? `
+  <div style="border:2px solid #000;border-radius:3px;margin:6px 0;overflow:hidden;">
+    <div style="background:#000;color:#fff;text-align:center;padding:4px;font-size:10px;font-weight:bold;letter-spacing:1px;">
+      *** CREDIT ACCOUNT STATEMENT ***
+    </div>
+    <div style="padding:5px 6px;background:#f9f9f9;">
+      <div style="display:flex;justify-content:space-between;padding:2px 0;font-size:10px;border-bottom:1px dotted #ccc;">
+        <span>Previous Balance:</span>
+        <span style="font-weight:bold;">Ksh ${data.creditInfo.previousBalance.toLocaleString()}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:2px 0;font-size:10px;border-bottom:1px dotted #ccc;">
+        <span>+ Today's Credit:</span>
+        <span style="font-weight:bold;">Ksh ${data.creditInfo.creditAdded.toLocaleString()}</span>
+      </div>
+      ${data.creditInfo.cashPaidNow > 0 ? `
+      <div style="display:flex;justify-content:space-between;padding:2px 0;font-size:10px;border-bottom:1px dotted #ccc;">
+        <span>- Cash Paid Now:</span>
+        <span style="font-weight:bold;">Ksh ${data.creditInfo.cashPaidNow.toLocaleString()}</span>
+      </div>` : ''}
+      <div style="border-top:2px solid #000;margin-top:4px;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:11px;font-weight:bold;">BALANCE OWED:</span>
+        <span style="font-size:14px;font-weight:bold;">Ksh ${data.creditInfo.newBalance.toLocaleString()}</span>
+      </div>
+    </div>
+  </div>
+  ` : ''}
 
   ${data.orderNotes ? `
   <div class="order-notes">

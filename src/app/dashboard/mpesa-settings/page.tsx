@@ -24,6 +24,7 @@ interface MpesaConfig {
     mpesa_api_url: string;
     mpesa_anon_key: string;
     mpesa_shortcode: string;
+    mpesa_till_number: string;
     mpesa_passkey: string;
     mpesa_consumer_key: string;
     mpesa_consumer_secret: string;
@@ -35,6 +36,7 @@ const EMPTY_CONFIG: MpesaConfig = {
     mpesa_api_url: '',
     mpesa_anon_key: '',
     mpesa_shortcode: '',
+    mpesa_till_number: '',
     mpesa_passkey: '',
     mpesa_consumer_key: '',
     mpesa_consumer_secret: '',
@@ -62,11 +64,19 @@ const FIELDS: { key: keyof MpesaConfig; label: string; icon: string; placeholder
     },
     {
         key: 'mpesa_shortcode',
-        label: 'M-Pesa Paybill / Shortcode',
-        icon: '📱',
-        placeholder: '174379',
+        label: 'M-Pesa BusinessShortCode (Org/Paybill)',
+        icon: '🏢',
+        placeholder: '4501727',
         sensitive: false,
-        hint: 'Your Safaricom business paybill or till number',
+        hint: 'Your Daraja org/paybill shortcode — linked to your Consumer Key',
+    },
+    {
+        key: 'mpesa_till_number',
+        label: 'Till Number (Buy Goods)',
+        icon: '🏪',
+        placeholder: '3150733',
+        sensitive: false,
+        hint: 'Your Lipa na M-Pesa Till (Buy Goods) number. Leave blank for Paybill.',
     },
     {
         key: 'mpesa_passkey',
@@ -124,7 +134,7 @@ export default function MpesaSettingsPage() {
     const loadConfig = useCallback(async (outletId: number) => {
         const { data, error } = await supabase
             .from('retail_outlets')
-            .select('mpesa_api_url,mpesa_anon_key,mpesa_shortcode,mpesa_passkey,mpesa_consumer_key,mpesa_consumer_secret,mpesa_callback_url,mpesa_use_system')
+            .select('mpesa_api_url,mpesa_anon_key,mpesa_shortcode,mpesa_till_number,mpesa_passkey,mpesa_consumer_key,mpesa_consumer_secret,mpesa_callback_url,mpesa_use_system')
             .eq('outlet_id', outletId)
             .single();
 
@@ -134,6 +144,7 @@ export default function MpesaSettingsPage() {
             mpesa_api_url:         data.mpesa_api_url         || '',
             mpesa_anon_key:        data.mpesa_anon_key        || '',
             mpesa_shortcode:       data.mpesa_shortcode       || '',
+            mpesa_till_number:     data.mpesa_till_number     || '',
             mpesa_passkey:         data.mpesa_passkey         || '',
             mpesa_consumer_key:    data.mpesa_consumer_key    || '',
             mpesa_consumer_secret: data.mpesa_consumer_secret || '',
@@ -162,6 +173,7 @@ export default function MpesaSettingsPage() {
                 mpesa_api_url:         config.mpesa_api_url         || null,
                 mpesa_anon_key:        config.mpesa_anon_key        || null,
                 mpesa_shortcode:       config.mpesa_shortcode       || null,
+                mpesa_till_number:     config.mpesa_till_number     || null,
                 mpesa_passkey:         config.mpesa_passkey         || null,
                 mpesa_consumer_key:    config.mpesa_consumer_key    || null,
                 mpesa_consumer_secret: config.mpesa_consumer_secret || null,
@@ -185,21 +197,15 @@ export default function MpesaSettingsPage() {
         setTesting(true);
         setTestResult(null);
         try {
-            // Ping the health/test endpoint
-            const res = await fetch(`${config.mpesa_api_url.replace(/\/$/, '')}/health`, {
-                headers: {
-                    'apikey': config.mpesa_anon_key,
-                    'Authorization': `Bearer ${config.mpesa_anon_key}`,
-                },
-            });
-            if (res.ok || res.status === 200 || res.status === 404) {
-                // 404 means the Edge Function URL is reachable even if /health doesn't exist
-                setTestResult({ ok: true, message: `✅ API URL is reachable (HTTP ${res.status}). Credentials look valid.` });
+            // Ping the Vercel M-Pesa STK route (always live, no Supabase needed)
+            const res = await fetch('/api/mpesa/stk', { method: 'GET' });
+            if (res.ok || res.status === 200 || res.status === 405) {
+                setTestResult({ ok: true, message: `✅ M-Pesa API is reachable and active. Credentials saved in database.` });
             } else {
-                setTestResult({ ok: false, message: `❌ API returned HTTP ${res.status}. Check your API URL and Anon Key.` });
+                setTestResult({ ok: false, message: `❌ API returned HTTP ${res.status}. Contact support.` });
             }
         } catch {
-            setTestResult({ ok: false, message: '❌ Could not reach the API URL. Check your internet connection or the URL.' });
+            setTestResult({ ok: false, message: '❌ Could not reach M-Pesa API. Check your internet connection.' });
         }
         setTesting(false);
     };

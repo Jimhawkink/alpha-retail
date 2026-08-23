@@ -117,8 +117,11 @@ const menuGroups = [
         { href: '/dashboard/shifts',        label: 'Shifts',        icon: FiClock,      roles: 'all' },
         { href: '/dashboard/shift-reports', label: 'Shift Reports', icon: FiFileText,   roles: 'all' },
     ]},
+    { label: '', icon: undefined, name: 'fullsalesreport', collapsible: false, items: [
+        { href: '/dashboard/reports/full-sales-report', label: 'Full Sales Report', icon: FiBarChart2, roles: 'all', badge: 'NEW' },
+    ]},
     { label: 'Reports', icon: FiBarChart2, name: 'reports', collapsible: true, items: [
-        { href: '/dashboard/reports/full-sales-report',              label: '⭐ Full Sales Report',      icon: FiBarChart2,   roles: 'all', badge: 'NEW' },
+        { href: '/dashboard/reports/full-sales-report',              label: 'Full Sales Report',        icon: FiBarChart2,   roles: 'all', badge: 'NEW' },
         { href: '/dashboard/sales-summary',                      label: 'Sales Summary',           icon: FiTrendingUp,  roles: 'all' },
         { href: '/dashboard/reports/sales',                      label: 'Sales Report',            icon: FiFileText,    roles: 'all' },
         { href: '/dashboard/reports/profit',                     label: 'Profit Report',           icon: FiPieChart,    roles: 'all' },
@@ -167,7 +170,8 @@ const menuGroups = [
         { href: '/dashboard/company',        label: 'Company',      icon: FiHome,      roles: 'all' },
         { href: '/dashboard/tax-settings',   label: 'Tax Settings', icon: FiFileText,  roles: 'all' },
         { href: '/dashboard/units',          label: 'Units',        icon: FiSliders,   roles: 'all' },
-        { href: '/dashboard/mpesa-settings', label: 'M-Pesa Config',icon: FiZap,       roles: 'superadmin', badge: 'SA' },
+        { href: '/dashboard/mpesa-settings', label: 'M-Pesa Config', icon: FiZap,       roles: 'superadmin', badge: 'SA' },
+        { href: '/dashboard/kcb-settings',   label: 'KCB Buni Config', icon: FiZap,    roles: 'superadmin', badge: 'SA' },
         { href: '/dashboard/businesses',     label: 'Businesses',   icon: FiBriefcase, roles: 'superadmin', badge: 'SA' },
         { href: '/dashboard/license',        label: '🔐 License Mgmt', icon: FiShield, roles: 'superadmin', badge: 'SA' },
     ]},
@@ -531,6 +535,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         '/dashboard/products',
         '/dashboard/sales-return',
         '/dashboard/sales-summary',
+        '/dashboard/reports/full-sales-report',
+        '/dashboard/suppliers',
     ];
     if (isCashier && !cashierAllowedPages.some(p => pathname.startsWith(p))) {
         router.replace('/dashboard/pos');
