@@ -668,10 +668,15 @@ export default function CompanyPage() {
                                                 {/* Prevent Negative Stock — per outlet — AUTO-SAVES immediately */}
                                                 <div className="flex flex-col items-end gap-0.5">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-[10px] text-gray-500 font-semibold">🚫 Block Neg. Stock</span>
+                                                        <div className="text-right">
+                                                            <p className="text-[10px] font-bold text-gray-600">Prevent Neg. Stock</p>
+                                                            <p className="text-[9px] text-gray-400">{outletNegativeStock[outlet.outlet_id] ? 'ON = selling blocked at 0' : 'OFF = can sell at 0'}</p>
+                                                        </div>
                                                         <button
                                                             type="button"
-                                                            title={outletNegativeStock[outlet.outlet_id] ? 'Negative stock BLOCKED for this outlet — click to ALLOW' : 'Negative stock ALLOWED for this outlet — click to BLOCK'}
+                                                            title={outletNegativeStock[outlet.outlet_id]
+                                                                ? `${outlet.outlet_name}: Negative stock BLOCKED — click to ALLOW selling at 0`
+                                                                : `${outlet.outlet_name}: Selling at 0 ALLOWED — click to BLOCK`}
                                                             onClick={async () => {
                                                                 const newVal = !outletNegativeStock[outlet.outlet_id];
                                                                 setOutletNegativeStock(prev => ({ ...prev, [outlet.outlet_id]: newVal }));
@@ -680,7 +685,10 @@ export default function CompanyPage() {
                                                                     toast.error(`❌ Save failed: ${err}`);
                                                                     setOutletNegativeStock(prev => ({ ...prev, [outlet.outlet_id]: !newVal }));
                                                                 } else {
-                                                                    toast.success(`${outlet.outlet_name}: ${newVal ? '🚫 Negative stock BLOCKED' : '✅ Negative stock ALLOWED (0-stock sales enabled)'} — saved!`);
+                                                                    toast.success(newVal
+                                                                        ? `🚫 ${outlet.outlet_name}: Negative stock BLOCKED — cashier cannot sell items at 0 qty`
+                                                                        : `✅ ${outlet.outlet_name}: Negative stock ALLOWED — cashier CAN sell items even at 0 qty`
+                                                                    );
                                                                 }
                                                             }}
                                                             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
@@ -692,7 +700,9 @@ export default function CompanyPage() {
                                                             }`} />
                                                         </button>
                                                     </div>
-                                                    <span className="text-[9px] text-gray-400">{outletNegativeStock[outlet.outlet_id] ? '🔴 Blocked' : '🟢 Allowed'}</span>
+                                                    <span className={`text-[9px] font-bold ${outletNegativeStock[outlet.outlet_id] ? 'text-red-500' : 'text-green-500'}`}>
+                                                        {outletNegativeStock[outlet.outlet_id] ? '🔴 BLOCKED' : '🟢 ALLOWED'}
+                                                    </span>
                                                 </div>
                                             </div>
                                         </div>

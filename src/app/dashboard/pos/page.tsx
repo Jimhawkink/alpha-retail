@@ -2020,11 +2020,17 @@ export default function RetailPOSPage() {
     // Set exact qty for a cart item (for clicking on qty to type)
     const setCartItemQty = useCallback((id: number, sellingUnit: string, qty: number) => {
         const newQty = Math.max(0.01, qty);
-        setCart(prev => prev.map(item =>
-            item.id === id && item.sellingUnit === sellingUnit
-                ? { ...item, qty: newQty }
-                : item
-        ));
+        setCart(prev => prev.map(item => {
+            if (item.id === id && item.sellingUnit === sellingUnit) {
+                // Cap at availableQty when prevent negative stock is ON
+                if (preventNegativeStockRef.current && newQty > item.availableQty && item.availableQty > 0) {
+                    toast.error(`⚠️ Only ${item.availableQty} units available for ${item.name}`);
+                    return { ...item, qty: item.availableQty };
+                }
+                return { ...item, qty: newQty };
+            }
+            return item;
+        }));
     }, []);
 
     // Add product to cart (checks for unit picker)
@@ -2142,9 +2148,17 @@ export default function RetailPOSPage() {
 
     // Cart operations — use sellingUnit as part of key (same product can be in cart with different units)
     const increaseQty = (id: number, sellingUnit: string) => {
-        setCart(prev => prev.map(item =>
-            item.id === id && item.sellingUnit === sellingUnit ? { ...item, qty: item.qty + 1 } : item
-        ));
+        setCart(prev => prev.map(item => {
+            if (item.id === id && item.sellingUnit === sellingUnit) {
+                // Block increase beyond available stock when prevent negative stock is ON
+                if (preventNegativeStockRef.current && item.availableQty > 0 && item.qty >= item.availableQty) {
+                    toast.error(`⚠️ Max ${item.availableQty} units available for ${item.name}`);
+                    return item; // no change
+                }
+                return { ...item, qty: item.qty + 1 };
+            }
+            return item;
+        }));
     };
 
     const decreaseQty = (id: number, sellingUnit: string) => {
