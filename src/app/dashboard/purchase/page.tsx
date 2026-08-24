@@ -99,9 +99,11 @@ export default function PurchaseEntryPage() {
                 }
 
                 const [{ data: suppData }] = await Promise.all([
-                    supabase.from('retail_suppliers').select('supplier_id, supplier_code, supplier_name, phone, contact_person').eq('active', true).order('supplier_name'),
+                    supabase.from('retail_suppliers').select('supplier_id, supplier_code, supplier_name, phone, contact_person').neq('active', false).order('supplier_name'),
                 ]);
-                setSuppliers(suppData || []); setProducts(prodData || []);
+                // Normalize supplier_id to number (Supabase may return bigint as string)
+                setSuppliers((suppData || []).map((s: any) => ({ ...s, supplier_id: Number(s.supplier_id) })));
+                setProducts(prodData || []);
                 await generateInvoiceNo();
             } catch { toast.error('Failed to load data'); }
             setIsLoading(false);
