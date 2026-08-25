@@ -2471,8 +2471,8 @@ export default function RetailPOSPage() {
                     subtotal: subtotal,
                     discount: totalDiscount,
                     total_amount: grandTotal,
-                    total_cost: totalCost,
-                    profit: saleProfit,
+                    total_cost: Math.round(totalCost),
+                    profit: Math.round(saleProfit),
                     payment_method: method.toUpperCase(),
                     amount_paid: method.toUpperCase() === 'CREDIT' ? amountPaid : amountPaid,
                     change_amount: method.toUpperCase() === 'CREDIT' ? 0 : Math.max(0, amountPaid - grandTotal),
@@ -2497,12 +2497,12 @@ export default function RetailPOSPage() {
                     product_id: item.id,
                     product_name: item.name,
                     barcode: item.barcode || null,
-                    quantity: item.qty,
-                    unit_price: item.effectivePrice,
-                    cost_price: effectiveCostPerUnit,
-                    discount: item.discount || 0,
-                    subtotal: lineTotal,
-                    profit: lineTotal - lineCost,
+                    quantity: item.qty,                          // keep decimal — column may be numeric
+                    unit_price: Math.round(item.effectivePrice),
+                    cost_price: Math.round(effectiveCostPerUnit),
+                    discount: Math.round(item.discount || 0),
+                    subtotal: Math.round(lineTotal),
+                    profit: Math.round(lineTotal - lineCost),    // e.g. 2.5×(100-43)=142.5 → 143
                     notes: (item.unitMultiplier || 1) > 1 ? `Sold as ${item.sellingUnit} (x${item.unitMultiplier})` : null
                 };
             });
@@ -2538,22 +2538,22 @@ export default function RetailPOSPage() {
             }> = [];
 
             for (const item of cart) {
-                const sellingUnit = (item.sellingUnit || 'Piece').toLowerCase();
-                // isBagSale: true only when the unit name is a bulk/package unit AND
-                // the multiplier confirms it's a multi-piece sale (not an individual piece
-                // sold under a unit whose name happens to be 'dozen' due to migration data issue).
-                const isBagSale = ['bag', 'bags', 'box', 'carton', 'crate', 'pack', 'dozen'].includes(sellingUnit)
-                    && (item.unitMultiplier || 1) > 1;
+                // isBagSale: true when unitMultiplier > 1 — the item was added as a bulk/package unit
+                // (e.g. selling 2.5 Bags, where each Bag = 57 pcs). Unit name list was brittle
+                // and broke custom units like 'Roll', 'Ream', 'Kit' that aren't in the hardcoded list.
+                const isBagSale = (item.unitMultiplier || 1) > 1;
 
                 let deductStorageType: string;
                 let deductQty: number;
 
                 if (isBagSale) {
+                    // Bulk unit sale — deduct from Bags row in the unit the item was sold in
                     deductStorageType = 'Bags';
-                    deductQty = item.qty;
+                    deductQty = parseFloat(Number(item.qty).toFixed(4));
                 } else {
+                    // Individual piece/unit sale — deduct from Pieces row; unitMultiplier=1 so no multiplication needed
                     deductStorageType = 'Pieces';
-                    deductQty = item.qty * (item.unitMultiplier || 1);
+                    deductQty = parseFloat(Number(item.qty).toFixed(4));
                 }
 
                 stockDeductionRows.push({

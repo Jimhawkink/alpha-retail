@@ -50,7 +50,7 @@ export default function PurchaseEntryPage() {
 
     // Form
     const [invoiceNo, setInvoiceNo] = useState('');
-    const [selectedSupplier, setSelectedSupplier] = useState<number>(0);
+    const [selectedSupplier, setSelectedSupplier] = useState<string>('');
     const [supplierInvoiceNo, setSupplierInvoiceNo] = useState('');
     const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
     const [items, setItems] = useState<PurchaseItem[]>([]);
@@ -98,11 +98,14 @@ export default function PurchaseEntryPage() {
                     prodData = r1.data;
                 }
 
-                const [{ data: suppData }] = await Promise.all([
-                    supabase.from('retail_suppliers').select('supplier_id, supplier_code, supplier_name, phone, contact_person').neq('active', false).order('supplier_name'),
-                ]);
-                // Normalize supplier_id to number (Supabase may return bigint as string)
-                setSuppliers((suppData || []).map((s: any) => ({ ...s, supplier_id: Number(s.supplier_id) })));
+                // Load ALL suppliers — no active filter (avoids issues if column is null or missing)
+                const { data: suppData, error: suppErr } = await supabase
+                    .from('retail_suppliers')
+                    .select('supplier_id, supplier_code, supplier_name, phone, contact_person')
+                    .order('supplier_name');
+                if (suppErr) toast.error(`Suppliers load error: ${suppErr.message}`);
+                // Store suppliers as-is — String() conversion happens at point of use in the select
+                setSuppliers(suppData || []);
                 setProducts(prodData || []);
                 await generateInvoiceNo();
             } catch { toast.error('Failed to load data'); }
@@ -285,7 +288,7 @@ export default function PurchaseEntryPage() {
         try {
             const userData = localStorage.getItem('user');
             const user = userData ? JSON.parse(userData) : null;
-            const supplier = suppliers.find(s => s.supplier_id === selectedSupplier);
+            const supplier = suppliers.find(s => s.supplier_code === selectedSupplier);
 
             // ── Generate purchase_id manually — filter NULLs first (NULLs sort first in DESC) ──
             const { data: maxRow } = await supabase
@@ -300,7 +303,7 @@ export default function PurchaseEntryPage() {
             const { data: purchaseData, error: pErr } = await supabase.from('retail_purchases').insert({
                 purchase_id: nextPurchaseId,
                 purchase_no: invoiceNo, purchase_date: purchaseDate,
-                supplier_id: selectedSupplier, supplier_name: supplier?.supplier_name || '',
+                supplier_id: supplier?.supplier_id || null, supplier_name: supplier?.supplier_name || '',
                 supplier_invoice: supplierInvoiceNo, sub_total: subtotal, discount: 0, vat: 0, grand_total: total,
                 status: 'Completed', payment_status: paymentStatus, created_by: user?.name || 'Unknown',
                 outlet_id: outletId
@@ -341,7 +344,7 @@ export default function PurchaseEntryPage() {
                             .eq('pid', item.productId).eq('outlet_id', outletId).eq('storage_type', 'Bags')
                             .order('qty', { ascending: false }).limit(1).maybeSingle();
                         if (bagRow) {
-                            const { error: e } = await supabase.from('retail_stock').update({ qty: (bagRow.qty || 0) + item.bagQty, invoice_no: invoiceNo }).eq('pid', item.productId).eq('outlet_id', outletId).eq('storage_type', 'Bags');
+                            const { error: e } = await supabase.from('retail_stock').update({ qty: (bagRow.qty || 0) + item.bagQty, invoice_no: invoiceNo }).eq('st_id', bagRow.st_id);
                             if (e) throw new Error(`Bags update: ${e.message}`);
                         } else {
                             const { error: e } = await supabase.from('retail_stock').insert({ pid: item.productId, invoice_no: invoiceNo, qty: item.bagQty, storage_type: 'Bags', outlet_id: outletId });
@@ -353,7 +356,7 @@ export default function PurchaseEntryPage() {
                             .eq('pid', item.productId).eq('outlet_id', outletId).eq('storage_type', 'Pieces')
                             .order('qty', { ascending: false }).limit(1).maybeSingle();
                         if (pcRow) {
-                            const { error: e } = await supabase.from('retail_stock').update({ qty: (pcRow.qty || 0) + item.pieceQty, invoice_no: invoiceNo }).eq('pid', item.productId).eq('outlet_id', outletId).eq('storage_type', 'Pieces');
+                            const { error: e } = await supabase.from('retail_stock').update({ qty: (pcRow.qty || 0) + item.pieceQty, invoice_no: invoiceNo }).eq('st_id', pcRow.st_id);
                             if (e) throw new Error(`Pieces update: ${e.message}`);
                         } else {
                             const { error: e } = await supabase.from('retail_stock').insert({ pid: item.productId, invoice_no: invoiceNo, qty: item.pieceQty, storage_type: 'Pieces', outlet_id: outletId });
@@ -366,7 +369,7 @@ export default function PurchaseEntryPage() {
                     const stockQty = product ? getStockQty(item.qty, item.purchaseUnit, product) : item.qty;
                     const { data: sData } = await supabase.from('retail_stock').select('st_id, qty').eq('pid', item.productId).eq('outlet_id', outletId).order('qty', { ascending: false }).limit(1).maybeSingle();
                     if (sData) {
-                        const { error: e } = await supabase.from('retail_stock').update({ qty: (sData.qty || 0) + stockQty, invoice_no: invoiceNo }).eq('pid', item.productId).eq('outlet_id', outletId);
+                        const { error: e } = await supabase.from('retail_stock').update({ qty: (sData.qty || 0) + stockQty, invoice_no: invoiceNo }).eq('st_id', sData.st_id);
                         if (e) throw new Error(`Stock update: ${e.message}`);
                     } else {
                         await supabase.from('retail_stock').insert({ pid: item.productId, invoice_no: invoiceNo, qty: stockQty, storage_type: 'Store', outlet_id: outletId });
@@ -420,7 +423,7 @@ export default function PurchaseEntryPage() {
             }
 
             setSavedInvoice(invoiceNo); setShowSuccess(true);
-            setItems([]); setSelectedSupplier(0); setSupplierInvoiceNo(''); setNotes('');
+            setItems([]); setSelectedSupplier(''); setSupplierInvoiceNo(''); setNotes('');
             await generateInvoiceNo();
         } catch (err: any) { toast.error(`Failed: ${err.message || 'Unknown error'}`); }
         setIsSaving(false);
@@ -519,10 +522,10 @@ export default function PurchaseEntryPage() {
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                             <div>
                                 <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Supplier *</label>
-                                <select value={selectedSupplier} onChange={e => setSelectedSupplier(Number(e.target.value))}
+                                <select value={selectedSupplier} onChange={e => setSelectedSupplier(e.target.value)}
                                     className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none cursor-pointer">
-                                    <option value={0}>Select Supplier</option>
-                                    {suppliers.map(s => <option key={s.supplier_id} value={s.supplier_id}>{s.supplier_code} - {s.supplier_name}</option>)}
+                                    <option value="">Select Supplier</option>
+                                    {suppliers.map(s => <option key={s.supplier_code} value={s.supplier_code}>{s.supplier_code} - {s.supplier_name}</option>)}
                                 </select>
                                 {suppliers.length === 0 && <p className="text-[10px] text-amber-600 mt-1 flex items-center gap-1"><FiAlertTriangle size={10} /> <a href="/dashboard/suppliers" className="text-blue-600 underline">Add Supplier</a></p>}
                             </div>
@@ -861,8 +864,8 @@ export default function PurchaseEntryPage() {
                         </div>
 
                         {/* Supplier info */}
-                        {selectedSupplier > 0 && (() => {
-                            const sup = suppliers.find(s => s.supplier_id === selectedSupplier);
+                        {selectedSupplier && (() => {
+                            const sup = suppliers.find(s => s.supplier_code === selectedSupplier);
                             return sup ? (
                                 <div className="p-3 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl mb-5">
                                     <p className="text-[10px] font-bold text-indigo-500 uppercase">Supplier</p>
