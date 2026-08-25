@@ -21,7 +21,7 @@ import { Line, Bar, Doughnut } from 'react-chartjs-2';
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler);
 
 // ────────────────── Types ──────────────────
-interface DailySales { date: string; cash: number; mpesa: number; credit: number; total: number; orders: number; }
+interface DailySales { date: string; cash: number; mpesa: number; credit: number; kcb: number; total: number; orders: number; }
 interface TopProduct { name: string; qty: number; revenue: number; avgPrice: number; }
 interface LowStockItem { name: string; stock: number; reorder: number; type: 'dish' | 'ingredient' | 'product'; status: 'out' | 'critical' | 'low'; }
 interface UserSalesData { name: string; sales: number; orders: number; }
@@ -46,6 +46,7 @@ export default function DashboardPage() {
     const [yesterdayOrders, setYesterdayOrders] = useState(0);
     const [todayCash, setTodayCash] = useState(0);
     const [todayMpesa, setTodayMpesa] = useState(0);
+    const [todayKcb, setTodayKcb] = useState(0);
     const [todayCredit, setTodayCredit] = useState(0);
     const [pendingBills, setPendingBills] = useState(0);
     const [totalExpenses, setTotalExpenses] = useState(0);
@@ -91,6 +92,7 @@ export default function DashboardPage() {
             setTodayOrders(tData.length);
             setTodayCash(tData.filter(r => (r.payment_method || '').toLowerCase().includes('cash')).reduce((s, r) => s + (r.total_amount || 0), 0));
             setTodayMpesa(tData.filter(r => (r.payment_method || '').toLowerCase().includes('mpesa')).reduce((s, r) => s + (r.total_amount || 0), 0));
+            setTodayKcb(tData.filter(r => (r.payment_method || '').toLowerCase().includes('kcb')).reduce((s, r) => s + (r.total_amount || 0), 0));
             setTodayCredit(tData.filter(r => (r.payment_method || '').toLowerCase().includes('credit')).reduce((s, r) => s + (r.total_amount || 0), 0));
 
             // ── Yesterday's Sales ──
@@ -117,16 +119,17 @@ export default function DashboardPage() {
             const end = new Date(dateTo);
             for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
                 const key = d.toISOString().split('T')[0];
-                salesMap.set(key, { date: key, cash: 0, mpesa: 0, credit: 0, total: 0, orders: 0 });
+                salesMap.set(key, { date: key, cash: 0, mpesa: 0, credit: 0, kcb: 0, total: 0, orders: 0 });
             }
             (rangeSales || []).forEach(s => {
                 const key = s.sale_date;
-                if (!salesMap.has(key)) salesMap.set(key, { date: key, cash: 0, mpesa: 0, credit: 0, total: 0, orders: 0 });
+                if (!salesMap.has(key)) salesMap.set(key, { date: key, cash: 0, mpesa: 0, credit: 0, kcb: 0, total: 0, orders: 0 });
                 const entry = salesMap.get(key)!;
                 const amt = s.total_amount || 0;
                 const method = (s.payment_method || '').toLowerCase();
                 entry.total += amt; entry.orders += 1;
-                if (method.includes('mpesa')) entry.mpesa += amt;
+                if (method.includes('kcb')) entry.kcb += amt;
+                else if (method.includes('mpesa')) entry.mpesa += amt;
                 else if (method.includes('credit')) entry.credit += amt;
                 else entry.cash += amt;
             });
@@ -268,6 +271,17 @@ export default function DashboardPage() {
                 pointHoverRadius: 5,
             },
             {
+                label: 'KCB Buni',
+                data: dailySales.map(d => d.kcb),
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                fill: false,
+                tension: 0.4,
+                borderWidth: 2,
+                pointRadius: 0,
+                pointHoverRadius: 5,
+            },
+            {
                 label: 'Credit',
                 data: dailySales.map(d => d.credit),
                 borderColor: '#ef4444',
@@ -311,6 +325,7 @@ export default function DashboardPage() {
         datasets: [
             { label: 'Cash', data: dailySales.map(d => d.cash), backgroundColor: 'rgba(16, 185, 129, 0.8)', borderRadius: 6, barPercentage: 0.7 },
             { label: 'M-Pesa', data: dailySales.map(d => d.mpesa), backgroundColor: 'rgba(245, 158, 11, 0.8)', borderRadius: 6, barPercentage: 0.7 },
+            { label: 'KCB Buni', data: dailySales.map(d => d.kcb), backgroundColor: 'rgba(59, 130, 246, 0.8)', borderRadius: 6, barPercentage: 0.7 },
             { label: 'Credit', data: dailySales.map(d => d.credit), backgroundColor: 'rgba(239, 68, 68, 0.7)', borderRadius: 6, barPercentage: 0.7 },
         ],
     };
@@ -371,12 +386,12 @@ export default function DashboardPage() {
     };
 
     // Payment donut
-    const totalPayments = todayCash + todayMpesa + todayCredit;
+    const totalPayments = todayCash + todayMpesa + todayKcb + todayCredit;
     const donutData = {
-        labels: ['Cash', 'M-Pesa', 'Credit'],
+        labels: ['Cash', 'M-Pesa', 'KCB Buni', 'Credit'],
         datasets: [{
-            data: [todayCash || 0.01, todayMpesa || 0.01, todayCredit || 0.01],
-            backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+            data: [todayCash || 0.01, todayMpesa || 0.01, todayKcb || 0.01, todayCredit || 0.01],
+            backgroundColor: ['#10b981', '#f59e0b', '#3b82f6', '#ef4444'],
             borderWidth: 0,
             cutout: '72%',
         }],
@@ -488,6 +503,12 @@ export default function DashboardPage() {
                     <p className="text-2xl font-extrabold mt-1">Ksh {fmt(todayMpesa)}</p>
                     <p className="text-xs opacity-70 mt-1">{totalPayments > 0 ? ((todayMpesa / totalPayments) * 100).toFixed(0) : 0}% of total</p>
                 </div>
+                {/* KCB Buni */}
+                <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl p-4 text-white shadow-lg shadow-blue-200/50">
+                    <p className="text-xs font-medium opacity-80">🏦 KCB Buni Today</p>
+                    <p className="text-2xl font-extrabold mt-1">Ksh {fmt(todayKcb)}</p>
+                    <p className="text-xs opacity-70 mt-1">{totalPayments > 0 ? ((todayKcb / totalPayments) * 100).toFixed(0) : 0}% of total</p>
+                </div>
                 {/* Credit */}
                 <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl p-4 text-white shadow-lg shadow-red-200/50">
                     <p className="text-xs font-medium opacity-80">🏦 Credit Today</p>
@@ -546,6 +567,7 @@ export default function DashboardPage() {
                         {[
                             { label: 'Cash', value: todayCash, color: '#10b981', icon: '💵' },
                             { label: 'M-Pesa', value: todayMpesa, color: '#f59e0b', icon: '📱' },
+                            { label: 'KCB Buni', value: todayKcb, color: '#3b82f6', icon: '🏦' },
                             { label: 'Credit', value: todayCredit, color: '#ef4444', icon: '🏦' },
                         ].map(m => (
                             <div key={m.label} className="flex items-center gap-2">
