@@ -179,12 +179,13 @@ export default function KcbSettingsPage() {
 
                     {/* Info box */}
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                        <p className="text-xs text-blue-700 font-medium">ℹ️ How to get credentials</p>
+                        <p className="text-xs text-blue-700 font-medium">ℹ️ How to get PRODUCTION credentials</p>
                         <ol className="text-xs text-blue-600 mt-1 space-y-0.5 list-decimal list-inside">
-                            <li>Go to sandbox.buni.kcbgroup.com/devportal</li>
-                            <li>Applications → DefaultApplication</li>
-                            <li>Sandbox Keys → OAuth2 Tokens</li>
+                            <li>Go to developer.buni.kcbgroup.com/devportal</li>
+                            <li>Applications → your application</li>
+                            <li>Production Keys → Generate Keys</li>
                             <li>Copy Consumer Key and Consumer Secret</li>
+                            <li>Till Number = your KCB Paybill/Till e.g. 5891388</li>
                         </ol>
                     </div>
 

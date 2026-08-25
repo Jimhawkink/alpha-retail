@@ -6,8 +6,8 @@
 // Each outlet has its own kcb_consumer_key, kcb_consumer_secret,
 // kcb_till_number — configured via /dashboard/kcb-settings.
 //
-// Token URL:  https://accounts.buni.kcbgroup.com/oauth2/token
-// STK URL:    https://uat.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush
+// Token URL:  https://api.buni.kcbgroup.com/token  (PRODUCTION)
+// STK URL:    https://api.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush  (PRODUCTION)
 // ═══════════════════════════════════════════════════════════════
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
@@ -22,8 +22,8 @@ const supabase = createClient(
 
 const KCB_ROUTE_CODE   = '207';
 const KCB_CALLBACK_URL = process.env.KCB_CALLBACK_URL || 'https://alpha-retail.vercel.app/api/kcb/callback';
-const TOKEN_URL        = 'https://accounts.buni.kcbgroup.com/oauth2/token';
-const STK_URL          = 'https://uat.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush';
+const TOKEN_URL        = 'https://api.buni.kcbgroup.com/token';
+const STK_URL          = 'https://api.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush';
 
 // Cooldown: KCB blocks same phone within ~90 seconds
 const lastPushTime = new Map<string, number>();
