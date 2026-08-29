@@ -88,15 +88,13 @@ export default function PurchaseEntryPage() {
             if (!activeOutlet) return; // Wait for outlet context
             setIsLoading(true);
             try {
-                // Products: try with outlet_id, fallback without
-                let prodData: any[] | null = null;
-                const r1 = await supabase.from('retail_products').select('pid, product_code, product_name, purchase_unit, sales_unit, purchase_cost, sales_cost, category, pieces_per_package, barcode').eq('active', true).eq('outlet_id', outletId).order('product_name');
-                if (r1.error) {
-                    const r2 = await supabase.from('retail_products').select('pid, product_code, product_name, purchase_unit, sales_unit, purchase_cost, sales_cost, category, pieces_per_package, barcode').eq('active', true).order('product_name');
-                    prodData = r2.data;
-                } else {
-                    prodData = r1.data;
-                }
+                // Load ALL products — limit 2000 (Supabase default is 1000, you have 1249 products)
+                const { data: prodData } = await supabase
+                    .from('retail_products')
+                    .select('pid, product_code, product_name, purchase_unit, sales_unit, purchase_cost, sales_cost, category, pieces_per_package, barcode')
+                    .neq('active', false)
+                    .order('product_name')
+                    .limit(2000);
 
                 // Load ALL suppliers — no active filter (avoids issues if column is null or missing)
                 const { data: suppData, error: suppErr } = await supabase

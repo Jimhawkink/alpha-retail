@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -18,6 +19,7 @@ interface Sale {
 
 interface SaleItem {
     item_id: number;
+    _idx: number;  // local unique index since item_id is null in DB
     sale_id: number;
     product_id: number;
     product_name: string;
@@ -56,10 +58,11 @@ const Spinner = ({ cls = 'w-5 h-5' }: { cls?: string }) => (
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function SalesReturnPage() {
 
-    // User / outlet
+    // User / outlet — use the same hook as POS and purchase pages
+    const { activeOutlet } = useOutlet();
+    const outletId = activeOutlet?.outlet_id || null;
     const [userName, setUserName] = useState('Admin');
     const [isCashier, setIsCashier] = useState(false);
-    const [outletId, setOutletId] = useState<number | null>(null);
 
     // Returns history
     const [returns, setReturns] = useState<ReturnRecord[]>([]);
@@ -85,7 +88,7 @@ export default function SalesReturnPage() {
     const [returnReason, setReturnReason] = useState('Wrong Order');
     const [isProcessing, setIsProcessing] = useState(false);
 
-    // ── Init user & outlet ───────────────────────────────────────────────────
+    // ── Init user ────────────────────────────────────────────────────────────
     useEffect(() => {
         try {
             const ud = localStorage.getItem('user');
@@ -94,8 +97,6 @@ export default function SalesReturnPage() {
                 setUserName(p.name || p.username || 'Admin');
                 setIsCashier(['cashier', 'waiter'].includes((p.userType || '').toLowerCase()));
             }
-            const od = localStorage.getItem('activeOutlet');
-            if (od) { const p = JSON.parse(od); setOutletId(p.outlet_id || null); }
         } catch { /* ignore */ }
     }, []);
 
@@ -110,13 +111,15 @@ export default function SalesReturnPage() {
     useEffect(() => { loadReturns(); }, [loadReturns]);
 
     // ── Fetch sales list ─────────────────────────────────────────────────────
-    const fetchSales = useCallback(async (query = '', date = '') => {
+    const fetchSales = useCallback(async (query = '', date = '', currentOutletId: number | null = null) => {
         setIsSearching(true);
         let q = supabase
             .from('retail_sales')
             .select('sale_id,receipt_no,sale_date,customer_name,total_amount,payment_method,outlet_id,created_by')
             .order('sale_id', { ascending: false })
             .limit(40);
+        // Filter by current outlet only
+        if (currentOutletId) q = q.eq('outlet_id', currentOutletId);
         if (query.trim()) q = q.or(`receipt_no.ilike.%${query.trim()}%,customer_name.ilike.%${query.trim()}%`);
         if (date) q = q.eq('sale_date', date);
         const { data } = await q;
@@ -128,8 +131,8 @@ export default function SalesReturnPage() {
     useEffect(() => {
         if (!showLookup || step !== 1) return;
         if (debounceRef.current) clearTimeout(debounceRef.current);
-        debounceRef.current = setTimeout(() => fetchSales(saleSearch, dateFilter), 350);
-    }, [saleSearch, dateFilter, showLookup, step, fetchSales]);
+        debounceRef.current = setTimeout(() => fetchSales(saleSearch, dateFilter, outletId), 350);
+    }, [saleSearch, dateFilter, showLookup, step, fetchSales, outletId]);
 
     // ── Open lookup ──────────────────────────────────────────────────────────
     const openLookup = () => {
@@ -141,7 +144,7 @@ export default function SalesReturnPage() {
         setSelectedSale(null);
         setSaleItems([]);
         setReturnReason('Wrong Order');
-        fetchSales();
+        fetchSales('', '', outletId);
     };
 
     const closeLookup = () => {
@@ -159,26 +162,28 @@ export default function SalesReturnPage() {
         setSelectedSale(sale);
         setLoadingItems(true);
         setStep(2);
+        const sid = Number(sale.sale_id);
         const { data } = await supabase
             .from('retail_sales_items')
             .select('item_id,sale_id,product_id,product_name,quantity,unit_price,subtotal')
-            .eq('sale_id', sale.sale_id);
-        setSaleItems((data || []).map((i: any) => ({ ...i, returnQty: 0, selected: false })));
+            .eq('sale_id', sid);
+        // Add _idx as unique key since item_id is null in DB for many records
+        setSaleItems((data || []).map((i: any, idx: number) => ({ ...i, _idx: idx, returnQty: 0, selected: false })));
         setLoadingItems(false);
     }, []);
 
     // ── Item selection helpers ───────────────────────────────────────────────
-    const toggleItem = (item_id: number) => {
+    const toggleItem = (_idx: number) => {
         setSaleItems(prev => prev.map(i =>
-            i.item_id === item_id
+            i._idx === _idx
                 ? { ...i, selected: !i.selected, returnQty: !i.selected ? i.quantity : 0 }
                 : i
         ));
     };
 
-    const setReturnQty = (item_id: number, val: number) => {
+    const setReturnQty = (_idx: number, val: number) => {
         setSaleItems(prev => prev.map(i => {
-            if (i.item_id !== item_id) return i;
+            if (i._idx !== _idx) return i;
             const capped = Math.min(Math.max(0, val), i.quantity);
             return { ...i, returnQty: capped, selected: capped > 0 };
         }));
@@ -209,7 +214,7 @@ export default function SalesReturnPage() {
                 return_date: today,
                 original_sale_id: originalRef,
                 product_name: item.product_name,
-                quantity: item.returnQty,
+                quantity: Math.round(item.returnQty * 100) / 100,
                 unit_price: item.unit_price,
                 total_amount: Math.round(item.returnQty * item.unit_price),
                 reason: returnReason,
@@ -217,20 +222,24 @@ export default function SalesReturnPage() {
                 processed_by: userName,
             }));
 
-            const { error: insErr } = await supabase.from('sales_returns').insert(records);
-            if (insErr) throw insErr;
-
-            // Restore stock
-            if (outletId) {
-                const stockRows = toReturn.filter(i => i.product_id).map(i => ({
+            const stockRows = outletId
+                ? toReturn.filter(i => i.product_id).map(i => ({
                     pid: i.product_id,
                     invoice_no: `RTN-${returnNo}`,
                     qty: i.returnQty,
                     storage_type: 'Pieces',
                     outlet_id: outletId,
-                }));
-                if (stockRows.length) await supabase.from('retail_stock').insert(stockRows);
-            }
+                }))
+                : [];
+
+            // Use API route with service role key to bypass RLS on sales_returns
+            const res = await fetch('/api/sales-return', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ records, stockRows }),
+            });
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.error || 'Failed to process return');
 
             const totalRefund = toReturn.reduce((s, i) => s + i.returnQty * i.unit_price, 0);
             toast.success(`Return ${returnNo} — Ksh ${Math.round(totalRefund).toLocaleString()} refunded`);
@@ -521,7 +530,7 @@ export default function SalesReturnPage() {
                                             </p>
                                             {saleItems.map(item => (
                                                 <div
-                                                    key={item.item_id}
+                                                    key={item._idx}
                                                     className={`rounded-2xl border-2 p-4 transition-all ${
                                                         item.selected ? 'border-rose-400 bg-rose-50/60' : 'border-gray-100 bg-white hover:border-gray-200'
                                                     }`}
@@ -529,7 +538,7 @@ export default function SalesReturnPage() {
                                                     <div className="flex items-center gap-3 flex-wrap">
                                                         {/* Checkbox */}
                                                         <button
-                                                            onClick={() => toggleItem(item.item_id)}
+                                                            onClick={() => toggleItem(item._idx)}
                                                             className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all ${
                                                                 item.selected ? 'bg-rose-500 border-rose-500 text-white' : 'border-gray-300 hover:border-rose-400'
                                                             }`}
@@ -542,7 +551,7 @@ export default function SalesReturnPage() {
                                                         </button>
 
                                                         {/* Product info */}
-                                                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => toggleItem(item.item_id)}>
+                                                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => toggleItem(item._idx)}>
                                                             <p className="font-semibold text-gray-800 text-sm truncate">{item.product_name}</p>
                                                             <p className="text-xs text-gray-400 mt-0.5">
                                                                 Sold: <strong>{item.quantity}</strong> × Ksh {item.unit_price.toLocaleString()}
@@ -557,7 +566,7 @@ export default function SalesReturnPage() {
                                                                 <span className="text-xs text-gray-500 font-medium hidden sm:block">Return:</span>
                                                                 <div className="flex items-center border-2 border-rose-200 rounded-xl overflow-hidden bg-white">
                                                                     <button
-                                                                        onClick={() => setReturnQty(item.item_id, item.returnQty - 1)}
+                                                                        onClick={() => setReturnQty(item._idx, item.returnQty - 1)}
                                                                         className="w-8 h-8 flex items-center justify-center text-rose-500 hover:bg-rose-50 font-bold text-lg transition-colors"
                                                                     >−</button>
                                                                     <input
@@ -565,11 +574,11 @@ export default function SalesReturnPage() {
                                                                         min={0}
                                                                         max={item.quantity}
                                                                         value={item.returnQty}
-                                                                        onChange={e => setReturnQty(item.item_id, parseFloat(e.target.value) || 0)}
+                                                                        onChange={e => setReturnQty(item._idx, parseFloat(e.target.value) || 0)}
                                                                         className="w-12 text-center text-sm font-bold text-gray-800 focus:outline-none py-1"
                                                                     />
                                                                     <button
-                                                                        onClick={() => setReturnQty(item.item_id, item.returnQty + 1)}
+                                                                        onClick={() => setReturnQty(item._idx, item.returnQty + 1)}
                                                                         className="w-8 h-8 flex items-center justify-center text-rose-500 hover:bg-rose-50 font-bold text-lg transition-colors"
                                                                     >+</button>
                                                                 </div>
