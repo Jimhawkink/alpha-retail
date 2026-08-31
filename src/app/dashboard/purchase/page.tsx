@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
@@ -47,6 +47,8 @@ export default function PurchaseEntryPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [productSearch, setProductSearch] = useState('');
     const [showProductDropdown, setShowProductDropdown] = useState(false);
+    const [isSearching, setIsSearching] = useState(false);
+    const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Form
     const [invoiceNo, setInvoiceNo] = useState('');
@@ -263,13 +265,26 @@ export default function PurchaseEntryPage() {
     const subtotal = items.reduce((s, i) => s + i.total, 0);
     const total = subtotal;
 
-    // Products filtered only when search has text
-    const filteredProducts = productSearch.trim().length >= 1
-        ? products.filter(p => {
-            const q = productSearch.toLowerCase();
-            return p.product_name.toLowerCase().includes(q) || p.product_code.toLowerCase().includes(q) || (p.barcode && p.barcode.includes(productSearch));
-        }).slice(0, 15)
-        : [];
+    // ── Live server-side product search — bypasses 1000-row Supabase limit ──
+    useEffect(() => {
+        if (productSearch.trim().length < 1) { setProducts([]); return; }
+        if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+        searchDebounceRef.current = setTimeout(async () => {
+            setIsSearching(true);
+            const q = productSearch.trim();
+            const { data } = await supabase
+                .from('retail_products')
+                .select('pid, product_code, product_name, purchase_unit, sales_unit, purchase_cost, sales_cost, category, pieces_per_package, barcode')
+                .neq('active', false)
+                .or(`product_name.ilike.%${q}%,product_code.ilike.%${q}%,barcode.ilike.%${q}%`)
+                .limit(20);
+            setProducts(data || []);
+            setIsSearching(false);
+        }, 300);
+    }, [productSearch]);
+
+    // Products filtered — now just use the server search results directly
+    const filteredProducts = products.slice(0, 15);
 
     // ─── SAVE PURCHASE ───
     const savePurchase = async () => {
