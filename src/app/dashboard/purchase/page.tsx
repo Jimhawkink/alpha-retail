@@ -272,18 +272,34 @@ export default function PurchaseEntryPage() {
         searchDebounceRef.current = setTimeout(async () => {
             setIsSearching(true);
             const q = productSearch.trim();
-            const { data } = await supabase
+            // Stage 1: products whose name/code STARTS WITH query (highest relevance)
+            const { data: prefixData } = await supabase
+                .from('retail_products')
+                .select('pid, product_code, product_name, purchase_unit, sales_unit, purchase_cost, sales_cost, category, pieces_per_package, barcode')
+                .neq('active', false)
+                .or(`product_name.ilike.${q}%,product_code.ilike.${q}%,barcode.ilike.${q}%`)
+                .order('product_name')
+                .limit(10);
+            // Stage 2: products CONTAINING query anywhere (lower relevance)
+            const { data: containsData } = await supabase
                 .from('retail_products')
                 .select('pid, product_code, product_name, purchase_unit, sales_unit, purchase_cost, sales_cost, category, pieces_per_package, barcode')
                 .neq('active', false)
                 .or(`product_name.ilike.%${q}%,product_code.ilike.%${q}%,barcode.ilike.%${q}%`)
-                .limit(20);
-            setProducts(data || []);
+                .order('product_name')
+                .limit(15);
+            // Merge: prefix results first, then contains (deduplicate by pid)
+            const prefixPids = new Set((prefixData || []).map((p: any) => p.pid));
+            const merged = [
+                ...(prefixData || []),
+                ...(containsData || []).filter((p: any) => !prefixPids.has(p.pid))
+            ].slice(0, 15);
+            setProducts(merged);
             setIsSearching(false);
         }, 300);
     }, [productSearch]);
 
-    // Products filtered — now just use the server search results directly
+    // Products — populated by server search above
     const filteredProducts = products.slice(0, 15);
 
     // ─── SAVE PURCHASE ───
