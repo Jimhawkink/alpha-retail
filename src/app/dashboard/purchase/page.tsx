@@ -265,7 +265,7 @@ export default function PurchaseEntryPage() {
     const subtotal = items.reduce((s, i) => s + i.total, 0);
     const total = subtotal;
 
-    // ── Live server-side product search — bypasses 1000-row Supabase limit ──
+    // ── Live server-side product search — current outlet only ──────────────
     useEffect(() => {
         if (productSearch.trim().length < 1) { setProducts([]); return; }
         if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
@@ -276,6 +276,7 @@ export default function PurchaseEntryPage() {
             const { data: prefixData } = await supabase
                 .from('retail_products')
                 .select('pid, product_code, product_name, purchase_unit, sales_unit, purchase_cost, sales_cost, category, pieces_per_package, barcode')
+                .eq('outlet_id', outletId)
                 .neq('active', false)
                 .or(`product_name.ilike.${q}%,product_code.ilike.${q}%,barcode.ilike.${q}%`)
                 .order('product_name')
@@ -284,6 +285,7 @@ export default function PurchaseEntryPage() {
             const { data: containsData } = await supabase
                 .from('retail_products')
                 .select('pid, product_code, product_name, purchase_unit, sales_unit, purchase_cost, sales_cost, category, pieces_per_package, barcode')
+                .eq('outlet_id', outletId)
                 .neq('active', false)
                 .or(`product_name.ilike.%${q}%,product_code.ilike.%${q}%,barcode.ilike.%${q}%`)
                 .order('product_name')
@@ -297,7 +299,7 @@ export default function PurchaseEntryPage() {
             setProducts(merged);
             setIsSearching(false);
         }, 300);
-    }, [productSearch]);
+    }, [productSearch, outletId]);
 
     // Products — populated by server search above
     const filteredProducts = products.slice(0, 15);
