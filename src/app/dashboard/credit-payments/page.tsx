@@ -139,7 +139,7 @@ export default function CreditPaymentsPage() {
         setIsProcessing(true);
         try {
             const balanceBefore = selectedCustomer.current_balance;
-            const balanceAfter = balanceBefore - amount;
+            const balanceAfter = balanceBefore + amount;  // balance is negative (debt), payment reduces it
             const now = new Date().toISOString();
 
             // 1. Record payment in credit_payments table — FULL DETAILS
