@@ -232,16 +232,29 @@ export default function SalesReturnPage() {
                 }))
                 : [];
 
+            const totalRefund = toReturn.reduce((s, i) => s + i.returnQty * i.unit_price, 0);
+
+            // Items info for updating retail_sales_items quantities
+            const returnItems = toReturn.map(i => ({
+                product_id: i.product_id,
+                returnQty: Math.round(i.returnQty * 100) / 100,
+            }));
+
             // Use API route with service role key to bypass RLS on sales_returns
             const res = await fetch('/api/sales-return', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ records, stockRows }),
+                body: JSON.stringify({
+                    records,
+                    stockRows,
+                    saleId: Number(selectedSale?.sale_id),
+                    totalRefundAmount: Math.round(totalRefund),
+                    returnItems,
+                }),
             });
             const result = await res.json();
             if (!res.ok) throw new Error(result.error || 'Failed to process return');
 
-            const totalRefund = toReturn.reduce((s, i) => s + i.returnQty * i.unit_price, 0);
             toast.success(`Return ${returnNo} — Ksh ${Math.round(totalRefund).toLocaleString()} refunded`);
             closeLookup();
             loadReturns();
