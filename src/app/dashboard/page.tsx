@@ -106,7 +106,7 @@ export default function DashboardPage() {
 
             // ── Credit Paid Today — payments received from credit customers ──
             const { data: cpData } = await supabase.from('retail_credit_payments')
-                .select('amount_paid').eq('payment_date', today).eq('outlet_id', outletId);
+                .select('amount_paid').eq('payment_date', today).eq('outlet_id', outletId).eq('transaction_type', 'payment');
             setTodayCreditPaid((cpData || []).reduce((s: number, r: any) => s + (Number(r.amount_paid) || 0), 0));
 
             // ── Yesterday's Sales ──
@@ -538,13 +538,11 @@ export default function DashboardPage() {
                 </div>
                 )}
                 {/* Credit Paid Today */}
-                {todayCreditPaid > 0 && (
                 <div className="bg-gradient-to-br from-teal-500 to-cyan-600 rounded-2xl p-4 text-white shadow-lg shadow-teal-200/50">
                     <p className="text-xs font-medium opacity-80">💰 Credit Paid Today</p>
                     <p className="text-2xl font-extrabold mt-1">Ksh {fmt(todayCreditPaid)}</p>
                     <p className="text-xs opacity-70 mt-1">Collections from debtors</p>
                 </div>
-                )}
                 {/* Net Profit */}
                 <div className="bg-gradient-to-br from-violet-600 to-purple-700 rounded-2xl p-4 text-white shadow-lg shadow-purple-200/50 relative overflow-hidden">
                     <div className="absolute -top-4 -left-4 w-16 h-16 bg-white/10 rounded-full" />
