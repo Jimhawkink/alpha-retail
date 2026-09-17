@@ -63,6 +63,13 @@ export default function DashboardPage() {
     const [lowStock, setLowStock] = useState<LowStockItem[]>([]);
     const [userSales, setUserSales] = useState<UserSalesData[]>([]);
     const [recentPurchases, setRecentPurchases] = useState<RecentPurchase[]>([]);
+    const [hourlyData, setHourlyData] = useState<{hour:number;sales:number;orders:number}[]>([]);
+    const [topDebtors, setTopDebtors] = useState<{name:string;phone:string;balance:number}[]>([]);
+    const [outstandingCredit, setOutstandingCredit] = useState(0);
+    const [totalCreditCustomers, setTotalCreditCustomers] = useState(0);
+    const [totalReturnsRange, setTotalReturnsRange] = useState(0);
+    const [todayProfit, setTodayProfit] = useState(0);
+    const [totalRangeProfit, setTotalRangeProfit] = useState(0);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     // ──── Date Presets ────
@@ -88,7 +95,7 @@ export default function DashboardPage() {
 
         try {
             // ── Today's Sales by payment method ── (using retail_sales, filtered by outlet)
-            const { data: todayData } = await supabase.from('retail_sales').select('total_amount, payment_method, receipt_no').eq('sale_date', today).eq('outlet_id', outletId);
+            const { data: todayData } = await supabase.from('retail_sales').select('total_amount, payment_method, receipt_no, sale_datetime, profit').eq('sale_date', today).eq('outlet_id', outletId);
             const tData = todayData || [];
             setTodaySales(tData.reduce((s: number, r: any) => s + (r.total_amount || 0), 0));
             setTodayOrders(tData.length);
@@ -96,6 +103,15 @@ export default function DashboardPage() {
             setTodayMpesa(tData.filter((r: any) => (r.payment_method || '').toLowerCase().includes('mpesa')).reduce((s: number, r: any) => s + (r.total_amount || 0), 0));
             setTodayKcb(tData.filter((r: any) => (r.payment_method || '').toLowerCase().includes('kcb')).reduce((s: number, r: any) => s + (r.total_amount || 0), 0));
             setTodayCredit(tData.filter((r: any) => (r.payment_method || '').toLowerCase().includes('credit')).reduce((s: number, r: any) => s + (r.total_amount || 0), 0));
+            setTodayProfit(tData.reduce((s: number, r: any) => s + (Number(r.profit) || 0), 0));
+
+            // ── Hourly Sales Distribution ──
+            const hrs = Array.from({length: 24}, (_, i) => ({hour: i, sales: 0, orders: 0}));
+            tData.forEach((s: any) => {
+                const dt = s.sale_datetime ? new Date(s.sale_datetime) : null;
+                if (dt) { const h = dt.getHours(); hrs[h].sales += s.total_amount || 0; hrs[h].orders += 1; }
+            });
+            setHourlyData(hrs);
 
             // ── Today's Returns — cross-reference sales_returns with outlet's receipt_nos ──
             const todayReceiptNos = tData.map((r: any) => r.receipt_no).filter(Boolean);
@@ -121,7 +137,7 @@ export default function DashboardPage() {
             // ── Daily Sales Trend (by date range, broken by payment method) ──
             const { data: rangeSales } = await supabase
                 .from('retail_sales')
-                .select('sale_date, total_amount, payment_method')
+                .select('sale_date, total_amount, payment_method, profit')
                 .gte('sale_date', dateFrom)
                 .lte('sale_date', dateTo)
                 .eq('outlet_id', outletId)
@@ -227,6 +243,27 @@ export default function DashboardPage() {
             setTotalAdvances(0);
             setTotalVouchers(0);
 
+            // ── Range Profit ──
+            setTotalRangeProfit((rangeSales || []).reduce((s: number, r: any) => s + (Number(r.profit) || 0), 0));
+
+            // ── Returns for date range ──
+            const { data: rangeRetData } = await supabase.from('sales_returns')
+                .select('total_amount').gte('return_date', dateFrom).lte('return_date', dateTo);
+            setTotalReturnsRange((rangeRetData || []).reduce((s: number, r: any) => s + (Number(r.total_amount) || 0), 0));
+
+            // ── Top Debtors ──
+            const { data: debtorsData } = await supabase.from('retail_credit_customers')
+                .select('customer_name, phone, current_balance').eq('outlet_id', outletId)
+                .lt('current_balance', 0).eq('active', true)
+                .order('current_balance', { ascending: true }).limit(8);
+            setTopDebtors((debtorsData || []).map((d: any) => ({ name: d.customer_name, phone: d.phone, balance: Math.abs(d.current_balance || 0) })));
+
+            // ── Outstanding Credit Total ──
+            const { data: allDebtData } = await supabase.from('retail_credit_customers')
+                .select('current_balance').eq('outlet_id', outletId).lt('current_balance', 0).eq('active', true);
+            setOutstandingCredit((allDebtData || []).reduce((s: number, r: any) => s + Math.abs(r.current_balance || 0), 0));
+            setTotalCreditCustomers((allDebtData || []).length);
+
         } catch (err) { console.error('Dashboard error:', err); }
         setIsLoading(false);
     }, [dateFrom, dateTo, outletId]);
@@ -239,6 +276,12 @@ export default function DashboardPage() {
     const totalRangeSales = dailySales.reduce((s, d) => s + d.total, 0);
     const totalRangeOrders = dailySales.reduce((s, d) => s + d.orders, 0);
     const avgOrderValue = totalRangeOrders > 0 ? Math.round(totalRangeSales / totalRangeOrders) : 0;
+    const profitMarginPct = totalRangeSales > 0 ? Math.round(totalRangeProfit / totalRangeSales * 100) : 0;
+    const returnRatePct = totalRangeSales > 0 ? +(totalReturnsRange / totalRangeSales * 100).toFixed(1) : 0;
+    const todayProfitMarginPct = todaySales > 0 ? Math.round(todayProfit / todaySales * 100) : 0;
+    const maxHourlySales = Math.max(...hourlyData.map(h => h.sales), 1);
+    const peakHour = hourlyData.reduce((best, h) => h.sales > best.sales ? h : best, { hour: 0, sales: 0, orders: 0 });
+    const activeHours = hourlyData.filter(h => h.orders > 0);
 
     // ──── Chart Configs ────
     const chartLabels = dailySales.map(d => {
@@ -795,6 +838,191 @@ export default function DashboardPage() {
                     <a href="/dashboard/bills" className="text-xs underline opacity-70 hover:opacity-100 mt-1 inline-block">View →</a>
                 </div>
             </div>
+
+            {/* ══════ Business Intelligence KPIs ══════ */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                    <div className="flex items-center gap-3">
+                        <span className="w-11 h-11 bg-emerald-100 rounded-xl flex items-center justify-center text-xl">📈</span>
+                        <div>
+                            <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Profit Margin</p>
+                            <p className={`text-3xl font-extrabold ${profitMarginPct >= 20 ? 'text-emerald-600' : profitMarginPct >= 10 ? 'text-amber-500' : 'text-red-500'}`}>{profitMarginPct}%</p>
+                            <p className="text-xs text-gray-400 mt-0.5">Gross margin · {rangePreset.toUpperCase()} period</p>
+                        </div>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-gray-50 flex justify-between text-xs text-gray-500">
+                        <span>Today: <b className={todayProfitMarginPct >= 15 ? 'text-emerald-600' : 'text-amber-500'}>{todayProfitMarginPct}%</b></span>
+                        <span>Profit: <b className="text-gray-700">Ksh {fmt(totalRangeProfit)}</b></span>
+                    </div>
+                </div>
+                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                    <div className="flex items-center gap-3">
+                        <span className="w-11 h-11 bg-rose-100 rounded-xl flex items-center justify-center text-xl">↩️</span>
+                        <div>
+                            <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Return Rate</p>
+                            <p className={`text-3xl font-extrabold ${returnRatePct < 2 ? 'text-emerald-600' : returnRatePct < 5 ? 'text-amber-500' : 'text-red-500'}`}>{returnRatePct}%</p>
+                            <p className="text-xs text-gray-400 mt-0.5">Returns vs gross sales</p>
+                        </div>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-gray-50 flex justify-between text-xs text-gray-500">
+                        <span>Returns: <b className="text-red-600">Ksh {fmt(totalReturnsRange)}</b></span>
+                        <span>{returnRatePct < 2 ? '✅ Excellent' : returnRatePct < 5 ? '⚠️ Monitor' : '🔴 High'}</span>
+                    </div>
+                </div>
+                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                    <div className="flex items-center gap-3">
+                        <span className="w-11 h-11 bg-red-100 rounded-xl flex items-center justify-center text-xl">💳</span>
+                        <div>
+                            <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Outstanding Debt</p>
+                            <p className="text-3xl font-extrabold text-red-600">Ksh {fmt(outstandingCredit)}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">{totalCreditCustomers} active debtors</p>
+                        </div>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-gray-50 flex justify-between text-xs text-gray-500">
+                        <span>Avg per debtor: <b className="text-gray-700">Ksh {totalCreditCustomers > 0 ? fmt(Math.round(outstandingCredit / totalCreditCustomers)) : '0'}</b></span>
+                        <a href="/dashboard/credit-customers" className="text-indigo-500 hover:underline">View →</a>
+                    </div>
+                </div>
+                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                    <div className="flex items-center gap-3">
+                        <span className="w-11 h-11 bg-indigo-100 rounded-xl flex items-center justify-center text-xl">⚡</span>
+                        <div>
+                            <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Peak Hour Today</p>
+                            <p className="text-3xl font-extrabold text-indigo-600">{activeHours.length > 0 ? `${peakHour.hour}:00` : '--:--'}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">{activeHours.length > 0 ? `Ksh ${fmt(peakHour.sales)} · ${peakHour.orders} orders` : 'No sales yet today'}</p>
+                        </div>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-gray-50 flex justify-between text-xs text-gray-500">
+                        <span>Avg order: <b className="text-gray-700">Ksh {fmt(avgOrderValue)}</b></span>
+                        <span>Active hrs: <b className="text-indigo-600">{activeHours.length}</b></span>
+                    </div>
+                </div>
+            </div>
+
+            {/* ══════ Hourly Heatmap + Top Debtors ══════ */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                {/* Hourly Sales Distribution */}
+                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                    <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
+                        <span className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-sm">⏱️</span>
+                        Hourly Sales — Today
+                        {activeHours.length > 0 && <span className="ml-auto text-xs text-gray-400">Peak: {peakHour.hour}:00h · Ksh {fmt(peakHour.sales)}</span>}
+                    </h3>
+                    {activeHours.length === 0 ? (
+                        <div className="h-40 flex items-center justify-center text-gray-400 text-sm">No sales recorded today yet</div>
+                    ) : (
+                        <div className="space-y-2 overflow-auto max-h-80">
+                            {hourlyData.filter(h => h.orders > 0).map(h => {
+                                const pct = Math.round(h.sales / maxHourlySales * 100);
+                                const isP = h.hour === peakHour.hour;
+                                return (
+                                    <div key={h.hour} className="flex items-center gap-2 text-xs">
+                                        <span className="w-10 text-gray-500 text-right font-mono">{String(h.hour).padStart(2,'0')}:00</span>
+                                        <div className="flex-1 bg-gray-100 rounded-full h-5 overflow-hidden">
+                                            <div className={`h-full rounded-full transition-all ${isP ? 'bg-gradient-to-r from-indigo-500 to-purple-600' : 'bg-gradient-to-r from-blue-400 to-indigo-400'}`} style={{width:`${pct}%`}} />
+                                        </div>
+                                        <span className="w-20 text-right font-bold text-gray-700">Ksh {fmt(h.sales)}</span>
+                                        <span className="w-10 text-right text-gray-400">{h.orders} ord</span>
+                                        {isP && <span className="text-yellow-500 text-base">🔥</span>}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* Top Debtors */}
+                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                    <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
+                        <span className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center text-sm">💳</span>
+                        Top Outstanding Debtors
+                        {outstandingCredit > 0 && <span className="ml-auto text-xs font-bold text-red-600">Total: Ksh {fmt(outstandingCredit)}</span>}
+                    </h3>
+                    <div className="overflow-auto max-h-80">
+                        {topDebtors.length === 0 ? (
+                            <div className="h-32 flex items-center justify-center text-gray-400 text-sm">✅ No outstanding debts</div>
+                        ) : (
+                            <table className="w-full text-sm">
+                                <thead className="sticky top-0 bg-gray-50">
+                                    <tr className="text-left text-xs font-semibold text-gray-500 uppercase">
+                                        <th className="py-2 px-2">#</th>
+                                        <th className="py-2 px-2">Customer</th>
+                                        <th className="py-2 px-2">Phone</th>
+                                        <th className="py-2 px-2 text-right">Owes</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {topDebtors.map((d, i) => (
+                                        <tr key={i} className="hover:bg-red-50/50 transition">
+                                            <td className="py-2 px-2">
+                                                <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold text-white ${i === 0 ? 'bg-red-500' : i === 1 ? 'bg-orange-500' : 'bg-amber-500'}`}>{i+1}</span>
+                                            </td>
+                                            <td className="py-2 px-2 font-semibold text-gray-800 max-w-[130px] truncate">{d.name}</td>
+                                            <td className="py-2 px-2 text-gray-500">{d.phone || '—'}</td>
+                                            <td className="py-2 px-2 text-right font-bold text-red-600">Ksh {d.balance.toLocaleString()}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                    {topDebtors.length > 0 && (
+                        <a href="/dashboard/credit-customers" className="mt-3 block text-center text-xs text-indigo-500 hover:underline font-medium">View all debtors →</a>
+                    )}
+                </div>
+            </div>
+
+            {/* ══════ Enhanced Cashier Performance ══════ */}
+            {userSales.length > 0 && (
+            <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
+                    <span className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center text-sm">🏆</span>
+                    Cashier Performance Breakdown
+                    <span className="ml-auto text-xs text-gray-400">{rangePreset.toUpperCase()} period</span>
+                </h3>
+                <div className="overflow-auto">
+                    <table className="w-full text-sm">
+                        <thead className="bg-gray-50">
+                            <tr className="text-left text-xs font-semibold text-gray-500 uppercase">
+                                <th className="py-2.5 px-3">Rank</th>
+                                <th className="py-2.5 px-3">Cashier</th>
+                                <th className="py-2.5 px-3 text-right">Orders</th>
+                                <th className="py-2.5 px-3 text-right">Revenue</th>
+                                <th className="py-2.5 px-3 text-right">Avg Sale</th>
+                                <th className="py-2.5 px-3 text-right">% Share</th>
+                                <th className="py-2.5 px-3">Performance</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                            {userSales.map((u, i) => {
+                                const share = totalRangeSales > 0 ? Math.round(u.sales / totalRangeSales * 100) : 0;
+                                const avg = u.orders > 0 ? Math.round(u.sales / u.orders) : 0;
+                                const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i+1}`;
+                                return (
+                                    <tr key={i} className={`transition ${i === 0 ? 'bg-yellow-50/50' : 'hover:bg-purple-50/30'}`}>
+                                        <td className="py-2.5 px-3 text-lg">{medal}</td>
+                                        <td className="py-2.5 px-3 font-semibold text-gray-800">{u.name}</td>
+                                        <td className="py-2.5 px-3 text-right text-indigo-600 font-bold">{u.orders}</td>
+                                        <td className="py-2.5 px-3 text-right font-bold text-gray-800">Ksh {u.sales.toLocaleString()}</td>
+                                        <td className="py-2.5 px-3 text-right text-gray-600">Ksh {avg.toLocaleString()}</td>
+                                        <td className="py-2.5 px-3 text-right">
+                                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${share >= 40 ? 'bg-emerald-100 text-emerald-700' : share >= 20 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>{share}%</span>
+                                        </td>
+                                        <td className="py-2.5 px-3">
+                                            <div className="flex items-center gap-1.5">
+                                                <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
+                                                    <div className={`h-full rounded-full ${i === 0 ? 'bg-gradient-to-r from-yellow-400 to-amber-500' : 'bg-gradient-to-r from-purple-400 to-indigo-500'}`} style={{width:`${share}%`}} />
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            )}
 
             {/* ══════ Quick Actions ══════ */}
             <div className="bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800 rounded-2xl p-5 text-white">
