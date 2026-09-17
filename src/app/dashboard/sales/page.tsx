@@ -54,6 +54,8 @@ export default function SalesPage() {
     const [saleItemsCache, setSaleItemsCache] = useState<Record<number, SaleItem[]>>({});
     const [loadingItems, setLoadingItems] = useState<Set<number>>(new Set());
 
+    const [returnedSales, setReturnedSales] = useState<Set<string>>(new Set());
+
     // Load sales from database
     const loadSales = async () => {
         if (!activeOutlet) return;
@@ -76,9 +78,18 @@ export default function SalesPage() {
             } else {
                 data = r1.data;
             }
-            setSales(data || []);
+            const salesData = data || [];
+            setSales(salesData);
             setExpandedRows(new Set());
             setSaleItemsCache({});
+
+            // Mark returned receipts
+            const receiptNos = salesData.map((s: any) => s.receipt_no).filter(Boolean);
+            if (receiptNos.length > 0) {
+                const { data: retData } = await supabase
+                    .from('sales_returns').select('original_sale_id').in('original_sale_id', receiptNos);
+                setReturnedSales(new Set((retData || []).map((r: any) => r.original_sale_id)));
+            } else { setReturnedSales(new Set()); }
         } catch (err) {
             console.error('Error loading sales:', err);
             toast.error('Failed to load sales');
@@ -364,11 +375,16 @@ ${(sale.discount||0) > 0 ? `<div style="font-size:10px;">Discount: -Ksh ${sale.d
                                                     Ksh {(sale.total_amount || 0).toLocaleString()}
                                                 </td>
                                                 <td className="py-3 px-4 text-center">
-                                                    <span className={`px-3 py-1 rounded-lg text-sm font-medium ${sale.status === 'Completed' ? 'bg-green-100 text-green-700' :
-                                                        sale.status === 'Credit' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-                                                        }`}>
-                                                        {sale.status === 'Completed' ? '✅' : sale.status === 'Credit' ? '🔄' : '❌'} {sale.status}
-                                                    </span>
+                                                    <div className="flex items-center justify-center gap-1 flex-wrap">
+                                                        <span className={`px-3 py-1 rounded-lg text-sm font-medium ${sale.status === 'Completed' ? 'bg-green-100 text-green-700' :
+                                                            sale.status === 'Credit' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                                                            }`}>
+                                                            {sale.status === 'Completed' ? '✅' : sale.status === 'Credit' ? '🔄' : '❌'} {sale.status}
+                                                        </span>
+                                                        {returnedSales.has(sale.receipt_no) && (
+                                                            <span className="px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-700 border border-red-200">↩ Returned</span>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
                                                     <div className="flex items-center justify-center gap-2">

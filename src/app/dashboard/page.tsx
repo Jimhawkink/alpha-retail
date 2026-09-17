@@ -49,6 +49,7 @@ export default function DashboardPage() {
     const [todayKcb, setTodayKcb] = useState(0);
     const [todayCredit, setTodayCredit] = useState(0);
     const [todayReturns, setTodayReturns] = useState(0);
+    const [todayCreditPaid, setTodayCreditPaid] = useState(0);
     const [pendingBills, setPendingBills] = useState(0);
     const [totalExpenses, setTotalExpenses] = useState(0);
     const [totalAdvances, setTotalAdvances] = useState(0);
@@ -102,6 +103,11 @@ export default function DashboardPage() {
                 const { data: retData } = await supabase.from('sales_returns').select('total_amount').in('original_sale_id', todayReceiptNos);
                 setTodayReturns((retData || []).reduce((s: number, r: any) => s + (Number(r.total_amount) || 0), 0));
             } else { setTodayReturns(0); }
+
+            // ── Credit Paid Today — payments received from credit customers ──
+            const { data: cpData } = await supabase.from('retail_credit_payments')
+                .select('amount_paid').eq('payment_date', today).eq('outlet_id', outletId);
+            setTodayCreditPaid((cpData || []).reduce((s: number, r: any) => s + (Number(r.amount_paid) || 0), 0));
 
             // ── Yesterday's Sales ──
             const { data: yData } = await supabase.from('retail_sales').select('total_amount').eq('sale_date', yesterday).eq('outlet_id', outletId);
@@ -529,6 +535,14 @@ export default function DashboardPage() {
                     <p className="text-xs font-medium opacity-80">↩️ Returns Today</p>
                     <p className="text-2xl font-extrabold mt-1">Ksh {fmt(todayReturns)}</p>
                     <p className="text-xs opacity-70 mt-1">Goods returned &amp; refunded</p>
+                </div>
+                )}
+                {/* Credit Paid Today */}
+                {todayCreditPaid > 0 && (
+                <div className="bg-gradient-to-br from-teal-500 to-cyan-600 rounded-2xl p-4 text-white shadow-lg shadow-teal-200/50">
+                    <p className="text-xs font-medium opacity-80">💰 Credit Paid Today</p>
+                    <p className="text-2xl font-extrabold mt-1">Ksh {fmt(todayCreditPaid)}</p>
+                    <p className="text-xs opacity-70 mt-1">Collections from debtors</p>
                 </div>
                 )}
                 {/* Net Profit */}
