@@ -82,6 +82,8 @@ export default function FullSalesReportPage() {
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(50);
 
+    const [returnedSales, setReturnedSales] = useState<Set<string>>(new Set());
+
     // ─────────────────────────────────────────────────────────────────────────
     // Load sales only (items loaded on-demand when chevron clicked)
     // ─────────────────────────────────────────────────────────────────────────
@@ -115,6 +117,14 @@ export default function FullSalesReportPage() {
                 salesData = r2.data || [];
             }
             setSales(salesData);
+
+            // Load which receipts have returns — show RETURNED badge in STATUS column
+            const receiptNos = salesData.map((s: any) => s.receipt_no).filter(Boolean);
+            if (receiptNos.length > 0) {
+                const { data: retData } = await supabase
+                    .from('sales_returns').select('original_sale_id').in('original_sale_id', receiptNos);
+                setReturnedSales(new Set((retData || []).map((r: any) => r.original_sale_id)));
+            } else { setReturnedSales(new Set()); }
         } catch (e) { console.error('loadAll error:', e); setSales([]); }
         setLoading(false);
     }, [activeOutlet?.outlet_id, dateFrom, dateTo]);
@@ -493,6 +503,9 @@ export default function FullSalesReportPage() {
                                                 <td className="px-2 py-2.5 whitespace-nowrap">
                                                     <div className="flex items-center gap-1.5">
                                                         <Bdg txt={sale.status || 'Completed'} color={['Completed', 'Paid'].includes(sale.status) ? 'green' : 'amber'} />
+                                                        {returnedSales.has(sale.receipt_no) && (
+                                                            <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-red-100 text-red-700 border border-red-200">↩ Returned</span>
+                                                        )}
                                                         <button
                                                             onClick={(e) => reprintSale(sale, e)}
                                                             title="Reprint Invoice"

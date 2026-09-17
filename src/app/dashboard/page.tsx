@@ -48,6 +48,7 @@ export default function DashboardPage() {
     const [todayMpesa, setTodayMpesa] = useState(0);
     const [todayKcb, setTodayKcb] = useState(0);
     const [todayCredit, setTodayCredit] = useState(0);
+    const [todayReturns, setTodayReturns] = useState(0);
     const [pendingBills, setPendingBills] = useState(0);
     const [totalExpenses, setTotalExpenses] = useState(0);
     const [totalAdvances, setTotalAdvances] = useState(0);
@@ -86,14 +87,21 @@ export default function DashboardPage() {
 
         try {
             // ── Today's Sales by payment method ── (using retail_sales, filtered by outlet)
-            const { data: todayData } = await supabase.from('retail_sales').select('total_amount, payment_method').eq('sale_date', today).eq('outlet_id', outletId);
+            const { data: todayData } = await supabase.from('retail_sales').select('total_amount, payment_method, receipt_no').eq('sale_date', today).eq('outlet_id', outletId);
             const tData = todayData || [];
-            setTodaySales(tData.reduce((s, r) => s + (r.total_amount || 0), 0));
+            setTodaySales(tData.reduce((s: number, r: any) => s + (r.total_amount || 0), 0));
             setTodayOrders(tData.length);
-            setTodayCash(tData.filter(r => (r.payment_method || '').toLowerCase().includes('cash')).reduce((s, r) => s + (r.total_amount || 0), 0));
-            setTodayMpesa(tData.filter(r => (r.payment_method || '').toLowerCase().includes('mpesa')).reduce((s, r) => s + (r.total_amount || 0), 0));
-            setTodayKcb(tData.filter(r => (r.payment_method || '').toLowerCase().includes('kcb')).reduce((s, r) => s + (r.total_amount || 0), 0));
-            setTodayCredit(tData.filter(r => (r.payment_method || '').toLowerCase().includes('credit')).reduce((s, r) => s + (r.total_amount || 0), 0));
+            setTodayCash(tData.filter((r: any) => (r.payment_method || '').toLowerCase().includes('cash')).reduce((s: number, r: any) => s + (r.total_amount || 0), 0));
+            setTodayMpesa(tData.filter((r: any) => (r.payment_method || '').toLowerCase().includes('mpesa')).reduce((s: number, r: any) => s + (r.total_amount || 0), 0));
+            setTodayKcb(tData.filter((r: any) => (r.payment_method || '').toLowerCase().includes('kcb')).reduce((s: number, r: any) => s + (r.total_amount || 0), 0));
+            setTodayCredit(tData.filter((r: any) => (r.payment_method || '').toLowerCase().includes('credit')).reduce((s: number, r: any) => s + (r.total_amount || 0), 0));
+
+            // ── Today's Returns — cross-reference sales_returns with outlet's receipt_nos ──
+            const todayReceiptNos = tData.map((r: any) => r.receipt_no).filter(Boolean);
+            if (todayReceiptNos.length > 0) {
+                const { data: retData } = await supabase.from('sales_returns').select('total_amount').in('original_sale_id', todayReceiptNos);
+                setTodayReturns((retData || []).reduce((s: number, r: any) => s + (Number(r.total_amount) || 0), 0));
+            } else { setTodayReturns(0); }
 
             // ── Yesterday's Sales ──
             const { data: yData } = await supabase.from('retail_sales').select('total_amount').eq('sale_date', yesterday).eq('outlet_id', outletId);
@@ -515,6 +523,14 @@ export default function DashboardPage() {
                     <p className="text-2xl font-extrabold mt-1">Ksh {fmt(todayCredit)}</p>
                     <p className="text-xs opacity-70 mt-1">{totalPayments > 0 ? ((todayCredit / totalPayments) * 100).toFixed(0) : 0}% of total</p>
                 </div>
+                {/* Returns */}
+                {todayReturns > 0 && (
+                <div className="bg-gradient-to-br from-pink-600 to-red-700 rounded-2xl p-4 text-white shadow-lg shadow-pink-200/50">
+                    <p className="text-xs font-medium opacity-80">↩️ Returns Today</p>
+                    <p className="text-2xl font-extrabold mt-1">Ksh {fmt(todayReturns)}</p>
+                    <p className="text-xs opacity-70 mt-1">Goods returned &amp; refunded</p>
+                </div>
+                )}
                 {/* Net Profit */}
                 <div className="bg-gradient-to-br from-violet-600 to-purple-700 rounded-2xl p-4 text-white shadow-lg shadow-purple-200/50 relative overflow-hidden">
                     <div className="absolute -top-4 -left-4 w-16 h-16 bg-white/10 rounded-full" />
