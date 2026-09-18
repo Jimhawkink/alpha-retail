@@ -14,6 +14,7 @@ import {
 } from 'react-icons/fi';
 import { SettingsProvider, useCompanyName } from '@/context/SettingsContext';
 import { OutletProvider, useOutlet } from '@/context/OutletContext';
+import { FeatureProvider } from '@/context/FeatureContext';
 import { logActivity, supabase } from '@/lib/supabase';
 
 // ── Session timeout config ────────────────────────────────────────────
@@ -163,17 +164,18 @@ const menuGroups = [
         { href: '/dashboard/smart-insights',  label: 'Smart Insights 🧠',icon: FiZap,         roles: 'all', badge: 'AI' },
     ]},
     { label: 'Administration', icon: FiSettings, name: 'admin', collapsible: true, items: [
-        { href: '/dashboard/outlets',        label: 'Outlets',      icon: FiMapPin,    roles: 'superadmin' },
-        { href: '/dashboard/users',          label: 'Users',        icon: FiUsers,     roles: 'all' },
-        { href: '/dashboard/user-roles',     label: 'User Roles',   icon: FiShield,    roles: 'all' },
-        { href: '/dashboard/activity-log',   label: 'Activity Log', icon: FiActivity,  roles: 'admin' },
-        { href: '/dashboard/company',        label: 'Company',      icon: FiHome,      roles: 'all' },
-        { href: '/dashboard/tax-settings',   label: 'Tax Settings', icon: FiFileText,  roles: 'all' },
-        { href: '/dashboard/units',          label: 'Units',        icon: FiSliders,   roles: 'all' },
-        { href: '/dashboard/mpesa-settings', label: 'M-Pesa Config', icon: FiZap,       roles: 'superadmin', badge: 'SA' },
-        { href: '/dashboard/kcb-settings',   label: 'KCB Buni Config', icon: FiZap,    roles: 'superadmin', badge: 'SA' },
-        { href: '/dashboard/businesses',     label: 'Businesses',   icon: FiBriefcase, roles: 'superadmin', badge: 'SA' },
-        { href: '/dashboard/license',        label: '🔐 License Mgmt', icon: FiShield, roles: 'superadmin', badge: 'SA' },
+        { href: '/dashboard/outlets',           label: 'Outlets',           icon: FiMapPin,    roles: 'superadmin' },
+        { href: '/dashboard/users',             label: 'Users',             icon: FiUsers,     roles: 'all' },
+        { href: '/dashboard/user-roles',        label: 'User Roles',        icon: FiShield,    roles: 'all' },
+        { href: '/dashboard/activity-log',      label: 'Activity Log',      icon: FiActivity,  roles: 'admin' },
+        { href: '/dashboard/company',           label: 'Company',           icon: FiHome,      roles: 'all' },
+        { href: '/dashboard/tax-settings',      label: 'Tax Settings',      icon: FiFileText,  roles: 'all' },
+        { href: '/dashboard/units',             label: 'Units',             icon: FiSliders,   roles: 'all' },
+        { href: '/dashboard/mpesa-settings',    label: 'M-Pesa Config',     icon: FiZap,       roles: 'superadmin', badge: 'SA' },
+        { href: '/dashboard/kcb-settings',      label: 'KCB Buni Config',   icon: FiZap,       roles: 'superadmin', badge: 'SA' },
+        { href: '/dashboard/businesses',        label: 'Businesses',        icon: FiBriefcase, roles: 'superadmin', badge: 'SA' },
+        { href: '/dashboard/license',           label: '🔐 License Mgmt',   icon: FiShield,    roles: 'superadmin', badge: 'SA' },
+        { href: '/dashboard/admin/features',    label: '🚀 Feature Manager', icon: FiSliders,   roles: 'superadmin', badge: 'SA' },
     ]},
 ];
 
@@ -546,6 +548,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return (
         <SettingsProvider>
             <OutletProvider>
+                <FeatureProvider>
                 <div className="min-h-screen bg-[#f4f6f9] flex font-sans">
                     {/* Session timeout modal */}
                     {showTimeoutModal && (
@@ -737,6 +740,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <div className="flex-1 p-4 lg:p-6 overflow-x-hidden">{children}</div>
                     </main>
                 </div>
+                </FeatureProvider>
             </OutletProvider>
         </SettingsProvider>
     );

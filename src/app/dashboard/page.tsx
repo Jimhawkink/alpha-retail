@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useOutlet } from '@/context/OutletContext';
+import { useFeatures } from '@/context/FeatureContext';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -31,6 +32,7 @@ interface RecentPurchase { date: string; supplier: string; total: number; status
 export default function DashboardPage() {
     const { activeOutlet } = useOutlet();
     const outletId = activeOutlet?.outlet_id || 1;
+    const { hasFeature } = useFeatures();
     const [isLoading, setIsLoading] = useState(true);
     const [dateFrom, setDateFrom] = useState(() => {
         const d = new Date(); d.setDate(d.getDate() - 7);
@@ -839,7 +841,8 @@ export default function DashboardPage() {
                 </div>
             </div>
 
-            {/* ══════ Business Intelligence KPIs ══════ */}
+            {/* ══════ Business Intelligence KPIs (Feature-gated) ══════ */}
+            {hasFeature('advanced_analytics') && (<>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                     <div className="flex items-center gap-3">
@@ -1023,6 +1026,7 @@ export default function DashboardPage() {
                 </div>
             </div>
             )}
+            </>)}
 
             {/* ══════ Quick Actions ══════ */}
             <div className="bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800 rounded-2xl p-5 text-white">
