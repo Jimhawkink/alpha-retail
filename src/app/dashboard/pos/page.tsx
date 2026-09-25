@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useOutlet } from '@/context/OutletContext';
+import { useFeatures } from '@/context/FeatureContext';
 import toast from 'react-hot-toast';
 import { printMpesaReceipt, printCustomerReceipt, ReceiptData, loadCompanyInfo } from '@/lib/receiptPrinter';
 
@@ -54,12 +55,14 @@ const ProductRow = ({
     product,
     isSelected,
     onClick,
-    onDoubleClick
+    onDoubleClick,
+    shouldShowCost = true
 }: {
     product: Product;
     isSelected: boolean;
     onClick: () => void;
     onDoubleClick: () => void;
+    shouldShowCost?: boolean;
 }) => (
     <tr
         onClick={onClick}
@@ -84,7 +87,7 @@ const ProductRow = ({
             </div>
         </td>
         <td className="px-4 py-3 text-right text-gray-600">
-            {product.costPrice.toLocaleString()}
+            {shouldShowCost ? product.costPrice.toLocaleString() : '-'}
         </td>
         <td className="px-4 py-3 text-right font-bold text-green-600">
             {product.salesPrice.toLocaleString()}
@@ -283,7 +286,7 @@ const CategoryButton = ({
 );
 
 // Product Card — Premium Compact Design: name + price on same line
-const ProductCard = ({ product, onAdd, posDefaultPrice }: { product: Product; onAdd: () => void; posDefaultPrice?: 'retail' | 'wholesale' }) => (
+const ProductCard = ({ product, onAdd, posDefaultPrice, shouldShowCost = true }: { product: Product; onAdd: () => void; posDefaultPrice?: 'retail' | 'wholesale'; shouldShowCost?: boolean }) => (
     <div
         className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col cursor-pointer group transition-all duration-200 hover:shadow-xl hover:border-emerald-300 hover:-translate-y-0.5"
         title={product.name}
@@ -343,13 +346,15 @@ const ProductCard = ({ product, onAdd, posDefaultPrice }: { product: Product; on
 
             {/* ── Price breakdown: Cost / Sales / Wholesale ── */}
             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                <span className="text-[8px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded whitespace-nowrap">
-                    Cost: Ksh {product.costPrice.toLocaleString()}
-                </span>
+                {shouldShowCost && (
+                    <span className="text-[8px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded whitespace-nowrap">
+                        Cost: Ksh {product.costPrice.toLocaleString()}
+                    </span>
+                )}
                 <span className="text-[8px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded whitespace-nowrap">
                     Sale: Ksh {product.retailPrice?.toLocaleString() ?? product.salesPrice.toLocaleString()}
                 </span>
-                {product.salesPrice !== product.retailPrice && product.salesPrice > 0 && (
+                {shouldShowCost && product.salesPrice !== product.retailPrice && product.salesPrice > 0 && (
                     <span className="text-[8px] font-semibold text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded whitespace-nowrap">
                         W/Sale: Ksh {product.salesPrice.toLocaleString()}
                     </span>
@@ -1462,6 +1467,7 @@ async function fetchAllStock(outletId: number): Promise<Array<{pid: number; qty:
 // Main Retail POS Page
 export default function RetailPOSPage() {
     const { activeOutlet, expiryEnabled } = useOutlet();
+    const { hasFeature } = useFeatures();
     const outletId = activeOutlet?.outlet_id || 1;
     const outletCode = activeOutlet?.outlet_code || 'RCP';
     const [products, setProducts] = useState<Product[]>([]);
@@ -1723,6 +1729,8 @@ export default function RetailPOSPage() {
         }, 500);
     }, []);
     const canDiscount = ['Admin', 'SuperAdmin', 'Super User', 'admin', 'superadmin', 'super user'].includes(userType);
+    const isCashier = (userType || '').toLowerCase() === 'cashier';
+    const shouldShowCost = !(isCashier && !hasFeature('show_cost_to_cashiers'));
 
     // Toggle fullscreen mode
     const toggleFullscreen = () => {
@@ -3142,6 +3150,7 @@ export default function RetailPOSPage() {
                                                     product={product}
                                                     onAdd={() => addToCart(product)}
                                                     posDefaultPrice={posDefaultPrice}
+                                                    shouldShowCost={shouldShowCost}
                                                 />
                                             ))}
                                         </div>

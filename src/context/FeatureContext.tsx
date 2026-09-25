@@ -14,6 +14,7 @@ export const ALL_FEATURES = [
     { key: 'promotions_loyalty',   label: 'Promotions & Loyalty',    description: 'Promotions engine, loyalty points', category: 'Operations' },
     { key: 'smart_insights',       label: 'Smart Insights AI',       description: 'AI-powered business intelligence', category: 'Operations' },
     { key: 'outlet_comparison',    label: 'Outlet Comparison',       description: 'Compare performance across outlets', category: 'Reports' },
+    { key: 'show_cost_to_cashiers', label: 'Show Cost to Cashiers',   description: 'Display product cost price to cashier users on the POS', category: 'Sales' },
 ];
 
 interface FeatureCtx { features: Set<string>; loading: boolean; hasFeature: (key: string) => boolean; }
