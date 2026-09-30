@@ -204,11 +204,13 @@ export default function UltraAnalysisPage() {
   const trendData = useMemo(() => {
     const daily: Record<string, number> = {};
     salesItems.forEach(item => {
-      const date = item.created_at.split('T')[0];
+      const sale = salesMap[item.sale_id];
+      const itemDate = sale?.sale_datetime || new Date().toISOString();
+      const date = itemDate.split('T')[0];
       daily[date] = (daily[date] || 0) + (item.subtotal || 0);
     });
     return Object.entries(daily).map(([date, amount]) => ({ date, amount })).sort((a, b) => a.date.localeCompare(b.date));
-  }, [salesItems]);
+  }, [salesItems, salesMap]);
 
   const exportCSV = () => {
     const rows = [['Product', 'Category', 'Velocity', 'Total Qty', 'Total Revenue', 'Total Orders', 'Avg Order Value', 'Last Sold']];
