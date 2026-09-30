@@ -37,7 +37,7 @@ export default function FastSlowMovingPage() {
       const fromStr = from.toISOString().split('T')[0];
       const today = new Date().toISOString().split('T')[0];
       const [{ data: prods }, { data: items }, { data: stocks }, { data: lastSold }] = await Promise.all([
-        supabase.from('retail_products').select('pid,product_name,category,cost_price').eq('outlet_id', outletId).eq('active', true),
+        supabase.from('retail_products').select('pid,product_name,category,purchase_cost').eq('outlet_id', outletId).eq('active', true),
         supabase.from('retail_sales_items').select('product_id,product_name,quantity,subtotal,sale_id').gte('created_at', fromStr+'T00:00:00').lte('created_at', today+'T23:59:59'),
         supabase.from('retail_stock').select('pid,qty').eq('outlet_id', outletId),
         supabase.from('retail_sales_items').select('product_id,created_at').order('created_at',{ascending:false}).limit(2000),
@@ -61,7 +61,7 @@ export default function FastSlowMovingPage() {
         let vc:'A'|'B'|'C'='C';
         if(avgDaily>=1||totalOrd>=10) vc='A';
         else if(avgDaily>=0.2||totalOrd>=3) vc='B';
-        return {pid:p.pid,product_name:p.product_name,category:p.category||'Uncategorized',total_qty:totalQty,total_revenue:totalRev,total_orders:totalOrd,avg_daily_qty:avgDaily,days_last_sold:daysLast,velocity_class:vc,stock_qty:sq,stock_value:sq*(p.cost_price||0)};
+        return {pid:p.pid,product_name:p.product_name,category:p.category||'Uncategorized',total_qty:totalQty,total_revenue:totalRev,total_orders:totalOrd,avg_daily_qty:avgDaily,days_last_sold:daysLast,velocity_class:vc,stock_qty:sq,stock_value:sq*(p.purchase_cost||0)};
       });
       result.sort((a,b)=>sortBy==='qty'?b.total_qty-a.total_qty:sortBy==='orders'?b.total_orders-a.total_orders:sortBy==='days'?a.days_last_sold-b.days_last_sold:b.total_revenue-a.total_revenue);
       setData(result); setPage(1);

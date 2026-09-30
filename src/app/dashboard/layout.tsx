@@ -133,6 +133,7 @@ const menuGroups = [
         { href: '/dashboard/reports/cash-book',                  label: 'Cash Book',               icon: FiDollarSign,  roles: 'all' },
         { href: '/dashboard/reports/mpesa',                      label: 'M-Pesa Report',           icon: FiSmartphone,  roles: 'all' },
         { href: '/dashboard/reports/fast-slow-moving',           label: 'Fast/Slow Moving',        icon: FiActivity,    roles: 'all' },
+        { href: '/dashboard/reports/ultra-analysis',             label: 'Ultra Analysis',          icon: FiTrendingUp,  roles: 'all', badge: 'NEW' },
         { href: '/dashboard/reports/dead-stock',                 label: 'Dead Stock',              icon: FiAlertCircle, roles: 'all' },
         { href: '/dashboard/reports/gross-margin',               label: 'Gross Margin',            icon: FiPieChart,    roles: 'all' },
         { href: '/dashboard/reports/price-history',              label: 'Price History',           icon: FiTrendingUp,  roles: 'all' },
