@@ -6,7 +6,7 @@ import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
 import { FiShoppingBag, FiPackage, FiX, FiPlus, FiTrash2, FiDollarSign, FiTruck, FiCalendar, FiHash, FiSave, FiCheckCircle, FiAlertTriangle, FiTrendingUp, FiSearch, FiRefreshCw, FiEdit3, FiArrowRight } from 'react-icons/fi';
 
-// ─── UNIT CONVERSIONS ───
+// â”€â”€â”€ UNIT CONVERSIONS â”€â”€â”€
 const UNIT_CONVERSIONS: Record<string, Record<string, number>> = {
     'Box': { 'Piece': 1, 'Box': 1 }, 'Pack': { 'Piece': 1, 'Pack': 1 },
     'Dozen': { 'Piece': 12, 'Dozen': 1 }, 'Kilogram': { 'Gram': 1000, 'Kilogram': 1 },
@@ -90,7 +90,7 @@ export default function PurchaseEntryPage() {
             if (!activeOutlet) return; // Wait for outlet context
             setIsLoading(true);
             try {
-                // Load ALL products — limit 2000 (Supabase default is 1000, you have 1249 products)
+                // Load ALL products â€” limit 2000 (Supabase default is 1000, you have 1249 products)
                 const { data: prodData } = await supabase
                     .from('retail_products')
                     .select('pid, product_code, product_name, purchase_unit, sales_unit, purchase_cost, sales_cost, category, pieces_per_package, barcode')
@@ -98,13 +98,13 @@ export default function PurchaseEntryPage() {
                     .order('product_name')
                     .limit(2000);
 
-                // Load ALL suppliers — no active filter (avoids issues if column is null or missing)
+                // Load ALL suppliers â€” no active filter (avoids issues if column is null or missing)
                 const { data: suppData, error: suppErr } = await supabase
                     .from('retail_suppliers')
                     .select('supplier_id, supplier_code, supplier_name, phone, contact_person')
                     .order('supplier_name');
                 if (suppErr) toast.error(`Suppliers load error: ${suppErr.message}`);
-                // Store suppliers as-is — String() conversion happens at point of use in the select
+                // Store suppliers as-is â€” String() conversion happens at point of use in the select
                 setSuppliers(suppData || []);
                 setProducts(prodData || []);
                 await generateInvoiceNo();
@@ -135,7 +135,7 @@ export default function PurchaseEntryPage() {
         } catch { setInvoiceNo(`INV-${Date.now().toString(36).toUpperCase()}`); }
     };
 
-    // ─── PRODUCT SELECTION ───
+    // â”€â”€â”€ PRODUCT SELECTION â”€â”€â”€
     const selectProduct = async (product: Product) => {
         setSelectedProduct(product);
         setProductSearch(product.product_name);
@@ -150,7 +150,7 @@ export default function PurchaseEntryPage() {
         setItemPieceQty(0);
         setItemBatchNumber('');
         setItemExpiryDate('');
-        // Load stock for this outlet — read Bags and Pieces separately
+        // Load stock for this outlet â€” read Bags and Pieces separately
         const loadStock = async (withOutlet: boolean) => {
             let q = supabase.from('retail_stock').select('qty, storage_type').eq('pid', product.pid);
             if (withOutlet) q = (q as any).eq('outlet_id', outletId);
@@ -170,16 +170,9 @@ export default function PurchaseEntryPage() {
     // Detect price change
     const handlePriceChange = (newCost: number) => {
         setPrice(newCost);
-        if (selectedProduct && newCost !== selectedProduct.purchase_cost) {
-            setPriceChanged(true);
-            // Auto-suggest new sell price maintaining the same margin
-            if (selectedProduct.purchase_cost > 0) {
-                const marginRatio = selectedProduct.sales_cost / selectedProduct.purchase_cost;
-                setNewSellPrice(Math.round(newCost * marginRatio));
-            }
-        } else {
-            setPriceChanged(false);
-        }
+        // We use Weighted Average Cost (WAC) implicitly on save now.
+        // We explicitly DO NOT auto-update or suggest new sales prices to avoid affecting customers.
+        setPriceChanged(false);
     };
 
     // Get actual quantity in base units for stock
@@ -217,7 +210,7 @@ export default function PurchaseEntryPage() {
         return Array.from(units);
     };
 
-    // ─── ADD ITEM ───
+    // â”€â”€â”€ ADD ITEM â”€â”€â”€
     const addItem = () => {
         if (!selectedProduct || price <= 0) { toast.error('Select product & enter price'); return; }
         if (itemBagQty <= 0 && itemPieceQty <= 0 && qty <= 0) { toast.error('Enter bags qty or pieces qty'); return; }
@@ -252,12 +245,12 @@ export default function PurchaseEntryPage() {
         setItemBagQty(0); setItemPieceQty(0); setItemBatchNumber(''); setItemExpiryDate('');
     };
 
-    // ─── TOGGLE PRICE UPDATE FOR AN ITEM ───
+    // â”€â”€â”€ TOGGLE PRICE UPDATE FOR AN ITEM â”€â”€â”€
     const toggleItemPriceUpdate = (itemId: number, update: boolean) => {
         setItems(prev => prev.map(i => i.id === itemId ? { ...i, updatePrices: update } : i));
     };
 
-    // ─── EDIT ITEM SELL PRICE ───
+    // â”€â”€â”€ EDIT ITEM SELL PRICE â”€â”€â”€
     const editItemSellPrice = (itemId: number, newSell: number) => {
         setItems(prev => prev.map(i => i.id === itemId ? { ...i, newSell } : i));
     };
@@ -265,7 +258,7 @@ export default function PurchaseEntryPage() {
     const subtotal = items.reduce((s, i) => s + i.total, 0);
     const total = subtotal;
 
-    // ── Live server-side product search — current outlet only ──────────────
+    // â”€â”€ Live server-side product search â€” current outlet only â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     useEffect(() => {
         if (productSearch.trim().length < 1) { setProducts([]); return; }
         if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
@@ -301,10 +294,10 @@ export default function PurchaseEntryPage() {
         }, 300);
     }, [productSearch, outletId]);
 
-    // Products — populated by server search above
+    // Products â€” populated by server search above
     const filteredProducts = products.slice(0, 15);
 
-    // ─── SAVE PURCHASE ───
+    // â”€â”€â”€ SAVE PURCHASE â”€â”€â”€
     const savePurchase = async () => {
         if (!selectedSupplier) { toast.error('Select a supplier'); return; }
         if (items.length === 0) { toast.error('Add at least one item'); return; }
@@ -321,7 +314,7 @@ export default function PurchaseEntryPage() {
             const user = userData ? JSON.parse(userData) : null;
             const supplier = suppliers.find(s => s.supplier_code === selectedSupplier);
 
-            // ── Generate purchase_id manually — filter NULLs first (NULLs sort first in DESC) ──
+            // â”€â”€ Generate purchase_id manually â€” filter NULLs first (NULLs sort first in DESC) â”€â”€
             const { data: maxRow } = await supabase
                 .from('retail_purchases')
                 .select('purchase_id')
@@ -369,7 +362,7 @@ export default function PurchaseEntryPage() {
                 const hasDualQty = item.bagQty > 0 || item.pieceQty > 0;
 
                 if (hasDualQty) {
-                    // ─── DUAL STOCK: Separate Bags + Pieces rows ───
+                    // â”€â”€â”€ DUAL STOCK: Separate Bags + Pieces rows â”€â”€â”€
                     if (item.bagQty > 0) {
                         const { data: bagRow } = await supabase.from('retail_stock').select('st_id, qty')
                             .eq('pid', item.productId).eq('outlet_id', outletId).eq('storage_type', 'Bags')
@@ -395,7 +388,7 @@ export default function PurchaseEntryPage() {
                         }
                     }
                 } else {
-                    // ─── LEGACY: Single qty stock row ───
+                    // â”€â”€â”€ LEGACY: Single qty stock row â”€â”€â”€
                     const product = products.find(p => p.pid === item.productId);
                     const stockQty = product ? getStockQty(item.qty, item.purchaseUnit, product) : item.qty;
                     const { data: sData } = await supabase.from('retail_stock').select('st_id, qty').eq('pid', item.productId).eq('outlet_id', outletId).order('qty', { ascending: false }).limit(1).maybeSingle();
@@ -407,7 +400,7 @@ export default function PurchaseEntryPage() {
                     }
                 }
 
-                // ─── EXPIRY BATCH INSERT ───
+                // â”€â”€â”€ EXPIRY BATCH INSERT â”€â”€â”€
                 if (item.expiryDate && expiryEnabled) {
                     try {
                         const batchNum = item.batchNumber || `B-${Date.now().toString(36).toUpperCase()}`;
@@ -429,27 +422,44 @@ export default function PurchaseEntryPage() {
                     } catch { /* batch table may not exist */ }
                 }
 
-                // Update product prices if flagged
-                if (item.updatePrices && (item.newCost !== item.oldCost || item.newSell !== item.oldSell)) {
-                    const margin = item.newCost > 0 ? Math.round(((item.newSell - item.newCost) / item.newCost) * 10000) / 100 : 0;
+                // ??? WEIGHTED AVERAGE COST (WAC) CALCULATION ???
+                // Calculate WAC for purchase_cost. DO NOT alter sales_cost.
+                if (item.newCost > 0) {
+                    const { data: currentStockRows } = await supabase.from('retail_stock').select('qty').eq('pid', item.productId).eq('outlet_id', outletId);
+                    const currentTotalQty = currentStockRows?.reduce((sum, row) => sum + (row.qty || 0), 0) || 0;
+                    
+                    let wac = item.newCost;
+                    if (currentTotalQty > 0 && item.oldCost > 0) {
+                        const currentStockInPurchaseUnits = currentTotalQty / (item.piecesPerPackage || 1);
+                        const totalValueOld = currentStockInPurchaseUnits * item.oldCost;
+                        const receivedQtyInPurchaseUnits = item.qty;
+                        const totalValueNew = receivedQtyInPurchaseUnits * item.newCost;
+                        wac = (totalValueOld + totalValueNew) / (currentStockInPurchaseUnits + receivedQtyInPurchaseUnits);
+                    }
+                    const newWac = Math.round(wac * 100) / 100;
+                    
+                    const existingSell = item.oldSell || 0;
+                    const margin = newWac > 0 ? Math.round(((existingSell - newWac) / newWac) * 10000) / 100 : 0;
+                    
                     await supabase.from('retail_products').update({
-                        purchase_cost: item.newCost,
-                        sales_cost: item.newSell,
+                        purchase_cost: newWac,
                         margin_per: margin,
                     }).eq('pid', item.productId);
 
-                    // Log price change in history
-                    try {
-                        await supabase.from('retail_price_history').insert({
-                            pid: item.productId,
-                            old_purchase_cost: item.oldCost,
-                            new_purchase_cost: item.newCost,
-                            old_sales_cost: item.oldSell,
-                            new_sales_cost: item.newSell,
-                            changed_by: user?.name || 'Purchase Entry',
-                            reason: `Purchase ${invoiceNo} - Price update`,
-                        });
-                    } catch { /* price history table may not exist yet */ }
+                    // Log cost change in history if different
+                    if (newWac !== item.oldCost) {
+                        try {
+                            await supabase.from('retail_price_history').insert({
+                                pid: item.productId,
+                                old_purchase_cost: item.oldCost,
+                                new_purchase_cost: newWac,
+                                old_sales_cost: item.oldSell,
+                                new_sales_cost: item.oldSell,
+                                changed_by: user?.name || 'Purchase Entry',
+                                reason: `Purchase ${invoiceNo} - WAC Cost auto-update`,
+                            });
+                        } catch { /* price history table may not exist yet */ }
+                    }
                 }
             }
 
@@ -470,7 +480,7 @@ export default function PurchaseEntryPage() {
     return (
         <div className="space-y-5" style={{ fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
 
-            {/* ─── SUCCESS DIALOG ─── */}
+            {/* â”€â”€â”€ SUCCESS DIALOG â”€â”€â”€ */}
             {showSuccess && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50" onClick={() => setShowSuccess(false)}>
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-8 text-center" onClick={e => e.stopPropagation()}>
@@ -487,7 +497,7 @@ export default function PurchaseEntryPage() {
                 </div>
             )}
 
-            {/* ─── PRICE CHANGE CONFIRMATION ─── */}
+            {/* â”€â”€â”€ PRICE CHANGE CONFIRMATION â”€â”€â”€ */}
             {showPriceConfirm && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md">
@@ -517,7 +527,7 @@ export default function PurchaseEntryPage() {
                 </div>
             )}
 
-            {/* ━━━ TOP BAR ━━━ */}
+            {/* â”â”â” TOP BAR â”â”â” */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-300/40">
@@ -541,7 +551,7 @@ export default function PurchaseEntryPage() {
             </div>
 
             <div className="grid grid-cols-3 gap-5">
-                {/* ━━━ LEFT PANEL ━━━ */}
+                {/* â”â”â” LEFT PANEL â”â”â” */}
                 <div className="col-span-2 space-y-5">
 
                     {/* Supplier & Details */}
@@ -582,7 +592,7 @@ export default function PurchaseEntryPage() {
                         </div>
                     </div>
 
-                    {/* ━━━ ADD PRODUCT SECTION ━━━ */}
+                    {/* â”â”â” ADD PRODUCT SECTION â”â”â” */}
                     <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                         <h2 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2 uppercase tracking-wider">
                             <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center"><FiPackage className="text-emerald-600" size={14} /></div>
@@ -626,12 +636,12 @@ export default function PurchaseEntryPage() {
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm font-bold text-gray-800">{selectedProduct.product_name}</p>
-                                        <p className="text-xs text-gray-500">{selectedProduct.product_code} • Buy Unit: {selectedProduct.purchase_unit || 'Piece'} • Sell Unit: {selectedProduct.sales_unit || 'Piece'} {selectedProduct.pieces_per_package > 1 ? `• ${selectedProduct.pieces_per_package} pcs/pkg` : ''}</p>
+                                        <p className="text-xs text-gray-500">{selectedProduct.product_code} â€¢ Buy Unit: {selectedProduct.purchase_unit || 'Piece'} â€¢ Sell Unit: {selectedProduct.sales_unit || 'Piece'} {selectedProduct.pieces_per_package > 1 ? `â€¢ ${selectedProduct.pieces_per_package} pcs/pkg` : ''}</p>
                                     </div>
                                     <button onClick={() => { setSelectedProduct(null); setProductSearch(''); }} className="p-1.5 text-gray-400 hover:text-red-500"><FiX size={14} /></button>
                                 </div>
 
-                                {/* ─── ROW 1: Unit, Cost, Stock ─── */}
+                                {/* â”€â”€â”€ ROW 1: Unit, Cost, Stock â”€â”€â”€ */}
                                 <div className="grid grid-cols-12 gap-3 items-end">
                                     {/* Purchase Unit */}
                                     <div className="col-span-3">
@@ -669,10 +679,10 @@ export default function PurchaseEntryPage() {
                                         {(currentBagQty > 0 || currentPieceQty > 0) ? (
                                             <div className="flex flex-col gap-0.5">
                                                 {currentBagQty > 0 && (
-                                                    <span className="text-xs font-bold text-orange-600 bg-orange-50 rounded px-1">📦 {currentBagQty} {selectedProduct?.purchase_unit || 'Box'}</span>
+                                                    <span className="text-xs font-bold text-orange-600 bg-orange-50 rounded px-1">ðŸ“¦ {currentBagQty} {selectedProduct?.purchase_unit || 'Box'}</span>
                                                 )}
                                                 {currentPieceQty > 0 && (
-                                                    <span className="text-xs font-bold text-blue-600 bg-blue-50 rounded px-1">🔵 {currentPieceQty} Pcs</span>
+                                                    <span className="text-xs font-bold text-blue-600 bg-blue-50 rounded px-1">ðŸ”µ {currentPieceQty} Pcs</span>
                                                 )}
                                             </div>
                                         ) : (
@@ -699,13 +709,13 @@ export default function PurchaseEntryPage() {
                                     </div>
                                 </div>
 
-                                {/* ─── ROW 2: Bags Qty + Pieces Qty (like Add Product) ─── */}
+                                {/* â”€â”€â”€ ROW 2: Bags Qty + Pieces Qty (like Add Product) â”€â”€â”€ */}
                                 <div className="bg-white border border-blue-200 rounded-xl p-3">
-                                    <p className="text-[10px] font-bold text-blue-700 uppercase mb-2 flex items-center gap-1">📦 Purchase Quantities</p>
+                                    <p className="text-[10px] font-bold text-blue-700 uppercase mb-2 flex items-center gap-1">ðŸ“¦ Purchase Quantities</p>
                                     <div className="grid grid-cols-12 gap-3 items-end">
                                         <div className="col-span-4">
                                             <label className="text-[10px] font-bold text-indigo-500 uppercase mb-1 block">
-                                                📦 {selectedProduct.purchase_unit || 'Bags'} Qty
+                                                ðŸ“¦ {selectedProduct.purchase_unit || 'Bags'} Qty
                                             </label>
                                             <input type="number" value={itemBagQty || ''} onChange={e => setItemBagQty(Number(e.target.value))} min={0} step={1}
                                                 placeholder="e.g. 5"
@@ -713,7 +723,7 @@ export default function PurchaseEntryPage() {
                                         </div>
                                         <div className="col-span-4">
                                             <label className="text-[10px] font-bold text-emerald-500 uppercase mb-1 block">
-                                                🔢 {selectedProduct.sales_unit || 'Pieces'} Qty
+                                                ðŸ”¢ {selectedProduct.sales_unit || 'Pieces'} Qty
                                             </label>
                                             <input type="number" value={itemPieceQty || ''} onChange={e => setItemPieceQty(Number(e.target.value))} min={0} step={1}
                                                 placeholder="e.g. 10"
@@ -728,7 +738,7 @@ export default function PurchaseEntryPage() {
                                     </div>
                                     {selectedProduct.pieces_per_package > 1 && (itemBagQty > 0 || itemPieceQty > 0) && (
                                         <p className="text-[10px] text-blue-600 mt-2 bg-blue-50 px-2 py-1 rounded-lg">
-                                            📊 Total: {itemBagQty > 0 ? `${itemBagQty} ${selectedProduct.purchase_unit}(s) × ${selectedProduct.pieces_per_package} = ${itemBagQty * selectedProduct.pieces_per_package} pcs` : ''}
+                                            ðŸ“Š Total: {itemBagQty > 0 ? `${itemBagQty} ${selectedProduct.purchase_unit}(s) Ã— ${selectedProduct.pieces_per_package} = ${itemBagQty * selectedProduct.pieces_per_package} pcs` : ''}
                                             {itemBagQty > 0 && itemPieceQty > 0 ? ' + ' : ''}
                                             {itemPieceQty > 0 ? `${itemPieceQty} ${selectedProduct.sales_unit}(s)` : ''}
                                             {' = '}<span className="font-bold">{(itemBagQty * selectedProduct.pieces_per_package) + itemPieceQty} total {selectedProduct.sales_unit}(s)</span>
@@ -736,10 +746,10 @@ export default function PurchaseEntryPage() {
                                     )}
                                 </div>
 
-                                {/* ─── ROW 3: Batch & Expiry (only if expiry tracking enabled) ─── */}
+                                {/* â”€â”€â”€ ROW 3: Batch & Expiry (only if expiry tracking enabled) â”€â”€â”€ */}
                                 {expiryEnabled && (
                                     <div className="bg-white border border-amber-200 rounded-xl p-3">
-                                        <p className="text-[10px] font-bold text-amber-700 uppercase mb-2 flex items-center gap-1">⏰ Batch & Expiry Tracking</p>
+                                        <p className="text-[10px] font-bold text-amber-700 uppercase mb-2 flex items-center gap-1">â° Batch & Expiry Tracking</p>
                                         <div className="grid grid-cols-2 gap-3">
                                             <div>
                                                 <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Batch Number</label>
@@ -755,14 +765,14 @@ export default function PurchaseEntryPage() {
                                         </div>
                                         {itemExpiryDate && (
                                             <p className="text-[10px] text-amber-600 mt-2">
-                                                ✅ Batch {itemBatchNumber || '(auto-generated)'} expires on <span className="font-bold">{new Date(itemExpiryDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                                                {' • '}{Math.ceil((new Date(itemExpiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} days from now
+                                                âœ… Batch {itemBatchNumber || '(auto-generated)'} expires on <span className="font-bold">{new Date(itemExpiryDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                                {' â€¢ '}{Math.ceil((new Date(itemExpiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} days from now
                                             </p>
                                         )}
                                     </div>
                                 )}
 
-                                {/* ─── PRICE CHANGE WARNING ─── */}
+                                {/* â”€â”€â”€ PRICE CHANGE WARNING â”€â”€â”€ */}
                                 {priceChanged && (
                                     <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-3 mt-2">
                                         <div className="flex items-center gap-2 mb-2">
@@ -785,7 +795,7 @@ export default function PurchaseEntryPage() {
                                         </div>
                                         {shouldUpdatePrices && (
                                             <p className="text-[10px] text-amber-600 mt-1">
-                                                ✅ Cost: Ksh {selectedProduct.purchase_cost} → <span className="font-bold">Ksh {price}</span> | Sell: Ksh {selectedProduct.sales_cost} → <span className="font-bold">Ksh {newSellPrice}</span>
+                                                âœ… Cost: Ksh {selectedProduct.purchase_cost} â†’ <span className="font-bold">Ksh {price}</span> | Sell: Ksh {selectedProduct.sales_cost} â†’ <span className="font-bold">Ksh {newSellPrice}</span>
                                                 {price > 0 && ` | Margin: ${((newSellPrice - price) / price * 100).toFixed(1)}%`}
                                             </p>
                                         )}
@@ -795,7 +805,7 @@ export default function PurchaseEntryPage() {
                         )}
                     </div>
 
-                    {/* ━━━ ITEMS LIST ━━━ */}
+                    {/* â”â”â” ITEMS LIST â”â”â” */}
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                         <div className="px-5 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 flex items-center justify-between">
                             <h2 className="text-sm font-bold text-white flex items-center gap-2">
@@ -815,8 +825,8 @@ export default function PurchaseEntryPage() {
                                 <thead><tr className="bg-gray-50">
                                     <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">#</th>
                                     <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Product</th>
-                                    <th className="px-2 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">📦 Bags</th>
-                                    <th className="px-2 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">🔢 Pcs</th>
+                                    <th className="px-2 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">ðŸ“¦ Bags</th>
+                                    <th className="px-2 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">ðŸ”¢ Pcs</th>
                                     <th className="px-2 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Cost</th>
                                     <th className="px-2 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Total</th>
                                     {expiryEnabled && <th className="px-2 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">Batch/Expiry</th>}
@@ -829,17 +839,17 @@ export default function PurchaseEntryPage() {
                                             <td className="px-2 py-2 text-xs text-gray-400">{idx + 1}</td>
                                             <td className="px-2 py-2">
                                                 <p className="text-xs font-semibold text-gray-800">{item.productName}</p>
-                                                <p className="text-[10px] text-indigo-500 font-mono">{item.productCode} • {item.purchaseUnit}</p>
+                                                <p className="text-[10px] text-indigo-500 font-mono">{item.productCode} â€¢ {item.purchaseUnit}</p>
                                             </td>
                                             <td className="px-2 py-2 text-center">
                                                 {item.bagQty > 0 ? (
                                                     <span className="inline-flex items-center px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs font-bold">{item.bagQty}</span>
-                                                ) : <span className="text-[10px] text-gray-300">—</span>}
+                                                ) : <span className="text-[10px] text-gray-300">â€”</span>}
                                             </td>
                                             <td className="px-2 py-2 text-center">
                                                 {item.pieceQty > 0 ? (
                                                     <span className="inline-flex items-center px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded text-xs font-bold">{item.pieceQty}</span>
-                                                ) : <span className="text-[10px] text-gray-300">—</span>}
+                                                ) : <span className="text-[10px] text-gray-300">â€”</span>}
                                             </td>
                                             <td className="px-2 py-2 text-right text-xs text-gray-500">Ksh {item.price.toLocaleString()}</td>
                                             <td className="px-2 py-2 text-right text-sm font-bold text-emerald-600">Ksh {item.total.toLocaleString()}</td>
@@ -850,7 +860,7 @@ export default function PurchaseEntryPage() {
                                                             <span className="text-[10px] font-mono text-amber-700 bg-amber-50 px-1 rounded">{item.batchNumber || 'Auto'}</span>
                                                             <p className="text-[9px] text-gray-400 mt-0.5">{new Date(item.expiryDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}</p>
                                                         </div>
-                                                    ) : <span className="text-[10px] text-gray-300">—</span>}
+                                                    ) : <span className="text-[10px] text-gray-300">â€”</span>}
                                                 </td>
                                             )}
                                             <td className="px-2 py-2 text-center">
@@ -866,7 +876,7 @@ export default function PurchaseEntryPage() {
                                                         )}
                                                     </div>
                                                 ) : (
-                                                    <span className="text-[10px] text-gray-300">—</span>
+                                                    <span className="text-[10px] text-gray-300">â€”</span>
                                                 )}
                                             </td>
                                             <td className="px-2 py-2 text-center">
@@ -880,7 +890,7 @@ export default function PurchaseEntryPage() {
                     </div>
                 </div>
 
-                {/* ━━━ RIGHT PANEL ━━━ */}
+                {/* â”â”â” RIGHT PANEL â”â”â” */}
                 <div className="space-y-5">
                     {/* Summary */}
                     <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm sticky top-24">
@@ -955,11 +965,11 @@ export default function PurchaseEntryPage() {
                     <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
                         <h3 className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">Unit Conversion Guide</h3>
                         <div className="space-y-1 text-[10px] text-gray-400">
-                            <p>📦 <span className="text-gray-600 font-medium">Box → Pieces</span>: Uses pcs/package setting</p>
-                            <p>⚖️ <span className="text-gray-600 font-medium">Bag/Kg → Grams</span>: 1 Kg = 1000 Grams</p>
-                            <p>🧴 <span className="text-gray-600 font-medium">Liter → ML</span>: 1 Liter = 1000 ML</p>
-                            <p>📏 <span className="text-gray-600 font-medium">Dozen → Pieces</span>: 1 Dozen = 12 Pcs</p>
-                            <p className="text-amber-500 mt-2">💡 Price auto-adjusts when you change the buy unit</p>
+                            <p>ðŸ“¦ <span className="text-gray-600 font-medium">Box â†’ Pieces</span>: Uses pcs/package setting</p>
+                            <p>âš–ï¸ <span className="text-gray-600 font-medium">Bag/Kg â†’ Grams</span>: 1 Kg = 1000 Grams</p>
+                            <p>ðŸ§´ <span className="text-gray-600 font-medium">Liter â†’ ML</span>: 1 Liter = 1000 ML</p>
+                            <p>ðŸ“ <span className="text-gray-600 font-medium">Dozen â†’ Pieces</span>: 1 Dozen = 12 Pcs</p>
+                            <p className="text-amber-500 mt-2">ðŸ’¡ Price auto-adjusts when you change the buy unit</p>
                         </div>
                     </div>
                 </div>
@@ -967,3 +977,4 @@ export default function PurchaseEntryPage() {
         </div>
     );
 }
+
