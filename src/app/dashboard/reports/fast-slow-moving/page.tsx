@@ -114,7 +114,10 @@ export default function FastSlowMovingPage() {
 
   const filtered = data.filter(p => {
     const mc = filterCls==='All'||p.velocity_class===filterCls;
-    const ms = !search||p.product_name.toLowerCase().includes(search.toLowerCase())||p.category.toLowerCase().includes(search.toLowerCase());
+    const searchStr = (search || '').toLowerCase();
+    const ms = !search || 
+               (p.product_name || '').toLowerCase().includes(searchStr) || 
+               (p.category || '').toLowerCase().includes(searchStr);
     return mc&&ms;
   });
   const totalPages = Math.ceil(filtered.length/PAGE_SIZE);

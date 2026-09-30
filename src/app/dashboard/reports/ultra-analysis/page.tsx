@@ -181,7 +181,9 @@ export default function UltraAnalysisPage() {
 
   const filteredData = useMemo(() => {
     return analyzedData.filter(p => {
-      const matchSearch = p.product_name.toLowerCase().includes(search.toLowerCase()) || (p.category && p.category.toLowerCase().includes(search.toLowerCase()));
+      const searchStr = (search || '').toLowerCase();
+      const matchSearch = (p.product_name || '').toLowerCase().includes(searchStr) || 
+                          (p.category || '').toLowerCase().includes(searchStr);
       const matchVelocity = velocityFilter === 'All' || p.velocity === velocityFilter;
       return matchSearch && matchVelocity;
     }).sort((a, b) => b.totalRevenue - a.totalRevenue); // Default sort by revenue desc
