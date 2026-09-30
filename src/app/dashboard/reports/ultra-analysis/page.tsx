@@ -89,21 +89,35 @@ export default function UltraAnalysisPage() {
       const fromStr = customStart ? customStart + 'T00:00:00' : fromDate.toISOString();
       const toStr = customEnd ? customEnd + 'T23:59:59' : toDate.toISOString();
 
-      const [prodsRes, itemsRes, salesRes] = await Promise.all([
+      const [prodsRes, salesRes] = await Promise.all([
         supabase.from('retail_products').select('pid,product_name,category,purchase_cost,wholesale_price').eq('outlet_id', outletId).eq('active', true),
-        supabase.from('retail_sales_items').select('item_id,sale_id,product_id,product_name,quantity,subtotal,unit_price,created_at').gte('created_at', fromStr).lte('created_at', toStr),
         supabase.from('retail_sales').select('sale_id,receipt_no,customer_name,sale_datetime,payment_method').eq('outlet_id', outletId).gte('sale_datetime', fromStr).lte('sale_datetime', toStr)
       ]);
 
       if (prodsRes.error) throw prodsRes.error;
-      if (itemsRes.error) throw itemsRes.error;
+      if (salesRes.error) throw salesRes.error;
 
-      setProducts(prodsRes.data || []);
-      setSalesItems(itemsRes.data || []);
+      const salesData = salesRes.data || [];
+      const saleIds = salesData.map(s => s.sale_id);
       
       const sMap: Record<number, Sale> = {};
-      (salesRes.data || []).forEach(s => { sMap[s.sale_id] = s; });
+      salesData.forEach(s => { sMap[s.sale_id] = s; });
       setSalesMap(sMap);
+
+      // Fetch items in chunks to avoid URL too long error
+      const fetchedItems: SaleItem[] = [];
+      const chunkSize = 150;
+      for (let i = 0; i < saleIds.length; i += chunkSize) {
+        const chunk = saleIds.slice(i, i + chunkSize);
+        const { data: chunkItems, error: itemsErr } = await supabase.from('retail_sales_items')
+          .select('item_id,sale_id,product_id,product_name,quantity,subtotal,unit_price,created_at')
+          .in('sale_id', chunk);
+        if (itemsErr) throw itemsErr;
+        if (chunkItems) fetchedItems.push(...chunkItems);
+      }
+
+      setProducts(prodsRes.data || []);
+      setSalesItems(fetchedItems);
       
     } catch (err: any) {
       toast.error('Failed to load analysis data: ' + err.message);
@@ -117,16 +131,19 @@ export default function UltraAnalysisPage() {
   const analyzedData = useMemo(() => {
     const itemMap: Record<number, (SaleItem & { sale?: Sale })[]> = {};
     salesItems.forEach(item => {
+      const sale = salesMap[item.sale_id];
+      const itemDate = sale?.sale_datetime || new Date().toISOString();
+      
       // Apply Time Filter
       if (timeFilter !== 'all') {
-        const hour = new Date(item.created_at).getHours();
+        const hour = new Date(itemDate).getHours();
         if (timeFilter === 'morning' && (hour < 5 || hour >= 12)) return;
         if (timeFilter === 'afternoon' && (hour < 12 || hour >= 17)) return;
         if (timeFilter === 'evening' && (hour < 17)) return;
       }
 
       if (!itemMap[item.product_id]) itemMap[item.product_id] = [];
-      itemMap[item.product_id].push({ ...item, sale: salesMap[item.sale_id] });
+      itemMap[item.product_id].push({ ...item, sale, created_at: itemDate });
     });
 
     return products.map(p => {

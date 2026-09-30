@@ -23,7 +23,9 @@ export default function FastSlowMovingPage() {
   const outletId = activeOutlet?.outlet_id || 1;
   const [data, setData] = useState<ProductVelocity[]>([]);
   const [loading, setLoading] = useState(true);
-  const [days, setDays] = useState(30);
+  const [dateRange, setDateRange] = useState<'7'|'30'|'60'|'90'|'custom'>('30');
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
   const [filterCls, setFilterCls] = useState('All');
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'revenue'|'qty'|'orders'|'days'>('revenue');
@@ -33,26 +35,63 @@ export default function FastSlowMovingPage() {
     if (!activeOutlet) return;
     setLoading(true);
     try {
-      const from = new Date(); from.setDate(from.getDate() - days);
-      const fromStr = from.toISOString().split('T')[0];
-      const today = new Date().toISOString().split('T')[0];
-      const [{ data: prods }, { data: items }, { data: stocks }, { data: lastSold }] = await Promise.all([
+      let fromStr = '';
+      let today = new Date().toISOString().split('T')[0];
+      let days = 30;
+
+      if (dateRange === 'custom' && customStart && customEnd) {
+        fromStr = customStart;
+        today = customEnd;
+        days = Math.max(1, Math.ceil((new Date(customEnd).getTime() - new Date(customStart).getTime()) / 86400000));
+      } else {
+        const d = parseInt(dateRange === 'custom' ? '30' : dateRange);
+        days = d;
+        const from = new Date(); from.setDate(from.getDate() - d);
+        fromStr = from.toISOString().split('T')[0];
+      }
+
+      // Fetch Sales within date range
+      const { data: sales } = await supabase.from('retail_sales').select('sale_id,sale_date').eq('outlet_id', outletId).gte('sale_date', fromStr).lte('sale_date', today);
+      const saleIds = (sales || []).map(s => s.sale_id);
+
+      // Fetch Items in chunks
+      const items = [];
+      const chunkSize = 150;
+      for (let i = 0; i < saleIds.length; i += chunkSize) {
+        const chunk = saleIds.slice(i, i + chunkSize);
+        const { data: chunkItems } = await supabase.from('retail_sales_items').select('product_id,product_name,quantity,subtotal,sale_id').in('sale_id', chunk);
+        if (chunkItems) items.push(...chunkItems);
+      }
+
+      // We also need "last sold date". Since items don't have created_at properly, we map sale_date from sales.
+      const saleDateMap: Record<number, string> = {};
+      (sales || []).forEach(s => { saleDateMap[s.sale_id] = s.sale_date; });
+
+      const [{ data: prods }, { data: stocks }] = await Promise.all([
         supabase.from('retail_products').select('pid,product_name,category,purchase_cost').eq('outlet_id', outletId).eq('active', true),
-        supabase.from('retail_sales_items').select('product_id,product_name,quantity,subtotal,sale_id').gte('created_at', fromStr+'T00:00:00').lte('created_at', today+'T23:59:59'),
         supabase.from('retail_stock').select('pid,qty').eq('outlet_id', outletId),
-        supabase.from('retail_sales_items').select('product_id,created_at').order('created_at',{ascending:false}).limit(2000),
       ]);
+
       const stockMap: Record<number,number> = {};
       (stocks||[]).forEach((s:any) => { stockMap[s.pid]=(stockMap[s.pid]||0)+(s.qty||0); });
+      
       const lastMap: Record<number,string> = {};
-      (lastSold||[]).forEach((s:any) => { if(!lastMap[s.product_id]) lastMap[s.product_id]=s.created_at; });
       const salesMap: Record<number,{qty:number;rev:number;orders:Set<number>}> = {};
-      (items||[]).forEach((it:any) => {
+      
+      items.forEach((it:any) => {
         if(!salesMap[it.product_id]) salesMap[it.product_id]={qty:0,rev:0,orders:new Set()};
         salesMap[it.product_id].qty+=(it.quantity||0);
         salesMap[it.product_id].rev+=(it.subtotal||0);
         salesMap[it.product_id].orders.add(it.sale_id);
+        
+        const sDate = saleDateMap[it.sale_id];
+        if (sDate) {
+           if (!lastMap[it.product_id] || new Date(sDate) > new Date(lastMap[it.product_id])) {
+              lastMap[it.product_id] = sDate;
+           }
+        }
       });
+      
       const result: ProductVelocity[] = (prods||[]).map((p:any) => {
         const s=salesMap[p.pid]; const totalQty=s?.qty||0; const totalRev=s?.rev||0; const totalOrd=s?.orders?.size||0;
         const avgDaily=totalQty/days;
@@ -67,7 +106,7 @@ export default function FastSlowMovingPage() {
       setData(result); setPage(1);
     } catch { toast.error('Failed to load'); }
     setLoading(false);
-  }, [outletId, days, sortBy, activeOutlet]);
+  }, [outletId, dateRange, customStart, customEnd, sortBy, activeOutlet]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -113,7 +152,7 @@ export default function FastSlowMovingPage() {
           <span className="text-2xl">⚠️</span>
           <div>
             <p className="font-bold text-red-800 text-sm">Dead Stock Alert — Capital Tied Up</p>
-            <p className="text-red-600 text-sm mt-0.5"><strong>{counts.C} slow-moving products</strong> have Ksh {Math.round(deadStockValue).toLocaleString()} worth of stock that hasn&apos;t sold well in the last {days} days. Consider promotions or returning to suppliers.</p>
+            <p className="text-red-600 text-sm mt-0.5"><strong>{counts.C} slow-moving products</strong> have Ksh {Math.round(deadStockValue).toLocaleString()} worth of stock that hasn&apos;t sold well recently. Consider promotions or returning to suppliers.</p>
           </div>
         </div>
       )}
@@ -141,12 +180,22 @@ export default function FastSlowMovingPage() {
       </div>
 
       {/* Controls */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-4 flex flex-wrap items-center gap-3 shadow-sm">
-        <div className="flex bg-gray-100 rounded-xl p-1 gap-0.5">
-          {[{l:'7 Days',v:7},{l:'30 Days',v:30},{l:'60 Days',v:60},{l:'90 Days',v:90}].map(d=>(
-            <button key={d.v} onClick={()=>{setDays(d.v);setPage(1);}} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${days===d.v?'bg-white text-violet-600 shadow-sm':'text-gray-500 hover:text-gray-700'}`}>{d.l}</button>
-          ))}
-        </div>
+      <div className="bg-white rounded-2xl border border-gray-200 p-4 flex flex-col md:flex-row items-center gap-3 shadow-sm">
+        <select value={dateRange} onChange={e => {setDateRange(e.target.value as any); setPage(1);}} className="px-3 py-2 border border-gray-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white">
+          <option value="7">Last 7 Days</option>
+          <option value="30">Last 30 Days</option>
+          <option value="60">Last 60 Days</option>
+          <option value="90">Last 90 Days</option>
+          <option value="custom">Custom Range</option>
+        </select>
+        
+        {dateRange === 'custom' && (
+          <div className="flex items-center gap-2">
+            <input type="date" value={customStart} onChange={e=>setCustomStart(e.target.value)} className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-400" />
+            <span className="text-gray-400 font-medium">to</span>
+            <input type="date" value={customEnd} onChange={e=>setCustomEnd(e.target.value)} className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-400" />
+          </div>
+        )}
         <select value={filterCls} onChange={e=>{setFilterCls(e.target.value);setPage(1);}} className="px-3 py-2 border border-gray-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white">
           <option value="All">All Classes</option>
           <option value="A">🚀 Fast Movers (A)</option>
