@@ -52,15 +52,17 @@ export default function FastSlowMovingPage() {
 
       // Fetch Sales within date range
       const { data: sales } = await supabase.from('retail_sales').select('sale_id,sale_date').eq('outlet_id', outletId).gte('sale_date', fromStr).lte('sale_date', today);
-      const saleIds = (sales || []).map(s => s.sale_id);
+      const saleIds = (sales || []).map(s => s.sale_id).filter(id => id != null);
 
       // Fetch Items in chunks
-      const items = [];
+      const items: any[] = [];
       const chunkSize = 150;
-      for (let i = 0; i < saleIds.length; i += chunkSize) {
-        const chunk = saleIds.slice(i, i + chunkSize);
-        const { data: chunkItems } = await supabase.from('retail_sales_items').select('product_id,product_name,quantity,subtotal,sale_id').in('sale_id', chunk);
-        if (chunkItems) items.push(...chunkItems);
+      if (saleIds.length > 0) {
+        for (let i = 0; i < saleIds.length; i += chunkSize) {
+          const chunk = saleIds.slice(i, i + chunkSize);
+          const { data: chunkItems } = await supabase.from('retail_sales_items').select('product_id,product_name,quantity,subtotal,sale_id').in('sale_id', chunk);
+          if (chunkItems) items.push(...chunkItems);
+        }
       }
 
       // We also need "last sold date". Since items don't have created_at properly, we map sale_date from sales.

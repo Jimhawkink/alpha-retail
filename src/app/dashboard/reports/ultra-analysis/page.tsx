@@ -98,7 +98,7 @@ export default function UltraAnalysisPage() {
       if (salesRes.error) throw salesRes.error;
 
       const salesData = salesRes.data || [];
-      const saleIds = salesData.map(s => s.sale_id);
+      const saleIds = salesData.map(s => s.sale_id).filter(id => id != null);
       
       const sMap: Record<number, Sale> = {};
       salesData.forEach(s => { sMap[s.sale_id] = s; });
@@ -107,13 +107,15 @@ export default function UltraAnalysisPage() {
       // Fetch items in chunks to avoid URL too long error
       const fetchedItems: SaleItem[] = [];
       const chunkSize = 150;
-      for (let i = 0; i < saleIds.length; i += chunkSize) {
-        const chunk = saleIds.slice(i, i + chunkSize);
-        const { data: chunkItems, error: itemsErr } = await supabase.from('retail_sales_items')
-          .select('item_id,sale_id,product_id,product_name,quantity,subtotal,unit_price,created_at')
-          .in('sale_id', chunk);
-        if (itemsErr) throw itemsErr;
-        if (chunkItems) fetchedItems.push(...chunkItems);
+      if (saleIds.length > 0) {
+        for (let i = 0; i < saleIds.length; i += chunkSize) {
+          const chunk = saleIds.slice(i, i + chunkSize);
+          const { data: chunkItems, error: itemsErr } = await supabase.from('retail_sales_items')
+            .select('item_id,sale_id,product_id,product_name,quantity,subtotal,unit_price,created_at')
+            .in('sale_id', chunk);
+          if (itemsErr) throw itemsErr;
+          if (chunkItems) fetchedItems.push(...chunkItems);
+        }
       }
 
       setProducts(prodsRes.data || []);
