@@ -79,7 +79,7 @@ export default function CompanyPage() {
     const [showPass, setShowPass]     = useState(false);
     const [testEmail, setTestEmail]   = useState('');
     const [userType, setUserType]     = useState('');
-    const [activeTab, setActiveTab]   = useState<'general' | 'location' | 'receipt' | 'system' | 'email'>('general');
+    const [activeTab, setActiveTab]   = useState<'general' | 'location' | 'receipt' | 'system' | 'email' | 'pricing'>('general');
     const [outlets, setOutlets]       = useState<Array<{ outlet_id: number; outlet_name: string; outlet_code: string }>>([]);
     const [outletPriceModes, setOutletPriceModes]     = useState<Record<number,'retail'|'wholesale'>>({});
     const [outletFeatures, setOutletFeatures]          = useState<Record<number, string[]>>({});
@@ -258,6 +258,7 @@ export default function CompanyPage() {
         { id: 'location', label: 'Location',  icon: FiMapPin,    desc: 'Address & branches' },
         { id: 'receipt',  label: 'Receipts',  icon: FiFileText,  desc: 'Receipt design' },
         { id: 'system',   label: 'System',    icon: FiSettings,  desc: 'Preferences' },
+        { id: 'pricing',  label: 'Pricing Strategy', icon: FiCheck, desc: 'Levels & Costing' },
         ...(isSuperAdmin ? [{ id: 'email', label: 'Email Setup', icon: FiMail, desc: 'SMTP config' }] : []),
     ];
 
@@ -740,6 +741,103 @@ export default function CompanyPage() {
                 )}
 
                 {/* ═══ EMAIL SETUP (SuperAdmin only) ═══ */}
+                {activeTab === 'pricing' && (
+                    <div className="p-8 space-y-8 animate-fadeIn">
+                        <div className="flex items-center gap-3 pb-6 border-b border-gray-100">
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-r from-emerald-500 to-teal-500 shadow-md">
+                                <FiCheck className="text-white" size={20} />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-black text-gray-800">Global Pricing Strategy</h3>
+                                <p className="text-sm text-gray-500 font-medium">Configure how the system handles cost changes and sets retail margins.</p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="bg-indigo-50/50 p-6 rounded-2xl border border-indigo-100/50">
+                                <h4 className="font-bold text-indigo-900 mb-2 flex items-center gap-2"><FiAlertTriangle className="text-indigo-500"/> Cost Harmonization</h4>
+                                <p className="text-sm text-indigo-700/80 mb-5 leading-relaxed">
+                                    When you receive new stock at a different cost price, how should the system calculate your base cost?
+                                </p>
+                                
+                                <div className="space-y-3">
+                                    <label className="flex gap-4 p-4 bg-white rounded-xl border-2 border-indigo-500 shadow-sm cursor-pointer relative overflow-hidden group">
+                                        <div className="absolute top-0 right-0 bg-indigo-500 text-white text-[10px] font-black px-2 py-0.5 rounded-bl-lg">GLOBAL STANDARD</div>
+                                        <input type="radio" name="cost_strat" className="mt-1 w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500" defaultChecked />
+                                        <div>
+                                            <span className="block font-bold text-gray-800">Weighted Average Cost (WAC)</span>
+                                            <span className="block text-xs text-gray-500 mt-1">Automatically blends the old cost and new cost based on quantity to maintain stable profit margins.</span>
+                                        </div>
+                                    </label>
+                                    
+                                    <label className="flex gap-4 p-4 bg-white rounded-xl border border-gray-200 hover:border-gray-300 cursor-pointer opacity-75">
+                                        <input type="radio" name="cost_strat" className="mt-1 w-4 h-4 text-gray-600 border-gray-300 focus:ring-gray-500" disabled />
+                                        <div>
+                                            <span className="block font-bold text-gray-600 flex items-center gap-2">FIFO (First In, First Out) <span className="bg-gray-100 text-gray-500 text-[10px] px-1.5 py-0.5 rounded font-bold">COMING SOON</span></span>
+                                            <span className="block text-xs text-gray-400 mt-1">Tracks batches separately. Sells old stock at old cost until depleted. Not recommended for unified retail.</span>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div className="bg-emerald-50/50 p-6 rounded-2xl border border-emerald-100/50">
+                                <h4 className="font-bold text-emerald-900 mb-2 flex items-center gap-2"><FiCheck className="text-emerald-500"/> Selling Price Updates</h4>
+                                <p className="text-sm text-emerald-700/80 mb-5 leading-relaxed">
+                                    When WAC changes or prices increase, how should the retail prices be updated?
+                                </p>
+                                
+                                <div className="space-y-3">
+                                    <label className="flex gap-4 p-4 bg-white rounded-xl border-2 border-emerald-500 shadow-sm cursor-pointer relative overflow-hidden group">
+                                        <div className="absolute top-0 right-0 bg-emerald-500 text-white text-[10px] font-black px-2 py-0.5 rounded-bl-lg">RECOMMENDED</div>
+                                        <input type="radio" name="sell_strat" className="mt-1 w-4 h-4 text-emerald-600 border-gray-300 focus:ring-emerald-500" defaultChecked />
+                                        <div>
+                                            <span className="block font-bold text-gray-800">Unified Global Price Update</span>
+                                            <span className="block text-xs text-gray-500 mt-1">Updates ALL stock (old and new) to the new selling price immediately. Prevents customer confusion at the till.</span>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-10">
+                            <h3 className="text-lg font-black text-gray-800 mb-4 flex items-center gap-2">Pricing Tiers (Beta)</h3>
+                            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-gray-50 border-b border-gray-100">
+                                        <tr>
+                                            <th className="px-5 py-3 font-bold text-gray-600">Level Name</th>
+                                            <th className="px-5 py-3 font-bold text-gray-600">Target Customer</th>
+                                            <th className="px-5 py-3 font-bold text-gray-600">Default Margin (%)</th>
+                                            <th className="px-5 py-3 font-bold text-gray-600 text-right">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        <tr>
+                                            <td className="px-5 py-4 font-black text-gray-800">Retail Price (Tier 1)</td>
+                                            <td className="px-5 py-4 text-gray-500 font-medium">Standard Walk-in</td>
+                                            <td className="px-5 py-4"><input type="number" defaultValue={40} className="w-20 px-2 py-1 border border-gray-200 rounded text-center focus:ring-2 focus:ring-indigo-500" /></td>
+                                            <td className="px-5 py-4 text-right"><span className="bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full text-xs font-bold">Active</span></td>
+                                        </tr>
+                                        <tr>
+                                            <td className="px-5 py-4 font-black text-gray-800">Wholesale Price (Tier 2)</td>
+                                            <td className="px-5 py-4 text-gray-500 font-medium">B2B / Bulk Buyers</td>
+                                            <td className="px-5 py-4"><input type="number" defaultValue={20} className="w-20 px-2 py-1 border border-gray-200 rounded text-center focus:ring-2 focus:ring-indigo-500" /></td>
+                                            <td className="px-5 py-4 text-right"><span className="bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full text-xs font-bold">Active</span></td>
+                                        </tr>
+                                        <tr className="bg-gray-50">
+                                            <td className="px-5 py-4 font-black text-gray-400">VIP Price (Tier 3)</td>
+                                            <td className="px-5 py-4 text-gray-400 font-medium">Loyalty Members</td>
+                                            <td className="px-5 py-4"><input type="number" disabled defaultValue={30} className="w-20 px-2 py-1 border border-gray-200 rounded text-center opacity-50" /></td>
+                                            <td className="px-5 py-4 text-right"><span className="bg-gray-200 text-gray-500 px-2.5 py-1 rounded-full text-xs font-bold">Locked</span></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <p className="text-xs text-gray-400 font-medium mt-3 px-2 flex items-center gap-1"><FiInfo/> Tier 1 and Tier 2 are directly mapped to Retail Price and Wholesale Price in product records.</p>
+                        </div>
+                    </div>
+                )}
+
                 {activeTab === 'email' && isSuperAdmin && (
                     <div className="p-6 space-y-6">
                         <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
