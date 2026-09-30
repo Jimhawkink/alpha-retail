@@ -150,8 +150,8 @@ export default function UltraAnalysisPage() {
 
     return products.map(p => {
       const pSales = itemMap[p.pid] || [];
-      const totalQty = pSales.reduce((acc, curr) => acc + (curr.quantity || 0), 0);
-      const totalRevenue = pSales.reduce((acc, curr) => acc + (curr.subtotal || 0), 0);
+      const totalQty = pSales.reduce((acc, curr) => acc + Number(curr.quantity || 0), 0);
+      const totalRevenue = pSales.reduce((acc, curr) => acc + Number(curr.subtotal || 0), 0);
       const uniqueSales = new Set(pSales.map(s => s.sale_id));
       const totalOrders = uniqueSales.size;
 
@@ -207,7 +207,7 @@ export default function UltraAnalysisPage() {
       const sale = salesMap[item.sale_id];
       const itemDate = sale?.sale_datetime || new Date().toISOString();
       const date = itemDate.split('T')[0];
-      daily[date] = (daily[date] || 0) + (item.subtotal || 0);
+      daily[date] = (daily[date] || 0) + Number(item.subtotal || 0);
     });
     return Object.entries(daily).map(([date, amount]) => ({ date, amount })).sort((a, b) => a.date.localeCompare(b.date));
   }, [salesItems, salesMap]);
@@ -323,9 +323,9 @@ export default function UltraAnalysisPage() {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={top10Revenue} layout="vertical" margin={{ top: 0, right: 30, left: 40, bottom: 20 }}>
               <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" />
-              <XAxis type="number" tickFormatter={(val) => `Ksh ${val/1000}k`} stroke="#9ca3af" fontSize={12} />
+              <XAxis type="number" tickFormatter={(val) => `Ksh ${Number(val || 0)/1000}k`} stroke="#9ca3af" fontSize={12} />
               <YAxis dataKey="product_name" type="category" width={100} tick={{fontSize: 11, fill: '#4b5563'}} />
-              <RechartsTooltip cursor={{fill: '#f3f4f6'}} contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} formatter={(val: number) => [`Ksh ${val.toLocaleString()}`, 'Revenue']} />
+              <RechartsTooltip cursor={{fill: '#f3f4f6'}} contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} formatter={(val: number) => [`Ksh ${Number(val || 0).toLocaleString()}`, 'Revenue']} />
               <Bar dataKey="totalRevenue" fill="url(#colorRev)" radius={[0, 8, 8, 0]} barSize={20} />
               <defs>
                 <linearGradient id="colorRev" x1="0" y1="0" x2="1" y2="0">
@@ -342,9 +342,9 @@ export default function UltraAnalysisPage() {
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={trendData} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-              <XAxis dataKey="date" stroke="#9ca3af" fontSize={12} tickFormatter={(val) => val.split('-').slice(1).join('/')} />
-              <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(val) => `${val/1000}k`} />
-              <RechartsTooltip cursor={{stroke: '#8b5cf6', strokeWidth: 2}} contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} formatter={(val: number) => [`Ksh ${val.toLocaleString()}`, 'Revenue']} />
+              <XAxis dataKey="date" stroke="#9ca3af" fontSize={12} tickFormatter={(val) => typeof val === 'string' ? val.split('-').slice(1).join('/') : val} />
+              <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(val) => `${Number(val)/1000}k`} />
+              <RechartsTooltip cursor={{stroke: '#8b5cf6', strokeWidth: 2}} contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} formatter={(val: number) => [`Ksh ${Number(val || 0).toLocaleString()}`, 'Revenue']} />
               <Area type="monotone" dataKey="amount" stroke="#8b5cf6" strokeWidth={3} fill="url(#colorTrend)" />
               <defs>
                 <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">

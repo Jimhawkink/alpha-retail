@@ -82,8 +82,8 @@ export default function FastSlowMovingPage() {
       
       items.forEach((it:any) => {
         if(!salesMap[it.product_id]) salesMap[it.product_id]={qty:0,rev:0,orders:new Set()};
-        salesMap[it.product_id].qty+=(it.quantity||0);
-        salesMap[it.product_id].rev+=(it.subtotal||0);
+        salesMap[it.product_id].qty+=Number(it.quantity||0);
+        salesMap[it.product_id].rev+=Number(it.subtotal||0);
         salesMap[it.product_id].orders.add(it.sale_id);
         
         const sDate = saleDateMap[it.sale_id];
