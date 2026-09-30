@@ -214,6 +214,20 @@ export default function UltraAnalysisPage() {
     return Object.entries(daily).map(([date, amount]) => ({ date, amount })).sort((a, b) => a.date.localeCompare(b.date));
   }, [salesItems, salesMap]);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
+
+  const paginatedData = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredData.slice(start, start + itemsPerPage);
+  }, [filteredData, currentPage]);
+
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, velocityFilter, dateRange, customStart, customEnd, timeFilter]);
+
   const exportCSV = () => {
     const rows = [['Product', 'Category', 'Velocity', 'Total Qty', 'Total Revenue', 'Total Orders', 'Avg Order Value', 'Last Sold']];
     filteredData.forEach(p => {
@@ -360,86 +374,100 @@ export default function UltraAnalysisPage() {
       </div>
 
       {/* Datagrid */}
-      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="p-5 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
-          <h2 className="text-lg font-bold text-gray-800">Detailed Product Analysis</h2>
-          <span className="text-sm font-semibold text-gray-500 bg-white px-3 py-1 rounded-lg border border-gray-200">{filteredData.length} Results</span>
+      <div className="bg-white rounded-3xl border border-gray-200 shadow-lg overflow-hidden flex flex-col">
+        <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600">
+              <FiPackage size={20} />
+            </div>
+            <div>
+              <h2 className="text-xl font-black text-gray-800">Detailed Product Analysis</h2>
+              <p className="text-xs text-gray-500 font-medium mt-0.5">Click any row to view full invoice breakdown</p>
+            </div>
+          </div>
+          <span className="text-sm font-black text-blue-600 bg-blue-50 px-4 py-1.5 rounded-xl border border-blue-100 shadow-inner">{filteredData.length} Results Found</span>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto min-h-[400px]">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="px-5 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider w-10"></th>
-                <th className="px-5 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Product Info</th>
-                <th className="px-5 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Velocity</th>
-                <th className="px-5 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Qty Sold</th>
-                <th className="px-5 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Revenue</th>
-                <th className="px-5 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Orders</th>
-                <th className="px-5 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Avg Order</th>
+              <tr className="bg-gradient-to-r from-slate-800 to-slate-900 border-b border-gray-200">
+                <th className="px-5 py-4 text-xs font-black text-slate-300 uppercase tracking-wider w-10"></th>
+                <th className="px-5 py-4 text-xs font-black text-slate-300 uppercase tracking-wider">Product Info</th>
+                <th className="px-5 py-4 text-xs font-black text-slate-300 uppercase tracking-wider text-center">Velocity</th>
+                <th className="px-5 py-4 text-xs font-black text-slate-300 uppercase tracking-wider text-right">Qty Sold</th>
+                <th className="px-5 py-4 text-xs font-black text-slate-300 uppercase tracking-wider text-right">Revenue</th>
+                <th className="px-5 py-4 text-xs font-black text-slate-300 uppercase tracking-wider text-center">Orders</th>
+                <th className="px-5 py-4 text-xs font-black text-slate-300 uppercase tracking-wider text-right">Avg Order</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
-                <tr><td colSpan={7} className="py-20 text-center text-gray-400 font-medium">Crunching data...</td></tr>
-              ) : filteredData.length === 0 ? (
-                <tr><td colSpan={7} className="py-20 text-center text-gray-400 font-medium">No results found for current filters.</td></tr>
-              ) : filteredData.map((p) => {
+                <tr><td colSpan={7} className="py-32 text-center text-blue-500 font-bold text-lg">Crunching robust analytics data...</td></tr>
+              ) : paginatedData.length === 0 ? (
+                <tr><td colSpan={7} className="py-32 text-center text-gray-400 font-medium">No results found for current filters.</td></tr>
+              ) : paginatedData.map((p) => {
                 const isExpanded = expandedRows.has(p.pid);
                 const velColors = {
-                  'Best Seller': 'bg-emerald-100 text-emerald-700 border-emerald-200',
-                  'Average': 'bg-blue-100 text-blue-700 border-blue-200',
-                  'Poor': 'bg-amber-100 text-amber-700 border-amber-200',
-                  'Not Sold': 'bg-red-100 text-red-700 border-red-200'
+                  'Best Seller': 'bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 border-emerald-300 shadow-sm',
+                  'Average': 'bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 border-blue-300 shadow-sm',
+                  'Poor': 'bg-gradient-to-r from-amber-100 to-orange-100 text-amber-800 border-amber-300 shadow-sm',
+                  'Not Sold': 'bg-gradient-to-r from-red-100 to-rose-100 text-red-800 border-red-300 shadow-sm'
                 };
                 return (
                   <React.Fragment key={p.pid}>
-                    <tr className={`hover:bg-gray-50 transition-colors cursor-pointer ${isExpanded ? 'bg-blue-50/30' : ''}`} onClick={() => toggleRow(p.pid)}>
+                    <tr className={`hover:bg-blue-50/50 transition-colors cursor-pointer ${isExpanded ? 'bg-blue-50/80 border-l-4 border-l-blue-500' : 'border-l-4 border-l-transparent'}`} onClick={() => toggleRow(p.pid)}>
                       <td className="px-5 py-4 text-gray-400">
-                        {isExpanded ? <FiMinimize2 className="text-blue-500" /> : <FiMaximize2 />}
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isExpanded ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500 group-hover:bg-blue-50'}`}>
+                           {isExpanded ? <FiMinimize2 size={16} /> : <FiMaximize2 size={16} />}
+                        </div>
                       </td>
                       <td className="px-5 py-4">
-                        <div className="font-bold text-gray-800">{p.product_name}</div>
-                        <div className="text-xs text-gray-500 font-medium mt-0.5">{p.category || 'Uncategorized'}</div>
+                        <div className="font-bold text-gray-800 text-base">{p.product_name}</div>
+                        <div className="text-xs text-gray-400 font-semibold mt-1">{p.category || 'Uncategorized'}</div>
                       </td>
                       <td className="px-5 py-4 text-center">
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold border ${velColors[p.velocity]}`}>
+                        <span className={`px-3.5 py-1.5 rounded-xl text-xs font-black border ${velColors[p.velocity]}`}>
                           {p.velocity}
                         </span>
                       </td>
-                      <td className="px-5 py-4 text-right font-bold text-gray-700">{p.totalQty.toLocaleString()}</td>
-                      <td className="px-5 py-4 text-right font-bold text-blue-600">Ksh {p.totalRevenue.toLocaleString()}</td>
-                      <td className="px-5 py-4 text-center font-semibold text-gray-600">{p.totalOrders}</td>
-                      <td className="px-5 py-4 text-right font-semibold text-gray-600">Ksh {p.avgOrderValue.toFixed(0)}</td>
+                      <td className="px-5 py-4 text-right font-black text-gray-700">{p.totalQty.toLocaleString()}</td>
+                      <td className="px-5 py-4 text-right font-black text-blue-600">Ksh {p.totalRevenue.toLocaleString()}</td>
+                      <td className="px-5 py-4 text-center font-bold text-gray-600">
+                        <span className="bg-gray-100 px-3 py-1 rounded-lg">{p.totalOrders}</span>
+                      </td>
+                      <td className="px-5 py-4 text-right font-bold text-gray-600">Ksh {p.avgOrderValue.toFixed(0)}</td>
                     </tr>
                     {isExpanded && (
                       <tr>
-                        <td colSpan={7} className="bg-gray-50/50 p-0 border-b-2 border-blue-100">
-                          <div className="p-6">
-                            <h4 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2"><FiShoppingCart className="text-blue-500"/> Invoice Breakdown for {p.product_name}</h4>
+                        <td colSpan={7} className="bg-gradient-to-b from-blue-50/50 to-white p-0 border-b-2 border-blue-200">
+                          <div className="p-8">
+                            <h4 className="text-sm font-black text-gray-800 mb-5 flex items-center gap-2"><FiShoppingCart className="text-blue-500" size={18}/> Full Invoice Breakdown for {p.product_name}</h4>
                             {p.sales.length === 0 ? (
-                              <p className="text-sm text-gray-500 italic">No sales data recorded in this period.</p>
+                              <div className="bg-white p-6 rounded-2xl border border-gray-200 text-center">
+                                <p className="text-sm text-gray-500 font-medium">No sales data recorded in this period.</p>
+                              </div>
                             ) : (
-                              <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+                              <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-md">
                                 <table className="w-full text-left text-sm">
-                                  <thead className="bg-gray-50 border-b border-gray-200">
+                                  <thead className="bg-slate-50 border-b border-gray-200">
                                     <tr>
-                                      <th className="px-4 py-3 font-semibold text-gray-600">Date & Time</th>
-                                      <th className="px-4 py-3 font-semibold text-gray-600">Receipt No</th>
-                                      <th className="px-4 py-3 font-semibold text-gray-600">Customer Name</th>
-                                      <th className="px-4 py-3 font-semibold text-gray-600 text-right">Qty</th>
-                                      <th className="px-4 py-3 font-semibold text-gray-600 text-right">Unit Price</th>
-                                      <th className="px-4 py-3 font-semibold text-gray-600 text-right">Subtotal</th>
+                                      <th className="px-5 py-3.5 font-bold text-slate-700">Date & Time</th>
+                                      <th className="px-5 py-3.5 font-bold text-slate-700">Receipt No</th>
+                                      <th className="px-5 py-3.5 font-bold text-slate-700">Customer Name</th>
+                                      <th className="px-5 py-3.5 font-bold text-slate-700 text-right">Qty</th>
+                                      <th className="px-5 py-3.5 font-bold text-slate-700 text-right">Unit Price</th>
+                                      <th className="px-5 py-3.5 font-bold text-slate-700 text-right">Subtotal</th>
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-gray-100">
-                                    {p.sales.map((sale) => (
-                                      <tr key={sale.item_id} className="hover:bg-gray-50">
-                                        <td className="px-4 py-3 text-gray-600">{new Date(sale.created_at).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</td>
-                                        <td className="px-4 py-3 font-medium text-blue-600">{sale.sale?.receipt_no || 'N/A'}</td>
-                                        <td className="px-4 py-3 text-gray-700">{sale.sale?.customer_name || 'Walk-in Customer'}</td>
-                                        <td className="px-4 py-3 text-right font-semibold">{sale.quantity}</td>
-                                        <td className="px-4 py-3 text-right text-gray-500">Ksh {sale.unit_price}</td>
-                                        <td className="px-4 py-3 text-right font-bold text-gray-800">Ksh {sale.subtotal}</td>
+                                    {p.sales.map((sale, idx) => (
+                                      <tr key={sale.item_id || idx} className="hover:bg-blue-50/30 transition-colors">
+                                        <td className="px-5 py-3 text-gray-600 font-medium">{new Date(sale.created_at).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</td>
+                                        <td className="px-5 py-3 font-bold text-blue-600">{sale.sale?.receipt_no || 'N/A'}</td>
+                                        <td className="px-5 py-3 text-gray-700 font-medium">{sale.sale?.customer_name || 'Walk-in Customer'}</td>
+                                        <td className="px-5 py-3 text-right font-bold text-gray-800">{sale.quantity}</td>
+                                        <td className="px-5 py-3 text-right text-gray-500 font-semibold">Ksh {sale.unit_price}</td>
+                                        <td className="px-5 py-3 text-right font-black text-gray-900">Ksh {sale.subtotal}</td>
                                       </tr>
                                     ))}
                                   </tbody>
@@ -456,6 +484,55 @@ export default function UltraAnalysisPage() {
             </tbody>
           </table>
         </div>
+        
+        {/* Pagination Controls */}
+        {!loading && totalPages > 1 && (
+          <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+            <p className="text-sm text-gray-500 font-medium">
+              Showing <span className="font-bold text-gray-800">{((currentPage - 1) * itemsPerPage) + 1}</span> to <span className="font-bold text-gray-800">{Math.min(currentPage * itemsPerPage, filteredData.length)}</span> of <span className="font-bold text-gray-800">{filteredData.length}</span> results
+            </p>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 hover:text-blue-600 disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-gray-700 transition-all shadow-sm"
+              >
+                Previous
+              </button>
+              
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  // Logic to show a sliding window of pages
+                  let pageNum = currentPage;
+                  if (currentPage <= 3) pageNum = i + 1;
+                  else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+                  else pageNum = currentPage - 2 + i;
+                  
+                  if (pageNum < 1 || pageNum > totalPages) return null;
+                  
+                  const isCurrent = pageNum === currentPage;
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`w-9 h-9 rounded-xl text-sm font-bold flex items-center justify-center transition-all shadow-sm ${isCurrent ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 hover:text-blue-600'}`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button 
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 hover:text-blue-600 disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-gray-700 transition-all shadow-sm"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -221,90 +221,131 @@ export default function FastSlowMovingPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-gradient-to-r from-violet-50 via-purple-50 to-indigo-50 border-b border-gray-200">
-              <th className="text-left py-3.5 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">#</th>
-              <th className="text-left py-3.5 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Product</th>
-              <th className="text-left py-3.5 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Category</th>
-              <th className="text-center py-3.5 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Class</th>
-              <th className="text-right py-3.5 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Qty Sold</th>
-              <th className="text-right py-3.5 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Revenue</th>
-              <th className="text-center py-3.5 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Orders</th>
-              <th className="text-center py-3.5 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Avg/Day</th>
-              <th className="text-center py-3.5 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Last Sold</th>
-              <th className="text-right py-3.5 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">In Stock</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {loading ? (
-              <tr><td colSpan={10} className="py-24 text-center">
-                <div className="flex flex-col items-center gap-3">
-                  <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin"/>
-                  <p className="text-gray-400 text-sm font-medium">Analysing inventory velocity…</p>
-                </div>
-              </td></tr>
-            ) : paged.length === 0 ? (
-              <tr><td colSpan={10} className="py-24 text-center text-gray-400">No products found matching filters</td></tr>
-            ) : paged.map((p, i) => {
-              const cfg=clsCfg[p.velocity_class];
-              const rowNum=(page-1)*PAGE_SIZE+i+1;
-              return (
-                <tr key={p.pid} className="hover:bg-gray-50/60 transition-colors">
-                  <td className="py-3 px-4 text-xs text-gray-400 font-medium">{rowNum}</td>
-                  <td className="py-3 px-4">
-                    <span className="font-semibold text-sm text-gray-800">{p.product_name}</span>
-                  </td>
-                  <td className="py-3 px-4 text-xs text-gray-500 bg-gray-50/60">
-                    <span className="px-2 py-0.5 bg-gray-100 rounded-md">{p.category}</span>
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${cfg.bg} ${cfg.text}`}>{cfg.emoji} {p.velocity_class}</span>
-                  </td>
-                  <td className="py-3 px-4 text-right font-bold text-sm text-gray-800">{p.total_qty.toLocaleString()}</td>
-                  <td className="py-3 px-4 text-right font-bold text-sm text-violet-600">Ksh {p.total_revenue.toLocaleString()}</td>
-                  <td className="py-3 px-4 text-center text-sm text-gray-600">{p.total_orders}</td>
-                  <td className="py-3 px-4 text-center">
-                    <span className={`text-xs font-bold ${p.avg_daily_qty>=1?'text-emerald-600':p.avg_daily_qty>=0.2?'text-amber-600':'text-red-500'}`}>{p.avg_daily_qty.toFixed(2)}</span>
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${p.days_last_sold<=7?'bg-emerald-100 text-emerald-700':p.days_last_sold<=30?'bg-amber-100 text-amber-700':'bg-red-100 text-red-700'}`}>
-                      {p.days_last_sold>=999?'Never':`${p.days_last_sold}d ago`}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <span className={`font-bold text-sm ${p.stock_qty===0?'text-red-500':p.stock_qty<=5?'text-amber-600':'text-gray-800'}`}>{p.stock_qty}</span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-          {filtered.length > 0 && (
-            <tfoot>
-              <tr className="bg-gradient-to-r from-violet-50 to-purple-50 border-t border-gray-200 font-bold">
-                <td colSpan={4} className="py-3 px-4 text-sm text-gray-600">TOTALS — {filtered.length} products</td>
-                <td className="py-3 px-4 text-right text-sm">{filtered.reduce((s,p)=>s+p.total_qty,0).toLocaleString()}</td>
-                <td className="py-3 px-4 text-right text-sm text-violet-600">Ksh {filtered.reduce((s,p)=>s+p.total_revenue,0).toLocaleString()}</td>
-                <td className="py-3 px-4 text-center text-sm">{filtered.reduce((s,p)=>s+p.total_orders,0)}</td>
-                <td colSpan={3}/>
+      <div className="bg-white rounded-3xl border border-gray-200 overflow-hidden shadow-lg flex flex-col mt-4">
+        <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center text-violet-600">
+              <FiPackage size={20} />
+            </div>
+            <div>
+              <h2 className="text-xl font-black text-gray-800">Product Velocity Grid</h2>
+              <p className="text-xs text-gray-500 font-medium mt-0.5">Comprehensive view of inventory movement</p>
+            </div>
+          </div>
+          <span className="text-sm font-black text-violet-600 bg-violet-50 px-4 py-1.5 rounded-xl border border-violet-100 shadow-inner">{filtered.length} Items Listed</span>
+        </div>
+        <div className="overflow-x-auto min-h-[400px]">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-gradient-to-r from-slate-800 to-slate-900 border-b border-gray-200">
+                <th className="text-left py-4 px-5 text-xs font-black text-slate-300 uppercase tracking-wider">#</th>
+                <th className="text-left py-4 px-5 text-xs font-black text-slate-300 uppercase tracking-wider">Product</th>
+                <th className="text-left py-4 px-5 text-xs font-black text-slate-300 uppercase tracking-wider">Category</th>
+                <th className="text-center py-4 px-5 text-xs font-black text-slate-300 uppercase tracking-wider">Class</th>
+                <th className="text-right py-4 px-5 text-xs font-black text-slate-300 uppercase tracking-wider">Qty Sold</th>
+                <th className="text-right py-4 px-5 text-xs font-black text-slate-300 uppercase tracking-wider">Revenue</th>
+                <th className="text-center py-4 px-5 text-xs font-black text-slate-300 uppercase tracking-wider">Orders</th>
+                <th className="text-center py-4 px-5 text-xs font-black text-slate-300 uppercase tracking-wider">Avg/Day</th>
+                <th className="text-center py-4 px-5 text-xs font-black text-slate-300 uppercase tracking-wider">Last Sold</th>
+                <th className="text-right py-4 px-5 text-xs font-black text-slate-300 uppercase tracking-wider">In Stock</th>
               </tr>
-            </tfoot>
-          )}
-        </table>
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3.5 border-t border-gray-100 bg-gray-50/50">
-            <p className="text-sm text-gray-500">Showing <strong>{(page-1)*PAGE_SIZE+1}–{Math.min(page*PAGE_SIZE,filtered.length)}</strong> of <strong>{filtered.length}</strong> products</p>
-            <div className="flex items-center gap-1">
-              <button onClick={()=>setPage(1)} disabled={page===1} className="px-2.5 py-1.5 rounded-lg text-xs font-bold disabled:opacity-30 hover:bg-gray-200 transition-colors">«</button>
-              <button onClick={()=>setPage(p=>p-1)} disabled={page===1} className="px-3 py-1.5 rounded-lg text-xs font-bold disabled:opacity-30 hover:bg-gray-200 transition-colors">‹</button>
-              {Array.from({length:Math.min(7,totalPages)},(_,i)=>{
-                let pg=i+1; if(totalPages>7&&page>4) pg=page-3+i; if(pg<1||pg>totalPages) return null;
-                return <button key={pg} onClick={()=>setPage(pg)} className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${pg===page?'bg-violet-500 text-white shadow-md':'hover:bg-gray-200 text-gray-600'}`}>{pg}</button>;
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {loading ? (
+                <tr><td colSpan={10} className="py-32 text-center">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin"/>
+                    <p className="text-violet-600 text-lg font-bold">Analysing inventory velocity...</p>
+                  </div>
+                </td></tr>
+              ) : paged.length === 0 ? (
+                <tr><td colSpan={10} className="py-32 text-center text-gray-400 font-medium">No products found matching filters</td></tr>
+              ) : paged.map((p, i) => {
+                const cfg=clsCfg[p.velocity_class];
+                const rowNum=(page-1)*PAGE_SIZE+i+1;
+                return (
+                  <tr key={p.pid} className="hover:bg-violet-50/50 transition-colors">
+                    <td className="py-4 px-5 text-xs text-gray-400 font-bold">{rowNum}</td>
+                    <td className="py-4 px-5">
+                      <span className="font-black text-sm text-gray-800">{p.product_name}</span>
+                    </td>
+                    <td className="py-4 px-5">
+                      <span className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-gray-100/80 rounded-lg">{p.category}</span>
+                    </td>
+                    <td className="py-4 px-5 text-center">
+                      <span className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black border shadow-sm ${cfg.bg.replace('bg-','bg-gradient-to-r from-').replace('100','100 to-'+cfg.bg.split('-')[1]+'-50')} ${cfg.text} border-${cfg.bg.split('-')[1]}-200`}>{cfg.emoji} {p.velocity_class}</span>
+                    </td>
+                    <td className="py-4 px-5 text-right font-black text-sm text-gray-800">{p.total_qty.toLocaleString()}</td>
+                    <td className="py-4 px-5 text-right font-black text-sm text-violet-600">Ksh {p.total_revenue.toLocaleString()}</td>
+                    <td className="py-4 px-5 text-center text-sm font-bold text-gray-600">
+                      <span className="bg-gray-100 px-3 py-1 rounded-lg">{p.total_orders}</span>
+                    </td>
+                    <td className="py-4 px-5 text-center">
+                      <span className={`text-sm font-black ${p.avg_daily_qty>=1?'text-emerald-600':p.avg_daily_qty>=0.2?'text-amber-500':'text-red-500'}`}>{p.avg_daily_qty.toFixed(2)}</span>
+                    </td>
+                    <td className="py-4 px-5 text-center">
+                      <span className={`text-xs font-black px-3 py-1.5 rounded-xl shadow-sm border ${p.days_last_sold<=7?'bg-emerald-50 text-emerald-700 border-emerald-200':p.days_last_sold<=30?'bg-amber-50 text-amber-700 border-amber-200':'bg-red-50 text-red-700 border-red-200'}`}>
+                        {p.days_last_sold>=999?'Never':`${p.days_last_sold}d ago`}
+                      </span>
+                    </td>
+                    <td className="py-4 px-5 text-right">
+                      <span className={`font-black text-sm ${p.stock_qty===0?'text-red-500':p.stock_qty<=5?'text-amber-500':'text-gray-800'}`}>{p.stock_qty}</span>
+                    </td>
+                  </tr>
+                );
               })}
-              <button onClick={()=>setPage(p=>p+1)} disabled={page===totalPages} className="px-3 py-1.5 rounded-lg text-xs font-bold disabled:opacity-30 hover:bg-gray-200 transition-colors">›</button>
-              <button onClick={()=>setPage(totalPages)} disabled={page===totalPages} className="px-2.5 py-1.5 rounded-lg text-xs font-bold disabled:opacity-30 hover:bg-gray-200 transition-colors">»</button>
+            </tbody>
+            {filtered.length > 0 && (
+              <tfoot>
+                <tr className="bg-gradient-to-r from-violet-50 to-indigo-50 border-t border-violet-100 font-black">
+                  <td colSpan={4} className="py-4 px-5 text-sm text-violet-800 uppercase tracking-widest">TOTALS — {filtered.length} products</td>
+                  <td className="py-4 px-5 text-right text-sm text-violet-900">{filtered.reduce((s,p)=>s+p.total_qty,0).toLocaleString()}</td>
+                  <td className="py-4 px-5 text-right text-sm text-violet-700">Ksh {filtered.reduce((s,p)=>s+p.total_revenue,0).toLocaleString()}</td>
+                  <td className="py-4 px-5 text-center text-sm text-violet-900">{filtered.reduce((s,p)=>s+p.total_orders,0)}</td>
+                  <td colSpan={3}/>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+        {/* Premium Pagination */}
+        {!loading && totalPages > 1 && (
+          <div className="px-6 py-5 border-t border-gray-100 bg-gray-50 flex flex-col md:flex-row items-center justify-between gap-4">
+            <p className="text-sm text-gray-500 font-medium">
+              Showing <span className="font-bold text-gray-800">{(page-1)*PAGE_SIZE+1}</span> to <span className="font-bold text-gray-800">{Math.min(page*PAGE_SIZE,filtered.length)}</span> of <span className="font-bold text-gray-800">{filtered.length}</span> results
+            </p>
+            <div className="flex gap-2">
+              <button 
+                onClick={()=>setPage(p=>Math.max(1, p-1))} 
+                disabled={page===1} 
+                className="px-4 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 hover:text-violet-600 disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-gray-700 transition-all shadow-sm"
+              >
+                Previous
+              </button>
+              
+              <div className="flex items-center gap-1 hidden sm:flex">
+                {Array.from({length:Math.min(5,totalPages)},(_,i)=>{
+                  let pg=page; if(page<=3) pg=i+1; else if(page>=totalPages-2) pg=totalPages-4+i; else pg=page-2+i;
+                  if(pg<1||pg>totalPages) return null;
+                  return (
+                    <button 
+                      key={pg} 
+                      onClick={()=>setPage(pg)} 
+                      className={`w-10 h-10 rounded-xl text-sm font-black flex items-center justify-center transition-all shadow-sm ${pg===page?'bg-violet-600 text-white border-violet-600 hover:bg-violet-700':'bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 hover:text-violet-600'}`}
+                    >
+                      {pg}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button 
+                onClick={()=>setPage(p=>Math.min(totalPages, p+1))} 
+                disabled={page===totalPages} 
+                className="px-4 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 hover:text-violet-600 disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-gray-700 transition-all shadow-sm"
+              >
+                Next
+              </button>
             </div>
           </div>
         )}
