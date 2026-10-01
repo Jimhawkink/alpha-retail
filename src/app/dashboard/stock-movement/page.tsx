@@ -1,552 +1,492 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
+import { FiBox, FiTrendingUp, FiCalendar, FiSearch, FiChevronDown, FiChevronUp, FiList, FiArrowDownRight, FiArrowUpRight, FiRefreshCw } from 'react-icons/fi';
 
-interface StockMovement {
-    movement_date: string;
-    product_id: number;
-    product_code: string;
+interface ProductMovement {
+    pid: number;
     product_name: string;
-    unit: string;
+    product_code: string;
+    category: string;
+    base_unit: string;
+    cost_price: number;
+    
+    // Calculated Totals
     opening_qty: number;
     purchased_qty: number;
-    returned_qty: number;
     issued_qty: number;
     adjusted_qty: number;
     closing_qty: number;
-    total_value: number;
+    
+    // Ledger details (In-Period only)
+    ledger: LedgerEntry[];
 }
 
-interface Ingredient {
-    pid: number;
-    product_code: string;
-    product_name: string;
-    base_unit: string;
-    category: string;
+interface LedgerEntry {
+    date: string;
+    type: 'Purchase' | 'Sale' | 'Adjustment' | 'Opening';
+    qty_change: number;
+    reference: string;
+    details?: string;
 }
 
 export default function StockMovementPage() {
-    const [movements, setMovements] = useState<StockMovement[]>([]);
-    const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+    const { activeOutlet } = useOutlet();
+    const outletId = activeOutlet?.outlet_id;
+
     const [isLoading, setIsLoading] = useState(true);
-
+    const [movements, setMovements] = useState<ProductMovement[]>([]);
+    
     // Filters
-    const [dateFrom, setDateFrom] = useState(new Date().toISOString().split('T')[0]);
-    const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0]);
-    const [selectedProduct, setSelectedProduct] = useState<number | null>(null);
+    const today = new Date().toISOString().split('T')[0];
+    const [dateFrom, setDateFrom] = useState(today);
+    const [dateTo, setDateTo] = useState(today);
     const [searchQuery, setSearchQuery] = useState('');
+    
+    // Pagination
+    const [page, setPage] = useState(1);
+    const rowsPerPage = 15;
 
-    // Adjustment Modal
-    const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
-    const [adjustProduct, setAdjustProduct] = useState<number | null>(null);
-    const [adjustQty, setAdjustQty] = useState('');
-    const [adjustType, setAdjustType] = useState<'add' | 'subtract'>('add');
-    const [adjustReason, setAdjustReason] = useState('');
-    const [isSaving, setIsSaving] = useState(false);
+    // Expanded rows
+    const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
 
-    // Stats
-    const [stats, setStats] = useState({
-        totalPurchased: 0,
-        totalIssued: 0,
-        totalReturned: 0,
-        totalAdjusted: 0,
-        totalValue: 0
-    });
+    const toggleRow = (pid: number) => {
+        const newSet = new Set(expandedRows);
+        if (newSet.has(pid)) newSet.delete(pid);
+        else newSet.add(pid);
+        setExpandedRows(newSet);
+    };
 
-    // Load initial data
-    useEffect(() => {
-        const loadInitialData = async () => {
-            try {
-                // Load ingredients from products_ingredients table
-                const { data: ingredientsData, error: ingredientsError } = await supabase
-                    .from('products_ingredients')
-                    .select('pid, product_code, product_name, base_unit, category')
-                    .eq('active', true)
-                    .order('product_name');
-
-                if (ingredientsError) {
-                    console.error('Error loading ingredients:', ingredientsError);
-                } else {
-                    setIngredients(ingredientsData || []);
-                }
-            } catch (err) {
-                console.error('Error loading initial data:', err);
-            }
-        };
-        loadInitialData();
-    }, []);
-
-    // Load movements
-    const loadMovements = useCallback(async () => {
+    const loadData = useCallback(async () => {
+        if (!outletId) return;
         setIsLoading(true);
         try {
-            // Get purchases in date range
-            const { data: purchasesData } = await supabase
-                .from('purchases')
-                .select('purchase_id, purchase_date, status')
-                .gte('purchase_date', dateFrom)
-                .lte('purchase_date', dateTo);
+            // 1. Fetch Products
+            const { data: productsData, error: prodErr } = await supabase
+                .from('retail_products')
+                .select('pid, product_name, product_code, category, purchase_unit, purchase_cost')
+                .eq('outlet_id', outletId)
+                .eq('active', true);
+            if (prodErr) throw prodErr;
 
-            const purchaseIds = (purchasesData || []).map(p => p.purchase_id);
+            // 2. Fetch Current Stock
+            const { data: stockData } = await supabase
+                .from('retail_stock')
+                .select('pid, qty')
+                .eq('outlet_id', outletId);
+                
+            const currentStockMap = new Map<number, number>();
+            stockData?.forEach(s => {
+                currentStockMap.set(s.pid, (currentStockMap.get(s.pid) || 0) + (s.qty || 0));
+            });
 
-            let purchaseItems: Array<{ product_id: number; product_name: string; quantity: number; rate: number; total_amount: number; purchase_id: number }> = [];
+            // 3. Fetch Purchases (From dateFrom to NOW)
+            const { data: purchases } = await supabase
+                .from('retail_purchases')
+                .select('purchase_id, purchase_date, purchase_no, supplier_name')
+                .eq('outlet_id', outletId)
+                .gte('purchase_date', dateFrom);
+                
+            const purchaseIds = (purchases || []).map(p => p.purchase_id);
+            let purchaseItems: any[] = [];
             if (purchaseIds.length > 0) {
-                const { data: items } = await supabase
-                    .from('purchase_products')
-                    .select('product_id, product_name, quantity, rate, total_amount, purchase_id')
-                    .in('purchase_id', purchaseIds);
-                purchaseItems = items || [];
+                const { data: pi } = await supabase.from('retail_purchase_products').select('product_id, quantity, purchase_id').in('purchase_id', purchaseIds);
+                purchaseItems = pi || [];
+            }
+            const purchaseMap = new Map((purchases || []).map(p => [p.purchase_id, p]));
+
+            // 4. Fetch Sales (From dateFrom to NOW)
+            const { data: sales } = await supabase
+                .from('retail_sales')
+                .select('sale_id, sale_date, receipt_no, customer_name')
+                .eq('outlet_id', outletId)
+                .gte('sale_date', dateFrom);
+                
+            const saleIds = (sales || []).map(s => s.sale_id);
+            let saleItems: any[] = [];
+            if (saleIds.length > 0) {
+                const { data: si } = await supabase.from('retail_sales_items').select('product_id, quantity, sale_id').in('sale_id', saleIds);
+                saleItems = si || [];
+            }
+            const salesMap = new Map((sales || []).map(s => [s.sale_id, s]));
+
+            // 5. Fetch Movements/Adjustments (From dateFrom to NOW)
+            // Fallback gracefully if retail_stock_movements doesn't exist or misses outlet_id
+            let stockMovements: any[] = [];
+            try {
+                const { data: sm } = await supabase
+                    .from('retail_stock_movements')
+                    .select('product_id, quantity, movement_type, movement_date, reference_no, reason')
+                    .gte('movement_date', dateFrom);
+                stockMovements = sm || [];
+            } catch (e) {
+                console.warn('Stock movements table error:', e);
             }
 
-            // Get recipe ingredients issued in date range
-            const { data: recipeIssues } = await supabase
-                .from('recipe_ingredients')
-                .select('ingredient_product_id, ingredient_name, qty_issued, rate, total_cost, recipe_date')
-                .gte('recipe_date', dateFrom)
-                .lte('recipe_date', dateTo);
+            // --- BUILD LEDGER ---
+            const result: ProductMovement[] = [];
 
-            // Create purchase_id to date map
-            const purchaseIdToDate = new Map((purchasesData || []).map(p => [p.purchase_id, p.purchase_date]));
+            productsData?.forEach(prod => {
+                const pid = prod.pid;
+                const currentQty = currentStockMap.get(pid) || 0;
+                
+                let inPeriodPurchases = 0;
+                let postPeriodPurchases = 0;
+                let inPeriodSales = 0;
+                let postPeriodSales = 0;
+                let inPeriodAdjustments = 0;
+                let postPeriodAdjustments = 0;
+                
+                const ledger: LedgerEntry[] = [];
 
-            // Aggregate by product and date
-            const movementMap = new Map<string, StockMovement>();
+                // Process Purchases
+                purchaseItems.filter(pi => pi.product_id === pid).forEach(pi => {
+                    const purchase = purchaseMap.get(pi.purchase_id);
+                    if (!purchase) return;
+                    
+                    const pDate = purchase.purchase_date.split('T')[0];
+                    if (pDate >= dateFrom && pDate <= dateTo) {
+                        inPeriodPurchases += pi.quantity;
+                        ledger.push({
+                            date: pDate,
+                            type: 'Purchase',
+                            qty_change: pi.quantity,
+                            reference: purchase.purchase_no || `PUR-${purchase.purchase_id}`,
+                            details: purchase.supplier_name
+                        });
+                    } else if (pDate > dateTo) {
+                        postPeriodPurchases += pi.quantity;
+                    }
+                });
 
-            // Process purchases
-            purchaseItems.forEach(item => {
-                const purchaseDate = purchaseIdToDate.get(item.purchase_id);
-                if (!purchaseDate) return;
+                // Process Sales
+                saleItems.filter(si => si.product_id === pid).forEach(si => {
+                    const sale = salesMap.get(si.sale_id);
+                    if (!sale) return;
+                    
+                    const sDate = sale.sale_date.split('T')[0];
+                    if (sDate >= dateFrom && sDate <= dateTo) {
+                        inPeriodSales += si.quantity;
+                        ledger.push({
+                            date: sDate,
+                            type: 'Sale',
+                            qty_change: -si.quantity,
+                            reference: sale.receipt_no || `REC-${sale.sale_id}`,
+                            details: sale.customer_name
+                        });
+                    } else if (sDate > dateTo) {
+                        postPeriodSales += si.quantity;
+                    }
+                });
 
-                // Find ingredient to get product_code
-                const ingredient = ingredients.find(i => i.pid === item.product_id);
+                // Process Adjustments
+                stockMovements.filter(sm => sm.product_id === pid).forEach(sm => {
+                    const mDate = (sm.movement_date || '').split('T')[0];
+                    if (!mDate) return;
+                    
+                    const isOut = sm.movement_type?.toLowerCase() === 'out';
+                    const qtyChange = isOut ? -Math.abs(sm.quantity) : Math.abs(sm.quantity);
+                    
+                    if (mDate >= dateFrom && mDate <= dateTo) {
+                        inPeriodAdjustments += qtyChange;
+                        ledger.push({
+                            date: mDate,
+                            type: 'Adjustment',
+                            qty_change: qtyChange,
+                            reference: sm.reference_no || 'ADJ',
+                            details: sm.reason
+                        });
+                    } else if (mDate > dateTo) {
+                        postPeriodAdjustments += qtyChange;
+                    }
+                });
 
-                const key = `${purchaseDate}-${item.product_id}`;
-                if (!movementMap.has(key)) {
-                    movementMap.set(key, {
-                        movement_date: purchaseDate,
-                        product_id: item.product_id,
-                        product_code: ingredient?.product_code || '',
-                        product_name: item.product_name || ingredient?.product_name || '',
-                        unit: ingredient?.base_unit || 'PCS',
-                        opening_qty: 0,
-                        purchased_qty: 0,
-                        returned_qty: 0,
-                        issued_qty: 0,
-                        adjusted_qty: 0,
-                        closing_qty: 0,
-                        total_value: 0
+                // Calculate Mathematically Accurate Opening and Closing
+                const netPostPeriod = postPeriodPurchases - postPeriodSales + postPeriodAdjustments;
+                const closingQty = currentQty - netPostPeriod;
+                
+                const netInPeriod = inPeriodPurchases - inPeriodSales + inPeriodAdjustments;
+                const openingQty = closingQty - netInPeriod;
+                
+                // Add opening balance to ledger
+                ledger.push({
+                    date: dateFrom,
+                    type: 'Opening',
+                    qty_change: openingQty,
+                    reference: 'Opening Balance',
+                    details: 'Calculated Balance'
+                });
+                
+                // Sort ledger (Opening first, then by date ascending)
+                ledger.sort((a, b) => {
+                    if (a.type === 'Opening') return -1;
+                    if (b.type === 'Opening') return 1;
+                    return new Date(a.date).getTime() - new Date(b.date).getTime();
+                });
+
+                // Only include products that have SOME stock or SOME movement
+                if (openingQty !== 0 || closingQty !== 0 || inPeriodPurchases !== 0 || inPeriodSales !== 0 || inPeriodAdjustments !== 0) {
+                    result.push({
+                        pid: prod.pid,
+                        product_name: prod.product_name,
+                        product_code: prod.product_code || '-',
+                        category: prod.category || 'Uncategorized',
+                        base_unit: prod.purchase_unit || 'PCS',
+                        cost_price: prod.purchase_cost || 0,
+                        opening_qty: openingQty,
+                        purchased_qty: inPeriodPurchases,
+                        issued_qty: inPeriodSales,
+                        adjusted_qty: inPeriodAdjustments,
+                        closing_qty: closingQty,
+                        ledger
                     });
                 }
-                const entry = movementMap.get(key)!;
-                entry.purchased_qty += item.quantity || 0;
-                entry.total_value += item.total_amount || 0;
             });
 
-            // Process recipe issues
-            (recipeIssues || []).forEach(item => {
-                const issueDate = item.recipe_date;
-                if (!issueDate) return;
+            setMovements(result.sort((a, b) => a.product_name.localeCompare(b.product_name)));
 
-                // Find ingredient to get product_code
-                const ingredient = ingredients.find(i => i.pid === item.ingredient_product_id);
-
-                const key = `${issueDate}-${item.ingredient_product_id}`;
-                if (!movementMap.has(key)) {
-                    movementMap.set(key, {
-                        movement_date: issueDate,
-                        product_id: item.ingredient_product_id,
-                        product_code: ingredient?.product_code || '',
-                        product_name: item.ingredient_name || ingredient?.product_name || '',
-                        unit: ingredient?.base_unit || 'PCS',
-                        opening_qty: 0,
-                        purchased_qty: 0,
-                        returned_qty: 0,
-                        issued_qty: 0,
-                        adjusted_qty: 0,
-                        closing_qty: 0,
-                        total_value: 0
-                    });
-                }
-                const entry = movementMap.get(key)!;
-                entry.issued_qty += item.qty_issued || 0;
-            });
-
-            // Calculate closing
-            const movements = Array.from(movementMap.values()).map(m => ({
-                ...m,
-                closing_qty: m.opening_qty + m.purchased_qty - m.returned_qty - m.issued_qty + m.adjusted_qty
-            }));
-
-            // Filter by selected product if any
-            let filteredMovements = movements;
-            if (selectedProduct) {
-                filteredMovements = movements.filter(m => m.product_id === selectedProduct);
-            }
-
-            filteredMovements.sort((a, b) => b.movement_date.localeCompare(a.movement_date));
-
-            setMovements(filteredMovements);
-            calculateStats(filteredMovements);
-        } catch (err) {
-            console.error('Error loading movements:', err);
+        } catch (err: any) {
+            console.error(err);
             toast.error('Failed to load stock movements');
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoading(false);
-    }, [dateFrom, dateTo, selectedProduct, ingredients]);
-
-    // Calculate stats
-    const calculateStats = (data: StockMovement[]) => {
-        const stats = data.reduce((acc, m) => ({
-            totalPurchased: acc.totalPurchased + m.purchased_qty,
-            totalIssued: acc.totalIssued + m.issued_qty,
-            totalReturned: acc.totalReturned + m.returned_qty,
-            totalAdjusted: acc.totalAdjusted + Math.abs(m.adjusted_qty),
-            totalValue: acc.totalValue + m.total_value
-        }), { totalPurchased: 0, totalIssued: 0, totalReturned: 0, totalAdjusted: 0, totalValue: 0 });
-        setStats(stats);
-    };
+    }, [outletId, dateFrom, dateTo]);
 
     useEffect(() => {
-        if (ingredients.length > 0) {
-            loadMovements();
-        }
-    }, [loadMovements, ingredients]);
+        loadData();
+    }, [loadData]);
 
-    // Filter movements by search
-    const filteredMovements = movements.filter(m =>
-        m.product_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        m.product_code?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filtered = useMemo(() => {
+        return movements.filter(m => 
+            m.product_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+            m.product_code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            m.category.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    }, [movements, searchQuery]);
 
-    // Handle stock adjustment
-    const handleAdjustment = async () => {
-        if (!adjustProduct || !adjustQty) {
-            toast.error('Please select ingredient and quantity');
-            return;
-        }
-
-        setIsSaving(true);
-        try {
-            const ingredient = ingredients.find(i => i.pid === adjustProduct);
-            const userData = localStorage.getItem('user');
-            const currentUser = userData ? JSON.parse(userData) : null;
-            const qty = parseFloat(adjustQty);
-
-            // Update the current_stock in products_ingredients
-            const { data: currentData } = await supabase
-                .from('products_ingredients')
-                .select('current_stock')
-                .eq('pid', adjustProduct)
-                .single();
-
-            const newStock = adjustType === 'add'
-                ? (currentData?.current_stock || 0) + qty
-                : (currentData?.current_stock || 0) - qty;
-
-            const { error } = await supabase
-                .from('products_ingredients')
-                .update({
-                    current_stock: Math.max(0, newStock),
-                    updated_at: new Date().toISOString()
-                })
-                .eq('pid', adjustProduct);
-
-            if (error) throw error;
-
-            toast.success('Stock adjustment saved! 📋');
-            setShowAdjustmentModal(false);
-            setAdjustProduct(null);
-            setAdjustQty('');
-            setAdjustReason('');
-            loadMovements();
-        } catch (err) {
-            console.error('Error saving adjustment:', err);
-            toast.error('Failed to save adjustment');
-        }
-        setIsSaving(false);
-    };
+    const totalPages = Math.ceil(filtered.length / rowsPerPage);
+    const paginated = filtered.slice((page - 1) * rowsPerPage, page * rowsPerPage);
 
     return (
-        <div className="max-w-full space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
+        <div className="space-y-6 animate-fadeIn" style={{ fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
+            
+            {/* Super Premium Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-                        <span className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg">📦</span>
-                        <span className="bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
-                            Stock / Ingredient Movement
-                        </span>
-                    </h1>
-                    <p className="text-gray-500 mt-1">Track purchases, issues, returns, and adjustments for ingredients</p>
+                    <h1 className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">Stock Movement Ledger</h1>
+                    <p className="text-sm text-gray-500 mt-1 font-medium">Robust ultra-premium tracking of stock lifecycle per product.</p>
                 </div>
-                <div className="flex gap-3">
-                    <button
-                        onClick={() => setShowAdjustmentModal(true)}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/30 transition-all"
-                    >
-                        <span>⚙️</span> Stock Adjustment
+            </div>
+
+            {/* Filters Row */}
+            <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex flex-wrap gap-4 items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
+                        <FiCalendar className="text-gray-400" />
+                        <div className="flex items-center gap-2">
+                            <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} className="bg-transparent text-sm font-bold text-gray-700 outline-none" />
+                            <span className="text-gray-400 font-bold">→</span>
+                            <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} className="bg-transparent text-sm font-bold text-gray-700 outline-none" />
+                        </div>
+                    </div>
+                    
+                    <button onClick={loadData} disabled={isLoading} className="bg-indigo-50 text-indigo-600 p-2.5 rounded-xl hover:bg-indigo-100 transition-colors">
+                        <FiRefreshCw className={isLoading ? 'animate-spin' : ''} />
                     </button>
-                    <button
-                        onClick={loadMovements}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-cyan-500/30 transition-all"
-                    >
-                        <span>🔄</span> Refresh
-                    </button>
+                </div>
+
+                <div className="relative w-full max-w-sm">
+                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input type="text" placeholder="Search product, code, category..." value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
+                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-400" />
                 </div>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-5 gap-4">
-                <div className="bg-gradient-to-br from-green-500 via-emerald-500 to-teal-600 rounded-2xl p-5 text-white shadow-lg">
-                    <div className="flex items-center gap-3 mb-2">
-                        <span className="text-3xl">🛒</span>
-                        <span className="font-medium opacity-90">Purchased</span>
+            {/* Ultra Premium Datagrid */}
+            <div className="bg-white rounded-3xl border border-gray-200 shadow-lg overflow-hidden flex flex-col">
+                <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 shadow-inner">
+                            <FiBox size={20} />
+                        </div>
+                        <h2 className="text-lg font-black text-gray-800">Movement Summary</h2>
                     </div>
-                    <p className="text-3xl font-bold">{stats.totalPurchased.toLocaleString()}</p>
-                </div>
-                <div className="bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-500 rounded-2xl p-5 text-white shadow-lg">
-                    <div className="flex items-center gap-3 mb-2">
-                        <span className="text-3xl">🍳</span>
-                        <span className="font-medium opacity-90">Issued (Recipes)</span>
+                    <div className="text-xs font-bold text-gray-500 bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200 shadow-inner">
+                        Showing {paginated.length} of {filtered.length} products
                     </div>
-                    <p className="text-3xl font-bold">{stats.totalIssued.toLocaleString()}</p>
                 </div>
-                <div className="bg-gradient-to-br from-red-500 via-rose-500 to-pink-600 rounded-2xl p-5 text-white shadow-lg">
-                    <div className="flex items-center gap-3 mb-2">
-                        <span className="text-3xl">↩️</span>
-                        <span className="font-medium opacity-90">Returned</span>
-                    </div>
-                    <p className="text-3xl font-bold">{stats.totalReturned.toLocaleString()}</p>
-                </div>
-                <div className="bg-gradient-to-br from-purple-500 via-indigo-500 to-violet-600 rounded-2xl p-5 text-white shadow-lg">
-                    <div className="flex items-center gap-3 mb-2">
-                        <span className="text-3xl">⚙️</span>
-                        <span className="font-medium opacity-90">Adjusted</span>
-                    </div>
-                    <p className="text-3xl font-bold">{stats.totalAdjusted.toLocaleString()}</p>
-                </div>
-                <div className="bg-gradient-to-br from-blue-500 via-cyan-500 to-teal-500 rounded-2xl p-5 text-white shadow-lg">
-                    <div className="flex items-center gap-3 mb-2">
-                        <span className="text-3xl">💰</span>
-                        <span className="font-medium opacity-90">Total Value</span>
-                    </div>
-                    <p className="text-3xl font-bold">Ksh {stats.totalValue.toLocaleString()}</p>
-                </div>
-            </div>
 
-            {/* Filters */}
-            <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                <div className="flex items-center gap-3 mb-4">
-                    <span className="text-xl">🔍</span>
-                    <h3 className="font-semibold text-gray-700">Filters</h3>
-                </div>
-                <div className="grid grid-cols-5 gap-4">
-                    <div>
-                        <label className="text-xs font-medium text-gray-500 mb-1 block">📅 From Date</label>
-                        <input
-                            type="date"
-                            value={dateFrom}
-                            onChange={(e) => setDateFrom(e.target.value)}
-                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-cyan-400"
-                        />
-                    </div>
-                    <div>
-                        <label className="text-xs font-medium text-gray-500 mb-1 block">📅 To Date</label>
-                        <input
-                            type="date"
-                            value={dateTo}
-                            onChange={(e) => setDateTo(e.target.value)}
-                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-cyan-400"
-                        />
-                    </div>
-                    <div>
-                        <label className="text-xs font-medium text-gray-500 mb-1 block">🥬 Ingredient</label>
-                        <select
-                            value={selectedProduct || ''}
-                            onChange={(e) => setSelectedProduct(e.target.value ? parseInt(e.target.value) : null)}
-                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-cyan-400"
-                        >
-                            <option value="">All Ingredients</option>
-                            {ingredients.map(i => (
-                                <option key={i.pid} value={i.pid}>{i.product_code} - {i.product_name}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="text-xs font-medium text-gray-500 mb-1 block">🔎 Search</label>
-                        <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Search ingredient..."
-                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-cyan-400"
-                        />
-                    </div>
-                    <div className="flex items-end">
-                        <button
-                            onClick={loadMovements}
-                            className="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-xl font-semibold hover:shadow-lg transition-all"
-                        >
-                            🔍 Apply
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {/* Data Table */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
-                    {isLoading ? (
-                        <div className="p-16 text-center">
-                            <div className="inline-block animate-spin text-5xl mb-4">🔄</div>
-                            <p className="text-gray-500">Loading stock movements...</p>
-                        </div>
-                    ) : filteredMovements.length === 0 ? (
-                        <div className="p-16 text-center">
-                            <span className="text-6xl block mb-4">📭</span>
-                            <p className="text-gray-500 text-lg">No stock movements found</p>
-                            <p className="text-gray-400 text-sm mt-2">Try adjusting your date range or add purchases/recipes</p>
-                        </div>
-                    ) : (
-                        <table className="w-full">
-                            <thead className="bg-gradient-to-r from-cyan-50 to-blue-50">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-gradient-to-r from-slate-800 to-slate-900 border-b border-gray-200">
+                                <th className="px-5 py-4 text-xs font-black text-slate-300 uppercase tracking-wider w-10"></th>
+                                <th className="px-5 py-4 text-xs font-black text-slate-300 uppercase tracking-wider">Product Info</th>
+                                <th className="px-5 py-4 text-xs font-black text-slate-300 uppercase tracking-wider text-center">Unit</th>
+                                <th className="px-5 py-4 text-xs font-black text-blue-300 uppercase tracking-wider text-center">Opening</th>
+                                <th className="px-5 py-4 text-xs font-black text-emerald-300 uppercase tracking-wider text-center">In (Purch)</th>
+                                <th className="px-5 py-4 text-xs font-black text-rose-300 uppercase tracking-wider text-center">Out (Sales)</th>
+                                <th className="px-5 py-4 text-xs font-black text-amber-300 uppercase tracking-wider text-center">Adj.</th>
+                                <th className="px-5 py-4 text-xs font-black text-indigo-300 uppercase tracking-wider text-center">Closing</th>
+                                <th className="px-5 py-4 text-xs font-black text-slate-300 uppercase tracking-wider text-right">Total Value</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 bg-white">
+                            {isLoading ? (
                                 <tr>
-                                    <th className="text-left py-4 px-4 text-xs font-bold text-gray-600 uppercase">Date</th>
-                                    <th className="text-left py-4 px-4 text-xs font-bold text-gray-600 uppercase">Code</th>
-                                    <th className="text-left py-4 px-4 text-xs font-bold text-gray-600 uppercase">Ingredient Name</th>
-                                    <th className="text-center py-4 px-4 text-xs font-bold text-gray-600 uppercase">Unit</th>
-                                    <th className="text-center py-4 px-4 text-xs font-bold text-blue-600 uppercase bg-blue-50">Opening</th>
-                                    <th className="text-center py-4 px-4 text-xs font-bold text-green-600 uppercase bg-green-50">Purchased</th>
-                                    <th className="text-center py-4 px-4 text-xs font-bold text-orange-600 uppercase bg-orange-50">Issued</th>
-                                    <th className="text-center py-4 px-4 text-xs font-bold text-purple-600 uppercase bg-purple-50">Adjusted</th>
-                                    <th className="text-center py-4 px-4 text-xs font-bold text-cyan-600 uppercase bg-cyan-50">Closing</th>
+                                    <td colSpan={9} className="py-16 text-center">
+                                        <div className="flex flex-col items-center justify-center">
+                                            <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                                            <p className="text-sm text-gray-500 font-medium mt-3">Loading robust ledger...</p>
+                                        </div>
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                {filteredMovements.map((m, idx) => (
-                                    <tr key={idx} className="border-t border-gray-50 hover:bg-cyan-50/30 transition-colors">
-                                        <td className="py-3 px-4">
-                                            <span className="font-medium text-gray-700">
-                                                {new Date(m.movement_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                            </span>
-                                        </td>
-                                        <td className="py-3 px-4 font-mono text-sm text-gray-600">{m.product_code}</td>
-                                        <td className="py-3 px-4">
-                                            <span className="font-semibold text-gray-800">{m.product_name}</span>
-                                        </td>
-                                        <td className="py-3 px-4 text-center">
-                                            <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs font-medium">{m.unit}</span>
-                                        </td>
-                                        <td className="py-3 px-4 text-center bg-blue-50/30">
-                                            <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg font-bold">{m.opening_qty.toLocaleString()}</span>
-                                        </td>
-                                        <td className="py-3 px-4 text-center bg-green-50/30">
-                                            <span className="px-3 py-1 bg-green-100 text-green-700 rounded-lg font-bold">+{m.purchased_qty.toLocaleString()}</span>
-                                        </td>
-                                        <td className="py-3 px-4 text-center bg-orange-50/30">
-                                            <span className={`px-3 py-1 rounded-lg font-bold ${m.issued_qty > 0 ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-400'}`}>
-                                                -{m.issued_qty.toLocaleString()}
-                                            </span>
-                                        </td>
-                                        <td className="py-3 px-4 text-center bg-purple-50/30">
-                                            <span className={`px-3 py-1 rounded-lg font-bold ${m.adjusted_qty !== 0 ? (m.adjusted_qty > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700') : 'bg-gray-100 text-gray-400'}`}>
-                                                {m.adjusted_qty > 0 ? '+' : ''}{m.adjusted_qty.toLocaleString()}
-                                            </span>
-                                        </td>
-                                        <td className="py-3 px-4 text-center bg-cyan-50/30">
-                                            <span className="px-3 py-1 bg-cyan-100 text-cyan-700 rounded-lg font-bold text-lg">{m.closing_qty.toLocaleString()}</span>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    )}
+                            ) : paginated.length === 0 ? (
+                                <tr><td colSpan={9} className="py-16 text-center text-gray-500 font-medium">No stock movements found for selected filters.</td></tr>
+                            ) : (
+                                paginated.map(m => {
+                                    const isExpanded = expandedRows.has(m.pid);
+                                    return (
+                                        <React.Fragment key={m.pid}>
+                                            <tr onClick={() => toggleRow(m.pid)} className={`hover:bg-blue-50/30 transition-colors cursor-pointer group ${isExpanded ? 'bg-blue-50/50' : ''}`}>
+                                                <td className="px-5 py-4">
+                                                    <button className="text-gray-400 group-hover:text-blue-600 transition-colors">
+                                                        {isExpanded ? <FiChevronUp size={18} /> : <FiChevronDown size={18} />}
+                                                    </button>
+                                                </td>
+                                                <td className="px-5 py-4">
+                                                    <div className="flex flex-col">
+                                                        <span className="font-bold text-gray-900">{m.product_name}</span>
+                                                        <span className="text-[10px] text-gray-500 font-bold bg-gray-100 w-fit px-1.5 py-0.5 rounded mt-1">{m.product_code} • {m.category}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-5 py-4 text-center">
+                                                    <span className="text-xs font-bold text-gray-500 bg-gray-50 border border-gray-200 px-2 py-1 rounded-lg">{m.base_unit}</span>
+                                                </td>
+                                                <td className="px-5 py-4 text-center">
+                                                    <span className="font-black text-gray-700">{m.opening_qty.toLocaleString()}</span>
+                                                </td>
+                                                <td className="px-5 py-4 text-center">
+                                                    <span className={`font-black ${m.purchased_qty > 0 ? 'text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg' : 'text-gray-400'}`}>
+                                                        {m.purchased_qty > 0 ? '+' : ''}{m.purchased_qty.toLocaleString()}
+                                                    </span>
+                                                </td>
+                                                <td className="px-5 py-4 text-center">
+                                                    <span className={`font-black ${m.issued_qty > 0 ? 'text-rose-600 bg-rose-50 px-2 py-1 rounded-lg' : 'text-gray-400'}`}>
+                                                        {m.issued_qty > 0 ? '-' : ''}{m.issued_qty.toLocaleString()}
+                                                    </span>
+                                                </td>
+                                                <td className="px-5 py-4 text-center">
+                                                    <span className={`font-black ${m.adjusted_qty !== 0 ? 'text-amber-600 bg-amber-50 px-2 py-1 rounded-lg' : 'text-gray-400'}`}>
+                                                        {m.adjusted_qty > 0 ? '+' : ''}{m.adjusted_qty.toLocaleString()}
+                                                    </span>
+                                                </td>
+                                                <td className="px-5 py-4 text-center">
+                                                    <span className="font-black text-indigo-700 bg-indigo-50 px-3 py-1 rounded-lg text-sm border border-indigo-100">{m.closing_qty.toLocaleString()}</span>
+                                                </td>
+                                                <td className="px-5 py-4 text-right">
+                                                    <span className="font-bold text-slate-700">Ksh {(m.closing_qty * m.cost_price).toLocaleString()}</span>
+                                                </td>
+                                            </tr>
+
+                                            {/* Collapsible Ledger Details */}
+                                            {isExpanded && (
+                                                <tr>
+                                                    <td colSpan={9} className="bg-gradient-to-b from-blue-50/50 to-white p-0 border-b-2 border-blue-200">
+                                                        <div className="p-8">
+                                                            <h4 className="text-sm font-black text-gray-800 mb-5 flex items-center gap-2">
+                                                                <FiList className="text-blue-500" size={18}/> 
+                                                                Detailed Ledger: {m.product_name}
+                                                            </h4>
+                                                            <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+                                                                <table className="w-full text-left text-xs">
+                                                                    <thead className="bg-gray-50 border-b border-gray-100">
+                                                                        <tr>
+                                                                            <th className="px-4 py-3 font-bold text-gray-600">Date</th>
+                                                                            <th className="px-4 py-3 font-bold text-gray-600">Type</th>
+                                                                            <th className="px-4 py-3 font-bold text-gray-600 text-center">Qty Change</th>
+                                                                            <th className="px-4 py-3 font-bold text-gray-600">Reference</th>
+                                                                            <th className="px-4 py-3 font-bold text-gray-600">Details</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody className="divide-y divide-gray-100">
+                                                                        {m.ledger.length === 0 ? (
+                                                                            <tr><td colSpan={5} className="p-4 text-center text-gray-400">No activity in this period.</td></tr>
+                                                                        ) : (
+                                                                            m.ledger.map((l, i) => (
+                                                                                <tr key={i} className="hover:bg-gray-50 transition-colors">
+                                                                                    <td className="px-4 py-3 font-medium text-gray-600">{l.date}</td>
+                                                                                    <td className="px-4 py-3">
+                                                                                        <span className={`px-2 py-0.5 rounded font-bold text-[10px] uppercase
+                                                                                            ${l.type === 'Opening' ? 'bg-gray-100 text-gray-600' : 
+                                                                                              l.type === 'Purchase' ? 'bg-emerald-100 text-emerald-700' :
+                                                                                              l.type === 'Sale' ? 'bg-rose-100 text-rose-700' :
+                                                                                              'bg-amber-100 text-amber-700'}`}>
+                                                                                            {l.type}
+                                                                                        </span>
+                                                                                    </td>
+                                                                                    <td className="px-4 py-3 text-center">
+                                                                                        <span className={`font-black text-sm flex items-center justify-center gap-1
+                                                                                            ${l.qty_change > 0 && l.type !== 'Opening' ? 'text-emerald-600' : 
+                                                                                              l.qty_change < 0 ? 'text-rose-600' : 'text-gray-700'}`}>
+                                                                                            {l.qty_change > 0 && l.type !== 'Opening' ? <FiArrowUpRight size={12}/> : 
+                                                                                             l.qty_change < 0 ? <FiArrowDownRight size={12}/> : null}
+                                                                                            {l.type === 'Opening' ? l.qty_change : Math.abs(l.qty_change)}
+                                                                                        </span>
+                                                                                    </td>
+                                                                                    <td className="px-4 py-3 font-medium text-gray-800">{l.reference}</td>
+                                                                                    <td className="px-4 py-3 text-gray-500">{l.details || '-'}</td>
+                                                                                </tr>
+                                                                            ))
+                                                                        )}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </React.Fragment>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
                 </div>
-            </div>
 
-            {/* Stock Adjustment Modal */}
-            {showAdjustmentModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-                    <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                                <span className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">⚙️</span>
-                                Stock Adjustment
-                            </h2>
-                            <button onClick={() => setShowAdjustmentModal(false)} className="text-2xl text-gray-400 hover:text-gray-600">✕</button>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="text-sm font-medium text-gray-600 block mb-2">Select Ingredient</label>
-                                <select
-                                    value={adjustProduct || ''}
-                                    onChange={(e) => setAdjustProduct(e.target.value ? parseInt(e.target.value) : null)}
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-purple-400"
-                                >
-                                    <option value="">-- Select Ingredient --</option>
-                                    {ingredients.map(i => (
-                                        <option key={i.pid} value={i.pid}>{i.product_code} - {i.product_name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="text-sm font-medium text-gray-600 block mb-2">Adjustment Type</label>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button
-                                        onClick={() => setAdjustType('add')}
-                                        className={`py-3 rounded-xl font-semibold transition-all ${adjustType === 'add' ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600'}`}
-                                    >
-                                        ➕ Add Stock
-                                    </button>
-                                    <button
-                                        onClick={() => setAdjustType('subtract')}
-                                        className={`py-3 rounded-xl font-semibold transition-all ${adjustType === 'subtract' ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-600'}`}
-                                    >
-                                        ➖ Remove Stock
-                                    </button>
-                                </div>
-                            </div>
-                            <div>
-                                <label className="text-sm font-medium text-gray-600 block mb-2">Quantity</label>
-                                <input
-                                    type="number"
-                                    value={adjustQty}
-                                    onChange={(e) => setAdjustQty(e.target.value)}
-                                    placeholder="Enter quantity"
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-purple-400 text-lg font-bold"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-sm font-medium text-gray-600 block mb-2">Reason</label>
-                                <textarea
-                                    value={adjustReason}
-                                    onChange={(e) => setAdjustReason(e.target.value)}
-                                    placeholder="Reason for adjustment..."
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-purple-400 h-20 resize-none"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex gap-3 mt-6">
-                            <button
-                                onClick={() => setShowAdjustmentModal(false)}
-                                className="flex-1 py-3 border-2 border-gray-200 text-gray-600 rounded-xl font-semibold hover:bg-gray-50"
-                            >
-                                Cancel
+                {/* Robust Pagination */}
+                {totalPages > 1 && (
+                    <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+                        <span className="text-xs font-bold text-gray-500">
+                            Showing <span className="text-gray-900">{(page - 1) * rowsPerPage + 1}</span> to <span className="text-gray-900">{Math.min(page * rowsPerPage, filtered.length)}</span> of {filtered.length} Entries
+                        </span>
+                        <div className="flex gap-1">
+                            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                                className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-all shadow-sm">
+                                Prev
                             </button>
-                            <button
-                                onClick={handleAdjustment}
-                                disabled={isSaving}
-                                className="flex-1 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg disabled:opacity-50"
-                            >
-                                {isSaving ? '⏳ Saving...' : '✅ Save Adjustment'}
+                            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                const p = totalPages <= 5 ? i + 1 : page <= 3 ? i + 1 : page >= totalPages - 2 ? totalPages - 4 + i : page - 2 + i;
+                                return (
+                                    <button key={p} onClick={() => setPage(p)}
+                                        className={`w-8 py-1.5 rounded-lg border text-xs font-black transition-all shadow-sm
+                                        ${page === p ? 'bg-indigo-600 text-white border-indigo-600 shadow-indigo-200' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                                        {p}
+                                    </button>
+                                );
+                            })}
+                            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                                className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-all shadow-sm">
+                                Next
                             </button>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 }
