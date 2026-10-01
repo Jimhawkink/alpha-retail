@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
-import { FiBox, FiTrendingUp, FiCalendar, FiSearch, FiChevronDown, FiChevronUp, FiList, FiArrowDownRight, FiArrowUpRight, FiRefreshCw, FiPackage, FiDollarSign, FiShoppingCart, FiActivity } from 'react-icons/fi';
+import { FiBox, FiTrendingUp, FiCalendar, FiSearch, FiChevronDown, FiChevronUp, FiList, FiArrowDownRight, FiArrowUpRight, FiRefreshCw, FiPackage, FiDollarSign, FiShoppingCart, FiActivity, FiDownload, FiPrinter } from 'react-icons/fi';
 
 interface ProductMovement {
     pid: number;
@@ -256,13 +256,46 @@ export default function StockMovementPage() {
         return { openingTotal, closingTotal, purchasedTotal, soldTotal };
     }, [filtered]);
 
+    
+    const exportCSV = () => {
+        const csv = [['Product Code', 'Product Name', 'Category', 'Unit', 'Opening', 'In (Purch)', 'Out (Sales)', 'Adj.', 'Closing', 'Total Value (Ksh)'].join(','),
+        ...filtered.map(m => [
+            m.product_code,
+            `"${m.product_name}"`,
+            m.category || '',
+            m.base_unit,
+            m.opening_qty,
+            m.purchased_qty,
+            m.issued_qty,
+            m.adjusted_qty,
+            m.closing_qty,
+            m.closing_qty * m.cost_price
+        ].join(','))].join('\n');
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'stock-movement.csv'; a.click();
+        toast.success('Ledger Exported to Excel/CSV!');
+    };
+
+    const handlePrint = () => {
+        window.print();
+    };
+
     return (
         <div className="space-y-6 animate-fadeIn">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                
                 <div>
                     <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-indigo-700">Stock Movement Ledger</h1>
                     <p className="text-[11px] font-medium text-gray-400 uppercase tracking-widest mt-1.5">Robust ultra-premium tracking of stock lifecycle per product.</p>
                 </div>
+                <div className="flex gap-2">
+                    <button onClick={exportCSV} className="px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:text-blue-600 hover:border-blue-300 transition-all text-sm font-semibold flex items-center gap-2 shadow-sm">
+                        <FiDownload size={14} /> Export Excel
+                    </button>
+                    <button onClick={handlePrint} className="px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:text-purple-600 hover:border-purple-300 transition-all text-sm font-semibold flex items-center gap-2 shadow-sm">
+                        <FiPrinter size={14} /> Print / PDF
+                    </button>
+                </div>
+
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -301,9 +334,9 @@ export default function StockMovementPage() {
                     <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
                         <FiCalendar className="text-gray-400" />
                         <div className="flex items-center gap-2">
-                            <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} className="bg-transparent text-sm font-bold text-gray-700 outline-none" />
-                            <span className="text-gray-400 font-bold">â†’</span>
-                            <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} className="bg-transparent text-sm font-bold text-gray-700 outline-none" />
+                            <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} className="bg-transparent text-sm font-medium text-xs text-gray-700 outline-none" />
+                            <span className="text-gray-400 font-bold">-</span>
+                            <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} className="bg-transparent text-sm font-medium text-xs text-gray-700 outline-none" />
                         </div>
                     </div>
                     
@@ -370,36 +403,36 @@ export default function StockMovementPage() {
                                                 </td>
                                                 <td className="px-4 py-3.5">
                                                     <div className="flex flex-col">
-                                                        <span className="font-bold text-gray-900">{m.product_name}</span>
-                                                        <span className="text-[10px] text-purple-500 font-bold bg-purple-50 w-fit px-1.5 py-0.5 rounded mt-1 border border-purple-100">{m.product_code} â€¢ {m.category}</span>
+                                                        <span className="font-medium text-xs text-gray-900">{m.product_name}</span>
+                                                        <span className="text-[10px] text-purple-500 font-bold bg-purple-50 w-fit px-1.5 py-0.5 rounded mt-1 border border-purple-100">{m.product_code} - {m.category}</span>
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-3.5 text-center">
                                                     <span className="text-xs font-bold text-gray-500 bg-gray-50 border border-gray-200 px-2 py-1 rounded-lg">{m.base_unit}</span>
                                                 </td>
                                                 <td className="px-4 py-3.5 text-center">
-                                                    <span className="font-bold text-gray-700">{m.opening_qty.toLocaleString()}</span>
+                                                    <span className="font-medium text-xs text-gray-700">{m.opening_qty.toLocaleString()}</span>
                                                 </td>
                                                 <td className="px-4 py-3.5 text-center">
-                                                    <span className={`font-bold ${m.purchased_qty > 0 ? 'text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100' : 'text-gray-400'}`}>
+                                                    <span className={`font-medium text-xs ${m.purchased_qty > 0 ? 'text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100' : 'text-gray-400'}`}>
                                                         {m.purchased_qty > 0 ? '+' : ''}{m.purchased_qty.toLocaleString()}
                                                     </span>
                                                 </td>
                                                 <td className="px-4 py-3.5 text-center">
-                                                    <span className={`font-bold ${m.issued_qty > 0 ? 'text-rose-600 bg-rose-50 px-2 py-1 rounded-lg border border-rose-100' : 'text-gray-400'}`}>
+                                                    <span className={`font-medium text-xs ${m.issued_qty > 0 ? 'text-rose-600 bg-rose-50 px-2 py-1 rounded-lg border border-rose-100' : 'text-gray-400'}`}>
                                                         {m.issued_qty > 0 ? '-' : ''}{m.issued_qty.toLocaleString()}
                                                     </span>
                                                 </td>
                                                 <td className="px-4 py-3.5 text-center">
-                                                    <span className={`font-bold ${m.adjusted_qty !== 0 ? 'text-amber-600 bg-amber-50 px-2 py-1 rounded-lg border border-amber-100' : 'text-gray-400'}`}>
+                                                    <span className={`font-medium text-xs ${m.adjusted_qty !== 0 ? 'text-amber-600 bg-amber-50 px-2 py-1 rounded-lg border border-amber-100' : 'text-gray-400'}`}>
                                                         {m.adjusted_qty > 0 ? '+' : ''}{m.adjusted_qty.toLocaleString()}
                                                     </span>
                                                 </td>
                                                 <td className="px-4 py-3.5 text-center">
-                                                    <span className="font-bold text-white bg-blue-600 px-3 py-1 rounded-lg shadow-sm text-sm border border-blue-700">{m.closing_qty.toLocaleString()}</span>
+                                                    <span className="font-medium text-xs text-white bg-blue-600 px-3 py-1 rounded-lg shadow-sm border border-blue-700">{m.closing_qty.toLocaleString()}</span>
                                                 </td>
                                                 <td className="px-4 py-3.5 text-right">
-                                                    <span className="font-bold text-slate-700">Ksh {(m.closing_qty * m.cost_price).toLocaleString()}</span>
+                                                    <span className="font-medium text-xs text-slate-700">Ksh {(m.closing_qty * m.cost_price).toLocaleString()}</span>
                                                 </td>
                                             </tr>
 
@@ -407,7 +440,7 @@ export default function StockMovementPage() {
                                                 <tr>
                                                     <td colSpan={9} className="bg-gradient-to-b from-blue-50 to-white p-0 border-b border-blue-100">
                                                         <div className="p-8">
-                                                            <h4 className="text-sm font-bold text-gray-800 mb-5 flex items-center gap-2">
+                                                            <h4 className="text-sm font-semibold text-gray-800 mb-5 flex items-center gap-2">
                                                                 <FiList className="text-blue-500" size={18}/> 
                                                                 Detailed Ledger: {m.product_name}
                                                             </h4>
@@ -439,7 +472,7 @@ export default function StockMovementPage() {
                                                                                         </span>
                                                                                     </td>
                                                                                     <td className="px-4 py-3 text-center">
-                                                                                        <span className={`font-bold text-sm flex items-center justify-center gap-1
+                                                                                        <span className={`font-medium text-xs flex items-center justify-center gap-1
                                                                                             ${l.qty_change > 0 && l.type !== 'Opening' ? 'text-emerald-600' : 
                                                                                               l.qty_change < 0 ? 'text-rose-600' : 'text-gray-700'}`}>
                                                                                             {l.qty_change > 0 && l.type !== 'Opening' ? <FiArrowUpRight size={12}/> : 
@@ -498,5 +531,6 @@ export default function StockMovementPage() {
         </div>
     );
 }
+
 
 
