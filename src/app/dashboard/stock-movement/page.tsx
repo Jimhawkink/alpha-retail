@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -260,8 +260,8 @@ export default function StockMovementPage() {
         <div className="space-y-6 animate-fadeIn">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
                 <div>
-                    <h1 className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">Stock Movement Ledger</h1>
-                    <p className="text-sm text-gray-500 mt-1 font-medium">Robust ultra-premium tracking of stock lifecycle per product.</p>
+                    <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-indigo-700">Stock Movement Ledger</h1>
+                    <p className="text-[11px] font-medium text-gray-400 uppercase tracking-widest mt-1.5">Robust ultra-premium tracking of stock lifecycle per product.</p>
                 </div>
             </div>
 
@@ -269,28 +269,28 @@ export default function StockMovementPage() {
                 <div className="relative overflow-hidden rounded-2xl bg-white border border-blue-100 p-5 shadow-sm hover:shadow-xl transition-all group">
                     <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-gradient-to-br from-blue-100 to-blue-50 opacity-60 group-hover:scale-125 transition-transform" />
                     <div className="relative flex items-center justify-between">
-                        <div><p className="text-xs font-bold text-blue-500 uppercase tracking-wider">Total Value In</p><p className="text-2xl font-black text-gray-800 mt-1">Ksh {stats.purchasedTotal.toLocaleString()}</p><p className="text-[10px] text-gray-400 mt-1">Purchases in period</p></div>
+                        <div><p className="text-xs font-bold text-blue-500 uppercase tracking-wider">Total Value In</p><p className="text-2xl font-bold text-gray-800 mt-1">Ksh {stats.purchasedTotal.toLocaleString()}</p><p className="text-[10px] text-gray-400 mt-1">Purchases in period</p></div>
                         <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-300/30 group-hover:scale-110 transition-transform"><FiPackage className="text-white" size={22} /></div>
                     </div>
                 </div>
                 <div className="relative overflow-hidden rounded-2xl bg-white border border-emerald-100 p-5 shadow-sm hover:shadow-xl transition-all group">
                     <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-gradient-to-br from-emerald-100 to-green-50 opacity-60 group-hover:scale-125 transition-transform" />
                     <div className="relative flex items-center justify-between">
-                        <div><p className="text-xs font-bold text-emerald-500 uppercase tracking-wider">Total Value Out</p><p className="text-2xl font-black text-gray-800 mt-1">Ksh {stats.soldTotal.toLocaleString()}</p><p className="text-[10px] text-gray-400 mt-1">Cost of Goods Sold</p></div>
+                        <div><p className="text-xs font-bold text-emerald-500 uppercase tracking-wider">Total Value Out</p><p className="text-2xl font-bold text-gray-800 mt-1">Ksh {stats.soldTotal.toLocaleString()}</p><p className="text-[10px] text-gray-400 mt-1">Cost of Goods Sold</p></div>
                         <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-300/30 group-hover:scale-110 transition-transform"><FiShoppingCart className="text-white" size={22} /></div>
                     </div>
                 </div>
                 <div className="relative overflow-hidden rounded-2xl bg-white border border-purple-100 p-5 shadow-sm hover:shadow-xl transition-all group">
                     <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-gradient-to-br from-purple-100 to-violet-50 opacity-60 group-hover:scale-125 transition-transform" />
                     <div className="relative flex items-center justify-between">
-                        <div><p className="text-xs font-bold text-purple-500 uppercase tracking-wider">Opening Value</p><p className="text-2xl font-black text-gray-800 mt-1">Ksh {stats.openingTotal.toLocaleString()}</p><p className="text-[10px] text-gray-400 mt-1">Start of period</p></div>
+                        <div><p className="text-xs font-bold text-purple-500 uppercase tracking-wider">Opening Value</p><p className="text-2xl font-bold text-gray-800 mt-1">Ksh {stats.openingTotal.toLocaleString()}</p><p className="text-[10px] text-gray-400 mt-1">Start of period</p></div>
                         <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-purple-300/30 group-hover:scale-110 transition-transform"><FiActivity className="text-white" size={22} /></div>
                     </div>
                 </div>
                 <div className="relative overflow-hidden rounded-2xl bg-white border border-teal-100 p-5 shadow-sm hover:shadow-xl transition-all group">
                     <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-gradient-to-br from-teal-100 to-cyan-50 opacity-60 group-hover:scale-125 transition-transform" />
                     <div className="relative flex items-center justify-between">
-                        <div><p className="text-xs font-bold text-teal-500 uppercase tracking-wider">Closing Value</p><p className="text-2xl font-black text-gray-800 mt-1">Ksh {stats.closingTotal.toLocaleString()}</p><p className="text-[10px] text-gray-400 mt-1">End of period</p></div>
+                        <div><p className="text-xs font-bold text-teal-500 uppercase tracking-wider">Closing Value</p><p className="text-2xl font-bold text-gray-800 mt-1">Ksh {stats.closingTotal.toLocaleString()}</p><p className="text-[10px] text-gray-400 mt-1">End of period</p></div>
                         <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-teal-300/30 group-hover:scale-110 transition-transform"><FiDollarSign className="text-white" size={22} /></div>
                     </div>
                 </div>
@@ -302,7 +302,7 @@ export default function StockMovementPage() {
                         <FiCalendar className="text-gray-400" />
                         <div className="flex items-center gap-2">
                             <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} className="bg-transparent text-sm font-bold text-gray-700 outline-none" />
-                            <span className="text-gray-400 font-bold">→</span>
+                            <span className="text-gray-400 font-bold">â†’</span>
                             <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} className="bg-transparent text-sm font-bold text-gray-700 outline-none" />
                         </div>
                     </div>
@@ -325,7 +325,7 @@ export default function StockMovementPage() {
                         <div className="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center text-white shadow-md shadow-blue-200">
                             <FiBox size={20} />
                         </div>
-                        <h2 className="text-lg font-black text-gray-800">Movement Summary</h2>
+                        <h2 className="text-lg font-bold text-gray-800">Movement Summary</h2>
                     </div>
                     <div className="text-xs font-bold text-gray-500 bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
                         Showing {paginated.length} of {filtered.length} products
@@ -335,16 +335,16 @@ export default function StockMovementPage() {
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-blue-600 text-white border-b border-blue-700">
-                                <th className="px-5 py-4 text-[10px] font-black uppercase tracking-wider w-10"></th>
-                                <th className="px-5 py-4 text-[10px] font-black uppercase tracking-wider">Product Info</th>
-                                <th className="px-5 py-4 text-[10px] font-black uppercase tracking-wider text-center">Unit</th>
-                                <th className="px-5 py-4 text-[10px] font-black uppercase tracking-wider text-center text-blue-100">Opening</th>
-                                <th className="px-5 py-4 text-[10px] font-black uppercase tracking-wider text-center text-emerald-200">In (Purch)</th>
-                                <th className="px-5 py-4 text-[10px] font-black uppercase tracking-wider text-center text-rose-200">Out (Sales)</th>
-                                <th className="px-5 py-4 text-[10px] font-black uppercase tracking-wider text-center text-amber-200">Adj.</th>
-                                <th className="px-5 py-4 text-[10px] font-black uppercase tracking-wider text-center">Closing</th>
-                                <th className="px-5 py-4 text-[10px] font-black uppercase tracking-wider text-right">Total Value</th>
+                            <tr className="bg-gradient-to-r from-blue-500 to-blue-600 border-b border-blue-600">
+                                <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider w-10"></th>
+                                <th className="px-4 py-3.5 text-left text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Product Info</th>
+                                <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Unit</th>
+                                <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider text-blue-100">Opening</th>
+                                <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider text-emerald-200">In (Purch)</th>
+                                <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider text-rose-200">Out (Sales)</th>
+                                <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider text-amber-200">Adj.</th>
+                                <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Closing</th>
+                                <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Total Value</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 bg-white">
@@ -365,40 +365,40 @@ export default function StockMovementPage() {
                                     return (
                                         <React.Fragment key={m.pid}>
                                             <tr onClick={() => toggleRow(m.pid)} className={`hover:bg-blue-50/30 transition-colors cursor-pointer group ${isExpanded ? 'bg-blue-50/50' : ''}`}>
-                                                <td className="px-5 py-4 text-gray-400 group-hover:text-blue-600">
+                                                <td className="px-4 py-3.5 text-gray-400 group-hover:text-blue-600">
                                                     {isExpanded ? <FiChevronUp size={18} /> : <FiChevronDown size={18} />}
                                                 </td>
-                                                <td className="px-5 py-4">
+                                                <td className="px-4 py-3.5">
                                                     <div className="flex flex-col">
                                                         <span className="font-bold text-gray-900">{m.product_name}</span>
-                                                        <span className="text-[10px] text-purple-500 font-bold bg-purple-50 w-fit px-1.5 py-0.5 rounded mt-1 border border-purple-100">{m.product_code} • {m.category}</span>
+                                                        <span className="text-[10px] text-purple-500 font-bold bg-purple-50 w-fit px-1.5 py-0.5 rounded mt-1 border border-purple-100">{m.product_code} â€¢ {m.category}</span>
                                                     </div>
                                                 </td>
-                                                <td className="px-5 py-4 text-center">
+                                                <td className="px-4 py-3.5 text-center">
                                                     <span className="text-xs font-bold text-gray-500 bg-gray-50 border border-gray-200 px-2 py-1 rounded-lg">{m.base_unit}</span>
                                                 </td>
-                                                <td className="px-5 py-4 text-center">
-                                                    <span className="font-black text-gray-700">{m.opening_qty.toLocaleString()}</span>
+                                                <td className="px-4 py-3.5 text-center">
+                                                    <span className="font-bold text-gray-700">{m.opening_qty.toLocaleString()}</span>
                                                 </td>
-                                                <td className="px-5 py-4 text-center">
-                                                    <span className={`font-black ${m.purchased_qty > 0 ? 'text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100' : 'text-gray-400'}`}>
+                                                <td className="px-4 py-3.5 text-center">
+                                                    <span className={`font-bold ${m.purchased_qty > 0 ? 'text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100' : 'text-gray-400'}`}>
                                                         {m.purchased_qty > 0 ? '+' : ''}{m.purchased_qty.toLocaleString()}
                                                     </span>
                                                 </td>
-                                                <td className="px-5 py-4 text-center">
-                                                    <span className={`font-black ${m.issued_qty > 0 ? 'text-rose-600 bg-rose-50 px-2 py-1 rounded-lg border border-rose-100' : 'text-gray-400'}`}>
+                                                <td className="px-4 py-3.5 text-center">
+                                                    <span className={`font-bold ${m.issued_qty > 0 ? 'text-rose-600 bg-rose-50 px-2 py-1 rounded-lg border border-rose-100' : 'text-gray-400'}`}>
                                                         {m.issued_qty > 0 ? '-' : ''}{m.issued_qty.toLocaleString()}
                                                     </span>
                                                 </td>
-                                                <td className="px-5 py-4 text-center">
-                                                    <span className={`font-black ${m.adjusted_qty !== 0 ? 'text-amber-600 bg-amber-50 px-2 py-1 rounded-lg border border-amber-100' : 'text-gray-400'}`}>
+                                                <td className="px-4 py-3.5 text-center">
+                                                    <span className={`font-bold ${m.adjusted_qty !== 0 ? 'text-amber-600 bg-amber-50 px-2 py-1 rounded-lg border border-amber-100' : 'text-gray-400'}`}>
                                                         {m.adjusted_qty > 0 ? '+' : ''}{m.adjusted_qty.toLocaleString()}
                                                     </span>
                                                 </td>
-                                                <td className="px-5 py-4 text-center">
-                                                    <span className="font-black text-white bg-blue-600 px-3 py-1 rounded-lg shadow-sm text-sm border border-blue-700">{m.closing_qty.toLocaleString()}</span>
+                                                <td className="px-4 py-3.5 text-center">
+                                                    <span className="font-bold text-white bg-blue-600 px-3 py-1 rounded-lg shadow-sm text-sm border border-blue-700">{m.closing_qty.toLocaleString()}</span>
                                                 </td>
-                                                <td className="px-5 py-4 text-right">
+                                                <td className="px-4 py-3.5 text-right">
                                                     <span className="font-bold text-slate-700">Ksh {(m.closing_qty * m.cost_price).toLocaleString()}</span>
                                                 </td>
                                             </tr>
@@ -407,7 +407,7 @@ export default function StockMovementPage() {
                                                 <tr>
                                                     <td colSpan={9} className="bg-gradient-to-b from-blue-50 to-white p-0 border-b border-blue-100">
                                                         <div className="p-8">
-                                                            <h4 className="text-sm font-black text-gray-800 mb-5 flex items-center gap-2">
+                                                            <h4 className="text-sm font-bold text-gray-800 mb-5 flex items-center gap-2">
                                                                 <FiList className="text-blue-500" size={18}/> 
                                                                 Detailed Ledger: {m.product_name}
                                                             </h4>
@@ -439,7 +439,7 @@ export default function StockMovementPage() {
                                                                                         </span>
                                                                                     </td>
                                                                                     <td className="px-4 py-3 text-center">
-                                                                                        <span className={`font-black text-sm flex items-center justify-center gap-1
+                                                                                        <span className={`font-bold text-sm flex items-center justify-center gap-1
                                                                                             ${l.qty_change > 0 && l.type !== 'Opening' ? 'text-emerald-600' : 
                                                                                               l.qty_change < 0 ? 'text-rose-600' : 'text-gray-700'}`}>
                                                                                             {l.qty_change > 0 && l.type !== 'Opening' ? <FiArrowUpRight size={12}/> : 
@@ -481,7 +481,7 @@ export default function StockMovementPage() {
                                 const p = totalPages <= 5 ? i + 1 : page <= 3 ? i + 1 : page >= totalPages - 2 ? totalPages - 4 + i : page - 2 + i;
                                 return (
                                     <button key={p} onClick={() => setPage(p)}
-                                        className={`w-8 py-1.5 rounded-lg border text-xs font-black transition-all shadow-sm
+                                        className={`w-8 py-1.5 rounded-lg border text-xs font-bold transition-all shadow-sm
                                         ${page === p ? 'bg-blue-600 text-white border-blue-600 shadow-blue-200' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
                                         {p}
                                     </button>
@@ -498,3 +498,5 @@ export default function StockMovementPage() {
         </div>
     );
 }
+
+
