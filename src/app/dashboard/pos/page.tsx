@@ -1144,7 +1144,10 @@ const PaymentModal = ({
                         {/* Selected Customer + Partial Payment */}
                         {selectedCustomer && (() => {
                             const partialAmt = Number(partialCashPaid) || 0;
-                            const creditAmt = Math.max(0, total - partialAmt);
+                            const rawCreditAmt = Math.max(0, total - partialAmt);
+                            const availablePrepayment = selectedCustomer.prepayment_balance || 0;
+                            const prepaymentUsedPreview = Math.min(availablePrepayment, rawCreditAmt);
+                            const creditAmt = Math.max(0, rawCreditAmt - prepaymentUsedPreview);
                             const newBal = (selectedCustomer.current_balance || 0) + creditAmt;
                             const isOverLimit = selectedCustomer.credit_limit > 0 && newBal > selectedCustomer.credit_limit;
                             return (
@@ -1221,6 +1224,7 @@ const PaymentModal = ({
                                         <div className="bg-orange-50 border border-orange-200 p-3 rounded-xl text-center">
                                             <p className="text-[10px] text-orange-600 font-semibold mb-0.5">📋 On Credit</p>
                                             <p className="font-bold text-orange-700 text-base">Ksh {creditAmt.toLocaleString()}</p>
+                                            {prepaymentUsedPreview > 0 && <p className="text-[9px] text-purple-600 mt-0.5">💜 -Ksh {prepaymentUsedPreview.toLocaleString()} prepaid</p>}
                                         </div>
                                         <div className={`p-3 rounded-xl text-center border ${
                                             isOverLimit ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200'
