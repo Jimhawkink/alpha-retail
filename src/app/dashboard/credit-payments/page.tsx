@@ -16,7 +16,7 @@ interface Outlet { outlet_id: number; outlet_name: string; }
 interface Customer {
     customer_id: number; customer_code: string; customer_name: string;
     phone: string; email: string; current_balance: number; credit_limit: number;
-    outlet_id: number; opening_balance: number;
+    outlet_id: number; opening_balance: number; prepayment_balance: number;
 }
 interface Sale {
     sale_id: number; receipt_no: string; sale_datetime: string; sale_date: string;
@@ -140,7 +140,15 @@ export default function CreditPaymentsPage() {
         setIsProcessing(true);
         try {
             const balanceBefore = selectedCustomer.current_balance;
-            const balanceAfter = balanceBefore - amount;  // balance is POSITIVE for debtors, payment reduces it
+            const rawBalanceAfter = balanceBefore - amount;
+
+            // Detect overpayment — excess becomes prepayment credit
+            const isOverpayment = rawBalanceAfter < 0;
+            const balanceAfter = isOverpayment ? 0 : rawBalanceAfter;
+            const overpaymentAmount = isOverpayment ? Math.abs(rawBalanceAfter) : 0;
+            const existingPrepayment = selectedCustomer.prepayment_balance || 0;
+            const newPrepayment = existingPrepayment + overpaymentAmount;
+
             const now = new Date().toISOString();
 
             // 1. Record payment in credit_payments table — FULL DETAILS
@@ -157,18 +165,23 @@ export default function CreditPaymentsPage() {
                 mpesa_code:       paymentMethod === 'M-Pesa' ? mpesaCode.trim().toUpperCase() : null,
                 reference_no:     referenceNo.trim() || null,
                 payment_note:     paymentNote.trim() ||
-                    (paymentMode === 'invoice' && selectedSales.length > 0
-                        ? `Payment for ${selectedSales.length} invoice(s)`
-                        : `General payment — balance cleared`),
+                    (isOverpayment
+                        ? `Payment of Ksh ${amount.toLocaleString()} — Ksh ${overpaymentAmount.toLocaleString()} recorded as prepayment`
+                        : paymentMode === 'invoice' && selectedSales.length > 0
+                            ? `Payment for ${selectedSales.length} invoice(s)`
+                            : `General payment — balance cleared`),
                 received_by:      receivedBy.trim() || null,
                 transaction_type: 'payment',
                 outlet_id: outletId || (selectedCustomer.outlet_id || 1),
             });
             if (payErr) throw payErr;
 
-            // 2. Update customer running balance
+            // 2. Update customer running balance — and prepayment if overpaid
+            const updateData: any = { current_balance: balanceAfter };
+            if (isOverpayment) updateData.prepayment_balance = newPrepayment;
+
             const { error: balErr } = await supabase.from('retail_credit_customers')
-                .update({ current_balance: balanceAfter })
+                .update(updateData)
                 .eq('customer_id', selectedCustomer.customer_id);
             if (balErr) throw balErr;
 
@@ -180,7 +193,11 @@ export default function CreditPaymentsPage() {
                 if (saleErr) console.warn('Invoice mark failed:', saleErr.message);
             }
 
-            toast.success(`✅ Payment of Ksh ${amount.toLocaleString()} recorded!`);
+            if (isOverpayment) {
+                toast.success(`✅ Payment recorded! Ksh ${overpaymentAmount.toLocaleString()} excess stored as prepayment credit.`);
+            } else {
+                toast.success(`✅ Payment of Ksh ${amount.toLocaleString()} recorded!`);
+            }
 
             // Reset form
             setSelectedCustomer(null); setCustomerSearch(''); setPaymentAmount(''); setPaidAmount('');
@@ -455,55 +472,7 @@ export default function CreditPaymentsPage() {
                                 )}
                             </div>
 
-                            {/* Paid Amount (Cash Tendered) — only for Cash payments */}
-                            {paymentMethod === 'Cash' && (
-                                <div>
-                                    <label className="text-sm font-bold text-gray-700 mb-1.5 block flex items-center gap-2">
-                                        💵 Paid Amount (Cash Given)
-                                        {changeAmount > 0 && (
-                                            <span className="ml-auto text-green-600 font-bold text-base">Change: Ksh {changeAmount.toLocaleString()}</span>
-                                        )}
-                                        {insufficientCash && (
-                                            <span className="ml-auto text-red-500 font-bold text-xs">⚠️ Insufficient cash!</span>
-                                        )}
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={paidAmount}
-                                        onChange={e => setPaidAmount(e.target.value)}
-                                        placeholder="Enter amount customer gives..."
-                                        min="0"
-                                        className={`w-full px-4 py-3.5 bg-gray-50 border rounded-xl focus:outline-none focus:ring-2 text-xl font-bold transition-all ${
-                                            insufficientCash
-                                                ? 'border-red-400 focus:border-red-500 focus:ring-red-400/20'
-                                                : changeAmount > 0
-                                                    ? 'border-green-400 focus:border-green-500 focus:ring-green-400/20'
-                                                    : 'border-gray-200 focus:border-green-500 focus:ring-green-400/20'
-                                        }`}
-                                    />
-                                    {/* Common denomination quick-picks */}
-                                    <div className="flex gap-2 mt-2 flex-wrap">
-                                        {[50, 100, 200, 500, 1000, 2000, 5000].map(amt => (
-                                            <button key={amt} onClick={() => setPaidAmount(String(amt))}
-                                                className="px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg text-xs font-bold hover:bg-blue-100 transition-all">
-                                                {amt.toLocaleString()}
-                                            </button>
-                                        ))}
-                                        {paymentAmount && (
-                                            <button onClick={() => setPaidAmount(paymentAmount)}
-                                                className="px-3 py-1.5 bg-purple-50 border border-purple-200 text-purple-700 rounded-lg text-xs font-bold hover:bg-purple-100 transition-all">
-                                                Exact
-                                            </button>
-                                        )}
-                                    </div>
-                                    {changeAmount > 0 && (
-                                        <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-xl flex items-center justify-between">
-                                            <span className="text-sm font-semibold text-green-700">💰 Change to return:</span>
-                                            <span className="text-2xl font-black text-green-600">Ksh {changeAmount.toLocaleString()}</span>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+
 
                             {/* Payment Method */}
                             <div>
