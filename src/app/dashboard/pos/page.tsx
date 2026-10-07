@@ -1926,7 +1926,7 @@ export default function RetailPOSPage() {
             // ── STRICT per-outlet filter — only show THIS outlet's customers ──
             let q = supabase
                 .from('retail_credit_customers')
-                .select('customer_id, customer_code, customer_name, phone, current_balance, credit_limit, outlet_id')
+                .select('customer_id, customer_code, customer_name, phone, current_balance, credit_limit, outlet_id, prepayment_balance')
                 .eq('active', true)
                 .order('customer_name');
             if (outletId) q = q.eq('outlet_id', outletId);
