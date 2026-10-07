@@ -117,7 +117,8 @@ export default function CreditPaymentsPage() {
         setSelectedCustomer(c);
         setCustomerSearch(c.customer_name);
         setShowCustomerDropdown(false);
-        setPaymentAmount(c.current_balance > 0 ? String(c.current_balance) : '');
+        setPaymentAmount('');  // DO NOT auto-fill balance — cashier must manually enter the amount to avoid errors
+        setPaidAmount('');
         setSelectedSales([]);
         loadOutstandingSales(c.customer_id);
     };
