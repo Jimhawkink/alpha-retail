@@ -48,6 +48,7 @@ interface CreditCustomer {
     phone: string;
     current_balance: number;
     credit_limit: number;
+    prepayment_balance: number;
 }
 
 // Product Search DataGrid Row
@@ -1152,7 +1153,7 @@ const PaymentModal = ({
                                     <div className="flex items-center gap-3 p-3 bg-green-50 rounded-xl border border-green-200">
                                         <div className="flex-1">
                                             <p className="font-bold text-green-800 text-sm">{selectedCustomer.customer_name}</p>
-                                            <p className="text-xs text-green-600">{selectedCustomer.phone || 'No phone'} · Current bal: Ksh {(selectedCustomer.current_balance || 0).toLocaleString()}</p>
+                                            <p className="text-xs text-green-600">{selectedCustomer.phone || 'No phone'} · Bal: Ksh {(selectedCustomer.current_balance || 0).toLocaleString()}{(selectedCustomer.prepayment_balance || 0) > 0 ? ` · 💜 Prepaid: Ksh ${(selectedCustomer.prepayment_balance).toLocaleString()}` : ''}</p>
                                         </div>
                                         <button onClick={() => { setSelectedCustomer(null); setCustomerName(''); setPartialCashPaid(''); }}
                                             className="text-red-400 hover:text-red-600 text-xs font-bold px-2 py-1 hover:bg-red-50 rounded-lg transition-all">✕ Clear</button>
@@ -2750,35 +2751,43 @@ export default function RetailPOSPage() {
             // ═══════════════════════════════════════════════════════════════
             if (method.toUpperCase() === 'CREDIT' && selectedCustomer) {
                 const partialPaid = amountPaid || 0;          // Cash/Mpesa paid right now
-                const creditAmount = grandTotal - partialPaid; // Amount going on credit tab
+                const rawCreditAmount = grandTotal - partialPaid; // Amount going on credit tab (before prepayment)
+                const existingPrepayment = selectedCustomer.prepayment_balance || 0;
+
+                // Apply prepayment credit first — reduce what goes on the debt tab
+                const prepaymentUsed = Math.min(existingPrepayment, Math.max(0, rawCreditAmount));
+                const creditAmount = Math.max(0, rawCreditAmount - prepaymentUsed); // Net new debt after prepayment
+                const remainingPrepayment = existingPrepayment - prepaymentUsed;
+
                 const balanceBefore = selectedCustomer.current_balance || 0;
-                const balanceAfter = balanceBefore + creditAmount;  // Only credit portion added
+                const balanceAfter = balanceBefore + creditAmount;  // Only net credit portion added
                 const now = new Date().toISOString();
                 const saleDate = now.split('T')[0];
 
-                // 1. Update customer running balance (only credit portion)
+                // 1. Update customer running balance + reduce prepayment if used
+                const balanceUpdate: any = { current_balance: balanceAfter };
+                if (prepaymentUsed > 0) balanceUpdate.prepayment_balance = remainingPrepayment;
+
                 const { error: balErr } = await supabase
                     .from('retail_credit_customers')
-                    .update({
-                        current_balance: balanceAfter,
-                    })
+                    .update(balanceUpdate)
                     .eq('customer_id', selectedCustomer.customer_id);
                 if (balErr) console.error('❌ Credit balance update failed:', balErr.message);
 
                 // 2. Record the CREDIT SALE transaction in credit_payments ledger
-                if (creditAmount > 0) {
+                if (rawCreditAmount > 0) {
                     const { error: cpErr } = await supabase.from('retail_credit_payments').insert({
                         customer_id:       selectedCustomer.customer_id,
                         sale_id:           sale.sale_id,
                         receipt_no:        freshReceiptNo,
                         payment_date:      saleDate,
                         payment_datetime:  now,
-                        amount_paid:       creditAmount,         // Only the credit portion
+                        amount_paid:       rawCreditAmount,         // Gross credit portion
                         balance_before:    balanceBefore,
                         balance_after:     balanceAfter,
                         payment_method:    'CREDIT',
                         transaction_type:  'credit_sale',
-                        payment_note:      `Credit sale · Receipt: ${freshReceiptNo}${partialPaid > 0 ? ` · Partial paid: Ksh ${partialPaid.toLocaleString()} via ${(partialPayMethod || 'cash').toUpperCase()}` : ''}`,
+                        payment_note:      `Credit sale · Receipt: ${freshReceiptNo}${partialPaid > 0 ? ` · Partial paid: Ksh ${partialPaid.toLocaleString()} via ${(partialPayMethod || 'cash').toUpperCase()}` : ''}${prepaymentUsed > 0 ? ` · Ksh ${prepaymentUsed.toLocaleString()} offset from prepayment credit` : ''}`,
                         outlet_id:         outletId,
                     });
                     if (cpErr) console.error('❌ Credit payment record failed:', cpErr.message);

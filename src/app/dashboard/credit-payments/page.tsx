@@ -375,10 +375,13 @@ export default function CreditPaymentsPage() {
                                                             <p className="text-xs text-gray-500">{c.customer_code} · {c.phone || 'No phone'}</p>
                                                         </div>
                                                         <div className="text-right">
-                                                            <p className={`text-sm font-bold ${c.current_balance > 0 ? 'text-red-600' : c.current_balance < 0 ? 'text-purple-600' : 'text-green-600'}`}>
-                                                                {c.current_balance < 0 ? '−' : ''}Ksh {Math.abs(c.current_balance).toLocaleString()}
+                                                            <p className={`text-sm font-bold ${c.current_balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                                                Ksh {(c.current_balance || 0).toLocaleString()}
                                                             </p>
-                                                            <p className="text-xs text-gray-400">{c.current_balance > 0 ? 'owes' : c.current_balance < 0 ? 'prepaid' : '✓ clear'}</p>
+                                                            <p className="text-xs text-gray-400">{c.current_balance > 0 ? 'owes' : '✓ clear'}</p>
+                                                            {(c.prepayment_balance || 0) > 0 && (
+                                                                <p className="text-[10px] text-purple-600 font-bold">+Ksh {c.prepayment_balance.toLocaleString()} credit</p>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </button>
@@ -403,20 +406,27 @@ export default function CreditPaymentsPage() {
                                         </div>
                                         <div className="grid grid-cols-3 gap-3 mt-3">
                                             <div className="bg-white p-3 rounded-xl text-center border border-green-100">
-                                                <p className="text-xs text-gray-500">Balance</p>
-                                                <p className={`font-bold text-lg ${selectedCustomer.current_balance > 0 ? 'text-red-600' : selectedCustomer.current_balance < 0 ? 'text-purple-600' : 'text-green-600'}`}>
-                                                    {selectedCustomer.current_balance < 0 ? '−' : ''}Ksh {Math.abs(selectedCustomer.current_balance).toLocaleString()}
+                                                <p className="text-xs text-gray-500">Debt Balance</p>
+                                                <p className={`font-bold text-lg ${selectedCustomer.current_balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                                    Ksh {(selectedCustomer.current_balance || 0).toLocaleString()}
                                                 </p>
                                             </div>
-                                            <div className="bg-white p-3 rounded-xl text-center border border-green-100">
-                                                <p className="text-xs text-gray-500">Credit Limit</p>
-                                                <p className="font-bold text-lg text-gray-700">Ksh {(selectedCustomer.credit_limit || 0).toLocaleString()}</p>
+                                            <div className="bg-white p-3 rounded-xl text-center border border-purple-100">
+                                                <p className="text-xs text-gray-500">Prepayment Credit</p>
+                                                <p className={`font-bold text-lg ${(selectedCustomer.prepayment_balance || 0) > 0 ? 'text-purple-600' : 'text-gray-400'}`}>
+                                                    Ksh {(selectedCustomer.prepayment_balance || 0).toLocaleString()}
+                                                </p>
                                             </div>
                                             <div className="bg-white p-3 rounded-xl text-center border border-green-100">
                                                 <p className="text-xs text-gray-500">After Payment</p>
-                                                <p className={`font-bold text-lg ${(selectedCustomer.current_balance - (Number(paymentAmount) || 0)) > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                                                <p className={`font-bold text-lg ${Math.max(0, selectedCustomer.current_balance - (Number(paymentAmount) || 0)) > 0 ? 'text-orange-600' : 'text-green-600'}`}>
                                                     Ksh {Math.max(0, selectedCustomer.current_balance - (Number(paymentAmount) || 0)).toLocaleString()}
                                                 </p>
+                                                {(Number(paymentAmount) || 0) > selectedCustomer.current_balance && selectedCustomer.current_balance >= 0 && (
+                                                    <p className="text-[10px] text-purple-600 font-semibold mt-0.5">
+                                                        +Ksh {((Number(paymentAmount) || 0) - selectedCustomer.current_balance).toLocaleString()} prepayment
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
