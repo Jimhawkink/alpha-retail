@@ -25,13 +25,25 @@ const PAGE_SIZES = [25, 50, 100, 200];
 // ─────────────────────────────────────────────────────────────────────────────
 // Mini stat chip
 // ─────────────────────────────────────────────────────────────────────────────
-function Chip({ icon, label, value, bg }: { icon: string; label: string; value: string; bg: string }) {
+function Chip({ icon, label, value, bg, sub }: {
+    icon: string; label: string; value: string; bg: string;
+    sub?: { label: string; value: string }[];
+}) {
     return (
         <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs flex-shrink-0 ${bg}`}>
             <span className="text-base leading-none">{icon}</span>
             <div>
                 <p className="font-bold uppercase tracking-wide opacity-50 text-[9px] leading-none mb-0.5">{label}</p>
                 <p className="font-black text-sm leading-none">{value}</p>
+                {sub && sub.length > 0 && (
+                    <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
+                        {sub.map((s, i) => (
+                            <span key={i} className="text-[8px] opacity-70 font-semibold whitespace-nowrap leading-none">
+                                {s.label}: <span className="font-black opacity-90">{s.value}</span>
+                            </span>
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -83,6 +95,7 @@ export default function FullSalesReportPage() {
     const [pageSize, setPageSize] = useState(50);
 
     const [returnedSales, setReturnedSales] = useState<Set<string>>(new Set());
+    const [creditPaidData, setCreditPaidData] = useState({ total: 0, txns: 0, cashPaid: 0, mpesaPaid: 0 });
 
     // ─────────────────────────────────────────────────────────────────────────
     // Load sales only (items loaded on-demand when chevron clicked)
@@ -125,6 +138,24 @@ export default function FullSalesReportPage() {
                     .from('sales_returns').select('original_sale_id').in('original_sale_id', receiptNos);
                 setReturnedSales(new Set((retData || []).map((r: any) => r.original_sale_id)));
             } else { setReturnedSales(new Set()); }
+
+            // ── Fetch credit payments RECEIVED in the date range ──────────────
+            // retail_credit_payments.payment_date is the date payment was received
+            try {
+                const cpQuery = supabase
+                    .from('retail_credit_payments')
+                    .select('amount_paid, payment_date, payment_method, outlet_id')
+                    .gte('payment_date', dateFrom)
+                    .lte('payment_date', dateTo);
+                if (outletId) cpQuery.eq('outlet_id', outletId);
+                const { data: cpData } = await cpQuery;
+                const cpRows = cpData || [];
+                const cpTotal = cpRows.reduce((s: number, r: any) => s + (r.amount_paid || 0), 0);
+                const cpCash  = cpRows.filter((r: any) => (r.payment_method || '').toLowerCase() === 'cash').reduce((s: number, r: any) => s + (r.amount_paid || 0), 0);
+                const cpMpesa = cpRows.filter((r: any) => ['m-pesa', 'mpesa'].includes((r.payment_method || '').toLowerCase())).reduce((s: number, r: any) => s + (r.amount_paid || 0), 0);
+                setCreditPaidData({ total: cpTotal, txns: cpRows.length, cashPaid: cpCash, mpesaPaid: cpMpesa });
+            } catch { setCreditPaidData({ total: 0, txns: 0, cashPaid: 0, mpesaPaid: 0 }); }
+
         } catch (e) { console.error('loadAll error:', e); setSales([]); }
         setLoading(false);
     }, [activeOutlet?.outlet_id, dateFrom, dateTo]);
@@ -194,21 +225,35 @@ export default function FullSalesReportPage() {
     // ── Stats — cashier cards show 0 for all money values
     const stats = useMemo(() => {
         const txns = filtered.length;
-        // Total qty sold — summed from loaded items map
         const totalQty = Object.entries(itemsMap)
             .filter(([sid]) => filtered.find(s => Number(s.sale_id) === Number(sid)))
             .reduce((s, [, items]) => s + items.reduce((q, it) => q + (it.quantity || 0), 0), 0);
-        if (isCashier) return { txns, totalQty, revenue: 0, discount: 0, avg: 0, cash: 0, mpesa: 0, card: 0, credit: 0, profit: 0 };
-        const revenue = filtered.reduce((s, r) => s + (r.total_amount || 0), 0);
+        if (isCashier) return {
+            txns, totalQty, revenue: 0, discount: 0, avg: 0, cash: 0, mpesa: 0, card: 0, credit: 0, profit: 0,
+            cashTxns: 0, mpesaTxns: 0, cardTxns: 0, creditTxns: 0, discountTxns: 0, minSale: 0, maxSale: 0, margin: 0,
+        };
+        const revenue  = filtered.reduce((s, r) => s + (r.total_amount || 0), 0);
         const discount = filtered.reduce((s, r) => s + (r.discount || 0), 0);
-        const avg = txns > 0 ? revenue / txns : 0;
-        // Use profit stored directly in retail_sales (confirmed in schema)
-        const profit = filtered.reduce((s, r) => s + (r.profit || 0), 0);
-        const cash = filtered.filter(r => (r.payment_method || '').toLowerCase() === 'cash').reduce((s, r) => s + (r.total_amount || 0), 0);
-        const mpesa = filtered.filter(r => ['m-pesa', 'mpesa'].includes((r.payment_method || '').toLowerCase())).reduce((s, r) => s + (r.total_amount || 0), 0);
-        const card = filtered.filter(r => (r.payment_method || '').toLowerCase() === 'card').reduce((s, r) => s + (r.total_amount || 0), 0);
-        const credit = filtered.filter(r => (r.payment_method || '').toLowerCase() === 'credit').reduce((s, r) => s + (r.total_amount || 0), 0);
-        return { txns, totalQty, revenue, discount, avg, cash, mpesa, card, credit, profit };
+        const discountTxns = filtered.filter(r => (r.discount || 0) > 0).length;
+        const avg      = txns > 0 ? revenue / txns : 0;
+        const profit   = filtered.reduce((s, r) => s + (r.profit || 0), 0);
+        const margin   = revenue > 0 ? (profit / revenue) * 100 : 0;
+        const cashRows  = filtered.filter(r => (r.payment_method || '').toLowerCase() === 'cash');
+        const mpesaRows = filtered.filter(r => ['m-pesa', 'mpesa'].includes((r.payment_method || '').toLowerCase()));
+        const cardRows  = filtered.filter(r => (r.payment_method || '').toLowerCase() === 'card');
+        const creditRows = filtered.filter(r => (r.payment_method || '').toLowerCase() === 'credit');
+        const cash   = cashRows.reduce((s, r)  => s + (r.total_amount || 0), 0);
+        const mpesa  = mpesaRows.reduce((s, r) => s + (r.total_amount || 0), 0);
+        const card   = cardRows.reduce((s, r)  => s + (r.total_amount || 0), 0);
+        const credit = creditRows.reduce((s, r) => s + (r.total_amount || 0), 0);
+        const amounts = filtered.map(r => r.total_amount || 0);
+        const minSale = amounts.length ? Math.min(...amounts) : 0;
+        const maxSale = amounts.length ? Math.max(...amounts) : 0;
+        return {
+            txns, totalQty, revenue, discount, avg, cash, mpesa, card, credit, profit, margin,
+            cashTxns: cashRows.length, mpesaTxns: mpesaRows.length, cardTxns: cardRows.length,
+            creditTxns: creditRows.length, discountTxns, minSale, maxSale,
+        };
     }, [filtered, itemsMap, isCashier]);
 
     // ── Toggle expand — loads items on-demand (same pattern as purchases page)
@@ -389,17 +434,33 @@ export default function FullSalesReportPage() {
 
                 {/* ── STAT CHIPS ──────────────────────────────────────────────── */}
                 <div className="flex flex-wrap gap-2 shrink-0">
-                    <Chip icon="🛒" label="Transactions" value={fmtN(stats.txns)} bg="bg-indigo-50 text-indigo-800 border-indigo-100" />
-                    <Chip icon="📦" label="Qty Sold" value={fmtN(stats.totalQty)} bg="bg-sky-50 text-sky-800 border-sky-100" />
-                    <Chip icon="💰" label="Total Sales" value={isCashier ? 'Ksh 0.00' : fmt(stats.revenue)} bg="bg-emerald-50 text-emerald-800 border-emerald-100" />
-                    <Chip icon="🏷️" label="Discounts" value={isCashier ? 'Ksh 0.00' : fmt(stats.discount)} bg="bg-amber-50 text-amber-800 border-amber-100" />
-                    <Chip icon="📊" label="Avg Sale" value={isCashier ? 'Ksh 0.00' : fmt(stats.avg)} bg="bg-blue-50 text-blue-800 border-blue-100" />
-                    <Chip icon="💵" label="Cash" value={isCashier ? 'Ksh 0.00' : fmt(stats.cash)} bg="bg-green-50 text-green-800 border-green-100" />
-                    <Chip icon="📱" label="M-Pesa" value={isCashier ? 'Ksh 0.00' : fmt(stats.mpesa)} bg="bg-rose-50 text-rose-800 border-rose-100" />
-                    <Chip icon="💳" label="Card" value={isCashier ? 'Ksh 0.00' : fmt(stats.card)} bg="bg-purple-50 text-purple-800 border-purple-100" />
-                    <Chip icon="🧾" label="Credit" value={isCashier ? 'Ksh 0.00' : fmt(stats.credit)} bg="bg-orange-50 text-orange-800 border-orange-100" />
+                    <Chip icon="🛒" label="Transactions" value={fmtN(stats.txns)} bg="bg-indigo-50 text-indigo-800 border-indigo-100"
+                        sub={[{ label: 'Avg', value: isCashier ? '—' : fmt(stats.avg) }, { label: 'Min', value: isCashier ? '—' : fmt(stats.minSale) }, { label: 'Max', value: isCashier ? '—' : fmt(stats.maxSale) }]} />
+                    <Chip icon="📦" label="Qty Sold" value={fmtN(stats.totalQty)} bg="bg-sky-50 text-sky-800 border-sky-100"
+                        sub={[{ label: 'Items', value: fmtN(Object.keys(itemsMap).length) }]} />
+                    <Chip icon="💰" label="Total Sales" value={isCashier ? 'Ksh 0.00' : fmt(stats.revenue)} bg="bg-emerald-50 text-emerald-800 border-emerald-100"
+                        sub={!isCashier ? [{ label: 'Disc', value: fmt(stats.discount) }, { label: 'Net', value: fmt(stats.revenue - stats.discount) }] : []} />
+                    <Chip icon="🏷️" label="Discounts" value={isCashier ? 'Ksh 0.00' : fmt(stats.discount)} bg="bg-amber-50 text-amber-800 border-amber-100"
+                        sub={!isCashier ? [{ label: 'Sales w/ Disc', value: fmtN(stats.discountTxns) }] : []} />
+                    <Chip icon="📊" label="Avg Sale" value={isCashier ? 'Ksh 0.00' : fmt(stats.avg)} bg="bg-blue-50 text-blue-800 border-blue-100"
+                        sub={!isCashier ? [{ label: 'Min', value: fmt(stats.minSale) }, { label: 'Max', value: fmt(stats.maxSale) }] : []} />
+                    <Chip icon="💵" label="Cash" value={isCashier ? 'Ksh 0.00' : fmt(stats.cash)} bg="bg-green-50 text-green-800 border-green-100"
+                        sub={!isCashier ? [{ label: 'Txns', value: fmtN(stats.cashTxns) }, { label: '%', value: stats.revenue > 0 ? `${((stats.cash / stats.revenue) * 100).toFixed(1)}%` : '0%' }] : []} />
+                    <Chip icon="📱" label="M-Pesa" value={isCashier ? 'Ksh 0.00' : fmt(stats.mpesa)} bg="bg-rose-50 text-rose-800 border-rose-100"
+                        sub={!isCashier ? [{ label: 'Txns', value: fmtN(stats.mpesaTxns) }, { label: '%', value: stats.revenue > 0 ? `${((stats.mpesa / stats.revenue) * 100).toFixed(1)}%` : '0%' }] : []} />
+                    <Chip icon="💳" label="Card" value={isCashier ? 'Ksh 0.00' : fmt(stats.card)} bg="bg-purple-50 text-purple-800 border-purple-100"
+                        sub={!isCashier ? [{ label: 'Txns', value: fmtN(stats.cardTxns) }] : []} />
+                    <Chip icon="🧾" label="Credit (Sales)" value={isCashier ? 'Ksh 0.00' : fmt(stats.credit)} bg="bg-orange-50 text-orange-800 border-orange-100"
+                        sub={!isCashier ? [{ label: 'Txns', value: fmtN(stats.creditTxns) }, { label: 'Outstanding', value: fmt(stats.credit - creditPaidData.total < 0 ? 0 : stats.credit - creditPaidData.total) }] : []} />
+                    {/* ── NEW: Credit Paid Today ── */}
+                    <Chip icon="✅" label="Credit Paid" value={isCashier ? 'Ksh 0.00' : fmt(creditPaidData.total)} bg="bg-lime-50 text-lime-800 border-lime-200"
+                        sub={!isCashier ? [{ label: 'Pmts', value: fmtN(creditPaidData.txns) }, { label: 'Cash', value: fmt(creditPaidData.cashPaid) }, { label: 'M-Pesa', value: fmt(creditPaidData.mpesaPaid) }] : []} />
+                    {/* ── NEW: Cash Sales + Credit Paid (actual cash collected today) ── */}
+                    <Chip icon="🏦" label="Cash + Credit Paid" value={isCashier ? 'Ksh 0.00' : fmt(stats.cash + creditPaidData.total)} bg="bg-cyan-50 text-cyan-800 border-cyan-200"
+                        sub={!isCashier ? [{ label: 'Sales Cash', value: fmt(stats.cash) }, { label: 'Cr. Paid', value: fmt(creditPaidData.total) }] : []} />
                     <Chip icon="📈" label="Profit" value={isCashier ? 'Ksh 0.00' : fmt(stats.profit)}
-                        bg={isCashier ? 'bg-gray-50 text-gray-500 border-gray-100' : stats.profit >= 0 ? 'bg-teal-50 text-teal-800 border-teal-100' : 'bg-red-50 text-red-800 border-red-100'} />
+                        bg={isCashier ? 'bg-gray-50 text-gray-500 border-gray-100' : stats.profit >= 0 ? 'bg-teal-50 text-teal-800 border-teal-100' : 'bg-red-50 text-red-800 border-red-100'}
+                        sub={!isCashier ? [{ label: 'Margin', value: `${(stats.margin || 0).toFixed(1)}%` }] : []} />
                 </div>
 
                 {/* ── TABLE ───────────────────────────────────────────────────── */}
