@@ -212,6 +212,86 @@ export default function ProductsPage() {
         } catch { /* silent */ }
     }, [activeOutlet, outletId]);
 
+    // ─── AUTO-CONVERT: Big Units → Pieces when Pieces = 0 ───────────────────
+    // When pieces=0 but Boxes/Bags/Cartons remain, auto-open 1 big unit and
+    // assign its pieces_per_package count to Pieces stock. Runs on load + every 60s.
+    const autoConvertBigUnitsToPieces = useCallback(async (prods?: any[]) => {
+        if (!activeOutlet) return;
+        const prodList = prods || products;
+        if (prodList.length === 0) return;
+        try {
+            // Fetch all stock rows WITH st_id for targeted updates
+            const PAGE_SIZE = 1000;
+            let allStockRows: any[] = [];
+            let page = 0, hasMore = true;
+            while (hasMore) {
+                const { data } = await supabase
+                    .from('retail_stock')
+                    .select('st_id, pid, qty, storage_type')
+                    .eq('outlet_id', outletId)
+                    .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+                if (data && data.length > 0) allStockRows = allStockRows.concat(data);
+                if (!data || data.length < PAGE_SIZE) hasMore = false;
+                else page++;
+            }
+
+            // Build per-product arrays: pid → [{st_id, qty}] per type
+            const bigUnitRowsMap: Record<number, Array<{st_id: number; qty: number}>> = {};
+            const pieceRowsMap:   Record<number, Array<{st_id: number; qty: number}>> = {};
+            allStockRows.forEach((row: any) => {
+                const isBig = row.storage_type === 'Bags';
+                const map = isBig ? bigUnitRowsMap : pieceRowsMap;
+                if (!map[row.pid]) map[row.pid] = [];
+                map[row.pid].push({ st_id: row.st_id, qty: row.qty || 0 });
+            });
+
+            // Find products needing conversion: pieces=0, big-units>0, ppp>1
+            const toConvert = prodList.filter((p: any) => {
+                if ((p.pieces_per_package || 1) <= 1) return false;
+                const totalPcs  = (pieceRowsMap[p.pid]   || []).reduce((s: number, r: any) => s + r.qty, 0);
+                const totalBags = (bigUnitRowsMap[p.pid] || []).reduce((s: number, r: any) => s + r.qty, 0);
+                return totalPcs <= 0 && totalBags > 0;
+            });
+
+            if (toConvert.length === 0) return;
+
+            let converted = 0;
+            for (const product of toConvert) {
+                const ppp = product.pieces_per_package || 1;
+                const bagRows = bigUnitRowsMap[product.pid] || [];
+                const pcsRows = pieceRowsMap[product.pid]  || [];
+
+                // Pick first big-unit row with qty > 0
+                const bagRow = bagRows.find((r: any) => r.qty > 0);
+                if (!bagRow) continue;
+
+                // Deduct 1 from big unit
+                const { error: e1 } = await supabase
+                    .from('retail_stock')
+                    .update({ qty: bagRow.qty - 1 })
+                    .eq('st_id', bagRow.st_id);
+                if (e1) continue;
+
+                // Add pieces_per_package to Pieces
+                const pcsRow = pcsRows[0];
+                if (pcsRow) {
+                    await supabase.from('retail_stock')
+                        .update({ qty: pcsRow.qty + ppp })
+                        .eq('st_id', pcsRow.st_id);
+                } else {
+                    await supabase.from('retail_stock')
+                        .insert({ pid: product.pid, qty: ppp, storage_type: 'Pieces', outlet_id: outletId });
+                }
+                converted++;
+            }
+
+            if (converted > 0) {
+                console.log(`📦 Auto-converted ${converted} product(s): 1 package → ${converted > 1 ? 'pieces' : 'pieces'}`);
+                await loadStockData();
+            }
+        } catch (e) { console.error('Auto-convert error:', e); }
+    }, [activeOutlet, outletId, products, loadStockData]);
+
     const loadCategories = useCallback(async () => {
         if (!activeOutlet) return;
         try {
@@ -245,6 +325,15 @@ export default function ProductsPage() {
 
     useEffect(() => { loadProducts(); loadStockData(); loadCategories(); loadSuppliers(); loadUnits(); loadCompanyName(); },
         [loadProducts, loadStockData, loadCategories, loadSuppliers, loadUnits, loadCompanyName]);
+
+    // ─── Trigger auto-convert after products load, then re-check every 60s ───
+    useEffect(() => {
+        if (products.length === 0 || isLoading) return;
+        autoConvertBigUnitsToPieces();                          // run immediately
+        const iv = setInterval(autoConvertBigUnitsToPieces, 60_000); // re-check every 60s
+        return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [products.length, isLoading]);
 
     // Auto-open add modal when navigated via ?action=add (cashier quick action)
     useEffect(() => {
