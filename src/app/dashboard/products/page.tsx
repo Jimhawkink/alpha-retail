@@ -446,11 +446,15 @@ export default function ProductsPage() {
             const d = {
                 product_name: formData.product_name, alias: formData.alias || null, description: formData.description || null,
                 barcode: formData.barcode || null, category: formData.category || null, purchase_unit: formData.purchase_unit,
-                sales_unit: formData.sales_unit, purchase_cost: formData.purchase_cost || 0, sales_cost: formData.sales_cost || 0,
-                wholesale_price: formData.wholesale_price || 0, reorder_point: formData.reorder_point || 10, margin_per: margin, show_in_pos: formData.show_ps !== false,
+                sales_unit: formData.sales_unit,
+                purchase_cost:   parseFloat(String(formData.purchase_cost))   || 0,
+                sales_cost:      parseFloat(String(formData.sales_cost))      || 0,
+                wholesale_price: parseFloat(String(formData.wholesale_price)) || 0,
+                reorder_point: Math.round(parseFloat(String(formData.reorder_point)) || 10),
+                margin_per: margin, show_in_pos: formData.show_ps !== false,
                 button_ui_color: formData.button_ui_color, photo: formData.photo || null, batch_no: formData.batch_no || null,
                 supplier_name: formData.supplier_name || null, active: formData.active !== false,
-                pieces_per_package: formData.pieces_per_package || 1,
+                pieces_per_package: Math.round(parseFloat(String(formData.pieces_per_package)) || 1),
             };
             if (editingProduct) {
                 // Log price change if prices changed
