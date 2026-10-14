@@ -140,16 +140,16 @@ export default function FullSalesReportPage() {
             } else { setReturnedSales(new Set()); }
 
             // ── Fetch credit payments RECEIVED in the date range ──────────────
-            // retail_credit_payments.payment_date is the date payment was received
             try {
-                const cpQuery = supabase
+                // IMPORTANT: Supabase query builder is immutable — must reassign (let, not const)
+                let cpQuery = supabase
                     .from('retail_credit_payments')
-                    .select('amount_paid, payment_date, payment_method, outlet_id')
+                    .select('amount_paid, payment_date, payment_datetime, payment_method, outlet_id')
                     .gte('payment_date', dateFrom)
                     .lte('payment_date', dateTo);
-                if (outletId) cpQuery.eq('outlet_id', outletId);
+                if (outletId) cpQuery = (cpQuery as any).eq('outlet_id', outletId);
                 const { data: cpData } = await cpQuery;
-                const cpRows = cpData || [];
+                const cpRows = (cpData || []);
                 const cpTotal = cpRows.reduce((s: number, r: any) => s + (r.amount_paid || 0), 0);
                 const cpCash  = cpRows.filter((r: any) => (r.payment_method || '').toLowerCase() === 'cash').reduce((s: number, r: any) => s + (r.amount_paid || 0), 0);
                 const cpMpesa = cpRows.filter((r: any) => ['m-pesa', 'mpesa'].includes((r.payment_method || '').toLowerCase())).reduce((s: number, r: any) => s + (r.amount_paid || 0), 0);
@@ -434,34 +434,82 @@ export default function FullSalesReportPage() {
 
                 {/* ── STAT CHIPS ──────────────────────────────────────────────── */}
                 <div className="flex flex-wrap gap-2 shrink-0">
-                    <Chip icon="🛒" label="Transactions" value={fmtN(stats.txns)} bg="bg-indigo-50 text-indigo-800 border-indigo-100"
-                        sub={[{ label: 'Avg', value: isCashier ? '—' : fmt(stats.avg) }, { label: 'Min', value: isCashier ? '—' : fmt(stats.minSale) }, { label: 'Max', value: isCashier ? '—' : fmt(stats.maxSale) }]} />
-                    <Chip icon="📦" label="Qty Sold" value={fmtN(stats.totalQty)} bg="bg-sky-50 text-sky-800 border-sky-100"
-                        sub={[{ label: 'Items', value: fmtN(Object.keys(itemsMap).length) }]} />
-                    <Chip icon="💰" label="Total Sales" value={isCashier ? 'Ksh 0.00' : fmt(stats.revenue)} bg="bg-emerald-50 text-emerald-800 border-emerald-100"
-                        sub={!isCashier ? [{ label: 'Disc', value: fmt(stats.discount) }, { label: 'Net', value: fmt(stats.revenue - stats.discount) }] : []} />
-                    <Chip icon="🏷️" label="Discounts" value={isCashier ? 'Ksh 0.00' : fmt(stats.discount)} bg="bg-amber-50 text-amber-800 border-amber-100"
-                        sub={!isCashier ? [{ label: 'Sales w/ Disc', value: fmtN(stats.discountTxns) }] : []} />
-                    <Chip icon="📊" label="Avg Sale" value={isCashier ? 'Ksh 0.00' : fmt(stats.avg)} bg="bg-blue-50 text-blue-800 border-blue-100"
-                        sub={!isCashier ? [{ label: 'Min', value: fmt(stats.minSale) }, { label: 'Max', value: fmt(stats.maxSale) }] : []} />
-                    <Chip icon="💵" label="Cash" value={isCashier ? 'Ksh 0.00' : fmt(stats.cash)} bg="bg-green-50 text-green-800 border-green-100"
-                        sub={!isCashier ? [{ label: 'Txns', value: fmtN(stats.cashTxns) }, { label: '%', value: stats.revenue > 0 ? `${((stats.cash / stats.revenue) * 100).toFixed(1)}%` : '0%' }] : []} />
-                    <Chip icon="📱" label="M-Pesa" value={isCashier ? 'Ksh 0.00' : fmt(stats.mpesa)} bg="bg-rose-50 text-rose-800 border-rose-100"
-                        sub={!isCashier ? [{ label: 'Txns', value: fmtN(stats.mpesaTxns) }, { label: '%', value: stats.revenue > 0 ? `${((stats.mpesa / stats.revenue) * 100).toFixed(1)}%` : '0%' }] : []} />
-                    <Chip icon="💳" label="Card" value={isCashier ? 'Ksh 0.00' : fmt(stats.card)} bg="bg-purple-50 text-purple-800 border-purple-100"
-                        sub={!isCashier ? [{ label: 'Txns', value: fmtN(stats.cardTxns) }] : []} />
-                    <Chip icon="🧾" label="Credit (Sales)" value={isCashier ? 'Ksh 0.00' : fmt(stats.credit)} bg="bg-orange-50 text-orange-800 border-orange-100"
-                        sub={!isCashier ? [{ label: 'Txns', value: fmtN(stats.creditTxns) }, { label: 'Outstanding', value: fmt(stats.credit - creditPaidData.total < 0 ? 0 : stats.credit - creditPaidData.total) }] : []} />
-                    {/* ── NEW: Credit Paid Today ── */}
-                    <Chip icon="✅" label="Credit Paid" value={isCashier ? 'Ksh 0.00' : fmt(creditPaidData.total)} bg="bg-lime-50 text-lime-800 border-lime-200"
-                        sub={!isCashier ? [{ label: 'Pmts', value: fmtN(creditPaidData.txns) }, { label: 'Cash', value: fmt(creditPaidData.cashPaid) }, { label: 'M-Pesa', value: fmt(creditPaidData.mpesaPaid) }] : []} />
-                    {/* ── NEW: Cash Sales + Credit Paid (actual cash collected today) ── */}
-                    <Chip icon="🏦" label="Cash + Credit Paid" value={isCashier ? 'Ksh 0.00' : fmt(stats.cash + creditPaidData.total)} bg="bg-cyan-50 text-cyan-800 border-cyan-200"
-                        sub={!isCashier ? [{ label: 'Sales Cash', value: fmt(stats.cash) }, { label: 'Cr. Paid', value: fmt(creditPaidData.total) }] : []} />
-                    <Chip icon="📈" label="Profit" value={isCashier ? 'Ksh 0.00' : fmt(stats.profit)}
-                        bg={isCashier ? 'bg-gray-50 text-gray-500 border-gray-100' : stats.profit >= 0 ? 'bg-teal-50 text-teal-800 border-teal-100' : 'bg-red-50 text-red-800 border-red-100'}
-                        sub={!isCashier ? [{ label: 'Margin', value: `${(stats.margin || 0).toFixed(1)}%` }] : []} />
+                    <Chip icon="🛒" label="Transactions"     value={fmtN(stats.txns)}                                    bg="bg-indigo-50 text-indigo-800 border-indigo-100" />
+                    <Chip icon="📦" label="Qty Sold"          value={fmtN(stats.totalQty)}                               bg="bg-sky-50 text-sky-800 border-sky-100" />
+                    <Chip icon="💰" label="Total Sales"       value={isCashier ? 'Ksh 0.00' : fmt(stats.revenue)}        bg="bg-emerald-50 text-emerald-800 border-emerald-100" />
+                    <Chip icon="🏷️" label="Discounts"        value={isCashier ? 'Ksh 0.00' : fmt(stats.discount)}       bg="bg-amber-50 text-amber-800 border-amber-100" />
+                    <Chip icon="📊" label="Avg Sale"          value={isCashier ? 'Ksh 0.00' : fmt(stats.avg)}            bg="bg-blue-50 text-blue-800 border-blue-100" />
+                    <Chip icon="💵" label="Cash"              value={isCashier ? 'Ksh 0.00' : fmt(stats.cash)}           bg="bg-green-50 text-green-800 border-green-100" />
+                    <Chip icon="📱" label="M-Pesa"            value={isCashier ? 'Ksh 0.00' : fmt(stats.mpesa)}          bg="bg-rose-50 text-rose-800 border-rose-100" />
+                    <Chip icon="💳" label="Card"              value={isCashier ? 'Ksh 0.00' : fmt(stats.card)}           bg="bg-purple-50 text-purple-800 border-purple-100" />
+                    <Chip icon="🧾" label="Credit (Sales)"    value={isCashier ? 'Ksh 0.00' : fmt(stats.credit)}         bg="bg-orange-50 text-orange-800 border-orange-100" />
+                    <Chip icon="✅" label="Credit Paid"       value={isCashier ? 'Ksh 0.00' : fmt(creditPaidData.total)} bg="bg-lime-50 text-lime-800 border-lime-200" />
+                    <Chip icon="🏦" label="Cash + Credit Pd"  value={isCashier ? 'Ksh 0.00' : fmt(stats.cash + creditPaidData.total)} bg="bg-cyan-50 text-cyan-800 border-cyan-200" />
+                    <Chip icon="📈" label="Profit"            value={isCashier ? 'Ksh 0.00' : fmt(stats.profit)}
+                        bg={isCashier ? 'bg-gray-50 text-gray-500 border-gray-100' : stats.profit >= 0 ? 'bg-teal-50 text-teal-800 border-teal-100' : 'bg-red-50 text-red-800 border-red-100'} />
                 </div>
+
+                {/* ── DETAILED METRICS STRIP ───────────────────────────────────── */}
+                {!isCashier && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 shrink-0">
+                    {/* Metric helper */}
+                    {[
+                        {
+                            label: 'Margin', icon: '📐',
+                            main: `${(stats.margin || 0).toFixed(1)}%`,
+                            sub: `Profit ${fmt(stats.profit)}`,
+                            color: 'from-teal-400 to-emerald-500',
+                            positive: stats.profit >= 0,
+                        },
+                        {
+                            label: 'Avg · Min · Max', icon: '📊',
+                            main: fmt(stats.avg),
+                            sub: `Min ${fmt(stats.minSale)}  ·  Max ${fmt(stats.maxSale)}`,
+                            color: 'from-blue-400 to-indigo-500',
+                            positive: true,
+                        },
+                        {
+                            label: 'Cash Breakdown', icon: '💵',
+                            main: `${stats.revenue > 0 ? ((stats.cash / stats.revenue) * 100).toFixed(1) : 0}% Cash`,
+                            sub: `${fmtN(stats.cashTxns)} txns · ${fmt(stats.cash)}`,
+                            color: 'from-green-400 to-emerald-600',
+                            positive: true,
+                        },
+                        {
+                            label: 'M-Pesa Breakdown', icon: '📱',
+                            main: `${stats.revenue > 0 ? ((stats.mpesa / stats.revenue) * 100).toFixed(1) : 0}% MPesa`,
+                            sub: `${fmtN(stats.mpesaTxns)} txns · ${fmt(stats.mpesa)}`,
+                            color: 'from-rose-400 to-pink-600',
+                            positive: true,
+                        },
+                        {
+                            label: 'Credit Paid Today', icon: '✅',
+                            main: fmt(creditPaidData.total),
+                            sub: `${fmtN(creditPaidData.txns)} pmts · Cash ${fmt(creditPaidData.cashPaid)}`,
+                            color: 'from-lime-400 to-green-500',
+                            positive: true,
+                        },
+                        {
+                            label: 'Cash In Hand', icon: '🏦',
+                            main: fmt(stats.cash + creditPaidData.total),
+                            sub: `Sales cash ${fmt(stats.cash)} + cr.paid ${fmt(creditPaidData.total)}`,
+                            color: 'from-cyan-400 to-sky-600',
+                            positive: true,
+                        },
+                    ].map((m, i) => (
+                        <div key={i} className="rounded-xl overflow-hidden shadow-sm border border-white/60">
+                            <div className={`bg-gradient-to-r ${m.color} px-3 py-0.5 flex items-center gap-1.5`}>
+                                <span className="text-xs">{m.icon}</span>
+                                <p className="text-[9px] font-bold uppercase tracking-widest text-white/90 leading-none">{m.label}</p>
+                            </div>
+                            <div className="bg-white px-3 py-2">
+                                <p className="text-sm font-black text-gray-800 leading-tight">{m.main}</p>
+                                <p className="text-[9px] text-gray-400 font-medium mt-0.5 leading-none">{m.sub}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                )}
 
                 {/* ── TABLE ───────────────────────────────────────────────────── */}
                 <div className="flex flex-col flex-1 min-h-0 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
