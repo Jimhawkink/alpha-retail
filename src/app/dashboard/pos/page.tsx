@@ -2619,10 +2619,10 @@ export default function RetailPOSPage() {
                 }
             }
 
-            // Step 3: AUTO-CONVERT Bags→Pieces if Pieces ran out
+            // Step 3: AUTO-CONVERT Bags→Pieces if Pieces ran out after sale
             for (const item of cart) {
                 const sellingUnit = (item.sellingUnit || 'Piece').toLowerCase();
-                const isBagSale = ['bag', 'bags', 'box', 'carton', 'crate', 'pack', 'dozen'].includes(sellingUnit);
+                const isBagSale = (item.unitMultiplier || 1) > 1;
                 if (!isBagSale) {
                     const piecesPerPkg = item.piecesPerPackage || 1;
                     if (piecesPerPkg > 1) {
@@ -2641,16 +2641,22 @@ export default function RetailPOSPage() {
                                 });
 
                                 if (totalPieces <= 0 && totalBags > 0) {
-                                    console.log(`🔄 Auto-converting 1 Bag → ${piecesPerPkg} pieces for ${item.name}`);
-                                    await supabase.from('retail_stock').insert({
-                                        pid: item.id, invoice_no: 'AUTO-CONVERT', qty: -1,
-                                        storage_type: 'Bags', outlet_id: outletId,
-                                    });
-                                    await supabase.from('retail_stock').insert({
-                                        pid: item.id, invoice_no: 'AUTO-CONVERT', qty: piecesPerPkg,
-                                        storage_type: 'Pieces', outlet_id: outletId,
-                                    });
-                                    console.log(`✅ Converted: Bags ${totalBags}→${totalBags - 1}, Pieces ${totalPieces}→${totalPieces + piecesPerPkg}`);
+                                    // Calculate EXACTLY how many bags needed to cover the deficit
+                                    const deficit = Math.abs(Math.min(totalPieces, 0)); // e.g. -5 → need 5 more pieces
+                                    const bagsNeeded = Math.min(
+                                        Math.ceil((deficit + 1) / piecesPerPkg), // +1 so at least 1 full pkg worth
+                                        Math.floor(totalBags)                    // can't exceed available bags
+                                    );
+                                    if (bagsNeeded > 0) {
+                                        console.log(`🔄 Auto-convert: ${bagsNeeded} bag(s) → ${bagsNeeded * piecesPerPkg} pieces for ${item.name} (deficit=${deficit})`);
+                                        const convRows: any[] = [];
+                                        for (let i = 0; i < bagsNeeded; i++) {
+                                            convRows.push({ pid: item.id, invoice_no: 'AUTO-CONVERT', qty: -1, storage_type: 'Bags', outlet_id: outletId });
+                                            convRows.push({ pid: item.id, invoice_no: 'AUTO-CONVERT', qty: piecesPerPkg, storage_type: 'Pieces', outlet_id: outletId });
+                                        }
+                                        await supabase.from('retail_stock').insert(convRows);
+                                        console.log(`✅ Opened ${bagsNeeded} bag(s): Bags ${totalBags}→${totalBags - bagsNeeded}, Pieces ${totalPieces}→${totalPieces + bagsNeeded * piecesPerPkg}`);
+                                    }
                                 }
                             }
                         } catch (convertErr) {
@@ -3620,8 +3626,25 @@ export default function RetailPOSPage() {
                             {/* Retail Price */}
                             <button
                                 disabled={pieceOverStock || (preventNegativeStock && totalAvailPieces === 0)}
-                                onClick={() => {
-                                    if (pieceOverStock || (preventNegativeStock && totalAvailPieces === 0)) return;
+                                onClick={async () => {
+                                    if (preventNegativeStock && totalAvailPieces === 0) return;
+                                    if (pieceOverStock) return;
+                                    // ── AUTO-CONVERT bags → pieces if qty exceeds loose piece stock ──
+                                    if (ppp > 1 && unitPickerQty > availPieces && availBags > 0) {
+                                        const deficit = unitPickerQty - Math.max(0, availPieces);
+                                        const bagsNeeded = Math.min(Math.ceil(deficit / ppp), Math.floor(availBags));
+                                        if (bagsNeeded > 0) {
+                                            try {
+                                                const convRows: any[] = [];
+                                                for (let i = 0; i < bagsNeeded; i++) {
+                                                    convRows.push({ pid: unitPickerProduct.id, invoice_no: 'AUTO-CONVERT', qty: -1, storage_type: 'Bags', outlet_id: outletId });
+                                                    convRows.push({ pid: unitPickerProduct.id, invoice_no: 'AUTO-CONVERT', qty: ppp, storage_type: 'Pieces', outlet_id: outletId });
+                                                }
+                                                await supabase.from('retail_stock').insert(convRows);
+                                                toast.success(`📦 Opened ${bagsNeeded} ${unitPickerProduct.purchaseUnit || 'box'}${bagsNeeded > 1 ? 'es' : ''} → ${bagsNeeded * ppp} pieces`);
+                                            } catch (e) { console.error('Pre-add auto-convert error:', e); }
+                                        }
+                                    }
                                     addToCartWithUnit(unitPickerProduct, unitPickerProduct.salesUnit || 'Piece', 1, retailPrice, unitPickerQty);
                                     closeUnitPicker();
                                 }}
@@ -3637,6 +3660,9 @@ export default function RetailPOSPage() {
                                         <p className="font-bold text-gray-800">Retail Price</p>
                                         <p className="text-xs text-gray-500">Per {unitPickerProduct.salesUnit} × {unitPickerQty}</p>
                                         {pieceOverStock && <p className="text-[10px] text-red-600 font-bold">Only {totalAvailPieces} available</p>}
+                                        {!pieceOverStock && ppp > 1 && unitPickerQty > availPieces && availBags > 0 && (
+                                            <p className="text-[10px] text-amber-600 font-bold">📦 Will open {Math.ceil((unitPickerQty - Math.max(0, availPieces)) / ppp)} {unitPickerProduct.purchaseUnit || 'box'}</p>
+                                        )}
                                     </div>
                                 </div>
                                 <span className="text-lg font-bold text-blue-700">Ksh {retailPrice.toLocaleString()}</span>
@@ -3645,8 +3671,25 @@ export default function RetailPOSPage() {
                             {/* Wholesale Price */}
                             <button
                                 disabled={pieceOverStock || (preventNegativeStock && totalAvailPieces === 0)}
-                                onClick={() => {
-                                    if (pieceOverStock || (preventNegativeStock && totalAvailPieces === 0)) return;
+                                onClick={async () => {
+                                    if (preventNegativeStock && totalAvailPieces === 0) return;
+                                    if (pieceOverStock) return;
+                                    // ── AUTO-CONVERT bags → pieces if qty exceeds loose piece stock ──
+                                    if (ppp > 1 && unitPickerQty > availPieces && availBags > 0) {
+                                        const deficit = unitPickerQty - Math.max(0, availPieces);
+                                        const bagsNeeded = Math.min(Math.ceil(deficit / ppp), Math.floor(availBags));
+                                        if (bagsNeeded > 0) {
+                                            try {
+                                                const convRows: any[] = [];
+                                                for (let i = 0; i < bagsNeeded; i++) {
+                                                    convRows.push({ pid: unitPickerProduct.id, invoice_no: 'AUTO-CONVERT', qty: -1, storage_type: 'Bags', outlet_id: outletId });
+                                                    convRows.push({ pid: unitPickerProduct.id, invoice_no: 'AUTO-CONVERT', qty: ppp, storage_type: 'Pieces', outlet_id: outletId });
+                                                }
+                                                await supabase.from('retail_stock').insert(convRows);
+                                                toast.success(`📦 Opened ${bagsNeeded} ${unitPickerProduct.purchaseUnit || 'box'}${bagsNeeded > 1 ? 'es' : ''} → ${bagsNeeded * ppp} pieces`);
+                                            } catch (e) { console.error('Pre-add auto-convert error:', e); }
+                                        }
+                                    }
                                     addToCartWithUnit(unitPickerProduct, unitPickerProduct.salesUnit || 'Piece', 1, wholesalePrice, unitPickerQty);
                                     closeUnitPicker();
                                 }}
@@ -3662,6 +3705,9 @@ export default function RetailPOSPage() {
                                         <p className="font-bold text-gray-800">Wholesale Price</p>
                                         <p className="text-xs text-gray-500">Per {unitPickerProduct.salesUnit} × {unitPickerQty}</p>
                                         {pieceOverStock && <p className="text-[10px] text-red-600 font-bold">Only {totalAvailPieces} available</p>}
+                                        {!pieceOverStock && ppp > 1 && unitPickerQty > availPieces && availBags > 0 && (
+                                            <p className="text-[10px] text-amber-600 font-bold">📦 Will open {Math.ceil((unitPickerQty - Math.max(0, availPieces)) / ppp)} {unitPickerProduct.purchaseUnit || 'box'}</p>
+                                        )}
                                     </div>
                                 </div>
                                 <span className="text-lg font-bold text-green-700">Ksh {wholesalePrice.toLocaleString()}</span>
