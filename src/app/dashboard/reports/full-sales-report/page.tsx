@@ -142,9 +142,11 @@ export default function FullSalesReportPage() {
             // ── Fetch credit payments RECEIVED in the date range ──────────────
             try {
                 // IMPORTANT: Supabase query builder is immutable — must reassign (let, not const)
+                // Filter transaction_type='payment' to exclude auto-created credit-sale entries
                 let cpQuery = supabase
                     .from('retail_credit_payments')
-                    .select('amount_paid, payment_date, payment_datetime, payment_method, outlet_id')
+                    .select('amount_paid, payment_date, payment_datetime, payment_method, outlet_id, transaction_type')
+                    .eq('transaction_type', 'payment')
                     .gte('payment_date', dateFrom)
                     .lte('payment_date', dateTo);
                 if (outletId) cpQuery = (cpQuery as any).eq('outlet_id', outletId);
