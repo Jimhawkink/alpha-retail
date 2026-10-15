@@ -164,21 +164,25 @@ export default function CreditCustomersPage() {
                 const newBal = Number(balanceAdjust === '' ? editingCustomer.current_balance : balanceAdjust);
                 if (newBal !== editingCustomer.current_balance) {
                     updateData.current_balance = newBal;
-                    // Record an adjustment entry in the ledger for traceability
-                    const now = new Date().toISOString();
-                    await supabase.from('retail_credit_payments').insert({
-                        customer_id: editingCustomer.customer_id,
-                        sale_id: null, receipt_no: null,
-                        payment_date: now.split('T')[0],
-                        payment_datetime: now,
-                        amount_paid: Math.abs(newBal - editingCustomer.current_balance),
-                        balance_before: editingCustomer.current_balance,
-                        balance_after: newBal,
-                        payment_method: 'Adjustment',
-                        transaction_type: 'adjustment',
-                        payment_note: `Manual balance correction: Ksh ${editingCustomer.current_balance} → Ksh ${newBal}`,
-                        outlet_id: formData.outlet_id
-                    });
+                    // Record an audit adjustment entry — wrapped in try-catch so it NEVER blocks the balance update
+                    try {
+                        const now = new Date().toISOString();
+                        await supabase.from('retail_credit_payments').insert({
+                            customer_id: editingCustomer.customer_id,
+                            sale_id: null, receipt_no: null,
+                            payment_date: now.split('T')[0],
+                            payment_datetime: now,
+                            amount_paid: Math.abs(newBal - editingCustomer.current_balance),
+                            balance_before: editingCustomer.current_balance,
+                            balance_after: newBal,
+                            payment_method: 'Adjustment',
+                            transaction_type: 'adjustment',
+                            payment_note: `Manual balance correction: Ksh ${editingCustomer.current_balance} to Ksh ${newBal}`,
+                            outlet_id: formData.outlet_id
+                        });
+                    } catch (auditErr) {
+                        console.warn('Audit log insert failed (non-critical):', auditErr);
+                    }
                 }
                 const { error } = await supabase.from('retail_credit_customers').update(updateData)
                     .eq('customer_id', editingCustomer.customer_id);
