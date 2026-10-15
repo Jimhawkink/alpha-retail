@@ -53,6 +53,7 @@ export default function CreditCustomersPage() {
     const [customerPayments, setCustomerPayments] = useState<any[]>([]);
     const [loadingDetails, setLoadingDetails] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<Customer | null>(null);
+    const [balanceAdjust, setBalanceAdjust] = useState<number | ''>('');
     const perPage = 20;
 
     // Import state
@@ -144,6 +145,7 @@ export default function CreditCustomersPage() {
             address: c.address || '', credit_limit: c.credit_limit || 0, opening_balance: c.opening_balance || 0,
             notes: c.notes || '', active: c.active !== false, outlet_id: c.outlet_id || 1
         });
+        setBalanceAdjust(c.current_balance || 0);
         setShowModal(true);
     };
 
@@ -152,14 +154,37 @@ export default function CreditCustomersPage() {
         setFormLoading(true);
         try {
             if (editingCustomer) {
-                const { error } = await supabase.from('retail_credit_customers').update({
+                const updateData: any = {
                     customer_name: formData.customer_name.trim(), phone: formData.phone.trim(),
                     email: formData.email.trim(), address: formData.address.trim(),
                     credit_limit: Number(formData.credit_limit) || 0, notes: formData.notes,
                     active: formData.active, outlet_id: formData.outlet_id
-                }).eq('customer_id', editingCustomer.customer_id);
+                };
+                // If balance was manually corrected, apply and audit it
+                const newBal = Number(balanceAdjust === '' ? editingCustomer.current_balance : balanceAdjust);
+                if (newBal !== editingCustomer.current_balance) {
+                    updateData.current_balance = newBal;
+                    // Record an adjustment entry in the ledger for traceability
+                    const now = new Date().toISOString();
+                    await supabase.from('retail_credit_payments').insert({
+                        customer_id: editingCustomer.customer_id,
+                        sale_id: null, receipt_no: null,
+                        payment_date: now.split('T')[0],
+                        payment_datetime: now,
+                        amount_paid: Math.abs(newBal - editingCustomer.current_balance),
+                        balance_before: editingCustomer.current_balance,
+                        balance_after: newBal,
+                        payment_method: 'Adjustment',
+                        transaction_type: 'adjustment',
+                        payment_note: `Manual balance correction: Ksh ${editingCustomer.current_balance} → Ksh ${newBal}`,
+                        outlet_id: formData.outlet_id
+                    });
+                }
+                const { error } = await supabase.from('retail_credit_customers').update(updateData)
+                    .eq('customer_id', editingCustomer.customer_id);
                 if (error) throw error;
-                toast.success('✅ Customer updated!');
+                toast.success(`✅ Customer updated${newBal !== editingCustomer.current_balance ? ` · Balance corrected to Ksh ${newBal.toLocaleString()}` : ''}!`);
+
             } else {
                 const openBal = Number(formData.opening_balance) || 0;
                 // Generate unique customer_id (column doesn't auto-assign)
@@ -897,6 +922,33 @@ export default function CreditCustomersPage() {
                                     )}
                                 </div>
                             </div>
+                            {/* ── Balance Correction (Edit mode only) ── */}
+                            {editingCustomer && (
+                                <div className="bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-300 rounded-2xl p-5">
+                                    <h3 className="font-bold text-orange-800 mb-1 flex items-center gap-2 text-sm">
+                                        <FiAlertTriangle size={15} /> Correct Running Balance
+                                    </h3>
+                                    <p className="text-xs text-orange-600 mb-3">
+                                        Current DB balance: <strong>Ksh {(editingCustomer.current_balance || 0).toLocaleString()}</strong>
+                                        {editingCustomer.current_balance < 0 && <span className="ml-2 text-purple-600 font-bold">(showing as PREPAYMENT — fix if wrong)</span>}
+                                    </p>
+                                    <input
+                                        type="number"
+                                        value={balanceAdjust}
+                                        onChange={e => setBalanceAdjust(e.target.value === '' ? '' : Number(e.target.value))}
+                                        placeholder="Enter correct balance (e.g. 4450)"
+                                        className="w-full px-4 py-3 bg-white border-2 border-orange-300 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-400/20 transition-all font-semibold"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1.5">
+                                        Positive = customer owes you · Negative = customer has prepayment · 0 = cleared. An audit entry will be recorded.
+                                    </p>
+                                    {balanceAdjust !== '' && Number(balanceAdjust) !== editingCustomer.current_balance && (
+                                        <p className="text-xs font-bold text-orange-700 mt-2 bg-orange-100 px-3 py-1.5 rounded-lg">
+                                            ⚡ Will change balance: Ksh {editingCustomer.current_balance.toLocaleString()} → Ksh {Number(balanceAdjust).toLocaleString()}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
                             {/* Outlet + Active */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
