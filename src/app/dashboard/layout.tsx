@@ -417,9 +417,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const [expanded, setExpanded]     = useState<Record<string, boolean>>({});
     const [loading, setLoading]       = useState(false);
     // ── Subscription Lockout state ────────────────────────────────────────
-    const [systemLocked, setSystemLocked]       = useState(false);
-    const [lockoutReason, setLockoutReason]     = useState('');
-    const [lockoutChecked, setLockoutChecked]   = useState(false);
+    const [systemLocked, setSystemLocked]           = useState(false);
+    const [lockoutReason, setLockoutReason]         = useState('');
+    const [lockoutChecked, setLockoutChecked]       = useState(false);
+    const [isSuperAdminUser, setIsSuperAdminUser]   = useState(false);
+    const [superAdminBypass, setSuperAdminBypass]   = useState(false);
     // Session timeout state
     const [showTimeoutModal, setShowTimeoutModal] = useState(false);
     const [countdown, setCountdown]               = useState(WARNING_SECONDS);
@@ -436,7 +438,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     // ── Subscription Lockout Check ────────────────────────────────────────
     // Runs whenever the user or active outlet changes.
-    // Super Admins are NEVER locked out.
     useEffect(() => {
         const checkLockout = async () => {
             setLockoutChecked(false);
@@ -445,11 +446,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 const u   = JSON.parse(raw);
                 const t   = (u.userType || u.user_type || '').toLowerCase().replace(/\s/g, '');
                 const isSA = t === 'superadmin' || t === 'superuser';
-                if (isSA) { setSystemLocked(false); setLockoutChecked(true); return; }
+                setIsSuperAdminUser(isSA);
 
-                // Get the active outlet from localStorage (set by OutletContext)
-                const storedOutlet = localStorage.getItem('activeOutlet');
-                const outletId = storedOutlet ? JSON.parse(storedOutlet)?.outlet_id : null;
+                // Read activeOutletId directly from localStorage or from user object
+                const rawOutletId = localStorage.getItem('activeOutletId');
+                const outletId = rawOutletId ? Number(rawOutletId) : (u.outletId || u.outlet_id || null);
+
                 if (!outletId) { setLockoutChecked(true); return; }
 
                 const { data } = await supabase
@@ -573,8 +575,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
 
     // ── SUBSCRIPTION LOCKOUT SCREEN ───────────────────────────────────────
-    // Shows for ALL non-superadmin users when their outlet is locked
-    if (lockoutChecked && systemLocked) return (
+    // Shows for ALL users when their outlet is locked.
+    // Super Admin can always access /dashboard/admin/system-lockout or bypass for preview.
+    const shouldShowLockout = lockoutChecked && systemLocked && (
+        !isSuperAdminUser || (!superAdminBypass && pathname !== '/dashboard/admin/system-lockout')
+    );
+
+    if (shouldShowLockout) return (
         <div className="min-h-screen flex items-center justify-center p-4"
             style={{ background: 'linear-gradient(135deg,#0f0c29 0%,#1a0533 40%,#0d1b2a 100%)' }}>
             <style>{`
@@ -603,6 +610,37 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full opacity-10 glow-ring" style={{ background: 'radial-gradient(circle,#7c3aed,transparent)', animationDelay: '1s' }} />
 
             <div className="relative z-10 text-center max-w-lg w-full">
+                {/* Super Admin Notice (Only for Super Admin) */}
+                {isSuperAdminUser && (
+                    <div className="fade-up-1 mb-6 p-4 rounded-2xl bg-amber-500/20 border-2 border-amber-400 text-amber-200 text-left backdrop-blur-md">
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <span className="text-xs font-black uppercase tracking-wider text-amber-300">
+                                👑 Super Admin Security Alert
+                            </span>
+                            <span className="text-[10px] bg-red-500/40 text-red-100 border border-red-400 px-2 py-0.5 rounded font-mono font-bold">
+                                OUTLET LOCKED
+                            </span>
+                        </div>
+                        <p className="text-xs text-amber-100/90 mb-3">
+                            This outlet is <strong>currently locked</strong>. All cashiers and staff attempting to use the POS or dashboard see this screen and are completely blocked.
+                        </p>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => router.push('/dashboard/admin/system-lockout')}
+                                className="px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold text-xs transition-all shadow-md"
+                            >
+                                ⚙️ Manage Lockout Settings
+                            </button>
+                            <button
+                                onClick={() => setSuperAdminBypass(true)}
+                                className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold border border-white/20 transition-all"
+                            >
+                                Preview Dashboard as Super Admin →
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {/* Lock icon */}
                 <div className="fade-up-1 mb-8 flex justify-center">
                     <div className="lock-icon w-28 h-28 rounded-3xl flex items-center justify-center text-6xl"

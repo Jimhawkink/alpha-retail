@@ -49,9 +49,10 @@ export default function LoginPage() {
     const [currentDate, setCurrentDate]   = useState('');
 
     // ── Outlet picker
-    const [showOutletPicker, setShowOutletPicker] = useState(false);
-    const [userOutlets, setUserOutlets]   = useState<any[]>([]);
-    const [pendingUser, setPendingUser]   = useState<any>(null);
+    const [showOutletPicker, setShowOutletPicker]     = useState(false);
+    const [userOutlets, setUserOutlets]               = useState<any[]>([]);
+    const [pendingUser, setPendingUser]               = useState<any>(null);
+    const [outletPickerError, setOutletPickerError]   = useState('');
 
     // ── Forgot password
     const [view, setView]           = useState<'login' | 'forgot' | 'sent'>('login');
@@ -176,13 +177,33 @@ export default function LoginPage() {
                 }
             }
 
+            // 3.5 Check lockout status for all available outlets
+            const { data: lockoutRows } = await supabase
+                .from('organisation_settings')
+                .select('setting_key, setting_value')
+                .like('setting_key', 'system_lockout_%');
+
+            const lockMap: Record<string, string> = {};
+            (lockoutRows || []).forEach((r: any) => { lockMap[r.setting_key] = r.setting_value || ''; });
+
+            const enrichedOutlets = available.map((o: any) => ({
+                ...o,
+                locked: lockMap[`system_lockout_outlet_${o.outlet_id}`] === 'true',
+                lockoutReason: lockMap[`system_lockout_reason_${o.outlet_id}`] || 'Cloud access has ended. Please pay for cloud hosting to avoid interruptions.'
+            }));
+
             // 4. Single outlet → auto-login; Multiple → show picker
-            if (available.length > 1) {
-                setPendingUser(data);
-                setUserOutlets(available);
+            if (enrichedOutlets.length > 1) {
+                setPendingUser({ ...data, isSuperAdmin });
+                setUserOutlets(enrichedOutlets);
+                setOutletPickerError('');
                 setShowOutletPicker(true);
             } else {
-                const o = available[0] || { outlet_id: 1, outlet_name: 'Main Outlet', outlet_code: 'MAIN' };
+                const o = enrichedOutlets[0] || { outlet_id: 1, outlet_name: 'Main Outlet', outlet_code: 'MAIN', locked: false };
+                if (o.locked && !isSuperAdmin) {
+                    setError(`🔒 Access Suspended: Cloud access for ${o.outlet_name} has ended. Please pay for cloud hosting to restore service.`);
+                    return;
+                }
                 completeLogin(data, o.outlet_id, o.outlet_name);
             }
         } catch (err: any) {
@@ -220,22 +241,64 @@ export default function LoginPage() {
                     <p className="text-white/70 text-sm mt-1">Welcome {pendingUser?.name}! Choose your work location</p>
                 </div>
                 <div className="p-6 space-y-3">
-                    {userOutlets.map(outlet => (
-                        <button key={outlet.outlet_id} onClick={() => completeLogin(pendingUser, outlet.outlet_id, outlet.outlet_name)}
-                            className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-gray-100 hover:border-indigo-300 hover:bg-indigo-50 transition-all group text-left">
-                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white text-xl shadow ${outlet.is_main ? 'bg-gradient-to-br from-amber-500 to-orange-500' : 'bg-gradient-to-br from-indigo-500 to-violet-600'}`}>
-                                {outlet.is_main ? '⭐' : '📍'}
-                            </div>
-                            <div className="flex-1">
-                                <p className="font-black text-gray-800 text-sm group-hover:text-indigo-700 transition-colors">{outlet.outlet_name}</p>
-                                <p className="text-xs text-gray-400 font-mono">{outlet.outlet_code}{outlet.is_main ? ' · Head Office' : ''}</p>
-                            </div>
-                            <svg className="w-5 h-5 text-gray-300 group-hover:text-indigo-500 transition-colors" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"/>
-                            </svg>
-                        </button>
-                    ))}
-                    <button onClick={() => { setShowOutletPicker(false); setPendingUser(null); }}
+                    {outletPickerError && (
+                        <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold leading-relaxed">
+                            {outletPickerError}
+                        </div>
+                    )}
+                    {userOutlets.map(outlet => {
+                        const isLocked = outlet.locked;
+                        const isSA = pendingUser?.isSuperAdmin;
+                        return (
+                            <button
+                                key={outlet.outlet_id}
+                                onClick={() => {
+                                    if (isLocked && !isSA) {
+                                        setOutletPickerError(`🔒 Cloud access for ${outlet.outlet_name} has ended. Access is blocked until payment is made. Please contact Alpha Retail support.`);
+                                        return;
+                                    }
+                                    completeLogin(pendingUser, outlet.outlet_id, outlet.outlet_name);
+                                }}
+                                className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all group text-left ${
+                                    isLocked
+                                        ? 'border-red-300 bg-red-50/50 hover:border-red-400'
+                                        : 'border-gray-100 hover:border-indigo-300 hover:bg-indigo-50'
+                                }`}
+                            >
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white text-xl shadow ${
+                                    isLocked
+                                        ? 'bg-gradient-to-br from-red-500 to-rose-600'
+                                        : outlet.is_main
+                                        ? 'bg-gradient-to-br from-amber-500 to-orange-500'
+                                        : 'bg-gradient-to-br from-indigo-500 to-violet-600'
+                                }`}>
+                                    {isLocked ? '🔒' : outlet.is_main ? '⭐' : '📍'}
+                                </div>
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <p className={`font-black text-sm transition-colors ${
+                                            isLocked ? 'text-red-900' : 'text-gray-800 group-hover:text-indigo-700'
+                                        }`}>
+                                            {outlet.outlet_name}
+                                        </p>
+                                        {isLocked && (
+                                            <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-300">
+                                                LOCKED
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-gray-400 font-mono mt-0.5">
+                                        {outlet.outlet_code}{outlet.is_main ? ' · Head Office' : ''}
+                                        {isLocked ? ' · Subscription Due' : ''}
+                                    </p>
+                                </div>
+                                <svg className={`w-5 h-5 transition-colors ${isLocked ? 'text-red-400' : 'text-gray-300 group-hover:text-indigo-500'}`} fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"/>
+                                </svg>
+                            </button>
+                        );
+                    })}
+                    <button onClick={() => { setShowOutletPicker(false); setPendingUser(null); setOutletPickerError(''); }}
                         className="w-full py-3 text-sm text-gray-400 hover:text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-all mt-2">
                         ← Back to Login
                     </button>
