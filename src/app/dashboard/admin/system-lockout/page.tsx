@@ -100,6 +100,35 @@ export default function SystemLockoutPage() {
 
     useEffect(() => { if (isSuperAdmin) load(); }, [isSuperAdmin, load]);
 
+    // ── Helper to save key-value without requiring unique constraint on setting_key ──
+    const saveSetting = async (key: string, value: string, desc = '', type = 'text') => {
+        const { data: existing } = await supabase
+            .from('organisation_settings')
+            .select('id')
+            .eq('setting_key', key)
+            .limit(1);
+
+        const now = new Date().toISOString();
+        if (existing && existing.length > 0) {
+            const { error } = await supabase
+                .from('organisation_settings')
+                .update({ setting_value: value, updated_at: now })
+                .eq('id', existing[0].id);
+            if (error) throw error;
+        } else {
+            const { error } = await supabase
+                .from('organisation_settings')
+                .insert({
+                    setting_key: key,
+                    setting_value: value,
+                    setting_type: type,
+                    description: desc,
+                    updated_at: now
+                });
+            if (error) throw error;
+        }
+    };
+
     // ── Toggle lock for single outlet ──────────────────────────────────────
     const toggleLock = async (outletId: number) => {
         const outlet = outlets.find(o => o.outlet_id === outletId);
@@ -110,25 +139,8 @@ export default function SystemLockoutPage() {
         setOutlets(prev => prev.map(o => o.outlet_id === outletId ? { ...o, saving: true } : o));
 
         try {
-            const rows = [
-                {
-                    setting_key: `system_lockout_outlet_${outletId}`,
-                    setting_value: String(newLocked),
-                    setting_type: 'boolean',
-                    description: `Lockout state for outlet ${outletId}`
-                },
-                {
-                    setting_key: `system_lockout_at_${outletId}`,
-                    setting_value: now,
-                    setting_type: 'text',
-                    description: `Lockout timestamp for outlet ${outletId}`
-                },
-            ];
-
-            for (const row of rows) {
-                const { error } = await supabase.from('organisation_settings').upsert(row, { onConflict: 'setting_key' });
-                if (error) throw error;
-            }
+            await saveSetting(`system_lockout_outlet_${outletId}`, String(newLocked), `Lockout state for outlet ${outletId}`, 'boolean');
+            await saveSetting(`system_lockout_at_${outletId}`, now, `Lockout timestamp for outlet ${outletId}`, 'text');
 
             setOutlets(prev => prev.map(o =>
                 o.outlet_id === outletId ? { ...o, locked: newLocked, locked_at: now, saving: false } : o
@@ -150,16 +162,12 @@ export default function SystemLockoutPage() {
         const outlet = outlets.find(o => o.outlet_id === outletId);
         if (!outlet) return;
         try {
-            const { error } = await supabase.from('organisation_settings').upsert(
-                {
-                    setting_key: `system_lockout_reason_${outletId}`,
-                    setting_value: outlet.reason.trim(),
-                    setting_type: 'text',
-                    description: `Custom suspension notice for outlet ${outletId}`
-                },
-                { onConflict: 'setting_key' }
+            await saveSetting(
+                `system_lockout_reason_${outletId}`,
+                outlet.reason.trim(),
+                `Custom suspension notice for outlet ${outletId}`,
+                'text'
             );
-            if (error) throw error;
             setOutlets(prev => prev.map(o => o.outlet_id === outletId ? { ...o, reasonDirty: false } : o));
             toast.success(`✅ Message updated for ${outlet.outlet_name}`);
         } catch (err: any) {
@@ -185,24 +193,9 @@ export default function SystemLockoutPage() {
         const now = new Date().toISOString();
         setLoading(true);
         try {
-            const rows: any[] = [];
-            targets.forEach(o => {
-                rows.push({
-                    setting_key: `system_lockout_outlet_${o.outlet_id}`,
-                    setting_value: String(lockState),
-                    setting_type: 'boolean',
-                    description: `Batch lockout for outlet ${o.outlet_id}`
-                });
-                rows.push({
-                    setting_key: `system_lockout_at_${o.outlet_id}`,
-                    setting_value: now,
-                    setting_type: 'text',
-                    description: `Batch lockout timestamp for outlet ${o.outlet_id}`
-                });
-            });
-
-            for (const r of rows) {
-                await supabase.from('organisation_settings').upsert(r, { onConflict: 'setting_key' });
+            for (const o of targets) {
+                await saveSetting(`system_lockout_outlet_${o.outlet_id}`, String(lockState), `Batch lockout for outlet ${o.outlet_id}`, 'boolean');
+                await saveSetting(`system_lockout_at_${o.outlet_id}`, now, `Batch lockout timestamp for outlet ${o.outlet_id}`, 'text');
             }
 
             setOutlets(prev => prev.map(o => ({ ...o, locked: lockState, locked_at: now })));
