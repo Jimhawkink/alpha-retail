@@ -10,7 +10,7 @@ import {
     FiDollarSign, FiClock, FiTrendingDown, FiCreditCard, FiSmartphone,
     FiTrendingUp, FiBarChart2, FiPieChart, FiSettings, FiMapPin, FiShield,
     FiZap, FiBriefcase, FiChevronDown, FiChevronLeft, FiChevronRight,
-    FiLogOut, FiSearch, FiBell, FiMenu, FiX, FiDatabase, FiSliders, FiDownload
+    FiLogOut, FiSearch, FiBell, FiMenu, FiX, FiDatabase, FiSliders, FiDownload, FiLock
 } from 'react-icons/fi';
 import { SettingsProvider, useCompanyName } from '@/context/SettingsContext';
 import { OutletProvider, useOutlet } from '@/context/OutletContext';
@@ -175,8 +175,9 @@ const menuGroups = [
         { href: '/dashboard/mpesa-settings',    label: 'M-Pesa Config',     icon: FiZap,       roles: 'superadmin', badge: 'SA' },
         { href: '/dashboard/kcb-settings',      label: 'KCB Buni Config',   icon: FiZap,       roles: 'superadmin', badge: 'SA' },
         { href: '/dashboard/businesses',        label: 'Businesses',        icon: FiBriefcase, roles: 'superadmin', badge: 'SA' },
-        { href: '/dashboard/license',           label: '🔐 License Mgmt',   icon: FiShield,    roles: 'superadmin', badge: 'SA' },
-        { href: '/dashboard/admin/features',    label: '🚀 Feature Manager', icon: FiSliders,   roles: 'superadmin', badge: 'SA' },
+        { href: '/dashboard/license',                   label: '🔐 License Mgmt',     icon: FiShield,    roles: 'superadmin', badge: 'SA' },
+        { href: '/dashboard/admin/features',            label: '🚀 Feature Manager',   icon: FiSliders,   roles: 'superadmin', badge: 'SA' },
+        { href: '/dashboard/admin/system-lockout',      label: '🔴 System Lockout',    icon: FiLock,      roles: 'superadmin', badge: 'SA' },
     ]},
 ];
 
@@ -415,6 +416,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const [mobileOpen, setMobileOpen] = useState(false);
     const [expanded, setExpanded]     = useState<Record<string, boolean>>({});
     const [loading, setLoading]       = useState(false);
+    // ── Subscription Lockout state ────────────────────────────────────────
+    const [systemLocked, setSystemLocked]       = useState(false);
+    const [lockoutReason, setLockoutReason]     = useState('');
+    const [lockoutChecked, setLockoutChecked]   = useState(false);
     // Session timeout state
     const [showTimeoutModal, setShowTimeoutModal] = useState(false);
     const [countdown, setCountdown]               = useState(WARNING_SECONDS);
@@ -428,6 +433,48 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         if (!raw) { router.push('/'); return; }
         setUser(JSON.parse(raw));
     }, [router]);
+
+    // ── Subscription Lockout Check ────────────────────────────────────────
+    // Runs whenever the user or active outlet changes.
+    // Super Admins are NEVER locked out.
+    useEffect(() => {
+        const checkLockout = async () => {
+            setLockoutChecked(false);
+            try {
+                const raw = localStorage.getItem('user') || '{}';
+                const u   = JSON.parse(raw);
+                const t   = (u.userType || u.user_type || '').toLowerCase().replace(/\s/g, '');
+                const isSA = t === 'superadmin' || t === 'superuser';
+                if (isSA) { setSystemLocked(false); setLockoutChecked(true); return; }
+
+                // Get the active outlet from localStorage (set by OutletContext)
+                const storedOutlet = localStorage.getItem('activeOutlet');
+                const outletId = storedOutlet ? JSON.parse(storedOutlet)?.outlet_id : null;
+                if (!outletId) { setLockoutChecked(true); return; }
+
+                const { data } = await supabase
+                    .from('organisation_settings')
+                    .select('setting_key, setting_value')
+                    .in('setting_key', [
+                        `system_lockout_outlet_${outletId}`,
+                        `system_lockout_reason_${outletId}`,
+                    ]);
+
+                const sm: Record<string, string> = {};
+                (data || []).forEach((r: any) => { sm[r.setting_key] = r.setting_value || ''; });
+
+                const locked = sm[`system_lockout_outlet_${outletId}`] === 'true';
+                const reason = sm[`system_lockout_reason_${outletId}`] || 'Your subscription has ended. Please contact support to restore access.';
+                setSystemLocked(locked);
+                setLockoutReason(reason);
+            } catch { /* silent fail */ }
+            setLockoutChecked(true);
+        };
+        checkLockout();
+        // Re-check every 60 seconds
+        const interval = setInterval(checkLockout, 60000);
+        return () => clearInterval(interval);
+    }, []);
 
     // ── Session timeout logic ─────────────────────────────────────────
     const forceLogout = useCallback(async (reason = 'Session timeout') => {
@@ -521,6 +568,126 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="text-center">
                 <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
                 <p className="text-gray-400 text-sm font-medium">Loading...</p>
+            </div>
+        </div>
+    );
+
+    // ── SUBSCRIPTION LOCKOUT SCREEN ───────────────────────────────────────
+    // Shows for ALL non-superadmin users when their outlet is locked
+    if (lockoutChecked && systemLocked) return (
+        <div className="min-h-screen flex items-center justify-center p-4"
+            style={{ background: 'linear-gradient(135deg,#0f0c29 0%,#1a0533 40%,#0d1b2a 100%)' }}>
+            <style>{`
+                @keyframes lockPulse { 0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(239,68,68,.7)} 50%{transform:scale(1.05);box-shadow:0 0 0 30px rgba(239,68,68,0)} }
+                @keyframes floatUp { 0%{opacity:0;transform:translateY(30px)} 100%{opacity:1;transform:translateY(0)} }
+                @keyframes shimmer { 0%{background-position:-200% center} 100%{background-position:200% center} }
+                @keyframes glowPulse { 0%,100%{opacity:.4} 50%{opacity:1} }
+                .lock-icon { animation: lockPulse 2.5s ease-in-out infinite; }
+                .fade-up-1 { animation: floatUp .6s ease-out .1s both; }
+                .fade-up-2 { animation: floatUp .6s ease-out .25s both; }
+                .fade-up-3 { animation: floatUp .6s ease-out .4s both; }
+                .fade-up-4 { animation: floatUp .6s ease-out .55s both; }
+                .fade-up-5 { animation: floatUp .6s ease-out .7s both; }
+                .shimmer-text { background: linear-gradient(90deg,#f43f5e,#fb923c,#fbbf24,#f43f5e); background-size:200% auto; -webkit-background-clip:text; -webkit-text-fill-color:transparent; animation:shimmer 3s linear infinite; }
+                .glow-ring { animation: glowPulse 2s ease-in-out infinite; }
+            `}</style>
+
+            {/* Background grid pattern */}
+            <div className="absolute inset-0 opacity-5" style={{
+                backgroundImage: 'linear-gradient(rgba(255,255,255,.1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.1) 1px,transparent 1px)',
+                backgroundSize: '40px 40px'
+            }} />
+
+            {/* Glow orbs */}
+            <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full opacity-10 glow-ring" style={{ background: 'radial-gradient(circle,#ef4444,transparent)' }} />
+            <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full opacity-10 glow-ring" style={{ background: 'radial-gradient(circle,#7c3aed,transparent)', animationDelay: '1s' }} />
+
+            <div className="relative z-10 text-center max-w-lg w-full">
+                {/* Lock icon */}
+                <div className="fade-up-1 mb-8 flex justify-center">
+                    <div className="lock-icon w-28 h-28 rounded-3xl flex items-center justify-center text-6xl"
+                        style={{ background: 'linear-gradient(135deg,#7f1d1d,#991b1b)', border: '3px solid rgba(239,68,68,.5)' }}>
+                        🔒
+                    </div>
+                </div>
+
+                {/* Main card */}
+                <div className="fade-up-2 rounded-3xl overflow-hidden shadow-2xl"
+                    style={{ background: 'rgba(255,255,255,.05)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.1)' }}>
+
+                    {/* Top red bar */}
+                    <div className="h-1.5 w-full" style={{ background: 'linear-gradient(90deg,#dc2626,#f43f5e,#fb923c,#f43f5e,#dc2626)', backgroundSize: '200% auto', animation: 'shimmer 3s linear infinite' }} />
+
+                    <div className="px-8 py-10">
+                        {/* Badge */}
+                        <div className="fade-up-2 inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6"
+                            style={{ background: 'rgba(239,68,68,.2)', border: '1px solid rgba(239,68,68,.4)' }}>
+                            <div className="w-2 h-2 rounded-full bg-red-500" style={{ animation: 'lockPulse 1.5s ease-in-out infinite' }} />
+                            <span className="text-xs font-black text-red-400 tracking-widest uppercase">Subscription Suspended</span>
+                        </div>
+
+                        {/* Headline */}
+                        <h1 className="fade-up-3 text-4xl font-black text-white mb-3 leading-tight">
+                            Cloud Access<br />
+                            <span className="shimmer-text">Has Ended</span>
+                        </h1>
+
+                        {/* Divider */}
+                        <div className="fade-up-3 w-16 h-1 rounded-full mx-auto mb-6" style={{ background: 'linear-gradient(90deg,#f43f5e,#fb923c)' }} />
+
+                        {/* Message */}
+                        <p className="fade-up-4 text-white/60 text-sm leading-relaxed mb-8 px-4">
+                            {lockoutReason || 'Your subscription payment is overdue. Your data is safe — renew your plan to restore full access immediately.'}
+                        </p>
+
+                        {/* Feature bullets */}
+                        <div className="fade-up-4 grid grid-cols-2 gap-3 mb-8 text-left">
+                            {[
+                                { icon: '💾', text: 'Your data is safe' },
+                                { icon: '⚡', text: 'Instant restoration' },
+                                { icon: '🔐', text: 'Secured & encrypted' },
+                                { icon: '📞', text: 'Support available' },
+                            ].map(f => (
+                                <div key={f.text} className="flex items-center gap-2 px-3 py-2 rounded-xl"
+                                    style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.08)' }}>
+                                    <span className="text-lg">{f.icon}</span>
+                                    <span className="text-xs text-white/60 font-semibold">{f.text}</span>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* CTA */}
+                        <div className="fade-up-5 space-y-3">
+                            <div className="px-6 py-4 rounded-2xl text-center"
+                                style={{ background: 'linear-gradient(135deg,rgba(239,68,68,.15),rgba(251,146,60,.15))', border: '1px solid rgba(239,68,68,.3)' }}>
+                                <p className="text-white/40 text-xs mb-1 uppercase tracking-widest font-bold">To restore access, contact</p>
+                                <p className="text-white font-black text-lg">Alpha Retail Support</p>
+                                <p className="text-orange-300/70 text-sm mt-1">Pay your subscription to get back online instantly</p>
+                            </div>
+
+                            {/* Logout button */}
+                            <button
+                                onClick={() => { localStorage.removeItem('user'); window.location.href = '/'; }}
+                                className="w-full py-3 rounded-2xl text-white/50 text-sm font-semibold border transition-all hover:border-white/30 hover:text-white/80"
+                                style={{ borderColor: 'rgba(255,255,255,.1)', background: 'rgba(255,255,255,.03)' }}>
+                                Sign out ↗
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Bottom bar */}
+                    <div className="px-8 py-4 flex items-center justify-between" style={{ background: 'rgba(0,0,0,.3)', borderTop: '1px solid rgba(255,255,255,.06)' }}>
+                        <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-lg flex items-center justify-center text-xs" style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)' }}>α</div>
+                            <span className="text-white/30 text-xs font-bold">Alpha Retail Cloud</span>
+                        </div>
+                        <span className="text-white/20 text-[10px]">Your account is on hold</span>
+                    </div>
+                </div>
+
+                <p className="fade-up-5 text-white/20 text-xs mt-6">
+                    If you believe this is a mistake, please contact your system administrator.
+                </p>
             </div>
         </div>
     );
