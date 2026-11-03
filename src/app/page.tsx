@@ -331,9 +331,9 @@ export default function LoginPage() {
             className="h-screen w-full flex flex-col overflow-hidden font-sans"
             style={{
                 backgroundImage: `url('/login-bg.jpg')`,
-                backgroundSize: '100% 100%',
+                backgroundSize: 'cover',
                 backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'center center',
+                backgroundPosition: 'left center',
                 backgroundColor: '#041226',
             }}
         >
@@ -366,19 +366,15 @@ export default function LoginPage() {
                     >
 
                         {/* Top Badge: Shield Icon + Secure Access */}
-                        <div className="flex items-center gap-3 mb-4 pb-1">
-                            <div className="w-10 h-10 rounded-xl bg-[#091D3E] text-white flex items-center justify-center shadow-md shrink-0">
-                                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <div className="flex items-center gap-2.5 mb-3">
+                            <div className="w-9 h-9 rounded-xl bg-[#091D3E] text-white flex items-center justify-center shadow-md shrink-0">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                                 </svg>
                             </div>
                             <div>
-                                <div className="text-[11px] font-black text-emerald-600 uppercase tracking-wide">
-                                    Secure Access
-                                </div>
-                                <div className="text-[11px] text-slate-500 font-medium">
-                                    Sign in to your AlphaRetail account
-                                </div>
+                                <div className="text-[10px] font-black text-emerald-600 uppercase tracking-wide leading-none">Secure Access</div>
+                                <div className="text-[10px] text-slate-500 font-medium mt-0.5">Sign in to your AlphaRetail account</div>
                             </div>
                         </div>
 
@@ -517,7 +513,7 @@ export default function LoginPage() {
                                 <button
                                     type="submit"
                                     disabled={isLoading}
-                                    className="w-full py-3 rounded-xl text-white font-bold text-sm tracking-wide bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B] hover:from-[#0B2349] hover:to-[#174384] active:scale-[0.99] transition-all flex items-center justify-center gap-2 shadow-lg shadow-slate-900/40 disabled:opacity-60 cursor-pointer"
+                                    className="w-full py-2.5 rounded-xl text-white font-bold text-sm tracking-wide bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B] hover:from-[#0B2349] hover:to-[#174384] active:scale-[0.99] transition-all flex items-center justify-center gap-2 shadow-lg shadow-slate-900/40 disabled:opacity-60 cursor-pointer"
                                 >
                                     {isLoading ? (
                                         <>
@@ -526,7 +522,7 @@ export default function LoginPage() {
                                         </>
                                     ) : (
                                         <>
-                                            <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg style={{width:'18px',height:'18px',flexShrink:0}} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                                             </svg>
                                             <span>Sign In</span>
