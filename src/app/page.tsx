@@ -223,7 +223,7 @@ export default function LoginPage() {
             }}>
 
             {/* Dark glass backdrop overlay */}
-            <div className="absolute inset-0 bg-[#041226]/80 backdrop-blur-md pointer-events-none" />
+            <div className="absolute inset-0 bg-[#041226]/85 backdrop-blur-md pointer-events-none" />
 
             <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden relative z-10 border-2 border-emerald-400/80"
                 style={{ boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.6), 0 0 40px rgba(16, 185, 129, 0.25)' }}>
@@ -323,41 +323,28 @@ export default function LoginPage() {
         </div>
     );
 
-    // ── Main Layout: h-screen locked, image contained, footer always visible ──
+    // ── Main Layout: Perfectly Contained Wallpaper + Visible Footer ─────
     return (
-        <>
-        <style>{`html,body{height:100%;overflow:hidden;margin:0;padding:0}`}</style>
-        <div
-            className="h-screen w-full flex flex-col overflow-hidden font-sans"
-            style={{
-                backgroundImage: `url('/login-bg.jpg')`,
-                backgroundSize: 'cover',
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'left center',
-                backgroundColor: '#041226',
-            }}
-        >
+        <div className="h-screen w-full flex flex-col justify-between overflow-hidden font-sans bg-[#041226]">
+            <style>{`html, body { height: 100%; overflow: hidden; margin: 0; padding: 0; background-color: #041226; }`}</style>
+
             {/* ═══════════════════════════════════════════════════
-                PAGE CONTENT: fills all remaining space above footer
+                MAIN AREA: Background Image Fits 100% Proportionally
+                (Contain on desktop: zero stretch, zero cut-off)
             ═══════════════════════════════════════════════════ */}
-            <div className="flex-1 flex flex-col lg:flex-row items-center justify-between px-4 sm:px-8 lg:px-14 xl:px-20 py-3 lg:py-4 relative z-10 gap-6 overflow-hidden">
+            <div
+                className="flex-1 w-full flex flex-col lg:flex-row items-center justify-between px-4 sm:px-8 lg:px-14 xl:px-20 py-2 relative overflow-hidden bg-no-repeat bg-[#041226]"
+                style={{
+                    backgroundImage: `url('/login-bg.jpg')`,
+                    backgroundSize: 'contain',
+                    backgroundPosition: 'left center',
+                }}
+            >
+                {/* ── LEFT SPACER (Lets the entire hardware & malimali artwork shine with zero overlap) ── */}
+                <div className="hidden lg:block flex-1 pointer-events-none" />
 
-                {/* ── LEFT SIDE (Desktop spacer letting the custom artwork shine through) ── */}
-                <div className="hidden lg:flex flex-1 max-w-[55%] flex-col justify-between min-h-[420px] pointer-events-none">
-                    {/* Live clock pill floating subtly at top-left */}
-                    <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-[#030B17]/75 backdrop-blur-md border border-slate-700/60 text-white shadow-xl self-start pointer-events-auto">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                        <span className="font-mono font-bold text-xs text-emerald-400">{currentTime}</span>
-                        <span className="text-slate-400">·</span>
-                        <span className="text-[11px] text-slate-300 font-medium">{currentDate}</span>
-                    </div>
-
-                    {/* Bottom balance spacer */}
-                    <div />
-                </div>
-
-                {/* ── RIGHT LOGIN CARD (COMPACT TO GUARANTEE FIT) ── */}
-                <div className="w-full max-w-[400px] relative">
+                {/* ── RIGHT LOGIN CARD ── */}
+                <div className="w-full max-w-[400px] relative z-10 py-1">
 
                     <div className="w-full bg-white/97 lg:bg-white rounded-2xl p-5 sm:p-6 shadow-2xl relative border-2 border-emerald-400/90 backdrop-blur-xl"
                         style={{
@@ -368,21 +355,25 @@ export default function LoginPage() {
                         {/* Top Badge: Shield Icon + Secure Access */}
                         <div className="flex items-center gap-2.5 mb-3">
                             <div className="w-9 h-9 rounded-xl bg-[#091D3E] text-white flex items-center justify-center shadow-md shrink-0">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                                 </svg>
                             </div>
                             <div>
-                                <div className="text-[10px] font-black text-emerald-600 uppercase tracking-wide leading-none">Secure Access</div>
-                                <div className="text-[10px] text-slate-500 font-medium mt-0.5">Sign in to your AlphaRetail account</div>
+                                <div className="text-[10px] font-black text-emerald-600 uppercase tracking-wide leading-none">
+                                    Secure Access
+                                </div>
+                                <div className="text-[10px] text-slate-500 font-medium mt-0.5">
+                                    Sign in to your AlphaRetail account
+                                </div>
                             </div>
                         </div>
 
                         {/* Heading */}
-                        <div className="mb-4">
+                        <div className="mb-3.5">
                             {view === 'login' && (
                                 <>
-                                    <h2 className="text-2xl sm:text-[26px] font-black text-[#091D3E] tracking-tight leading-tight">
+                                    <h2 className="text-2xl sm:text-[25px] font-black text-[#091D3E] tracking-tight leading-tight">
                                         Welcome back
                                     </h2>
                                     <p className="text-xs text-slate-500 mt-0.5 font-medium">
@@ -475,11 +466,11 @@ export default function LoginPage() {
                                             className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-0.5"
                                         >
                                             {showPassword ? (
-                                                <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <svg style={{width:'18px',height:'18px'}} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
                                                 </svg>
                                             ) : (
-                                                <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <svg style={{width:'18px',height:'18px'}} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                                 </svg>
@@ -509,7 +500,7 @@ export default function LoginPage() {
                                     </button>
                                 </div>
 
-                                {/* Sign In Button (Deep Midnight Navy) */}
+                                {/* Sign In Button (Deep Midnight Navy with clean SVG Arrow) */}
                                 <button
                                     type="submit"
                                     disabled={isLoading}
@@ -568,7 +559,7 @@ export default function LoginPage() {
                                 <button
                                     type="submit"
                                     disabled={fpLoading}
-                                    className="w-full py-3 rounded-xl text-white font-bold text-sm bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B] flex items-center justify-center gap-2 shadow-lg disabled:opacity-60"
+                                    className="w-full py-2.5 rounded-xl text-white font-bold text-sm bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B] flex items-center justify-center gap-2 shadow-lg disabled:opacity-60"
                                 >
                                     {fpLoading ? 'Sending link...' : '📧 Send Reset Link'}
                                 </button>
@@ -580,13 +571,13 @@ export default function LoginPage() {
                             <div className="space-y-2.5 mt-3">
                                 <button
                                     onClick={() => { setView('login'); setFpUsername(''); setFpError(''); }}
-                                    className="w-full py-3 rounded-xl text-white font-bold text-sm bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B] shadow-lg"
+                                    className="w-full py-2.5 rounded-xl text-white font-bold text-sm bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B] shadow-lg"
                                 >
                                     ← Back to Login
                                 </button>
                                 <button
                                     onClick={() => { setView('forgot'); setFpError(''); }}
-                                    className="w-full py-2.5 text-xs text-indigo-600 font-bold border border-indigo-200 rounded-xl hover:bg-indigo-50"
+                                    className="w-full py-2 text-xs text-indigo-600 font-bold border border-indigo-200 rounded-xl hover:bg-indigo-50"
                                 >
                                     Resend Reset Email
                                 </button>
@@ -594,7 +585,7 @@ export default function LoginPage() {
                         )}
 
                         {/* Card Bottom Footer */}
-                        <div className="pt-3 mt-3.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+                        <div className="pt-2.5 mt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
                             <span>© {new Date().getFullYear()} AlphaRetail POS v2.0</span>
                             <div className="flex items-center gap-2">
                                 <span className="flex items-center gap-1">
@@ -610,10 +601,10 @@ export default function LoginPage() {
             </div>
 
             {/* ═══════════════════════════════════════════════════
-                BOTTOM FULL-WIDTH FOOTER BAR (ALWAYS VISIBLE)
+                BOTTOM FULL-WIDTH FOOTER BAR (BELOW THE IMAGE)
             ═══════════════════════════════════════════════════ */}
-            <div className="shrink-0 w-full px-6 lg:px-12 py-2 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-300 relative z-20"
-                style={{ background: 'rgba(2, 8, 20, 0.96)', borderTop: '1px solid rgba(30,58,138,0.5)' }}>
+            <div className="shrink-0 h-10 w-full px-6 lg:px-12 flex items-center justify-between text-xs text-slate-300 relative z-20"
+                style={{ background: 'rgba(2, 8, 20, 0.98)', borderTop: '1px solid rgba(30, 58, 138, 0.4)' }}>
                 <div className="flex items-center gap-5 sm:gap-7 flex-wrap">
                     <div className="flex items-center gap-1.5">
                         <span>🎧</span>
@@ -627,6 +618,13 @@ export default function LoginPage() {
                         <span>🛡️</span>
                         <span className="font-semibold text-[11px]">Enterprise Security</span>
                     </div>
+                    {/* Live Clock Placed Cleanly Here (Never covers background text) */}
+                    <div className="hidden sm:flex items-center gap-2 pl-3 border-l border-slate-700/60 text-emerald-400 font-mono text-[11px]">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <span>{currentTime}</span>
+                        <span className="text-slate-500">·</span>
+                        <span className="text-slate-400 font-sans">{currentDate}</span>
+                    </div>
                 </div>
                 <div className="flex items-center gap-2">
                     <span className="font-bold text-white text-xs tracking-wide">Alpha<span className="text-[#00E676]">Retail</span></span>
@@ -635,6 +633,5 @@ export default function LoginPage() {
                 </div>
             </div>
         </div>
-        </>
     );
 }
