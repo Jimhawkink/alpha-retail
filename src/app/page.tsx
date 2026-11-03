@@ -323,18 +323,24 @@ export default function LoginPage() {
         </div>
     );
 
-    // ── Main Layout: Fitted Image & Guaranteed Visible Bottom Banner ─────
+    // ── Main Layout: h-screen locked, image contained, footer always visible ──
     return (
+        <>
+        <style>{`html,body{height:100%;overflow:hidden;margin:0;padding:0}`}</style>
         <div
-            className="min-h-screen lg:h-screen w-full flex flex-col justify-between relative overflow-y-auto lg:overflow-hidden font-sans bg-[#041226] bg-cover lg:bg-[length:100%_100%] bg-center bg-no-repeat"
+            className="h-screen w-full flex flex-col overflow-hidden font-sans"
             style={{
                 backgroundImage: `url('/login-bg.jpg')`,
+                backgroundSize: '100% 100%',
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'center center',
+                backgroundColor: '#041226',
             }}
         >
             {/* ═══════════════════════════════════════════════════
-                PAGE CONTENT: HERO ARTWORK + RIGHT LOGIN CARD
+                PAGE CONTENT: fills all remaining space above footer
             ═══════════════════════════════════════════════════ */}
-            <div className="flex-1 flex flex-col lg:flex-row items-center justify-between px-4 sm:px-8 lg:px-14 xl:px-20 py-3 lg:py-4 relative z-10 gap-6 my-auto">
+            <div className="flex-1 flex flex-col lg:flex-row items-center justify-between px-4 sm:px-8 lg:px-14 xl:px-20 py-3 lg:py-4 relative z-10 gap-6 overflow-hidden">
 
                 {/* ── LEFT SIDE (Desktop spacer letting the custom artwork shine through) ── */}
                 <div className="hidden lg:flex flex-1 max-w-[55%] flex-col justify-between min-h-[420px] pointer-events-none">
@@ -351,9 +357,9 @@ export default function LoginPage() {
                 </div>
 
                 {/* ── RIGHT LOGIN CARD (COMPACT TO GUARANTEE FIT) ── */}
-                <div className="w-full max-w-[410px] relative">
+                <div className="w-full max-w-[400px] relative">
 
-                    <div className="w-full bg-white/95 lg:bg-white rounded-3xl p-6 sm:p-7 shadow-2xl relative border-2 border-emerald-400/90 backdrop-blur-xl"
+                    <div className="w-full bg-white/97 lg:bg-white rounded-2xl p-5 sm:p-6 shadow-2xl relative border-2 border-emerald-400/90 backdrop-blur-xl"
                         style={{
                             boxShadow: '0 25px 65px -12px rgba(0, 0, 0, 0.7), 0 0 35px rgba(16, 185, 129, 0.25)'
                         }}
@@ -610,30 +616,29 @@ export default function LoginPage() {
             {/* ═══════════════════════════════════════════════════
                 BOTTOM FULL-WIDTH FOOTER BAR (ALWAYS VISIBLE)
             ═══════════════════════════════════════════════════ */}
-            <div className="shrink-0 w-full bg-[#030B17]/95 backdrop-blur-md border-t border-slate-800/80 px-6 lg:px-12 py-2 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400 relative z-20">
+            <div className="shrink-0 w-full px-6 lg:px-12 py-2 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-300 relative z-20"
+                style={{ background: 'rgba(2, 8, 20, 0.96)', borderTop: '1px solid rgba(30,58,138,0.5)' }}>
                 <div className="flex items-center gap-5 sm:gap-7 flex-wrap">
                     <div className="flex items-center gap-1.5">
-                        <span className="text-sm">🎧</span>
-                        <span className="font-semibold text-slate-300 text-[11px]">24/7 Support</span>
+                        <span>🎧</span>
+                        <span className="font-semibold text-[11px]">24/7 Support</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                        <span className="text-sm">⚡</span>
-                        <span className="font-semibold text-slate-300 text-[11px]">High Performance</span>
+                        <span>⚡</span>
+                        <span className="font-semibold text-[11px]">High Performance</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                        <span className="text-sm">🛡️</span>
-                        <span className="font-semibold text-slate-300 text-[11px]">Enterprise Security</span>
+                        <span>🛡️</span>
+                        <span className="font-semibold text-[11px]">Enterprise Security</span>
                     </div>
                 </div>
-
-                <div className="flex items-center gap-2.5">
-                    <span className="font-bold text-white tracking-wide text-xs">
-                        Alpha<span className="text-[#00E676]">Retail</span>
-                    </span>
+                <div className="flex items-center gap-2">
+                    <span className="font-bold text-white text-xs tracking-wide">Alpha<span className="text-[#00E676]">Retail</span></span>
                     <span className="text-slate-600">|</span>
-                    <span className="text-slate-400 italic text-[11px]">Retail Smarter. Grow Faster.</span>
+                    <span className="italic text-[11px] text-slate-400">Retail Smarter. Grow Faster.</span>
                 </div>
             </div>
         </div>
+        </>
     );
 }
