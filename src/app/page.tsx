@@ -23,64 +23,6 @@ async function verifyPassword(entered: string, stored: string): Promise<boolean>
     return stored === entered;
 }
 
-// ── Visual Feature Pills ─────────────────────────────────────────────
-const visualFeatures = [
-    {
-        title: 'Fast & Reliable',
-        subtitle: 'Billing',
-        icon: (
-            <svg className="w-5 h-5 text-[#00E676]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-            </svg>
-        ),
-    },
-    {
-        title: 'Powerful',
-        subtitle: 'Analytics',
-        icon: (
-            <svg className="w-5 h-5 text-[#00E676]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-        ),
-    },
-    {
-        title: 'Smart Inventory',
-        subtitle: 'Management',
-        icon: (
-            <svg className="w-5 h-5 text-[#00E676]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-            </svg>
-        ),
-    },
-    {
-        title: 'Secure & Reliable',
-        subtitle: '',
-        icon: (
-            <svg className="w-5 h-5 text-[#00E676]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-            </svg>
-        ),
-    },
-    {
-        title: 'Multi-Outlet',
-        subtitle: 'Support',
-        icon: (
-            <svg className="w-5 h-5 text-[#00E676]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-        ),
-    },
-    {
-        title: 'Cloud Backup',
-        subtitle: '& Access',
-        icon: (
-            <svg className="w-5 h-5 text-[#00E676]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-            </svg>
-        ),
-    },
-];
-
 export default function LoginPage() {
     const router = useRouter();
 
@@ -274,19 +216,17 @@ export default function LoginPage() {
 
     // ── Outlet picker screen ─────────────────────────────────────────────
     if (showOutletPicker) return (
-        <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
+        <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-cover bg-center"
             style={{
+                backgroundImage: `url('/login-bg.jpg')`,
                 backgroundColor: '#041226',
-                backgroundImage: `radial-gradient(ellipse at 80% 20%, rgba(16, 185, 129, 0.15), transparent 50%),
-                                  radial-gradient(ellipse at 20% 80%, rgba(14, 165, 233, 0.12), transparent 50%)`
             }}>
 
-            {/* Background elements */}
-            <div className="absolute inset-0 bg-cover bg-center opacity-20 pointer-events-none"
-                style={{ backgroundImage: `url('https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=2000&q=80')` }} />
+            {/* Dark glass backdrop overlay */}
+            <div className="absolute inset-0 bg-[#041226]/80 backdrop-blur-md pointer-events-none" />
 
             <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden relative z-10 border-2 border-emerald-400/80"
-                style={{ boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.5), 0 0 40px rgba(16, 185, 129, 0.2)' }}>
+                style={{ boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.6), 0 0 40px rgba(16, 185, 129, 0.25)' }}>
 
                 {/* Header */}
                 <div className="p-8 text-center bg-gradient-to-br from-[#091D3E] via-[#0E2852] to-[#12356B] relative">
@@ -383,166 +323,44 @@ export default function LoginPage() {
         </div>
     );
 
-    // ── Main layout (Matches Exact Image 2) ──────────────────────────────
+    // ── Main Layout: Applied Image as Background with Right Login Card ──
     return (
-        <div className="min-h-screen flex flex-col justify-between relative overflow-hidden font-sans"
-            style={{ backgroundColor: '#041226' }}>
+        <div
+            className="min-h-screen w-full flex flex-col justify-between relative overflow-hidden font-sans bg-cover bg-center bg-no-repeat"
+            style={{
+                backgroundImage: `url('/login-bg.jpg')`,
+                backgroundColor: '#041226',
+            }}
+        >
+            {/* Soft Ambient Overlay for mobile readability while keeping desktop wallpaper crystal-clear */}
+            <div className="absolute inset-0 bg-[#041226]/10 lg:bg-transparent pointer-events-none" />
 
             {/* ═══════════════════════════════════════════════════
-                SUPERMARKET AISLE PHOTO BACKGROUND
+                PAGE CONTENT: LEFT HERO ARTWORK + RIGHT LOGIN CARD
             ═══════════════════════════════════════════════════ */}
-            <div
-                className="absolute inset-0 bg-cover bg-center pointer-events-none"
-                style={{
-                    backgroundImage: `url('https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=2200&q=85')`,
-                    filter: 'brightness(0.38) saturate(1.2)'
-                }}
-            />
+            <div className="flex-1 flex flex-col lg:flex-row items-center justify-between px-4 sm:px-8 lg:px-14 xl:px-20 py-6 lg:py-10 relative z-10 gap-8">
 
-            {/* Rich Navy Blue & Emerald Gradient Vignette */}
-            <div
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                    background: `linear-gradient(90deg, 
-                        rgba(4, 18, 38, 0.97) 0%, 
-                        rgba(4, 22, 46, 0.92) 35%, 
-                        rgba(5, 28, 58, 0.85) 60%, 
-                        rgba(4, 18, 38, 0.90) 100%)`
-                }}
-            />
-
-            {/* ═══════════════════════════════════════════════════
-                SWEEPING EMERALD & GOLD DYNAMIC CURVED RIBBONS
-            ═══════════════════════════════════════════════════ */}
-            {/* Top Ribbon Wave */}
-            <div className="absolute top-0 right-0 left-0 h-48 pointer-events-none overflow-hidden opacity-90">
-                <svg className="w-full h-full" viewBox="0 0 1440 280" fill="none" preserveAspectRatio="none">
-                    <path
-                        d="M600 0 C780 120, 1000 180, 1440 30 L1440 0 Z"
-                        fill="url(#topGreenGrad)"
-                        opacity="0.8"
-                    />
-                    <path
-                        d="M680 0 C840 90, 1080 140, 1440 10 L1440 0 Z"
-                        fill="url(#topGoldGrad)"
-                        opacity="0.7"
-                    />
-                    <defs>
-                        <linearGradient id="topGreenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stopColor="#00E676" />
-                            <stop offset="100%" stopColor="#059669" />
-                        </linearGradient>
-                        <linearGradient id="topGoldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stopColor="#F59E0B" />
-                            <stop offset="100%" stopColor="#EAB308" />
-                        </linearGradient>
-                    </defs>
-                </svg>
-            </div>
-
-            {/* Bottom Swooshing Curved Ribbon */}
-            <div className="absolute bottom-10 left-0 right-0 h-64 pointer-events-none overflow-hidden opacity-95">
-                <svg className="w-full h-full" viewBox="0 0 1440 320" fill="none" preserveAspectRatio="none">
-                    <path
-                        d="M-50 280 C320 280, 560 210, 850 120 C1020 70, 1220 90, 1500 240 L1500 340 L-50 340 Z"
-                        fill="url(#bottomGreenRibbon)"
-                    />
-                    <path
-                        d="M-50 295 C300 295, 520 240, 780 165 C960 115, 1180 135, 1500 280 L1500 340 L-50 340 Z"
-                        fill="url(#bottomGoldRibbon)"
-                    />
-                    <defs>
-                        <linearGradient id="bottomGreenRibbon" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" stopColor="#00E676" />
-                            <stop offset="50%" stopColor="#10B981" />
-                            <stop offset="100%" stopColor="#047857" />
-                        </linearGradient>
-                        <linearGradient id="bottomGoldRibbon" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" stopColor="#F59E0B" />
-                            <stop offset="60%" stopColor="#D97706" />
-                            <stop offset="100%" stopColor="#047857" />
-                        </linearGradient>
-                    </defs>
-                </svg>
-            </div>
-
-            {/* ═══════════════════════════════════════════════════
-                MAIN CONTENT: LEFT SHOWCASE & RIGHT LOGIN CARD
-            ═══════════════════════════════════════════════════ */}
-            <div className="flex-1 flex flex-col lg:flex-row items-center justify-between px-6 sm:px-10 lg:px-16 xl:px-20 py-8 lg:py-12 relative z-10 gap-10">
-
-                {/* ── LEFT SHOWCASE ── */}
-                <div className="w-full lg:max-w-[560px] xl:max-w-[620px] flex flex-col justify-between">
-
-                    {/* Brand Logo Header */}
-                    <div className="flex items-center gap-3.5 mb-8">
-                        <div className="w-13 h-13 rounded-2xl bg-[#00E676]/15 border-2 border-[#00E676]/40 flex items-center justify-center p-2.5 shadow-lg shadow-emerald-500/10">
-                            <svg className="w-8 h-8 text-[#00E676]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <div className="text-3xl font-black text-white tracking-tight leading-none">
-                                Alpha<span className="text-[#00E676]">Retail</span>
-                            </div>
-                            <div className="text-[10px] font-bold tracking-[0.25em] text-slate-300 uppercase mt-1">
-                                ENTERPRISE POS SYSTEM
-                            </div>
-                        </div>
+                {/* ── LEFT SIDE (Desktop spacer letting the custom artwork shine through) ── */}
+                <div className="hidden lg:flex flex-1 max-w-[55%] flex-col justify-between min-h-[500px] pointer-events-none">
+                    {/* Live clock pill floating subtly at top-left */}
+                    <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-[#030B17]/70 backdrop-blur-md border border-slate-700/60 text-white shadow-xl self-start pointer-events-auto">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="font-mono font-bold text-sm text-emerald-400">{currentTime}</span>
+                        <span className="text-slate-400">·</span>
+                        <span className="text-xs text-slate-300 font-medium">{currentDate}</span>
                     </div>
 
-                    {/* Headline */}
-                    <div className="mb-8">
-                        <h1 className="text-4xl sm:text-5xl lg:text-[52px] font-black text-white leading-[1.12] tracking-tight">
-                            Everything You Need<br />
-                            <span className="text-[#00E676]">to Run Retail.</span>
-                        </h1>
-                        <p className="text-slate-300 text-sm sm:text-base leading-relaxed mt-4 max-w-lg font-normal">
-                            Kenya's most complete point-of-sale system —<br className="hidden sm:inline" />
-                            for supermarkets, mini-marts, pharmacies and more.
-                        </p>
-                    </div>
-
-                    {/* 6 Feature Pills in 2 Columns */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-                        {visualFeatures.map((item, idx) => (
-                            <div
-                                key={idx}
-                                className="flex items-center gap-3.5 px-4 py-3 rounded-2xl bg-[#081B38]/85 backdrop-blur-md border border-[#163866] hover:border-emerald-400/50 transition-all duration-200 group"
-                            >
-                                <div className="w-10 h-10 rounded-xl bg-[#0D2852] border border-[#1E4D8A] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                                    {item.icon}
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="text-white font-bold text-xs leading-tight truncate">
-                                        {item.title}
-                                    </p>
-                                    {item.subtitle && (
-                                        <p className="text-slate-300 text-[11px] leading-tight mt-0.5 truncate">
-                                            {item.subtitle}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Bottom Tagline */}
-                    <div className="flex items-center gap-2.5">
-                        <span className="w-1 h-5 rounded-full bg-[#00E676] inline-block shadow-sm shadow-emerald-400" />
-                        <p className="text-slate-200 text-sm font-medium">
-                            Grow Your Business with <span className="text-[#00E676] font-bold">AlphaRetail</span>
-                        </p>
-                    </div>
+                    {/* Bottom balance spacer */}
+                    <div />
                 </div>
 
-                {/* ── RIGHT LOGIN CARD (EXACT IMAGE 2) ── */}
+                {/* ── RIGHT LOGIN CARD (EXACT MATCHING SAAS DESIGN) ── */}
                 <div className="w-full max-w-[430px] relative">
 
-                    {/* Glowing outer border frame */}
-                    <div className="w-full bg-white rounded-3xl p-7 sm:p-9 shadow-2xl relative border-2 border-emerald-400/80"
+                    {/* Login Card Container */}
+                    <div className="w-full bg-white/95 lg:bg-white rounded-3xl p-7 sm:p-9 shadow-2xl relative border-2 border-emerald-400/90 backdrop-blur-xl"
                         style={{
-                            boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.6), 0 0 35px rgba(16, 185, 129, 0.2)'
+                            boxShadow: '0 25px 65px -12px rgba(0, 0, 0, 0.7), 0 0 35px rgba(16, 185, 129, 0.25)'
                         }}
                     >
 
@@ -698,7 +516,7 @@ export default function LoginPage() {
                                 <button
                                     type="submit"
                                     disabled={isLoading}
-                                    className="w-full py-3.5 rounded-xl text-white font-bold text-sm tracking-wide bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B] hover:from-[#0B2349] hover:to-[#174384] active:scale-[0.99] transition-all flex items-center justify-center gap-2 shadow-lg shadow-slate-900/30 disabled:opacity-60 cursor-pointer"
+                                    className="w-full py-3.5 rounded-xl text-white font-bold text-sm tracking-wide bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B] hover:from-[#0B2349] hover:to-[#174384] active:scale-[0.99] transition-all flex items-center justify-center gap-2 shadow-lg shadow-slate-900/40 disabled:opacity-60 cursor-pointer"
                                 >
                                     {isLoading ? (
                                         <>
@@ -795,9 +613,9 @@ export default function LoginPage() {
             </div>
 
             {/* ═══════════════════════════════════════════════════
-                BOTTOM FULL-WIDTH FOOTER BAR (EXACT IMAGE 2)
+                BOTTOM FULL-WIDTH FOOTER BAR
             ═══════════════════════════════════════════════════ */}
-            <div className="w-full bg-[#030B17] border-t border-[#0A1E3F] px-6 lg:px-12 py-3 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-400 relative z-20">
+            <div className="w-full bg-[#030B17]/90 backdrop-blur-md border-t border-slate-800/60 px-6 lg:px-12 py-2.5 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-400 relative z-20">
                 <div className="flex items-center gap-6 sm:gap-8 flex-wrap">
                     <div className="flex items-center gap-2">
                         <span className="text-sm">🎧</span>
