@@ -229,15 +229,15 @@ export default function LoginPage() {
                 style={{ boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.6), 0 0 40px rgba(16, 185, 129, 0.25)' }}>
 
                 {/* Header */}
-                <div className="p-8 text-center bg-gradient-to-br from-[#091D3E] via-[#0E2852] to-[#12356B] relative">
-                    <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center mx-auto mb-3 text-2xl shadow-lg">
+                <div className="p-7 text-center bg-gradient-to-br from-[#091D3E] via-[#0E2852] to-[#12356B] relative">
+                    <div className="w-13 h-13 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center mx-auto mb-2 text-2xl shadow-lg">
                         🏪
                     </div>
                     <h1 className="text-2xl font-black text-white tracking-tight">Select Your Outlet</h1>
                     <p className="text-slate-300 text-xs mt-1">
                         Welcome <span className="text-emerald-400 font-bold">{pendingUser?.name}</span>! Choose your terminal location
                     </p>
-                    <div className="inline-flex items-center gap-1.5 mt-2.5 px-3 py-1 rounded-full text-[11px] font-bold bg-white/10 text-emerald-300 border border-emerald-400/30">
+                    <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-0.5 rounded-full text-[11px] font-bold bg-white/10 text-emerald-300 border border-emerald-400/30">
                         {pendingUser?.isSuperAdmin ? '👑 Super Admin Access' : '👤 Assigned Staff'}
                     </div>
                 </div>
@@ -245,13 +245,13 @@ export default function LoginPage() {
                 {/* Outlets list */}
                 <div className="p-6 space-y-3 bg-white">
                     {outletPickerError && (
-                        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-semibold leading-relaxed flex items-start gap-2">
+                        <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-semibold leading-relaxed flex items-start gap-2">
                             <span className="text-base shrink-0">⚠️</span>
                             <span>{outletPickerError}</span>
                         </div>
                     )}
 
-                    <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
                         {userOutlets.map(outlet => {
                             const isLocked = outlet.locked;
                             const isSA = pendingUser?.isSuperAdmin;
@@ -265,13 +265,13 @@ export default function LoginPage() {
                                         }
                                         completeLogin(pendingUser, outlet.outlet_id, outlet.outlet_name);
                                     }}
-                                    className={`w-full flex items-center gap-3.5 p-3.5 rounded-2xl border-2 transition-all text-left group ${
+                                    className={`w-full flex items-center gap-3.5 p-3 rounded-2xl border-2 transition-all text-left group ${
                                         isLocked
                                             ? 'border-rose-200 bg-rose-50/60 hover:border-rose-300'
                                             : 'border-slate-100 bg-slate-50/50 hover:border-emerald-400 hover:bg-emerald-50/40 hover:shadow-md'
                                     }`}
                                 >
-                                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl shrink-0 shadow-sm ${
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0 shadow-sm ${
                                         isLocked
                                             ? 'bg-gradient-to-br from-rose-500 to-red-600 text-white'
                                             : outlet.is_main
@@ -314,7 +314,7 @@ export default function LoginPage() {
 
                     <button
                         onClick={() => { setShowOutletPicker(false); setPendingUser(null); setOutletPickerError(''); }}
-                        className="w-full py-3 text-xs font-bold text-slate-500 hover:text-slate-800 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all mt-3"
+                        className="w-full py-2.5 text-xs font-bold text-slate-500 hover:text-slate-800 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all mt-2"
                     >
                         ← Back to Login Credentials
                     </button>
@@ -323,72 +323,67 @@ export default function LoginPage() {
         </div>
     );
 
-    // ── Main Layout: Applied Image as Background with Right Login Card ──
+    // ── Main Layout: Fitted Image & Guaranteed Visible Bottom Banner ─────
     return (
         <div
-            className="min-h-screen w-full flex flex-col justify-between relative overflow-hidden font-sans bg-cover bg-center bg-no-repeat"
+            className="min-h-screen lg:h-screen w-full flex flex-col justify-between relative overflow-y-auto lg:overflow-hidden font-sans bg-[#041226] bg-cover lg:bg-[length:100%_100%] bg-center bg-no-repeat"
             style={{
                 backgroundImage: `url('/login-bg.jpg')`,
-                backgroundColor: '#041226',
             }}
         >
-            {/* Soft Ambient Overlay for mobile readability while keeping desktop wallpaper crystal-clear */}
-            <div className="absolute inset-0 bg-[#041226]/10 lg:bg-transparent pointer-events-none" />
-
             {/* ═══════════════════════════════════════════════════
-                PAGE CONTENT: LEFT HERO ARTWORK + RIGHT LOGIN CARD
+                PAGE CONTENT: HERO ARTWORK + RIGHT LOGIN CARD
             ═══════════════════════════════════════════════════ */}
-            <div className="flex-1 flex flex-col lg:flex-row items-center justify-between px-4 sm:px-8 lg:px-14 xl:px-20 py-6 lg:py-10 relative z-10 gap-8">
+            <div className="flex-1 flex flex-col lg:flex-row items-center justify-between px-4 sm:px-8 lg:px-14 xl:px-20 py-3 lg:py-4 relative z-10 gap-6 my-auto">
 
                 {/* ── LEFT SIDE (Desktop spacer letting the custom artwork shine through) ── */}
-                <div className="hidden lg:flex flex-1 max-w-[55%] flex-col justify-between min-h-[500px] pointer-events-none">
+                <div className="hidden lg:flex flex-1 max-w-[55%] flex-col justify-between min-h-[420px] pointer-events-none">
                     {/* Live clock pill floating subtly at top-left */}
-                    <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-[#030B17]/70 backdrop-blur-md border border-slate-700/60 text-white shadow-xl self-start pointer-events-auto">
+                    <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-[#030B17]/75 backdrop-blur-md border border-slate-700/60 text-white shadow-xl self-start pointer-events-auto">
                         <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                        <span className="font-mono font-bold text-sm text-emerald-400">{currentTime}</span>
+                        <span className="font-mono font-bold text-xs text-emerald-400">{currentTime}</span>
                         <span className="text-slate-400">·</span>
-                        <span className="text-xs text-slate-300 font-medium">{currentDate}</span>
+                        <span className="text-[11px] text-slate-300 font-medium">{currentDate}</span>
                     </div>
 
                     {/* Bottom balance spacer */}
                     <div />
                 </div>
 
-                {/* ── RIGHT LOGIN CARD (EXACT MATCHING SAAS DESIGN) ── */}
-                <div className="w-full max-w-[430px] relative">
+                {/* ── RIGHT LOGIN CARD (COMPACT TO GUARANTEE FIT) ── */}
+                <div className="w-full max-w-[410px] relative">
 
-                    {/* Login Card Container */}
-                    <div className="w-full bg-white/95 lg:bg-white rounded-3xl p-7 sm:p-9 shadow-2xl relative border-2 border-emerald-400/90 backdrop-blur-xl"
+                    <div className="w-full bg-white/95 lg:bg-white rounded-3xl p-6 sm:p-7 shadow-2xl relative border-2 border-emerald-400/90 backdrop-blur-xl"
                         style={{
                             boxShadow: '0 25px 65px -12px rgba(0, 0, 0, 0.7), 0 0 35px rgba(16, 185, 129, 0.25)'
                         }}
                     >
 
                         {/* Top Badge: Shield Icon + Secure Access */}
-                        <div className="flex items-center gap-3 mb-6 pb-2">
-                            <div className="w-12 h-12 rounded-2xl bg-[#091D3E] text-white flex items-center justify-center shadow-md shrink-0">
-                                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <div className="flex items-center gap-3 mb-4 pb-1">
+                            <div className="w-10 h-10 rounded-xl bg-[#091D3E] text-white flex items-center justify-center shadow-md shrink-0">
+                                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                                 </svg>
                             </div>
                             <div>
-                                <div className="text-xs font-black text-emerald-600 uppercase tracking-wide">
+                                <div className="text-[11px] font-black text-emerald-600 uppercase tracking-wide">
                                     Secure Access
                                 </div>
-                                <div className="text-xs text-slate-500 font-medium">
+                                <div className="text-[11px] text-slate-500 font-medium">
                                     Sign in to your AlphaRetail account
                                 </div>
                             </div>
                         </div>
 
                         {/* Heading */}
-                        <div className="mb-5">
+                        <div className="mb-4">
                             {view === 'login' && (
                                 <>
-                                    <h2 className="text-3xl font-black text-[#091D3E] tracking-tight">
+                                    <h2 className="text-2xl sm:text-[26px] font-black text-[#091D3E] tracking-tight leading-tight">
                                         Welcome back
                                     </h2>
-                                    <p className="text-xs text-slate-500 mt-1 font-medium">
+                                    <p className="text-xs text-slate-500 mt-0.5 font-medium">
                                         Sign in to continue to <span className="font-bold text-[#091D3E]">{storeName} POS</span>
                                     </p>
                                 </>
@@ -397,23 +392,23 @@ export default function LoginPage() {
                                 <>
                                     <button
                                         onClick={() => { setView('login'); setFpError(''); setFpUsername(''); }}
-                                        className="flex items-center gap-1.5 text-slate-400 hover:text-indigo-600 text-xs mb-3 font-semibold transition-colors"
+                                        className="flex items-center gap-1.5 text-slate-400 hover:text-indigo-600 text-xs mb-2 font-semibold transition-colors"
                                     >
                                         ← Back to login
                                     </button>
-                                    <h2 className="text-2xl font-black text-[#091D3E] tracking-tight">
+                                    <h2 className="text-xl font-black text-[#091D3E] tracking-tight">
                                         Forgot Password?
                                     </h2>
-                                    <p className="text-xs text-slate-500 mt-1">
+                                    <p className="text-xs text-slate-500 mt-0.5">
                                         Enter your username — we'll email you a reset link.
                                     </p>
                                 </>
                             )}
                             {view === 'sent' && (
                                 <div className="text-center py-2">
-                                    <div className="text-4xl mb-2">📨</div>
-                                    <h2 className="text-xl font-black text-[#091D3E]">Check Your Email</h2>
-                                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                                    <div className="text-3xl mb-1.5">📨</div>
+                                    <h2 className="text-lg font-black text-[#091D3E]">Check Your Email</h2>
+                                    <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
                                         If <span className="font-bold text-indigo-600">{fpUsername}</span> is registered, a secure reset link has been sent.
                                     </p>
                                 </div>
@@ -422,18 +417,18 @@ export default function LoginPage() {
 
                         {/* ── LOGIN FORM ── */}
                         {view === 'login' && (
-                            <form onSubmit={handleLogin} className="space-y-4">
+                            <form onSubmit={handleLogin} className="space-y-3">
                                 {/* Username */}
                                 <div>
-                                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 mb-1.5">
-                                        <svg className="w-4 h-4 text-slate-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 mb-1">
+                                        <svg className="w-3.5 h-3.5 text-slate-500" fill="currentColor" viewBox="0 0 20 20">
                                             <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"/>
                                         </svg>
                                         Username
                                     </label>
                                     <div className="relative">
                                         <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                                            <svg className="w-4.5 h-4.5" fill="currentColor" viewBox="0 0 20 20">
+                                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                                 <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"/>
                                             </svg>
                                         </div>
@@ -444,22 +439,22 @@ export default function LoginPage() {
                                             onChange={e => setUsername(e.target.value)}
                                             placeholder="Enter your username"
                                             autoComplete="username"
-                                            className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 text-sm font-medium focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all placeholder:text-slate-400"
+                                            className="w-full pl-10 pr-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 text-sm font-medium focus:border-emerald-500 focus:ring-3 focus:ring-emerald-500/10 outline-none transition-all placeholder:text-slate-400"
                                         />
                                     </div>
                                 </div>
 
                                 {/* Password or PIN */}
                                 <div>
-                                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 mb-1.5">
-                                        <svg className="w-4 h-4 text-slate-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 mb-1">
+                                        <svg className="w-3.5 h-3.5 text-slate-500" fill="currentColor" viewBox="0 0 20 20">
                                             <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd"/>
                                         </svg>
                                         Password or PIN
                                     </label>
                                     <div className="relative">
                                         <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                                            <svg className="w-4.5 h-4.5" fill="currentColor" viewBox="0 0 20 20">
+                                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                                 <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd"/>
                                             </svg>
                                         </div>
@@ -470,19 +465,19 @@ export default function LoginPage() {
                                             onChange={e => setPassword(e.target.value)}
                                             placeholder="Enter your password or PIN"
                                             autoComplete="current-password"
-                                            className="w-full pl-11 pr-11 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 text-sm font-medium focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all placeholder:text-slate-400"
+                                            className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 text-sm font-medium focus:border-emerald-500 focus:ring-3 focus:ring-emerald-500/10 outline-none transition-all placeholder:text-slate-400"
                                         />
                                         <button
                                             type="button"
                                             onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-0.5"
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-0.5"
                                         >
                                             {showPassword ? (
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
                                                 </svg>
                                             ) : (
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                                 </svg>
@@ -493,8 +488,8 @@ export default function LoginPage() {
 
                                 {/* Error alert */}
                                 {error && (
-                                    <div className="flex items-center gap-2.5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
-                                        <svg className="w-4 h-4 shrink-0 text-rose-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <div className="flex items-center gap-2 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
+                                        <svg className="w-3.5 h-3.5 shrink-0 text-rose-500" fill="currentColor" viewBox="0 0 20 20">
                                             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
                                         </svg>
                                         <span>{error}</span>
@@ -502,7 +497,7 @@ export default function LoginPage() {
                                 )}
 
                                 {/* Forgot Password Link */}
-                                <div className="flex justify-end pt-0.5">
+                                <div className="flex justify-end">
                                     <button
                                         type="button"
                                         onClick={() => { setView('forgot'); setError(''); }}
@@ -516,7 +511,7 @@ export default function LoginPage() {
                                 <button
                                     type="submit"
                                     disabled={isLoading}
-                                    className="w-full py-3.5 rounded-xl text-white font-bold text-sm tracking-wide bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B] hover:from-[#0B2349] hover:to-[#174384] active:scale-[0.99] transition-all flex items-center justify-center gap-2 shadow-lg shadow-slate-900/40 disabled:opacity-60 cursor-pointer"
+                                    className="w-full py-3 rounded-xl text-white font-bold text-sm tracking-wide bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B] hover:from-[#0B2349] hover:to-[#174384] active:scale-[0.99] transition-all flex items-center justify-center gap-2 shadow-lg shadow-slate-900/40 disabled:opacity-60 cursor-pointer"
                                 >
                                     {isLoading ? (
                                         <>
@@ -525,7 +520,7 @@ export default function LoginPage() {
                                         </>
                                     ) : (
                                         <>
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                                             </svg>
                                             <span>Sign In</span>
@@ -534,8 +529,8 @@ export default function LoginPage() {
                                 </button>
 
                                 {/* Protected Note */}
-                                <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500 pt-2">
-                                    <svg className="w-4 h-4 text-emerald-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-500 pt-1">
+                                    <svg className="w-3.5 h-3.5 text-emerald-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
                                     </svg>
                                     <span>Your data is protected and secure</span>
@@ -545,33 +540,33 @@ export default function LoginPage() {
 
                         {/* ── FORGOT PASSWORD FORM ── */}
                         {view === 'forgot' && (
-                            <form onSubmit={handleForgotPassword} className="space-y-4">
+                            <form onSubmit={handleForgotPassword} className="space-y-3">
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1.5">Your Username</label>
+                                    <label className="block text-xs font-bold text-slate-700 mb-1">Your Username</label>
                                     <input
                                         type="text"
                                         value={fpUsername}
                                         onChange={e => setFpUsername(e.target.value)}
                                         placeholder="Enter your username"
                                         autoFocus
-                                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 text-sm font-medium focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none"
+                                        className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 text-sm font-medium focus:border-emerald-500 focus:ring-3 focus:ring-emerald-500/10 outline-none"
                                     />
                                 </div>
 
                                 {fpError && (
-                                    <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
+                                    <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
                                         {fpError}
                                     </div>
                                 )}
 
-                                <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700 leading-relaxed">
-                                    🔒 A secure reset link will be sent to your registered email address. The link expires in 1 hour.
+                                <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700 leading-relaxed">
+                                    🔒 A secure reset link will be sent to your registered email address.
                                 </div>
 
                                 <button
                                     type="submit"
                                     disabled={fpLoading}
-                                    className="w-full py-3.5 rounded-xl text-white font-bold text-sm bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B] flex items-center justify-center gap-2 shadow-lg disabled:opacity-60"
+                                    className="w-full py-3 rounded-xl text-white font-bold text-sm bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B] flex items-center justify-center gap-2 shadow-lg disabled:opacity-60"
                                 >
                                     {fpLoading ? 'Sending link...' : '📧 Send Reset Link'}
                                 </button>
@@ -580,16 +575,16 @@ export default function LoginPage() {
 
                         {/* ── EMAIL SENT ── */}
                         {view === 'sent' && (
-                            <div className="space-y-3 mt-4">
+                            <div className="space-y-2.5 mt-3">
                                 <button
                                     onClick={() => { setView('login'); setFpUsername(''); setFpError(''); }}
-                                    className="w-full py-3.5 rounded-xl text-white font-bold text-sm bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B] shadow-lg"
+                                    className="w-full py-3 rounded-xl text-white font-bold text-sm bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B] shadow-lg"
                                 >
                                     ← Back to Login
                                 </button>
                                 <button
                                     onClick={() => { setView('forgot'); setFpError(''); }}
-                                    className="w-full py-3 text-xs text-indigo-600 font-bold border border-indigo-200 rounded-xl hover:bg-indigo-50"
+                                    className="w-full py-2.5 text-xs text-indigo-600 font-bold border border-indigo-200 rounded-xl hover:bg-indigo-50"
                                 >
                                     Resend Reset Email
                                 </button>
@@ -597,11 +592,11 @@ export default function LoginPage() {
                         )}
 
                         {/* Card Bottom Footer */}
-                        <div className="pt-4 mt-5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+                        <div className="pt-3 mt-3.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
                             <span>© {new Date().getFullYear()} AlphaRetail POS v2.0</span>
                             <div className="flex items-center gap-2">
                                 <span className="flex items-center gap-1">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse" />
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
                                     <span className="text-slate-600 font-semibold">Online</span>
                                 </span>
                                 <span className="text-slate-300">|</span>
@@ -613,30 +608,30 @@ export default function LoginPage() {
             </div>
 
             {/* ═══════════════════════════════════════════════════
-                BOTTOM FULL-WIDTH FOOTER BAR
+                BOTTOM FULL-WIDTH FOOTER BAR (ALWAYS VISIBLE)
             ═══════════════════════════════════════════════════ */}
-            <div className="w-full bg-[#030B17]/90 backdrop-blur-md border-t border-slate-800/60 px-6 lg:px-12 py-2.5 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-400 relative z-20">
-                <div className="flex items-center gap-6 sm:gap-8 flex-wrap">
-                    <div className="flex items-center gap-2">
+            <div className="shrink-0 w-full bg-[#030B17]/95 backdrop-blur-md border-t border-slate-800/80 px-6 lg:px-12 py-2 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400 relative z-20">
+                <div className="flex items-center gap-5 sm:gap-7 flex-wrap">
+                    <div className="flex items-center gap-1.5">
                         <span className="text-sm">🎧</span>
-                        <span className="font-semibold text-slate-300">24/7 Support</span>
+                        <span className="font-semibold text-slate-300 text-[11px]">24/7 Support</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                         <span className="text-sm">⚡</span>
-                        <span className="font-semibold text-slate-300">High Performance</span>
+                        <span className="font-semibold text-slate-300 text-[11px]">High Performance</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                         <span className="text-sm">🛡️</span>
-                        <span className="font-semibold text-slate-300">Enterprise Security</span>
+                        <span className="font-semibold text-slate-300 text-[11px]">Enterprise Security</span>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <span className="font-bold text-white tracking-wide">
+                <div className="flex items-center gap-2.5">
+                    <span className="font-bold text-white tracking-wide text-xs">
                         Alpha<span className="text-[#00E676]">Retail</span>
                     </span>
                     <span className="text-slate-600">|</span>
-                    <span className="text-slate-400 italic">Retail Smarter. Grow Faster.</span>
+                    <span className="text-slate-400 italic text-[11px]">Retail Smarter. Grow Faster.</span>
                 </div>
             </div>
         </div>
