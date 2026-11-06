@@ -10,7 +10,8 @@ import {
     DollarSign, Clock, TrendingDown, CreditCard, Smartphone,
     TrendingUp, BarChart2, PieChart, Settings, MapPin, Shield,
     Zap, Briefcase, ChevronDown, ChevronLeft, ChevronRight,
-    LogOut, Search, Bell, Menu, X, Database, Sliders, Download, Lock
+    LogOut, Search, Bell, Menu, X, Database, Sliders, Download, Lock,
+    Store, Calendar
 } from 'lucide-react';
 import { SettingsProvider, useCompanyName } from '@/context/SettingsContext';
 import { OutletProvider, useOutlet } from '@/context/OutletContext';
@@ -330,18 +331,56 @@ function OutletSwitcher() {
 }
 
 function CompanyBrand() {
-    const name = useCompanyName();
-    const { activeOutlet } = useOutlet();
-    const isMain = activeOutlet?.is_main ?? true;
-    const displayName = activeOutlet && !isMain
-        ? `${name || 'Alpha Retail'} - ${activeOutlet.outlet_name}`
-        : (name || 'Alpha Retail');
     return (
         <div className="min-w-0">
-            <p className="text-[13.5px] font-black text-white truncate leading-tight tracking-wide">{displayName}</p>
-            <p className="text-[10px] text-amber-300 font-bold truncate flex items-center gap-1">
-                <span>⚡</span> {activeOutlet && !isMain ? activeOutlet.outlet_code : 'HARDWARE & RETAIL'}
-            </p>
+            <p className="text-[13px] font-black text-white truncate leading-tight tracking-wide">Alpha Retail System</p>
+            <p className="text-[10px] text-emerald-300 font-bold truncate">Build Better. Live Better.</p>
+        </div>
+    );
+}
+
+function HeaderOutletBadge() {
+    const { activeOutlet, outlets, switchOutlet } = useOutlet();
+    const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem('user');
+            if (raw) {
+                const u = JSON.parse(raw);
+                const t = (u.userType || '').toLowerCase().replace(/\s/g, '');
+                setIsSuperAdmin(t === 'superadmin' || t === 'superuser');
+            }
+        } catch {}
+    }, []);
+
+    if (!activeOutlet) return null;
+
+    if (isSuperAdmin && outlets.length > 1) {
+        return (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-[#01341a] border border-emerald-500/40 rounded-xl text-white shadow-xs">
+                <Store size={15} className="text-emerald-400 shrink-0" />
+                <select
+                    value={activeOutlet.outlet_id}
+                    onChange={e => switchOutlet(Number(e.target.value))}
+                    className="bg-transparent text-white text-[11px] font-bold outline-none cursor-pointer"
+                >
+                    {outlets.map(o => (
+                        <option key={o.outlet_id} value={o.outlet_id} className="bg-slate-900 text-white">
+                            {o.outlet_name} ({o.outlet_code || 'Outlet'})
+                        </option>
+                    ))}
+                </select>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-[#01341a] border border-emerald-500/40 rounded-xl text-white shadow-xs">
+            <Store size={15} className="text-emerald-400 shrink-0" />
+            <div className="text-left leading-none">
+                <p className="text-[11px] font-black text-white truncate max-w-[120px]">{activeOutlet.outlet_name}</p>
+                <p className="text-[9px] font-bold text-emerald-300/80 mt-0.5">{activeOutlet.outlet_code || 'Head Office'}</p>
+            </div>
         </div>
     );
 }
@@ -722,38 +761,44 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             onClick={() => setMobileOpen(false)} />
                     )}
 
-                    {/* ═══════════ SIDEBAR (Royal Blue & Gold Hardware Theme) ═══════════ */}
+                    {/* ═══════════ SIDEBAR (Emerald Forest Hardware Theme matching Mockup) ═══════════ */}
                     {!isCashier && (
-                        <aside className={`fixed top-0 left-0 h-full z-50 shadow-2xl flex flex-col transition-all duration-300 ease-in-out border-r border-blue-900/60 text-white
+                        <aside className={`fixed top-0 left-0 h-full z-50 shadow-2xl flex flex-col transition-all duration-300 ease-in-out border-r border-emerald-900/60 text-white
                             ${collapsed ? 'w-[72px]' : 'w-[265px]'}
                             ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
                             style={{
-                                backgroundImage: `linear-gradient(180deg, rgba(2, 26, 77, 0.94) 0%, rgba(1, 20, 62, 0.90) 45%, rgba(0, 14, 44, 0.97) 100%), url('/sidebar-theme.jpg')`,
-                                backgroundSize: 'cover',
-                                backgroundPosition: 'top center',
+                                background: 'linear-gradient(180deg, #011d0e 0%, #022a15 45%, #01160a 100%)',
                             }}>
 
-                            {/* Logo */}
-                            <div className={`flex items-center h-[65px] border-b border-blue-400/20 px-3.5 gap-2.5 shrink-0 ${collapsed ? 'justify-center !px-2' : ''}`}>
-                                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-950 font-black shadow-lg shadow-amber-500/30 shrink-0 bg-gradient-to-br from-amber-400 via-yellow-400 to-amber-500 ring-2 ring-amber-300/40">
-                                    <svg className="w-5 h-5 text-slate-950" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M12 3L2 12h3v8h14v-8h3L12 3zm0 3.5l5 4.5v6H7v-6l5-4.5z"/>
+                            {/* Logo matching mockup */}
+                            <div className={`flex items-center h-[65px] border-b border-emerald-500/20 px-3.5 gap-2.5 shrink-0 ${collapsed ? 'justify-center !px-2' : ''}`}>
+                                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-transparent">
+                                    <svg className="w-9 h-9" viewBox="0 0 100 80" fill="none">
+                                        <path d="M10 45 L50 15 L70 30" stroke="#ffffff" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
+                                        <polygon points="50,22 68,35 60,45 42,32" fill="#facc15" />
+                                        <polygon points="56,28 74,41 68,49 50,36" fill="#eab308" />
+                                        <path d="M68 18 L80 8 L86 14 L74 24 Z" fill="#ffffff" />
+                                        <rect x="74" y="19" width="5" height="18" transform="rotate(45 74 19)" fill="#ffffff" rx="2" />
+                                        <rect x="44" y="40" width="5" height="5" fill="#facc15" />
+                                        <rect x="51" y="40" width="5" height="5" fill="#facc15" />
+                                        <rect x="44" y="47" width="5" height="5" fill="#facc15" />
+                                        <rect x="51" y="47" width="5" height="5" fill="#facc15" />
                                     </svg>
                                 </div>
                                 {!collapsed && <CompanyBrand />}
                                 {!collapsed && (
                                     <button onClick={() => setCollapsed(true)}
-                                        className="hidden lg:flex w-6 h-6 items-center justify-center rounded-lg border border-blue-400/20 text-blue-200 hover:text-amber-300 hover:border-amber-400/40 transition-colors ml-auto shrink-0 bg-white/5">
+                                        className="hidden lg:flex w-6 h-6 items-center justify-center rounded-lg border border-emerald-500/20 text-emerald-200 hover:text-white hover:border-emerald-400 transition-colors ml-auto shrink-0 bg-white/5">
                                         <ChevronLeft size={12} />
                                     </button>
                                 )}
                                 {collapsed && (
                                     <button onClick={() => setCollapsed(false)}
-                                        className="hidden lg:flex w-6 h-6 items-center justify-center rounded-lg border border-blue-400/20 text-blue-200 hover:text-amber-300 hover:border-amber-400/40 transition-colors bg-white/5">
+                                        className="hidden lg:flex w-6 h-6 items-center justify-center rounded-lg border border-emerald-500/20 text-emerald-200 hover:text-white hover:border-emerald-400 transition-colors bg-white/5">
                                         <ChevronRight size={12} />
                                     </button>
                                 )}
-                                <button onClick={() => setMobileOpen(false)} className="lg:hidden ml-auto text-blue-200 hover:text-white">
+                                <button onClick={() => setMobileOpen(false)} className="lg:hidden ml-auto text-emerald-200 hover:text-white">
                                     <X size={18} />
                                 </button>
                             </div>
@@ -774,17 +819,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                                     title={collapsed ? item.label : undefined}
                                                     className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-full text-[13px] font-bold transition-all mb-1.5
                                                         ${active
-                                                            ? 'bg-gradient-to-r from-amber-400 via-amber-400 to-yellow-400 text-slate-950 shadow-lg shadow-amber-500/30 ring-2 ring-amber-300/50'
-                                                            : 'text-blue-100/90 hover:text-white hover:bg-white/10'}
+                                                            ? 'bg-gradient-to-r from-emerald-500 via-emerald-500 to-green-500 text-white shadow-lg shadow-emerald-500/40 ring-1 ring-emerald-300/40 font-black'
+                                                            : 'text-emerald-100/85 hover:text-white hover:bg-white/10'}
                                                         ${collapsed ? 'justify-center !px-2.5' : ''}`}>
-                                                    <IIcon size={17} className={active ? 'text-slate-950' : 'text-amber-300'} />
+                                                    <IIcon size={17} className={active ? 'text-white' : 'text-emerald-300'} />
                                                     {!collapsed && <span className="flex-1 tracking-tight">{item.label}</span>}
                                                     {!collapsed && item.badge && (
-                                                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${active ? 'bg-slate-950 text-amber-300' : 'bg-amber-400 text-slate-950 shadow-sm'}`}>
+                                                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${active ? 'bg-slate-950 text-emerald-300' : 'bg-emerald-400 text-slate-950 shadow-sm'}`}>
                                                             {item.badge}
                                                         </span>
                                                     )}
-                                                    {active && !collapsed && <div className="w-2 h-2 rounded-full bg-slate-950 shrink-0" />}
+                                                    {active && !collapsed && <div className="w-2 h-2 rounded-full bg-white shrink-0 shadow-sm" />}
                                                 </Link>
                                             );
                                         });
@@ -795,30 +840,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                             <button onClick={() => toggle(group.name)}
                                                 title={collapsed ? group.label : undefined}
                                                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[12.5px] font-bold transition-all
-                                                    ${gActive ? 'text-amber-300 bg-white/10 shadow-sm' : 'text-blue-100/80 hover:bg-white/10 hover:text-white'}
+                                                    ${gActive ? 'text-emerald-300 bg-white/10 shadow-sm' : 'text-emerald-100/80 hover:bg-white/10 hover:text-white'}
                                                     ${collapsed ? 'justify-center' : ''}`}>
-                                                {GIcon && <GIcon size={16} className={gActive ? 'text-amber-400' : 'text-blue-300'} />}
+                                                {GIcon && <GIcon size={16} className={gActive ? 'text-emerald-400' : 'text-emerald-300'} />}
                                                 {!collapsed && (
                                                     <>
                                                         <span className="flex-1 text-left">{group.label}</span>
-                                                        <ChevronDown size={13} className={`text-blue-300 transition-transform duration-200 ${isExp ? 'rotate-180 text-amber-400' : ''}`} />
+                                                        <ChevronDown size={13} className={`text-emerald-300 transition-transform duration-200 ${isExp ? 'rotate-180 text-emerald-400' : ''}`} />
                                                     </>
                                                 )}
                                             </button>
 
                                             <div className={`overflow-hidden transition-all duration-200 ease-in-out ${isExp && !collapsed ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                                                <div className="ml-[18px] pl-3 mt-1 pb-1 space-y-1 border-l-2 border-amber-400/40">
+                                                <div className="ml-[18px] pl-3 mt-1 pb-1 space-y-1 border-l-2 border-emerald-500/40">
                                                     {group.items.map(item => {
                                                         const IIcon  = item.icon as React.ElementType;
                                                         const active = isActive(item.href);
                                                         return (
                                                             <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)}
                                                                 className={`flex items-center gap-2 px-2.5 py-[7px] rounded-lg text-[12px] transition-all
-                                                                    ${active ? 'text-slate-950 bg-gradient-to-r from-amber-400 to-yellow-400 font-extrabold shadow-sm' : 'text-blue-100/80 hover:text-white hover:bg-white/10'}`}>
-                                                                <IIcon size={13} className={active ? 'text-slate-950' : 'text-amber-300/80'} />
+                                                                    ${active ? 'text-white bg-gradient-to-r from-emerald-500 to-green-500 font-extrabold shadow-sm' : 'text-emerald-100/80 hover:text-white hover:bg-white/10'}`}>
+                                                                <IIcon size={13} className={active ? 'text-white' : 'text-emerald-300/80'} />
                                                                 <span className="flex-1">{item.label}</span>
-                                                                {item.badge && <span className="text-[8px] font-black px-1 py-0.5 rounded-full bg-amber-400 text-slate-950">{item.badge}</span>}
-                                                                {active && <div className="w-1.5 h-1.5 rounded-full bg-slate-950 shrink-0" />}
+                                                                {item.badge && <span className="text-[8px] font-black px-1 py-0.5 rounded-full bg-emerald-400 text-slate-950">{item.badge}</span>}
+                                                                {active && <div className="w-1.5 h-1.5 rounded-full bg-white shrink-0" />}
                                                             </Link>
                                                         );
                                                     })}
@@ -829,20 +874,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 })}
                             </nav>
 
-                            {/* User footer matching bottom of theme image */}
-                            <div className={`border-t border-blue-400/20 shrink-0 ${collapsed ? 'p-2' : 'p-2.5'}`}>
+                            {/* Secure & Compliant Badge matching mockup */}
+                            {!collapsed && (
+                                <div className="mx-2.5 my-2 p-2 rounded-xl bg-amber-400/10 border border-amber-400/30 flex items-center gap-2">
+                                    <Shield size={16} className="text-amber-400 shrink-0" />
+                                    <div>
+                                        <p className="text-[10px] font-black text-amber-300 leading-tight">Secure & Compliant</p>
+                                        <p className="text-[8.5px] text-amber-200/70 leading-tight">Your Data, Our Priority.</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* User footer matching mockup */}
+                            <div className={`border-t border-emerald-500/20 shrink-0 ${collapsed ? 'p-2' : 'p-2.5'}`}>
                                 {!collapsed ? (
-                                    <div className="flex items-center gap-2 p-2 rounded-2xl bg-[#03153b]/85 border border-blue-400/25 backdrop-blur-md shadow-xl">
+                                    <div className="flex items-center gap-2 p-2 rounded-2xl bg-[#012814]/90 border border-emerald-500/30 backdrop-blur-md shadow-lg">
                                         <div className="w-8 h-8 rounded-full flex items-center justify-center text-slate-950 text-xs font-black shrink-0 bg-gradient-to-tr from-amber-400 to-yellow-300 ring-2 ring-amber-300/60 shadow">
                                             {user.name?.charAt(0)?.toUpperCase() || 'U'}
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className="text-[12px] font-black text-white truncate leading-tight">{user.name}</p>
-                                            <p className="text-[10px] text-amber-300 font-bold capitalize truncate">{user.userType || 'Administrator'}</p>
+                                            <p className="text-[10px] text-emerald-300 font-bold capitalize truncate">{user.userType || 'Administrator'}</p>
                                         </div>
-                                        <div className="h-4 w-px bg-blue-400/20 mx-0.5" />
+                                        <div className="h-4 w-px bg-emerald-500/20 mx-0.5" />
                                         <button onClick={() => router.push('/dashboard/company')} title="Settings"
-                                            className="p-1.5 text-blue-200 hover:text-amber-300 hover:bg-white/10 rounded-lg transition-colors">
+                                            className="p-1.5 text-emerald-200 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
                                             <Settings size={14} />
                                         </button>
                                         <button onClick={handleLogout} title="Logout"
@@ -867,31 +923,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                     {/* ═══════════ MAIN ═══════════ */}
                     <main className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${isCashier ? '' : collapsed ? 'lg:ml-[72px]' : 'lg:ml-[265px]'}`}>
-                        {/* Header */}
-                        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/90 h-[64px] flex items-center px-4 lg:px-6 gap-3 shadow-sm">
+                        {/* Header matching Mockup */}
+                        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/90 h-[64px] flex items-center px-4 lg:px-6 gap-3 shadow-xs">
                             {!isCashier && (
-                                <button onClick={() => setMobileOpen(true)} className="lg:hidden text-gray-500 hover:text-gray-800">
-                                    <Menu size={20} />
+                                <button onClick={() => setMobileOpen(true)} className="lg:hidden w-8 h-8 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center shadow-xs">
+                                    <Menu size={18} />
                                 </button>
                             )}
-                            <div className="hidden sm:flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 w-64 focus-within:w-80 focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-300 focus-within:bg-white transition-all duration-300">
-                                <Search className="text-gray-400 shrink-0" size={14} />
-                                <input type="text" placeholder="Search products, reports..." className="bg-transparent text-[13px] text-gray-700 outline-none w-full placeholder:text-gray-400" />
+                            <div className="hidden sm:flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-full px-4 py-1.5 w-64 lg:w-80 shadow-inner focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500 transition-all">
+                                <Search className="text-slate-400 shrink-0" size={14} />
+                                <input type="text" placeholder="Search products, reports, customers..." className="bg-transparent text-[12px] text-slate-700 outline-none w-full placeholder:text-slate-400" />
+                                <span className="text-[9px] font-bold text-slate-400 bg-slate-200/70 px-1.5 py-0.5 rounded border border-slate-300 shrink-0">Ctrl + K</span>
                             </div>
-                            <div className="flex items-center gap-2 ml-auto">
-                                <OutletSwitcher />
+                            <div className="flex items-center gap-2.5 ml-auto">
+                                <HeaderOutletBadge />
                                 <PledgeNotificationBell />
-                                <button onClick={() => router.push('/dashboard/company')} className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors">
-                                    <Settings size={17} />
+                                <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 shadow-xs">
+                                    <Calendar size={13} className="text-slate-400 shrink-0" />
+                                    <span>Mon, 03 Nov 2025 | 09:24:17 AM</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 px-3 py-1 bg-white border border-emerald-500/30 rounded-full text-xs font-bold text-emerald-700 shadow-xs">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                    <span>Online</span>
+                                </div>
+                                <button onClick={() => router.push('/dashboard/company')} className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 transition-colors">
+                                    <Settings size={16} />
                                 </button>
-                                <div className="flex items-center gap-2.5 pl-3 border-l border-gray-200">
-                                    <div className="hidden sm:block text-right">
-                                        <p className="text-[12px] font-bold text-gray-800">{user.name}</p>
-                                        <p className="text-[10px] text-indigo-600 font-semibold capitalize">{user.userType}</p>
-                                    </div>
-                                    <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-black shadow"
-                                        style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)' }}>
-                                        {user.name?.charAt(0)?.toUpperCase() || '?'}
+                                <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
+                                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-slate-950 text-xs font-black shadow-xs bg-gradient-to-tr from-emerald-400 to-green-300 ring-1 ring-emerald-300">
+                                        {user.name?.charAt(0)?.toUpperCase() || 'U'}
                                     </div>
                                 </div>
                             </div>
