@@ -17,69 +17,7 @@ import { OutletProvider, useOutlet } from '@/context/OutletContext';
 import { FeatureProvider } from '@/context/FeatureContext';
 import { logActivity, supabase } from '@/lib/supabase';
 
-// ── Session timeout config ────────────────────────────────────────────
-const IDLE_TIMEOUT_MS    = 30 * 60 * 1000; // 30 minutes idle → show warning
-const WARNING_SECONDS    = 120;             // 2-minute countdown before force-logout
 
-// ── Session timeout warning modal ────────────────────────────────────
-function SessionTimeoutModal({
-    secondsLeft, onStay, onLogout
-}: { secondsLeft: number; onStay: () => void; onLogout: () => void }) {
-    const pct = (secondsLeft / WARNING_SECONDS) * 100;
-    const mins = Math.floor(secondsLeft / 60);
-    const secs = secondsLeft % 60;
-    const urgent = secondsLeft <= 30;
-    return (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
-            style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
-                style={{ animation: 'fadeUp .3s ease-out' }}>
-                {/* Top accent bar */}
-                <div className="h-1.5 w-full" style={{ background: urgent ? 'linear-gradient(90deg,#ef4444,#f97316)' : 'linear-gradient(90deg,#4f46e5,#7c3aed)' }} />
-                <div className="p-8 text-center">
-                    {/* Circular countdown */}
-                    <div className="relative w-24 h-24 mx-auto mb-5">
-                        <svg className="w-24 h-24 -rotate-90" viewBox="0 0 96 96">
-                            <circle cx="48" cy="48" r="42" fill="none" stroke="#e2e8f0" strokeWidth="8"/>
-                            <circle cx="48" cy="48" r="42" fill="none"
-                                stroke={urgent ? '#ef4444' : '#4f46e5'} strokeWidth="8"
-                                strokeLinecap="round"
-                                strokeDasharray={`${2 * Math.PI * 42}`}
-                                strokeDashoffset={`${2 * Math.PI * 42 * (1 - pct / 100)}`}
-                                style={{ transition: 'stroke-dashoffset 1s linear, stroke .3s' }}/>
-                        </svg>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span className={`text-2xl font-black ${urgent ? 'text-red-500' : 'text-indigo-600'}`}>
-                                {mins > 0 ? `${mins}:${String(secs).padStart(2,'0')}` : secs}
-                            </span>
-                            <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">left</span>
-                        </div>
-                    </div>
-                    <div className="text-2xl mb-2">{urgent ? '🚨' : '⏰'}</div>
-                    <h3 className="text-lg font-black text-gray-800 mb-1">Session Expiring Soon</h3>
-                    <p className="text-gray-500 text-sm leading-relaxed">
-                        Your session will automatically log out due to inactivity.
-                        Click <strong>Stay Logged In</strong> to continue.
-                    </p>
-                </div>
-                <div className="px-6 pb-6 space-y-2">
-                    <button onClick={onStay}
-                        className="w-full py-3.5 rounded-xl text-white font-black text-sm transition-all hover:scale-[1.02] shadow-lg"
-                        style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', boxShadow: '0 6px 20px rgba(79,70,229,.35)' }}>
-                        ✅ Stay Logged In
-                    </button>
-                    <button onClick={onLogout}
-                        className="w-full py-3 rounded-xl text-red-500 font-bold text-sm border border-red-200 hover:bg-red-50 transition-all">
-                        Logout Now
-                    </button>
-                </div>
-                <div className="px-6 pb-4 text-center">
-                    <p className="text-[10px] text-gray-300">Auto-logout protects your POS data from unauthorized access</p>
-                </div>
-            </div>
-        </div>
-    );
-}
 
 
 const menuGroups = [
@@ -422,11 +360,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const [lockoutChecked, setLockoutChecked]       = useState(false);
     const [isSuperAdminUser, setIsSuperAdminUser]   = useState(false);
     const [superAdminBypass, setSuperAdminBypass]   = useState(false);
-    // Session timeout state
-    const [showTimeoutModal, setShowTimeoutModal] = useState(false);
-    const [countdown, setCountdown]               = useState(WARNING_SECONDS);
-    const idleTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const warnTimer   = useRef<ReturnType<typeof setInterval> | null>(null);
     const prevPath = useRef(pathname);
 
 
@@ -478,58 +411,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         return () => clearInterval(interval);
     }, []);
 
-    // ── Session timeout logic ─────────────────────────────────────────
-    const forceLogout = useCallback(async (reason = 'Session timeout') => {
-        if (idleTimer.current)  clearTimeout(idleTimer.current);
-        if (warnTimer.current)  clearInterval(warnTimer.current);
-        const stored = localStorage.getItem('user');
-        const u = stored ? JSON.parse(stored) : null;
-        await logActivity('Auto Logout', `${u?.name || 'User'} auto-logged out: ${reason}`);
-        localStorage.removeItem('user');
-        router.push('/?timeout=1');
-    }, [router]);
-
-    const resetIdleTimer = useCallback(() => {
-        if (showTimeoutModal) return; // Don't reset while warning is shown
-        if (idleTimer.current) clearTimeout(idleTimer.current);
-        idleTimer.current = setTimeout(() => {
-            // Show warning modal + start countdown
-            setShowTimeoutModal(true);
-            setCountdown(WARNING_SECONDS);
-            let secs = WARNING_SECONDS;
-            warnTimer.current = setInterval(() => {
-                secs--;
-                setCountdown(secs);
-                if (secs <= 0) {
-                    if (warnTimer.current) clearInterval(warnTimer.current);
-                    forceLogout('Idle for 30 minutes');
-                }
-            }, 1000);
-        }, IDLE_TIMEOUT_MS);
-    }, [showTimeoutModal, forceLogout]);
-
-    const handleStayLoggedIn = useCallback(() => {
-        if (warnTimer.current) clearInterval(warnTimer.current);
-        setShowTimeoutModal(false);
-        setCountdown(WARNING_SECONDS);
-        resetIdleTimer();
-    }, [resetIdleTimer]);
-
-    // Attach activity listeners
-    useEffect(() => {
-        const events = ['mousemove','mousedown','keydown','touchstart','scroll','click','wheel'];
-        const handler = () => resetIdleTimer();
-        events.forEach(e => window.addEventListener(e, handler, { passive: true }));
-        resetIdleTimer(); // Start timer on mount
-        return () => {
-            events.forEach(e => window.removeEventListener(e, handler));
-            if (idleTimer.current)  clearTimeout(idleTimer.current);
-            if (warnTimer.current)  clearInterval(warnTimer.current);
-        };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-
     useEffect(() => {
         const ns: Record<string, boolean> = { ...expanded };
         let changed = false;
@@ -557,8 +438,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const isActive = (href: string) => href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href);
 
     const handleLogout = async () => {
-        if (idleTimer.current) clearTimeout(idleTimer.current);
-        if (warnTimer.current) clearInterval(warnTimer.current);
         await logActivity('Logout', `${user?.name || 'Unknown'} logged out`);
         localStorage.removeItem('user');
         router.push('/');
@@ -756,14 +635,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <OutletProvider>
                 <FeatureProvider>
                 <div className="min-h-screen bg-[#f4f6f9] flex font-sans">
-                    {/* Session timeout modal */}
-                    {showTimeoutModal && (
-                        <SessionTimeoutModal
-                            secondsLeft={countdown}
-                            onStay={handleStayLoggedIn}
-                            onLogout={() => forceLogout('User chose to logout')}
-                        />
-                    )}
 
                     {/* Top loading bar */}
                     {loading && (
