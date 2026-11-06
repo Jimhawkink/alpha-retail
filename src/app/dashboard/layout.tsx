@@ -187,7 +187,7 @@ function PledgeNotificationBell() {
                 onClick={() => setOpen(o => !o)}
                 className="relative p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors"
             >
-                <FiBell size={17} className={count > 0 ? 'text-red-500' : ''} />
+                <Bell size={17} className={count > 0 ? 'text-red-500' : ''} />
                 {count > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center border border-white animate-pulse">
                         {count > 9 ? '9+' : count}
@@ -201,14 +201,14 @@ function PledgeNotificationBell() {
                     {/* Header */}
                     <div className="px-4 py-3 flex items-center justify-between border-b border-red-100" style={{ background: 'linear-gradient(135deg,#FEE2E2,#FEF2F2)' }}>
                         <div className="flex items-center gap-2">
-                            <FiBell size={14} className="text-red-500" />
+                            <Bell size={14} className="text-red-500" />
                             <span className="text-sm font-black text-red-700">Payment Pledges</span>
                             {count > 0 && (
                                 <span className="px-1.5 py-0.5 bg-red-500 text-white text-[9px] font-black rounded-full">{count} overdue</span>
                             )}
                         </div>
                         <button onClick={() => setOpen(false)} className="text-red-300 hover:text-red-600 transition-colors">
-                            <FiX size={14} />
+                            <X size={14} />
                         </button>
                     </div>
 
@@ -262,7 +262,7 @@ function PledgeNotificationBell() {
                     {/* Footer */}
                     <div className="px-4 py-2.5 border-t border-red-100 flex items-center justify-between">
                         <button onClick={loadPledges} className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors">
-                            <FiRefreshCw size={10} /> Refresh
+                            <RefreshCw size={10} /> Refresh
                         </button>
                         <a href="/dashboard/reports/customer-at-glance" className="text-xs text-indigo-500 hover:text-indigo-700 font-semibold transition-colors">
                             View all →
