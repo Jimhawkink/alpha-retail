@@ -5,13 +5,13 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
-    FiHome, FiShoppingCart, FiPackage, FiTag, FiFileText, FiRefreshCw,
-    FiTruck, FiUsers, FiBox, FiActivity, FiRepeat, FiAlertCircle,
-    FiDollarSign, FiClock, FiTrendingDown, FiCreditCard, FiSmartphone,
-    FiTrendingUp, FiBarChart2, FiPieChart, FiSettings, FiMapPin, FiShield,
-    FiZap, FiBriefcase, FiChevronDown, FiChevronLeft, FiChevronRight,
-    FiLogOut, FiSearch, FiBell, FiMenu, FiX, FiDatabase, FiSliders, FiDownload, FiLock
-} from 'react-icons/fi';
+    Home, ShoppingCart, Package, Tag, FileText, RefreshCw,
+    Truck, Users, Box, Activity, Repeat, AlertCircle,
+    DollarSign, Clock, TrendingDown, CreditCard, Smartphone,
+    TrendingUp, BarChart2, PieChart, Settings, MapPin, Shield,
+    Zap, Briefcase, ChevronDown, ChevronLeft, ChevronRight,
+    LogOut, Search, Bell, Menu, X, Database, Sliders, Download, Lock
+} from 'lucide-react';
 import { SettingsProvider, useCompanyName } from '@/context/SettingsContext';
 import { OutletProvider, useOutlet } from '@/context/OutletContext';
 import { FeatureProvider } from '@/context/FeatureContext';
@@ -22,100 +22,100 @@ import { logActivity, supabase } from '@/lib/supabase';
 
 const menuGroups = [
     { label: '', collapsible: false, name: 'main', items: [
-        { href: '/dashboard',     label: 'Dashboard',  icon: FiHome,         roles: 'all' },
-        { href: '/dashboard/pos', label: 'Retail POS', icon: FiShoppingCart, roles: 'all', badge: 'LIVE' },
+        { href: '/dashboard',     label: 'Dashboard',  icon: Home,         roles: 'all' },
+        { href: '/dashboard/pos', label: 'Retail POS', icon: ShoppingCart, roles: 'all', badge: 'LIVE' },
     ]},
-    { label: 'Sales & Products', icon: FiShoppingCart, name: 'sales', collapsible: true, items: [
-        { href: '/dashboard/products',     label: 'Products',       icon: FiPackage,  roles: 'all' },
-        { href: '/dashboard/categories',   label: 'Categories',     icon: FiTag,      roles: 'all' },
-        { href: '/dashboard/sales',        label: 'Sales Records',  icon: FiFileText, roles: 'all' },
-        { href: '/dashboard/sales-return', label: 'Sales Return',   icon: FiRefreshCw,roles: 'all' },
+    { label: 'Sales & Products', icon: ShoppingCart, name: 'sales', collapsible: true, items: [
+        { href: '/dashboard/products',     label: 'Products',       icon: Package,    roles: 'all' },
+        { href: '/dashboard/categories',   label: 'Categories',     icon: Tag,        roles: 'all' },
+        { href: '/dashboard/sales',        label: 'Sales Records',  icon: FileText,   roles: 'all' },
+        { href: '/dashboard/sales-return', label: 'Sales Return',   icon: RefreshCw,  roles: 'all' },
     ]},
-    { label: 'Purchases', icon: FiTruck, name: 'purchases', collapsible: true, items: [
-        { href: '/dashboard/suppliers',       label: 'Suppliers',        icon: FiUsers,    roles: 'all' },
-        { href: '/dashboard/purchase',        label: 'Purchase Entry',   icon: FiDownload, roles: 'all' },
-        { href: '/dashboard/purchases',       label: 'Purchase Records', icon: FiFileText, roles: 'all' },
-        { href: '/dashboard/purchase-return', label: 'Purchase Return',  icon: FiRefreshCw,roles: 'all' },
+    { label: 'Purchases', icon: Truck, name: 'purchases', collapsible: true, items: [
+        { href: '/dashboard/suppliers',       label: 'Suppliers',        icon: Users,      roles: 'all' },
+        { href: '/dashboard/purchase',        label: 'Purchase Entry',   icon: Download,   roles: 'all' },
+        { href: '/dashboard/purchases',       label: 'Purchase Records', icon: FileText,   roles: 'all' },
+        { href: '/dashboard/purchase-return', label: 'Purchase Return',  icon: RefreshCw,  roles: 'all' },
     ]},
-    { label: 'Inventory', icon: FiBox, name: 'inventory', collapsible: true, items: [
-        { href: '/dashboard/stock-movement',  label: 'Stock Movement',  icon: FiActivity,    roles: 'all' },
-        { href: '/dashboard/stock-transfer',  label: 'Stock Transfer',  icon: FiRepeat,      roles: 'all' },
-        { href: '/dashboard/low-stock',       label: 'Low Stock',       icon: FiAlertCircle, roles: 'all' },
-        { href: '/dashboard/expiry-register', label: 'Expiry Register', icon: FiClock,       roles: 'all' },
+    { label: 'Inventory', icon: Box, name: 'inventory', collapsible: true, items: [
+        { href: '/dashboard/stock-movement',  label: 'Stock Movement',  icon: Activity,    roles: 'all' },
+        { href: '/dashboard/stock-transfer',  label: 'Stock Transfer',  icon: Repeat,      roles: 'all' },
+        { href: '/dashboard/low-stock',       label: 'Low Stock',       icon: AlertCircle, roles: 'all' },
+        { href: '/dashboard/expiry-register', label: 'Expiry Register', icon: Clock,       roles: 'all' },
     ]},
-    { label: 'Finance', icon: FiDollarSign, name: 'finance', collapsible: true, items: [
-        { href: '/dashboard/expenses',          label: 'Expenses',           icon: FiTrendingDown, roles: 'all' },
-        { href: '/dashboard/credit-customers',  label: 'Credit Customers',   icon: FiUsers,        roles: 'all' },
-        { href: '/dashboard/credit-payments',   label: 'Credit Payments',    icon: FiCreditCard,   roles: 'all' },
-        { href: '/dashboard/credit-statements', label: 'Credit Statements',  icon: FiFileText,     roles: 'all', badge: 'NEW' },
-        { href: '/dashboard/mpesa',             label: 'M-Pesa',             icon: FiSmartphone,   roles: 'all' },
+    { label: 'Finance', icon: DollarSign, name: 'finance', collapsible: true, items: [
+        { href: '/dashboard/expenses',          label: 'Expenses',           icon: TrendingDown, roles: 'all' },
+        { href: '/dashboard/credit-customers',  label: 'Credit Customers',   icon: Users,        roles: 'all' },
+        { href: '/dashboard/credit-payments',   label: 'Credit Payments',    icon: CreditCard,   roles: 'all' },
+        { href: '/dashboard/credit-statements', label: 'Credit Statements',  icon: FileText,     roles: 'all', badge: 'NEW' },
+        { href: '/dashboard/mpesa',             label: 'M-Pesa',             icon: Smartphone,   roles: 'all' },
     ]},
-    { label: 'HR & Payroll', icon: FiUsers, name: 'hr', collapsible: true, items: [
-        { href: '/dashboard/payroll',       label: 'Payroll',       icon: FiDollarSign, roles: 'all' },
-        { href: '/dashboard/advances',      label: 'Advances',      icon: FiTrendingUp, roles: 'all' },
-        { href: '/dashboard/shifts',        label: 'Shifts',        icon: FiClock,      roles: 'all' },
-        { href: '/dashboard/shift-reports', label: 'Shift Reports', icon: FiFileText,   roles: 'all' },
+    { label: 'HR & Payroll', icon: Users, name: 'hr', collapsible: true, items: [
+        { href: '/dashboard/payroll',       label: 'Payroll',       icon: DollarSign, roles: 'all' },
+        { href: '/dashboard/advances',      label: 'Advances',      icon: TrendingUp, roles: 'all' },
+        { href: '/dashboard/shifts',        label: 'Shifts',        icon: Clock,      roles: 'all' },
+        { href: '/dashboard/shift-reports', label: 'Shift Reports', icon: FileText,   roles: 'all' },
     ]},
     { label: '', icon: undefined, name: 'fullsalesreport', collapsible: false, items: [
-        { href: '/dashboard/reports/full-sales-report', label: 'Full Sales Report', icon: FiBarChart2, roles: 'all', badge: 'NEW' },
+        { href: '/dashboard/reports/full-sales-report', label: 'Full Sales Report', icon: BarChart2, roles: 'all', badge: 'NEW' },
     ]},
-    { label: 'Reports', icon: FiBarChart2, name: 'reports', collapsible: true, items: [
-        { href: '/dashboard/reports/full-sales-report',              label: 'Full Sales Report',        icon: FiBarChart2,   roles: 'all', badge: 'NEW' },
-        { href: '/dashboard/sales-summary',                      label: 'Sales Summary',           icon: FiTrendingUp,  roles: 'all' },
-        { href: '/dashboard/reports/sales',                      label: 'Sales Report',            icon: FiFileText,    roles: 'all' },
-        { href: '/dashboard/reports/profit',                     label: 'Profit Report',           icon: FiPieChart,    roles: 'all' },
-        { href: '/dashboard/reports/stock',                      label: 'Stock Report',            icon: FiBox,         roles: 'all' },
-        { href: '/dashboard/reports/profit-loss',                label: 'P&L Report',              icon: FiTrendingDown,roles: 'all' },
-        { href: '/dashboard/reports/trial-balance',              label: 'Trial Balance',           icon: FiDatabase,    roles: 'all' },
-        { href: '/dashboard/reports/balance-sheet',              label: 'Balance Sheet',           icon: FiFileText,    roles: 'all' },
-        { href: '/dashboard/reports/cash-book',                  label: 'Cash Book',               icon: FiDollarSign,  roles: 'all' },
-        { href: '/dashboard/reports/mpesa',                      label: 'M-Pesa Report',           icon: FiSmartphone,  roles: 'all' },
-        { href: '/dashboard/reports/fast-slow-moving',           label: 'Fast/Slow Moving',        icon: FiActivity,    roles: 'all' },
-        { href: '/dashboard/reports/ultra-analysis',             label: 'Ultra Analysis',          icon: FiTrendingUp,  roles: 'all', badge: 'NEW' },
-        { href: '/dashboard/reports/dead-stock',                 label: 'Dead Stock',              icon: FiAlertCircle, roles: 'all' },
-        { href: '/dashboard/reports/gross-margin',               label: 'Gross Margin',            icon: FiPieChart,    roles: 'all' },
-        { href: '/dashboard/reports/price-history',              label: 'Price History',           icon: FiTrendingUp,  roles: 'all' },
-        { href: '/dashboard/reports/outlet-comparison',          label: 'Outlet Comparison',       icon: FiMapPin,      roles: 'all' },
-        { href: '/dashboard/reports/reorder-suggestion',         label: 'Reorder Suggestions',     icon: FiAlertCircle, roles: 'all' },
-        { href: '/dashboard/reports/cashier-performance',        label: 'Cashier Performance',     icon: FiUsers,       roles: 'all' },
-        { href: '/dashboard/reports/stock-variance',             label: 'Stock Variance',          icon: FiActivity,    roles: 'all' },
-        { href: '/dashboard/reports/vat-report',                 label: 'VAT Report',              icon: FiFileText,    roles: 'all' },
-        { href: '/dashboard/reports/supplier-performance',       label: 'Supplier Performance',    icon: FiTruck,       roles: 'all' },
-        { href: '/dashboard/reports/discount-report',            label: 'Discount Report',         icon: FiTag,         roles: 'all' },
-        { href: '/dashboard/reports/customer-statement',         label: 'Customer Statement',      icon: FiCreditCard,  roles: 'all' },
-        { href: '/dashboard/reports/purchase-price-variance',    label: 'Purchase Price Variance', icon: FiTrendingDown,roles: 'all' },
-        { href: '/dashboard/reports/stock-aging',                label: 'Stock Aging',             icon: FiClock,       roles: 'all' },
-        { href: '/dashboard/reports/expense-trend',              label: 'Revenue vs Expenses',     icon: FiBarChart2,   roles: 'all' },
-        { href: '/dashboard/reports/customer-at-glance',         label: 'Customer at Glance',      icon: FiUsers,       roles: 'all', badge: 'NEW' },
+    { label: 'Reports', icon: BarChart2, name: 'reports', collapsible: true, items: [
+        { href: '/dashboard/reports/full-sales-report',              label: 'Full Sales Report',        icon: BarChart2,    roles: 'all', badge: 'NEW' },
+        { href: '/dashboard/sales-summary',                      label: 'Sales Summary',           icon: TrendingUp,   roles: 'all' },
+        { href: '/dashboard/reports/sales',                      label: 'Sales Report',            icon: FileText,     roles: 'all' },
+        { href: '/dashboard/reports/profit',                     label: 'Profit Report',           icon: PieChart,     roles: 'all' },
+        { href: '/dashboard/reports/stock',                      label: 'Stock Report',            icon: Box,          roles: 'all' },
+        { href: '/dashboard/reports/profit-loss',                label: 'P&L Report',              icon: TrendingDown, roles: 'all' },
+        { href: '/dashboard/reports/trial-balance',              label: 'Trial Balance',           icon: Database,     roles: 'all' },
+        { href: '/dashboard/reports/balance-sheet',              label: 'Balance Sheet',           icon: FileText,     roles: 'all' },
+        { href: '/dashboard/reports/cash-book',                  label: 'Cash Book',               icon: DollarSign,   roles: 'all' },
+        { href: '/dashboard/reports/mpesa',                      label: 'M-Pesa Report',           icon: Smartphone,   roles: 'all' },
+        { href: '/dashboard/reports/fast-slow-moving',           label: 'Fast/Slow Moving',        icon: Activity,     roles: 'all' },
+        { href: '/dashboard/reports/ultra-analysis',             label: 'Ultra Analysis',          icon: TrendingUp,   roles: 'all', badge: 'NEW' },
+        { href: '/dashboard/reports/dead-stock',                 label: 'Dead Stock',              icon: AlertCircle,  roles: 'all' },
+        { href: '/dashboard/reports/gross-margin',               label: 'Gross Margin',            icon: PieChart,     roles: 'all' },
+        { href: '/dashboard/reports/price-history',              label: 'Price History',           icon: TrendingUp,   roles: 'all' },
+        { href: '/dashboard/reports/outlet-comparison',          label: 'Outlet Comparison',       icon: MapPin,       roles: 'all' },
+        { href: '/dashboard/reports/reorder-suggestion',         label: 'Reorder Suggestions',     icon: AlertCircle,  roles: 'all' },
+        { href: '/dashboard/reports/cashier-performance',        label: 'Cashier Performance',     icon: Users,        roles: 'all' },
+        { href: '/dashboard/reports/stock-variance',             label: 'Stock Variance',          icon: Activity,     roles: 'all' },
+        { href: '/dashboard/reports/vat-report',                 label: 'VAT Report',              icon: FileText,     roles: 'all' },
+        { href: '/dashboard/reports/supplier-performance',       label: 'Supplier Performance',    icon: Truck,        roles: 'all' },
+        { href: '/dashboard/reports/discount-report',            label: 'Discount Report',         icon: Tag,          roles: 'all' },
+        { href: '/dashboard/reports/customer-statement',         label: 'Customer Statement',      icon: CreditCard,   roles: 'all' },
+        { href: '/dashboard/reports/purchase-price-variance',    label: 'Purchase Price Variance', icon: TrendingDown, roles: 'all' },
+        { href: '/dashboard/reports/stock-aging',                label: 'Stock Aging',             icon: Clock,        roles: 'all' },
+        { href: '/dashboard/reports/expense-trend',              label: 'Revenue vs Expenses',     icon: BarChart2,    roles: 'all' },
+        { href: '/dashboard/reports/customer-at-glance',         label: 'Customer at Glance',      icon: Users,        roles: 'all', badge: 'NEW' },
     ]},
-    { label: 'Operations', icon: FiZap, name: 'operations', collapsible: true, items: [
-        { href: '/dashboard/promotions',      label: 'Promotions',       icon: FiTag,         roles: 'all', badge: 'NEW' },
-        { href: '/dashboard/loyalty',         label: 'Loyalty Program',  icon: FiActivity,    roles: 'all', badge: 'NEW' },
-        { href: '/dashboard/purchase-orders', label: 'Purchase Orders',  icon: FiFileText,    roles: 'all', badge: 'NEW' },
-        { href: '/dashboard/barcode-labels',  label: 'Barcode Labels',   icon: FiBarChart2,   roles: 'all', badge: 'NEW' },
-        { href: '/dashboard/quotations',      label: 'Quotations',       icon: FiFileText,    roles: 'all', badge: 'NEW' },
-        { href: '/dashboard/price-list',      label: 'Price List',       icon: FiDollarSign,  roles: 'all', badge: 'NEW' },
+    { label: 'Operations', icon: Zap, name: 'operations', collapsible: true, items: [
+        { href: '/dashboard/promotions',      label: 'Promotions',       icon: Tag,         roles: 'all', badge: 'NEW' },
+        { href: '/dashboard/loyalty',         label: 'Loyalty Program',  icon: Activity,    roles: 'all', badge: 'NEW' },
+        { href: '/dashboard/purchase-orders', label: 'Purchase Orders',  icon: FileText,    roles: 'all', badge: 'NEW' },
+        { href: '/dashboard/barcode-labels',  label: 'Barcode Labels',   icon: BarChart2,   roles: 'all', badge: 'NEW' },
+        { href: '/dashboard/quotations',      label: 'Quotations',       icon: FileText,    roles: 'all', badge: 'NEW' },
+        { href: '/dashboard/price-list',      label: 'Price List',       icon: DollarSign,  roles: 'all', badge: 'NEW' },
     ]},
-    { label: 'Management', icon: FiBriefcase, name: 'management', collapsible: true, items: [
-        { href: '/dashboard/petty-cash',      label: 'Petty Cash',       icon: FiDollarSign,  roles: 'all', badge: 'NEW' },
-        { href: '/dashboard/damage-wastage',  label: 'Damage & Wastage', icon: FiAlertCircle, roles: 'all', badge: 'NEW' },
-        { href: '/dashboard/budget',          label: 'Budget vs Actual', icon: FiPieChart,    roles: 'all', badge: 'NEW' },
-        { href: '/dashboard/smart-insights',  label: 'Smart Insights 🧠',icon: FiZap,         roles: 'all', badge: 'AI' },
+    { label: 'Management', icon: Briefcase, name: 'management', collapsible: true, items: [
+        { href: '/dashboard/petty-cash',      label: 'Petty Cash',       icon: DollarSign,  roles: 'all', badge: 'NEW' },
+        { href: '/dashboard/damage-wastage',  label: 'Damage & Wastage', icon: AlertCircle, roles: 'all', badge: 'NEW' },
+        { href: '/dashboard/budget',          label: 'Budget vs Actual', icon: PieChart,    roles: 'all', badge: 'NEW' },
+        { href: '/dashboard/smart-insights',  label: 'Smart Insights 🧠',icon: Zap,         roles: 'all', badge: 'AI' },
     ]},
-    { label: 'Administration', icon: FiSettings, name: 'admin', collapsible: true, items: [
-        { href: '/dashboard/outlets',           label: 'Outlets',           icon: FiMapPin,    roles: 'superadmin' },
-        { href: '/dashboard/users',             label: 'Users',             icon: FiUsers,     roles: 'all' },
-        { href: '/dashboard/user-roles',        label: 'User Roles',        icon: FiShield,    roles: 'all' },
-        { href: '/dashboard/activity-log',      label: 'Activity Log',      icon: FiActivity,  roles: 'admin' },
-        { href: '/dashboard/company',           label: 'Company',           icon: FiHome,      roles: 'all' },
-        { href: '/dashboard/tax-settings',      label: 'Tax Settings',      icon: FiFileText,  roles: 'all' },
-        { href: '/dashboard/units',             label: 'Units',             icon: FiSliders,   roles: 'all' },
-        { href: '/dashboard/mpesa-settings',    label: 'M-Pesa Config',     icon: FiZap,       roles: 'superadmin', badge: 'SA' },
-        { href: '/dashboard/kcb-settings',      label: 'KCB Buni Config',   icon: FiZap,       roles: 'superadmin', badge: 'SA' },
-        { href: '/dashboard/businesses',        label: 'Businesses',        icon: FiBriefcase, roles: 'superadmin', badge: 'SA' },
-        { href: '/dashboard/license',                   label: '🔐 License Mgmt',     icon: FiShield,    roles: 'superadmin', badge: 'SA' },
-        { href: '/dashboard/admin/features',            label: '🚀 Feature Manager',   icon: FiSliders,   roles: 'superadmin', badge: 'SA' },
-        { href: '/dashboard/admin/system-lockout',      label: '🔴 System Lockout',    icon: FiLock,      roles: 'superadmin', badge: 'SA' },
+    { label: 'Administration', icon: Settings, name: 'admin', collapsible: true, items: [
+        { href: '/dashboard/outlets',           label: 'Outlets',           icon: MapPin,      roles: 'superadmin' },
+        { href: '/dashboard/users',             label: 'Users',             icon: Users,       roles: 'all' },
+        { href: '/dashboard/user-roles',        label: 'User Roles',        icon: Shield,      roles: 'all' },
+        { href: '/dashboard/activity-log',      label: 'Activity Log',      icon: Activity,    roles: 'admin' },
+        { href: '/dashboard/company',           label: 'Company',           icon: Home,        roles: 'all' },
+        { href: '/dashboard/tax-settings',      label: 'Tax Settings',      icon: FileText,    roles: 'all' },
+        { href: '/dashboard/units',             label: 'Units',             icon: Sliders,     roles: 'all' },
+        { href: '/dashboard/mpesa-settings',    label: 'M-Pesa Config',     icon: Zap,         roles: 'superadmin', badge: 'SA' },
+        { href: '/dashboard/kcb-settings',      label: 'KCB Buni Config',   icon: Zap,         roles: 'superadmin', badge: 'SA' },
+        { href: '/dashboard/businesses',        label: 'Businesses',        icon: Briefcase,   roles: 'superadmin', badge: 'SA' },
+        { href: '/dashboard/license',                   label: '🔐 License Mgmt',     icon: Shield,      roles: 'superadmin', badge: 'SA' },
+        { href: '/dashboard/admin/features',            label: '🚀 Feature Manager',   icon: Sliders,     roles: 'superadmin', badge: 'SA' },
+        { href: '/dashboard/admin/system-lockout',      label: '🔴 System Lockout',    icon: Lock,        roles: 'superadmin', badge: 'SA' },
     ]},
 ];
 
@@ -338,10 +338,10 @@ function CompanyBrand() {
         : (name || 'Alpha Retail');
     return (
         <div className="min-w-0">
-            <p className="text-sm font-black text-gray-800 truncate leading-tight">{displayName}</p>
-            {activeOutlet && !isMain && (
-                <p className="text-[10px] text-indigo-500 font-semibold truncate">📍 {activeOutlet.outlet_code}</p>
-            )}
+            <p className="text-[13.5px] font-black text-white truncate leading-tight tracking-wide">{displayName}</p>
+            <p className="text-[10px] text-amber-300 font-bold truncate flex items-center gap-1">
+                <span>⚡</span> {activeOutlet && !isMain ? activeOutlet.outlet_code : 'HARDWARE & RETAIL'}
+            </p>
         </div>
     );
 }
@@ -722,38 +722,44 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             onClick={() => setMobileOpen(false)} />
                     )}
 
-                    {/* ═══════════ SIDEBAR (bright white) ═══════════ */}
+                    {/* ═══════════ SIDEBAR (Royal Blue & Gold Hardware Theme) ═══════════ */}
                     {!isCashier && (
-                        <aside className={`fixed top-0 left-0 h-full z-50 bg-white border-r border-gray-200 shadow-sm flex flex-col transition-all duration-300 ease-in-out
-                            ${collapsed ? 'w-[70px]' : 'w-[260px]'}
-                            ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+                        <aside className={`fixed top-0 left-0 h-full z-50 shadow-2xl flex flex-col transition-all duration-300 ease-in-out border-r border-blue-900/60 text-white
+                            ${collapsed ? 'w-[72px]' : 'w-[265px]'}
+                            ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+                            style={{
+                                backgroundImage: `linear-gradient(180deg, rgba(2, 26, 77, 0.94) 0%, rgba(1, 20, 62, 0.90) 45%, rgba(0, 14, 44, 0.97) 100%), url('/sidebar-theme.jpg')`,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'top center',
+                            }}>
 
                             {/* Logo */}
-                            <div className={`flex items-center h-[60px] border-b border-gray-100 shrink-0 ${collapsed ? 'px-2 justify-center' : 'px-4 gap-2.5'}`}>
-                                <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white shadow shrink-0"
-                                    style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)' }}>
-                                    <FiShoppingCart size={16} />
+                            <div className={`flex items-center h-[65px] border-b border-blue-400/20 px-3.5 gap-2.5 shrink-0 ${collapsed ? 'justify-center !px-2' : ''}`}>
+                                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-950 font-black shadow-lg shadow-amber-500/30 shrink-0 bg-gradient-to-br from-amber-400 via-yellow-400 to-amber-500 ring-2 ring-amber-300/40">
+                                    <svg className="w-5 h-5 text-slate-950" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 3L2 12h3v8h14v-8h3L12 3zm0 3.5l5 4.5v6H7v-6l5-4.5z"/>
+                                    </svg>
                                 </div>
                                 {!collapsed && <CompanyBrand />}
                                 {!collapsed && (
                                     <button onClick={() => setCollapsed(true)}
-                                        className="hidden lg:flex w-6 h-6 items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:text-indigo-600 hover:border-indigo-300 transition-colors ml-auto shrink-0">
-                                        <FiChevronLeft size={12} />
+                                        className="hidden lg:flex w-6 h-6 items-center justify-center rounded-lg border border-blue-400/20 text-blue-200 hover:text-amber-300 hover:border-amber-400/40 transition-colors ml-auto shrink-0 bg-white/5">
+                                        <ChevronLeft size={12} />
                                     </button>
                                 )}
                                 {collapsed && (
                                     <button onClick={() => setCollapsed(false)}
-                                        className="hidden lg:flex w-6 h-6 items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:text-indigo-600 hover:border-indigo-300 transition-colors">
-                                        <FiChevronRight size={12} />
+                                        className="hidden lg:flex w-6 h-6 items-center justify-center rounded-lg border border-blue-400/20 text-blue-200 hover:text-amber-300 hover:border-amber-400/40 transition-colors bg-white/5">
+                                        <ChevronRight size={12} />
                                     </button>
                                 )}
-                                <button onClick={() => setMobileOpen(false)} className="lg:hidden ml-auto text-gray-400 hover:text-gray-600">
-                                    <FiX size={18} />
+                                <button onClick={() => setMobileOpen(false)} className="lg:hidden ml-auto text-blue-200 hover:text-white">
+                                    <X size={18} />
                                 </button>
                             </div>
 
                             {/* Nav */}
-                            <nav className="flex-1 overflow-y-auto sb-scroll py-3 px-2.5 space-y-0.5">
+                            <nav className="flex-1 overflow-y-auto sb-scroll py-3 px-2.5 space-y-1">
                                 {filtered.map(group => {
                                     const isExp   = expanded[group.name];
                                     const GIcon   = group.icon as React.ElementType | undefined;
@@ -766,13 +772,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                             return (
                                                 <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)}
                                                     title={collapsed ? item.label : undefined}
-                                                    className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-all mb-1
-                                                        ${active ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}
-                                                        ${collapsed ? 'justify-center' : ''}`}>
-                                                    <IIcon size={17} className={active ? 'text-indigo-600' : 'text-gray-400'} />
-                                                    {!collapsed && <span className="flex-1">{item.label}</span>}
-                                                    {!collapsed && item.badge && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-600">{item.badge}</span>}
-                                                    {active && !collapsed && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />}
+                                                    className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-full text-[13px] font-bold transition-all mb-1.5
+                                                        ${active
+                                                            ? 'bg-gradient-to-r from-amber-400 via-amber-400 to-yellow-400 text-slate-950 shadow-lg shadow-amber-500/30 ring-2 ring-amber-300/50'
+                                                            : 'text-blue-100/90 hover:text-white hover:bg-white/10'}
+                                                        ${collapsed ? 'justify-center !px-2.5' : ''}`}>
+                                                    <IIcon size={17} className={active ? 'text-slate-950' : 'text-amber-300'} />
+                                                    {!collapsed && <span className="flex-1 tracking-tight">{item.label}</span>}
+                                                    {!collapsed && item.badge && (
+                                                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${active ? 'bg-slate-950 text-amber-300' : 'bg-amber-400 text-slate-950 shadow-sm'}`}>
+                                                            {item.badge}
+                                                        </span>
+                                                    )}
+                                                    {active && !collapsed && <div className="w-2 h-2 rounded-full bg-slate-950 shrink-0" />}
                                                 </Link>
                                             );
                                         });
@@ -782,31 +794,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                         <div key={group.name} className="mb-0.5">
                                             <button onClick={() => toggle(group.name)}
                                                 title={collapsed ? group.label : undefined}
-                                                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[12.5px] font-semibold transition-all
-                                                    ${gActive ? 'text-indigo-700 bg-indigo-50/70' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'}
+                                                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[12.5px] font-bold transition-all
+                                                    ${gActive ? 'text-amber-300 bg-white/10 shadow-sm' : 'text-blue-100/80 hover:bg-white/10 hover:text-white'}
                                                     ${collapsed ? 'justify-center' : ''}`}>
-                                                {GIcon && <GIcon size={16} className={gActive ? 'text-indigo-600' : 'text-gray-400'} />}
+                                                {GIcon && <GIcon size={16} className={gActive ? 'text-amber-400' : 'text-blue-300'} />}
                                                 {!collapsed && (
                                                     <>
                                                         <span className="flex-1 text-left">{group.label}</span>
-                                                        <FiChevronDown size={13} className={`text-gray-400 transition-transform duration-200 ${isExp ? 'rotate-180' : ''}`} />
+                                                        <ChevronDown size={13} className={`text-blue-300 transition-transform duration-200 ${isExp ? 'rotate-180 text-amber-400' : ''}`} />
                                                     </>
                                                 )}
                                             </button>
 
                                             <div className={`overflow-hidden transition-all duration-200 ease-in-out ${isExp && !collapsed ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                                                <div className="ml-[18px] pl-3 mt-0.5 pb-1 space-y-0.5 border-l-2 border-gray-100">
+                                                <div className="ml-[18px] pl-3 mt-1 pb-1 space-y-1 border-l-2 border-amber-400/40">
                                                     {group.items.map(item => {
                                                         const IIcon  = item.icon as React.ElementType;
                                                         const active = isActive(item.href);
                                                         return (
                                                             <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)}
                                                                 className={`flex items-center gap-2 px-2.5 py-[7px] rounded-lg text-[12px] transition-all
-                                                                    ${active ? 'text-indigo-700 bg-indigo-50 font-semibold' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'}`}>
-                                                                <IIcon size={13} className={active ? 'text-indigo-600' : 'text-gray-400'} />
+                                                                    ${active ? 'text-slate-950 bg-gradient-to-r from-amber-400 to-yellow-400 font-extrabold shadow-sm' : 'text-blue-100/80 hover:text-white hover:bg-white/10'}`}>
+                                                                <IIcon size={13} className={active ? 'text-slate-950' : 'text-amber-300/80'} />
                                                                 <span className="flex-1">{item.label}</span>
-                                                                {item.badge && <span className="text-[8px] font-black px-1 py-0.5 rounded-full bg-violet-100 text-violet-600">{item.badge}</span>}
-                                                                {active && <div className="w-1 h-1 rounded-full bg-indigo-500 shrink-0" />}
+                                                                {item.badge && <span className="text-[8px] font-black px-1 py-0.5 rounded-full bg-amber-400 text-slate-950">{item.badge}</span>}
+                                                                {active && <div className="w-1.5 h-1.5 rounded-full bg-slate-950 shrink-0" />}
                                                             </Link>
                                                         );
                                                     })}
@@ -817,32 +829,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 })}
                             </nav>
 
-                            {/* User footer */}
-                            <div className={`border-t border-gray-100 shrink-0 ${collapsed ? 'p-2' : 'p-3'}`}>
+                            {/* User footer matching bottom of theme image */}
+                            <div className={`border-t border-blue-400/20 shrink-0 ${collapsed ? 'p-2' : 'p-2.5'}`}>
                                 {!collapsed ? (
-                                    <div className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-gray-50 transition-colors">
-                                        <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-black shrink-0"
-                                            style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)' }}>
-                                            {user.name?.charAt(0)?.toUpperCase() || '?'}
+                                    <div className="flex items-center gap-2 p-2 rounded-2xl bg-[#03153b]/85 border border-blue-400/25 backdrop-blur-md shadow-xl">
+                                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-slate-950 text-xs font-black shrink-0 bg-gradient-to-tr from-amber-400 to-yellow-300 ring-2 ring-amber-300/60 shadow">
+                                            {user.name?.charAt(0)?.toUpperCase() || 'U'}
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-[12.5px] font-bold text-gray-800 truncate">{user.name}</p>
-                                            <p className="text-[10.5px] text-indigo-600 font-semibold capitalize">{user.userType}</p>
+                                            <p className="text-[12px] font-black text-white truncate leading-tight">{user.name}</p>
+                                            <p className="text-[10px] text-amber-300 font-bold capitalize truncate">{user.userType || 'Administrator'}</p>
                                         </div>
+                                        <div className="h-4 w-px bg-blue-400/20 mx-0.5" />
+                                        <button onClick={() => router.push('/dashboard/company')} title="Settings"
+                                            className="p-1.5 text-blue-200 hover:text-amber-300 hover:bg-white/10 rounded-lg transition-colors">
+                                            <Settings size={14} />
+                                        </button>
                                         <button onClick={handleLogout} title="Logout"
-                                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                                            <FiLogOut size={15} />
+                                            className="p-1.5 text-rose-300 hover:text-white hover:bg-rose-500/30 rounded-lg transition-colors">
+                                            <LogOut size={14} />
                                         </button>
                                     </div>
                                 ) : (
                                     <div className="flex flex-col items-center gap-2">
-                                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-black"
-                                            style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)' }}>
-                                            {user.name?.charAt(0)?.toUpperCase() || '?'}
+                                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-slate-950 text-xs font-black bg-gradient-to-tr from-amber-400 to-yellow-300 ring-2 ring-amber-300/60 shadow">
+                                            {user.name?.charAt(0)?.toUpperCase() || 'U'}
                                         </div>
                                         <button onClick={handleLogout} title="Logout"
-                                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                                            <FiLogOut size={13} />
+                                            className="p-1.5 text-rose-300 hover:text-white hover:bg-rose-500/30 rounded-lg transition-colors">
+                                            <LogOut size={14} />
                                         </button>
                                     </div>
                                 )}
@@ -851,23 +866,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     )}
 
                     {/* ═══════════ MAIN ═══════════ */}
-                    <main className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${isCashier ? '' : collapsed ? 'lg:ml-[70px]' : 'lg:ml-[260px]'}`}>
+                    <main className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${isCashier ? '' : collapsed ? 'lg:ml-[72px]' : 'lg:ml-[265px]'}`}>
                         {/* Header */}
-                        <header className="sticky top-0 z-30 bg-white border-b border-gray-200/80 h-[60px] flex items-center px-4 lg:px-6 gap-3">
+                        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/90 h-[64px] flex items-center px-4 lg:px-6 gap-3 shadow-sm">
                             {!isCashier && (
                                 <button onClick={() => setMobileOpen(true)} className="lg:hidden text-gray-500 hover:text-gray-800">
-                                    <FiMenu size={20} />
+                                    <Menu size={20} />
                                 </button>
                             )}
                             <div className="hidden sm:flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 w-64 focus-within:w-80 focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-300 focus-within:bg-white transition-all duration-300">
-                                <FiSearch className="text-gray-400 shrink-0" size={14} />
+                                <Search className="text-gray-400 shrink-0" size={14} />
                                 <input type="text" placeholder="Search products, reports..." className="bg-transparent text-[13px] text-gray-700 outline-none w-full placeholder:text-gray-400" />
                             </div>
                             <div className="flex items-center gap-2 ml-auto">
                                 <OutletSwitcher />
                                 <PledgeNotificationBell />
                                 <button onClick={() => router.push('/dashboard/company')} className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors">
-                                    <FiSettings size={17} />
+                                    <Settings size={17} />
                                 </button>
                                 <div className="flex items-center gap-2.5 pl-3 border-l border-gray-200">
                                     <div className="hidden sm:block text-right">

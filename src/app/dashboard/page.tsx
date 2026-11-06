@@ -1,9 +1,19 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useOutlet } from '@/context/OutletContext';
 import { useFeatures } from '@/context/FeatureContext';
+import Link from 'next/link';
+import {
+    TrendingUp, TrendingDown, ShoppingCart, DollarSign, Clock,
+    Package, AlertTriangle, Users, RefreshCw, ArrowRight,
+    CheckCircle2, Activity, ShieldCheck, Zap, Layers, Truck,
+    BarChart3, PieChart, CreditCard, Smartphone, Calendar,
+    AlertCircle, Sparkles, ShoppingBag, Eye, Store, Percent,
+    Wallet, ArrowUpRight, ArrowDownRight, Award, Download,
+    FileText, Repeat
+} from 'lucide-react';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -19,60 +29,126 @@ import {
 } from 'chart.js';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler);
+ChartJS.register(
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    BarElement,
+    ArcElement,
+    Title,
+    Tooltip,
+    Legend,
+    Filler
+);
 
 // ────────────────── Types ──────────────────
-interface DailySales { date: string; cash: number; mpesa: number; credit: number; kcb: number; total: number; orders: number; }
-interface TopProduct { name: string; qty: number; revenue: number; avgPrice: number; }
-interface LowStockItem { name: string; stock: number; reorder: number; type: 'dish' | 'ingredient' | 'product'; status: 'out' | 'critical' | 'low'; }
-interface UserSalesData { name: string; sales: number; orders: number; }
-interface RecentPurchase { date: string; supplier: string; total: number; status: string; items: number; }
+interface DailySales {
+    date: string;
+    cash: number;
+    mpesa: number;
+    credit: number;
+    kcb: number;
+    total: number;
+    orders: number;
+    profit: number;
+}
 
-// ────────────────── Dashboard ──────────────────
+interface TopProduct {
+    name: string;
+    category?: string;
+    qty: number;
+    revenue: number;
+    avgPrice: number;
+    stock?: number;
+}
+
+interface LowStockItem {
+    pid: number;
+    name: string;
+    category?: string;
+    stock: number;
+    reorder: number;
+    costPrice: number;
+    status: 'out' | 'critical' | 'low';
+}
+
+interface CashierPerformance {
+    name: string;
+    sales: number;
+    orders: number;
+    avgTicket: number;
+    sharePct: number;
+}
+
+interface DebtorItem {
+    id?: number;
+    name: string;
+    phone: string;
+    balance: number;
+    creditLimit?: number;
+}
+
+interface RecentPurchase {
+    purchaseNo: string;
+    date: string;
+    supplier: string;
+    total: number;
+    status: string;
+}
+
+interface CategorySales {
+    category: string;
+    revenue: number;
+    qty: number;
+}
+
+// ────────────────── Main Dashboard Component ──────────────────
 export default function DashboardPage() {
     const { activeOutlet } = useOutlet();
     const outletId = activeOutlet?.outlet_id || 1;
     const { hasFeature } = useFeatures();
+
     const [isLoading, setIsLoading] = useState(true);
     const [dateFrom, setDateFrom] = useState(() => {
-        const d = new Date(); d.setDate(d.getDate() - 7);
+        const d = new Date();
+        d.setDate(d.getDate() - 7);
         return d.toISOString().split('T')[0];
     });
     const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0]);
     const [rangePreset, setRangePreset] = useState<string>('7d');
+    const [chartMode, setChartMode] = useState<'revenue' | 'profit' | 'orders'>('revenue');
+    const [stockFilter, setStockFilter] = useState<'all' | 'out' | 'critical'>('all');
 
-    // KPI Stats
+    // KPI Metrics
     const [todaySales, setTodaySales] = useState(0);
     const [yesterdaySales, setYesterdaySales] = useState(0);
     const [todayOrders, setTodayOrders] = useState(0);
     const [yesterdayOrders, setYesterdayOrders] = useState(0);
+    const [todayProfit, setTodayProfit] = useState(0);
     const [todayCash, setTodayCash] = useState(0);
     const [todayMpesa, setTodayMpesa] = useState(0);
     const [todayKcb, setTodayKcb] = useState(0);
     const [todayCredit, setTodayCredit] = useState(0);
     const [todayReturns, setTodayReturns] = useState(0);
     const [todayCreditPaid, setTodayCreditPaid] = useState(0);
-    const [pendingBills, setPendingBills] = useState(0);
     const [totalExpenses, setTotalExpenses] = useState(0);
-    const [totalAdvances, setTotalAdvances] = useState(0);
-    const [totalVouchers, setTotalVouchers] = useState(0);
     const [activeShifts, setActiveShifts] = useState(0);
-    const [closedShifts, setClosedShifts] = useState(0);
+    const [pendingBills, setPendingBills] = useState(0);
 
-    // Chart data
+    // Range aggregates & datasets
     const [dailySales, setDailySales] = useState<DailySales[]>([]);
     const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
     const [lowStock, setLowStock] = useState<LowStockItem[]>([]);
-    const [userSales, setUserSales] = useState<UserSalesData[]>([]);
+    const [cashierSales, setCashierSales] = useState<CashierPerformance[]>([]);
     const [recentPurchases, setRecentPurchases] = useState<RecentPurchase[]>([]);
-    const [hourlyData, setHourlyData] = useState<{hour:number;sales:number;orders:number}[]>([]);
-    const [topDebtors, setTopDebtors] = useState<{name:string;phone:string;balance:number}[]>([]);
+    const [hourlyData, setHourlyData] = useState<{ hour: number; sales: number; orders: number }[]>([]);
+    const [topDebtors, setTopDebtors] = useState<DebtorItem[]>([]);
     const [outstandingCredit, setOutstandingCredit] = useState(0);
     const [totalCreditCustomers, setTotalCreditCustomers] = useState(0);
-    const [totalReturnsRange, setTotalReturnsRange] = useState(0);
-    const [todayProfit, setTodayProfit] = useState(0);
     const [totalRangeProfit, setTotalRangeProfit] = useState(0);
-    const scrollRef = useRef<HTMLDivElement>(null);
+    const [categorySales, setCategorySales] = useState<CategorySales[]>([]);
+    const [inventoryValue, setInventoryValue] = useState(0);
 
     // ──── Date Presets ────
     const setPreset = (preset: string) => {
@@ -80,86 +156,141 @@ export default function DashboardPage() {
         const now = new Date();
         const to = now.toISOString().split('T')[0];
         let from = to;
-        if (preset === '1d') from = to;
-        else if (preset === '7d') { const d = new Date(); d.setDate(d.getDate() - 7); from = d.toISOString().split('T')[0]; }
-        else if (preset === '14d') { const d = new Date(); d.setDate(d.getDate() - 14); from = d.toISOString().split('T')[0]; }
-        else if (preset === '30d') { const d = new Date(); d.setDate(d.getDate() - 30); from = d.toISOString().split('T')[0]; }
-        else if (preset === 'month') { from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`; }
+        if (preset === '1d') {
+            from = to;
+        } else if (preset === 'yesterday') {
+            const y = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+            setDateFrom(y);
+            setDateTo(y);
+            return;
+        } else if (preset === '7d') {
+            const d = new Date();
+            d.setDate(d.getDate() - 7);
+            from = d.toISOString().split('T')[0];
+        } else if (preset === '14d') {
+            const d = new Date();
+            d.setDate(d.getDate() - 14);
+            from = d.toISOString().split('T')[0];
+        } else if (preset === '30d') {
+            const d = new Date();
+            d.setDate(d.getDate() - 30);
+            from = d.toISOString().split('T')[0];
+        } else if (preset === 'month') {
+            from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+        }
         setDateFrom(from);
         setDateTo(to);
     };
 
-    // ──── Data Loading ────
+    // ──── Load All Enterprise Dashboard Data ────
     const loadDashboardData = useCallback(async () => {
         setIsLoading(true);
         const today = new Date().toISOString().split('T')[0];
         const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
         try {
-            // ── Today's Sales by payment method ── (using retail_sales, filtered by outlet)
-            const { data: todayData } = await supabase.from('retail_sales').select('total_amount, payment_method, receipt_no, sale_datetime, profit').eq('sale_date', today).eq('outlet_id', outletId);
-            const tData = todayData || [];
-            setTodaySales(tData.reduce((s: number, r: any) => s + (r.total_amount || 0), 0));
-            setTodayOrders(tData.length);
-            setTodayCash(tData.filter((r: any) => (r.payment_method || '').toLowerCase().includes('cash')).reduce((s: number, r: any) => s + (r.total_amount || 0), 0));
-            setTodayMpesa(tData.filter((r: any) => (r.payment_method || '').toLowerCase().includes('mpesa')).reduce((s: number, r: any) => s + (r.total_amount || 0), 0));
-            setTodayKcb(tData.filter((r: any) => (r.payment_method || '').toLowerCase().includes('kcb')).reduce((s: number, r: any) => s + (r.total_amount || 0), 0));
-            setTodayCredit(tData.filter((r: any) => (r.payment_method || '').toLowerCase().includes('credit')).reduce((s: number, r: any) => s + (r.total_amount || 0), 0));
-            setTodayProfit(tData.reduce((s: number, r: any) => s + (Number(r.profit) || 0), 0));
+            // ── 1. Today's Sales ──
+            const { data: todaySalesData } = await supabase
+                .from('retail_sales')
+                .select('total_amount, payment_method, receipt_no, sale_datetime, profit, status')
+                .eq('sale_date', today)
+                .eq('outlet_id', outletId);
 
-            // ── Hourly Sales Distribution ──
-            const hrs = Array.from({length: 24}, (_, i) => ({hour: i, sales: 0, orders: 0}));
+            const tData = todaySalesData || [];
+            const grossToday = tData.reduce((s, r) => s + (Number(r.total_amount) || 0), 0);
+            setTodaySales(grossToday);
+            setTodayOrders(tData.length);
+            setTodayProfit(tData.reduce((s, r) => s + (Number(r.profit) || 0), 0));
+
+            // Payment methods breakdown for today
+            let cashT = 0, mpesaT = 0, kcbT = 0, creditT = 0;
+            tData.forEach(r => {
+                const amt = Number(r.total_amount) || 0;
+                const m = (r.payment_method || '').toLowerCase();
+                if (m.includes('mpesa')) mpesaT += amt;
+                else if (m.includes('kcb')) kcbT += amt;
+                else if (m.includes('credit')) creditT += amt;
+                else cashT += amt;
+            });
+            setTodayCash(cashT);
+            setTodayMpesa(mpesaT);
+            setTodayKcb(kcbT);
+            setTodayCredit(creditT);
+
+            // ── 2. Hourly Footfall & Sales Velocity ──
+            const hrs = Array.from({ length: 24 }, (_, i) => ({ hour: i, sales: 0, orders: 0 }));
             tData.forEach((s: any) => {
-                const dt = s.sale_datetime ? new Date(s.sale_datetime) : null;
-                if (dt) { const h = dt.getHours(); hrs[h].sales += s.total_amount || 0; hrs[h].orders += 1; }
+                if (s.sale_datetime) {
+                    const dt = new Date(s.sale_datetime);
+                    const h = dt.getHours();
+                    if (h >= 0 && h < 24) {
+                        hrs[h].sales += Number(s.total_amount) || 0;
+                        hrs[h].orders += 1;
+                    }
+                }
             });
             setHourlyData(hrs);
 
-            // ── Today's Returns — cross-reference sales_returns with outlet's receipt_nos ──
-            const todayReceiptNos = tData.map((r: any) => r.receipt_no).filter(Boolean);
-            if (todayReceiptNos.length > 0) {
-                const { data: retData } = await supabase.from('sales_returns').select('total_amount').in('original_sale_id', todayReceiptNos);
-                setTodayReturns((retData || []).reduce((s: number, r: any) => s + (Number(r.total_amount) || 0), 0));
-            } else { setTodayReturns(0); }
-
-            // ── Credit Paid Today — payments received from credit customers ──
-            const { data: cpData } = await supabase.from('retail_credit_payments')
-                .select('amount_paid').eq('payment_date', today).eq('outlet_id', outletId).eq('transaction_type', 'payment');
-            setTodayCreditPaid((cpData || []).reduce((s: number, r: any) => s + (Number(r.amount_paid) || 0), 0));
-
-            // ── Yesterday's Sales ──
-            const { data: yData } = await supabase.from('retail_sales').select('total_amount').eq('sale_date', yesterday).eq('outlet_id', outletId);
-            setYesterdaySales((yData || []).reduce((s, r) => s + (r.total_amount || 0), 0));
+            // ── 3. Yesterday's Comparison ──
+            const { data: yData } = await supabase
+                .from('retail_sales')
+                .select('total_amount')
+                .eq('sale_date', yesterday)
+                .eq('outlet_id', outletId);
+            setYesterdaySales((yData || []).reduce((s, r) => s + (Number(r.total_amount) || 0), 0));
             setYesterdayOrders((yData || []).length);
 
-            // ── Pending Bills ──
-            const { data: pBills } = await supabase.from('retail_sales').select('sale_id').eq('status', 'Pending').eq('outlet_id', outletId);
-            setPendingBills(pBills?.length || 0);
+            // ── 4. Debt Collections Today ──
+            const { data: cpData } = await supabase
+                .from('retail_credit_payments')
+                .select('amount_paid')
+                .eq('payment_date', today)
+                .eq('outlet_id', outletId)
+                .eq('transaction_type', 'payment');
+            setTodayCreditPaid((cpData || []).reduce((s, r) => s + (Number(r.amount_paid) || 0), 0));
 
-            // ── Daily Sales Trend (by date range, broken by payment method) ──
+            // ── 5. Today's Returns ──
+            const todayReceiptNos = tData.map(r => r.receipt_no).filter(Boolean);
+            if (todayReceiptNos.length > 0) {
+                const { data: retData } = await supabase
+                    .from('sales_returns')
+                    .select('total_amount')
+                    .in('original_sale_id', todayReceiptNos);
+                setTodayReturns((retData || []).reduce((s, r) => s + (Number(r.total_amount) || 0), 0));
+            } else {
+                setTodayReturns(0);
+            }
+
+            // ── 6. Range Sales Timeline & Trends ──
             const { data: rangeSales } = await supabase
                 .from('retail_sales')
-                .select('sale_date, total_amount, payment_method, profit')
+                .select('sale_date, total_amount, payment_method, profit, created_by, status')
                 .gte('sale_date', dateFrom)
                 .lte('sale_date', dateTo)
                 .eq('outlet_id', outletId)
                 .order('sale_date');
 
+            const rData = rangeSales || [];
+            setTotalRangeProfit(rData.reduce((s, r) => s + (Number(r.profit) || 0), 0));
+
             const salesMap = new Map<string, DailySales>();
-            // Fill in all dates in range
             const start = new Date(dateFrom);
             const end = new Date(dateTo);
             for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
                 const key = d.toISOString().split('T')[0];
-                salesMap.set(key, { date: key, cash: 0, mpesa: 0, credit: 0, kcb: 0, total: 0, orders: 0 });
+                salesMap.set(key, { date: key, cash: 0, mpesa: 0, credit: 0, kcb: 0, total: 0, orders: 0, profit: 0 });
             }
-            (rangeSales || []).forEach(s => {
+            rData.forEach(s => {
                 const key = s.sale_date;
-                if (!salesMap.has(key)) salesMap.set(key, { date: key, cash: 0, mpesa: 0, credit: 0, kcb: 0, total: 0, orders: 0 });
+                if (!salesMap.has(key)) {
+                    salesMap.set(key, { date: key, cash: 0, mpesa: 0, credit: 0, kcb: 0, total: 0, orders: 0, profit: 0 });
+                }
                 const entry = salesMap.get(key)!;
-                const amt = s.total_amount || 0;
+                const amt = Number(s.total_amount) || 0;
                 const method = (s.payment_method || '').toLowerCase();
-                entry.total += amt; entry.orders += 1;
+                entry.total += amt;
+                entry.orders += 1;
+                entry.profit += Number(s.profit) || 0;
                 if (method.includes('kcb')) entry.kcb += amt;
                 else if (method.includes('mpesa')) entry.mpesa += amt;
                 else if (method.includes('credit')) entry.credit += amt;
@@ -167,766 +298,839 @@ export default function DashboardPage() {
             });
             setDailySales(Array.from(salesMap.values()).sort((a, b) => a.date.localeCompare(b.date)));
 
-            // ── Top Selling Products ── (using retail_sales_items)
+            // ── 7. Top Selling Products in Range ──
             const { data: salesItems } = await supabase
                 .from('retail_sales_items')
                 .select('product_name, quantity, subtotal, created_at')
                 .gte('created_at', `${dateFrom}T00:00:00`)
                 .lte('created_at', `${dateTo}T23:59:59`)
-                .limit(1000);
+                .limit(2000);
 
             const prodMap = new Map<string, { qty: number; revenue: number }>();
             (salesItems || []).forEach(item => {
-                const name = item.product_name || 'Unknown';
+                const name = item.product_name || 'Standard Retail Item';
                 if (!prodMap.has(name)) prodMap.set(name, { qty: 0, revenue: 0 });
                 const e = prodMap.get(name)!;
-                e.qty += item.quantity || 0;
-                e.revenue += item.subtotal || 0;
+                e.qty += Number(item.quantity) || 0;
+                e.revenue += Number(item.subtotal) || 0;
             });
-            setTopProducts(
-                Array.from(prodMap.entries())
-                    .map(([name, data]) => ({ name, ...data, avgPrice: data.qty > 0 ? Math.round(data.revenue / data.qty) : 0 }))
-                    .sort((a, b) => b.qty - a.qty)
-                    .slice(0, 15)
-            );
 
-            // ── Low Stock Items ── (using retail_products + retail_stock, filtered by outlet)
-            const { data: retailProds } = await supabase.from('retail_products').select('pid, product_name, reorder_point').eq('active', true).eq('outlet_id', outletId).order('product_name');
-            const { data: retailStock } = await supabase.from('retail_stock').select('pid, qty').eq('outlet_id', outletId);
+            // ── 8. Retail Products & Inventory Health ──
+            const { data: retailProds } = await supabase
+                .from('retail_products')
+                .select('pid, product_name, category, cost_price, selling_price, reorder_point')
+                .eq('active', true)
+                .eq('outlet_id', outletId);
+
+            const { data: retailStock } = await supabase
+                .from('retail_stock')
+                .select('pid, qty')
+                .eq('outlet_id', outletId);
+
             const stockMap: Record<number, number> = {};
-            (retailStock || []).forEach((s: { pid: number; qty: number }) => { stockMap[s.pid] = (stockMap[s.pid] || 0) + (s.qty || 0); });
+            (retailStock || []).forEach(s => {
+                stockMap[s.pid] = (stockMap[s.pid] || 0) + (Number(s.qty) || 0);
+            });
+
+            const catMap = new Map<string, { revenue: number; qty: number }>();
+            const prodCategoryLookup = new Map<string, string>();
+            let totalVal = 0;
 
             const lowItems: LowStockItem[] = [];
             (retailProds || []).forEach(p => {
                 const stock = stockMap[p.pid] || 0;
                 const reorder = p.reorder_point || 5;
+                const cost = Number(p.cost_price) || 0;
+                totalVal += stock * cost;
+                if (p.category) {
+                    prodCategoryLookup.set(p.product_name.toLowerCase(), p.category);
+                }
                 if (stock <= reorder) {
-                    lowItems.push({ name: p.product_name, stock, reorder, type: 'product', status: stock === 0 ? 'out' : stock <= reorder * 0.3 ? 'critical' : 'low' });
+                    lowItems.push({
+                        pid: p.pid,
+                        name: p.product_name,
+                        category: p.category || 'General',
+                        stock,
+                        reorder,
+                        costPrice: cost,
+                        status: stock === 0 ? 'out' : stock <= reorder * 0.35 ? 'critical' : 'low',
+                    });
                 }
             });
             setLowStock(lowItems.sort((a, b) => a.stock - b.stock));
+            setInventoryValue(totalVal);
 
-            // ── Cashier Sales (retail_sales by user) ──
-            const { data: cashierData } = await supabase
-                .from('retail_sales')
-                .select('created_by, total_amount')
-                .gte('sale_date', dateFrom).lte('sale_date', dateTo)
-                .eq('outlet_id', outletId);
-            const wMap = new Map<string, { sales: number; orders: number }>();
-            (cashierData || []).forEach(s => {
-                const name = s.created_by || 'Unknown';
-                if (!wMap.has(name)) wMap.set(name, { sales: 0, orders: 0 });
-                const e = wMap.get(name)!;
-                e.sales += s.total_amount || 0; e.orders += 1;
+            // Compute Top Products with category & avg price
+            const rankedProds: TopProduct[] = Array.from(prodMap.entries())
+                .map(([name, data]) => ({
+                    name,
+                    category: prodCategoryLookup.get(name.toLowerCase()) || 'Hardware / Retail',
+                    qty: data.qty,
+                    revenue: data.revenue,
+                    avgPrice: data.qty > 0 ? Math.round(data.revenue / data.qty) : 0,
+                }))
+                .sort((a, b) => b.revenue - a.revenue)
+                .slice(0, 10);
+            setTopProducts(rankedProds);
+
+            // Category sales estimation
+            rankedProds.forEach(p => {
+                const cat = p.category || 'General Store';
+                if (!catMap.has(cat)) catMap.set(cat, { revenue: 0, qty: 0 });
+                const c = catMap.get(cat)!;
+                c.revenue += p.revenue;
+                c.qty += p.qty;
             });
-            setUserSales(Array.from(wMap.entries()).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.sales - a.sales).slice(0, 10));
+            setCategorySales(
+                Array.from(catMap.entries())
+                    .map(([category, val]) => ({ category, ...val }))
+                    .sort((a, b) => b.revenue - a.revenue)
+            );
 
-            // ── Recent Purchases (retail_purchases) ──
+            // ── 9. Cashier Sales Leaderboard ──
+            const cashierMap = new Map<string, { sales: number; orders: number }>();
+            rData.forEach(s => {
+                const name = s.created_by || 'Cashier Desk';
+                if (!cashierMap.has(name)) cashierMap.set(name, { sales: 0, orders: 0 });
+                const c = cashierMap.get(name)!;
+                c.sales += Number(s.total_amount) || 0;
+                c.orders += 1;
+            });
+            const totalR = rData.reduce((s, r) => s + (Number(r.total_amount) || 0), 0);
+            setCashierSales(
+                Array.from(cashierMap.entries())
+                    .map(([name, data]) => ({
+                        name,
+                        sales: data.sales,
+                        orders: data.orders,
+                        avgTicket: data.orders > 0 ? Math.round(data.sales / data.orders) : 0,
+                        sharePct: totalR > 0 ? Math.round((data.sales / totalR) * 100) : 0,
+                    }))
+                    .sort((a, b) => b.sales - a.sales)
+            );
+
+            // ── 10. Expenses & Financials ──
+            const { data: expData } = await supabase
+                .from('expenses')
+                .select('amount')
+                .gte('expense_date', dateFrom)
+                .lte('expense_date', dateTo)
+                .eq('outlet_id', outletId);
+            setTotalExpenses((expData || []).reduce((s, e) => s + (Number(e.amount) || 0), 0));
+
+            // ── 11. Shifts & Pending Registers ──
+            const { data: shiftData } = await supabase
+                .from('retail_shifts')
+                .select('status')
+                .gte('shift_date', dateFrom)
+                .lte('shift_date', dateTo);
+            setActiveShifts((shiftData || []).filter(s => s.status === 'Open').length);
+
+            const { data: pendingData } = await supabase
+                .from('retail_sales')
+                .select('sale_id')
+                .eq('status', 'Pending')
+                .eq('outlet_id', outletId);
+            setPendingBills(pendingData?.length || 0);
+
+            // ── 12. Recent Supplier Purchases ──
             const { data: purchasesData } = await supabase
                 .from('retail_purchases')
-                .select('purchase_date, supplier_name, grand_total, status, purchase_no')
+                .select('purchase_no, purchase_date, supplier_name, grand_total, status')
                 .eq('outlet_id', outletId)
                 .order('purchase_date', { ascending: false })
+                .limit(6);
+            setRecentPurchases(
+                (purchasesData || []).map(p => ({
+                    purchaseNo: p.purchase_no || 'PO-REC',
+                    date: p.purchase_date,
+                    supplier: p.supplier_name || 'Standard Supplier',
+                    total: Number(p.grand_total) || 0,
+                    status: p.status || 'Received',
+                }))
+            );
+
+            // ── 13. Debtors & Outstanding Credit ──
+            const { data: debtorsData } = await supabase
+                .from('retail_credit_customers')
+                .select('customer_id, customer_name, phone, current_balance, credit_limit')
+                .eq('outlet_id', outletId)
+                .lt('current_balance', 0)
+                .eq('active', true)
+                .order('current_balance', { ascending: true })
                 .limit(8);
-            setRecentPurchases((purchasesData || []).map(p => ({
-                date: p.purchase_date, supplier: p.supplier_name || '-', total: p.grand_total || 0, status: p.status || 'Pending', items: 0,
-            })));
 
-            // ── Financials (expenses, filtered by outlet) ──
-            const { data: expData } = await supabase.from('expenses').select('amount').gte('expense_date', dateFrom).lte('expense_date', dateTo).eq('outlet_id', outletId);
-            setTotalExpenses((expData || []).reduce((s, e) => s + (e.amount || 0), 0));
+            const { data: allDebtData } = await supabase
+                .from('retail_credit_customers')
+                .select('current_balance')
+                .eq('outlet_id', outletId)
+                .lt('current_balance', 0)
+                .eq('active', true);
 
-            // ── Shifts (retail_shifts) ──
-            const { data: shData } = await supabase.from('retail_shifts').select('status, shift_date').gte('shift_date', dateFrom).lte('shift_date', dateTo);
-            setActiveShifts((shData || []).filter(s => s.status === 'Open').length);
-            setClosedShifts((shData || []).filter(s => s.status === 'Closed').length);
-
-            // Reset unused hotel-only fields
-            setTotalAdvances(0);
-            setTotalVouchers(0);
-
-            // ── Range Profit ──
-            setTotalRangeProfit((rangeSales || []).reduce((s: number, r: any) => s + (Number(r.profit) || 0), 0));
-
-            // ── Returns for date range ──
-            const { data: rangeRetData } = await supabase.from('sales_returns')
-                .select('total_amount').gte('return_date', dateFrom).lte('return_date', dateTo);
-            setTotalReturnsRange((rangeRetData || []).reduce((s: number, r: any) => s + (Number(r.total_amount) || 0), 0));
-
-            // ── Top Debtors ──
-            const { data: debtorsData } = await supabase.from('retail_credit_customers')
-                .select('customer_name, phone, current_balance').eq('outlet_id', outletId)
-                .lt('current_balance', 0).eq('active', true)
-                .order('current_balance', { ascending: true }).limit(8);
-            setTopDebtors((debtorsData || []).map((d: any) => ({ name: d.customer_name, phone: d.phone, balance: Math.abs(d.current_balance || 0) })));
-
-            // ── Outstanding Credit Total ──
-            const { data: allDebtData } = await supabase.from('retail_credit_customers')
-                .select('current_balance').eq('outlet_id', outletId).lt('current_balance', 0).eq('active', true);
-            setOutstandingCredit((allDebtData || []).reduce((s: number, r: any) => s + Math.abs(r.current_balance || 0), 0));
+            setTopDebtors(
+                (debtorsData || []).map((d: any) => ({
+                    id: d.customer_id,
+                    name: d.customer_name,
+                    phone: d.phone || '',
+                    balance: Math.abs(Number(d.current_balance) || 0),
+                    creditLimit: Number(d.credit_limit) || 0,
+                }))
+            );
+            setOutstandingCredit((allDebtData || []).reduce((s, r) => s + Math.abs(Number(r.current_balance) || 0), 0));
             setTotalCreditCustomers((allDebtData || []).length);
 
-        } catch (err) { console.error('Dashboard error:', err); }
+        } catch (err) {
+            console.error('Error loading enterprise dashboard data:', err);
+        }
         setIsLoading(false);
     }, [dateFrom, dateTo, outletId]);
 
-    useEffect(() => { loadDashboardData(); }, [loadDashboardData]);
+    useEffect(() => {
+        loadDashboardData();
+    }, [loadDashboardData]);
 
-    // ──── Computed ────
-    const salesChange = yesterdaySales > 0 ? ((todaySales - yesterdaySales) / yesterdaySales * 100) : 0;
-    const netSales = todaySales - totalExpenses - totalAdvances - totalVouchers;
-    const totalRangeSales = dailySales.reduce((s, d) => s + d.total, 0);
-    const totalRangeOrders = dailySales.reduce((s, d) => s + d.orders, 0);
+    // ──── Computed Analytics & Store Health ────
+    const totalPaymentsToday = todayCash + todayMpesa + todayKcb + todayCredit;
+    const totalRangeSales = useMemo(() => dailySales.reduce((s, d) => s + d.total, 0), [dailySales]);
+    const totalRangeOrders = useMemo(() => dailySales.reduce((s, d) => s + d.orders, 0), [dailySales]);
     const avgOrderValue = totalRangeOrders > 0 ? Math.round(totalRangeSales / totalRangeOrders) : 0;
-    const profitMarginPct = totalRangeSales > 0 ? Math.round(totalRangeProfit / totalRangeSales * 100) : 0;
-    const returnRatePct = totalRangeSales > 0 ? +(totalReturnsRange / totalRangeSales * 100).toFixed(1) : 0;
-    const todayProfitMarginPct = todaySales > 0 ? Math.round(todayProfit / todaySales * 100) : 0;
-    const maxHourlySales = Math.max(...hourlyData.map(h => h.sales), 1);
-    const peakHour = hourlyData.reduce((best, h) => h.sales > best.sales ? h : best, { hour: 0, sales: 0, orders: 0 });
-    const activeHours = hourlyData.filter(h => h.orders > 0);
+    const grossMarginPct = totalRangeSales > 0 ? Math.round((totalRangeProfit / totalRangeSales) * 100) : 0;
+    const todayMarginPct = todaySales > 0 ? Math.round((todayProfit / todaySales) * 100) : 0;
+    const salesChange = yesterdaySales > 0 ? ((todaySales - yesterdaySales) / yesterdaySales) * 100 : 0;
+    const netOperatingBalance = todaySales - totalExpenses;
+
+    const activeHours = useMemo(() => hourlyData.filter(h => h.orders > 0), [hourlyData]);
+    const peakHour = useMemo(() => {
+        return hourlyData.reduce((best, h) => (h.sales > best.sales ? h : best), { hour: 0, sales: 0, orders: 0 });
+    }, [hourlyData]);
+    const maxHourlySales = useMemo(() => Math.max(...hourlyData.map(h => h.sales), 1), [hourlyData]);
+
+    // Intelligent Store Health Score (0 - 100)
+    const storeHealthScore = useMemo(() => {
+        let score = 70; // baseline
+        if (todaySales >= yesterdaySales && yesterdaySales > 0) score += 10;
+        if (todayMarginPct >= 18) score += 10;
+        else if (todayMarginPct >= 12) score += 5;
+        if (lowStock.filter(s => s.status === 'out').length === 0) score += 10;
+        else score -= Math.min(15, lowStock.filter(s => s.status === 'out').length * 2);
+        return Math.max(10, Math.min(99, score));
+    }, [todaySales, yesterdaySales, todayMarginPct, lowStock]);
+
+    // Helper formatters
+    const fmt = (n: number) => {
+        if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+        if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+        return Math.round(n).toLocaleString();
+    };
+
+    // Filtered Stock Items
+    const filteredStock = useMemo(() => {
+        if (stockFilter === 'out') return lowStock.filter(s => s.status === 'out');
+        if (stockFilter === 'critical') return lowStock.filter(s => s.status === 'critical');
+        return lowStock;
+    }, [lowStock, stockFilter]);
 
     // ──── Chart Configs ────
-    const chartLabels = dailySales.map(d => {
-        const dt = new Date(d.date);
-        return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-    });
+    const chartLabels = useMemo(() => {
+        return dailySales.map(d => {
+            const dt = new Date(d.date);
+            return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+        });
+    }, [dailySales]);
 
-    const salesLineData = {
-        labels: chartLabels,
-        datasets: [
-            {
-                label: 'Total Sales',
-                data: dailySales.map(d => d.total),
-                borderColor: '#6366f1',
-                backgroundColor: 'rgba(99, 102, 241, 0.08)',
-                fill: true,
-                tension: 0.4,
-                borderWidth: 3,
-                pointRadius: dailySales.length > 14 ? 0 : 4,
-                pointHoverRadius: 6,
-                pointBackgroundColor: '#6366f1',
-            },
-            {
-                label: 'Cash',
-                data: dailySales.map(d => d.cash),
-                borderColor: '#10b981',
-                backgroundColor: 'rgba(16, 185, 129, 0.05)',
-                fill: false,
-                tension: 0.4,
-                borderWidth: 2,
-                pointRadius: 0,
-                pointHoverRadius: 5,
-                borderDash: [],
-            },
-            {
-                label: 'M-Pesa',
-                data: dailySales.map(d => d.mpesa),
-                borderColor: '#f59e0b',
-                backgroundColor: 'rgba(245, 158, 11, 0.05)',
-                fill: false,
-                tension: 0.4,
-                borderWidth: 2,
-                pointRadius: 0,
-                pointHoverRadius: 5,
-            },
-            {
-                label: 'KCB Buni',
-                data: dailySales.map(d => d.kcb),
-                borderColor: '#3b82f6',
-                backgroundColor: 'rgba(59, 130, 246, 0.05)',
-                fill: false,
-                tension: 0.4,
-                borderWidth: 2,
-                pointRadius: 0,
-                pointHoverRadius: 5,
-            },
-            {
-                label: 'Credit',
-                data: dailySales.map(d => d.credit),
-                borderColor: '#ef4444',
-                backgroundColor: 'rgba(239, 68, 68, 0.05)',
-                fill: false,
-                tension: 0.4,
-                borderWidth: 2,
-                pointRadius: 0,
-                pointHoverRadius: 5,
-                borderDash: [5, 5],
-            },
-        ],
-    };
+    const trendChartData = useMemo(() => {
+        if (chartMode === 'profit') {
+            return {
+                labels: chartLabels,
+                datasets: [
+                    {
+                        label: 'Gross Profit (Ksh)',
+                        data: dailySales.map(d => d.profit),
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 3,
+                        pointBackgroundColor: '#f59e0b',
+                        pointHoverRadius: 6,
+                    },
+                ],
+            };
+        }
+        if (chartMode === 'orders') {
+            return {
+                labels: chartLabels,
+                datasets: [
+                    {
+                        label: 'Completed Orders',
+                        data: dailySales.map(d => d.orders),
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                        fill: true,
+                        tension: 0.35,
+                        borderWidth: 3,
+                        pointBackgroundColor: '#3b82f6',
+                        pointHoverRadius: 6,
+                    },
+                ],
+            };
+        }
+        return {
+            labels: chartLabels,
+            datasets: [
+                {
+                    label: 'Gross Sales (Ksh)',
+                    data: dailySales.map(d => d.total),
+                    borderColor: '#0047cc',
+                    backgroundColor: 'rgba(0, 71, 204, 0.12)',
+                    fill: true,
+                    tension: 0.38,
+                    borderWidth: 3,
+                    pointBackgroundColor: '#0047cc',
+                    pointHoverRadius: 6,
+                },
+                {
+                    label: 'M-Pesa',
+                    data: dailySales.map(d => d.mpesa),
+                    borderColor: '#10b981',
+                    fill: false,
+                    tension: 0.38,
+                    borderWidth: 2,
+                    borderDash: [4, 4],
+                    pointRadius: 0,
+                },
+                {
+                    label: 'Cash',
+                    data: dailySales.map(d => d.cash),
+                    borderColor: '#f59e0b',
+                    fill: false,
+                    tension: 0.38,
+                    borderWidth: 2,
+                    borderDash: [2, 2],
+                    pointRadius: 0,
+                },
+            ],
+        };
+    }, [chartMode, chartLabels, dailySales]);
 
-    const salesLineOptions = {
+    const trendChartOptions = {
         responsive: true,
         maintainAspectRatio: false,
-        interaction: { mode: 'index' as const, intersect: false },
         plugins: {
-            legend: { position: 'top' as const, labels: { usePointStyle: true, padding: 20, font: { size: 12, weight: 500 as const } } },
+            legend: {
+                position: 'top' as const,
+                labels: {
+                    usePointStyle: true,
+                    padding: 15,
+                    font: { size: 12, weight: 600 as const },
+                },
+            },
             tooltip: {
-                backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                padding: 14,
+                backgroundColor: 'rgba(2, 22, 69, 0.95)',
                 titleFont: { size: 13, weight: 'bold' as const },
-                bodyFont: { size: 12 },
+                padding: 12,
                 cornerRadius: 10,
                 callbacks: {
-                    label: (ctx: { dataset: { label?: string }; parsed: { y: number | null } }) =>
-                        `${ctx.dataset.label}: Ksh ${(ctx.parsed.y || 0).toLocaleString()}`,
+                    label: (ctx: any) => `${ctx.dataset.label}: ${chartMode === 'orders' ? ctx.parsed.y : `Ksh ${(ctx.parsed.y || 0).toLocaleString()}`}`,
                 },
             },
         },
         scales: {
-            x: { grid: { display: false }, ticks: { font: { size: 11 }, maxRotation: 45 } },
-            y: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 11 }, callback: (v: string | number) => `Ksh ${Number(v).toLocaleString()}` } },
+            x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+            y: {
+                grid: { color: 'rgba(0,0,0,0.04)' },
+                ticks: {
+                    font: { size: 11 },
+                    callback: (v: any) => chartMode === 'orders' ? v : `Ksh ${fmt(Number(v))}`,
+                },
+            },
         },
     };
 
-    const paymentBarData = {
-        labels: chartLabels,
+    // Payment donut chart data
+    const paymentDonutData = {
+        labels: ['Cash', 'M-Pesa Paybill / Till', 'KCB Buni POS', 'Customer Credit'],
         datasets: [
-            { label: 'Cash', data: dailySales.map(d => d.cash), backgroundColor: 'rgba(16, 185, 129, 0.8)', borderRadius: 6, barPercentage: 0.7 },
-            { label: 'M-Pesa', data: dailySales.map(d => d.mpesa), backgroundColor: 'rgba(245, 158, 11, 0.8)', borderRadius: 6, barPercentage: 0.7 },
-            { label: 'KCB Buni', data: dailySales.map(d => d.kcb), backgroundColor: 'rgba(59, 130, 246, 0.8)', borderRadius: 6, barPercentage: 0.7 },
-            { label: 'Credit', data: dailySales.map(d => d.credit), backgroundColor: 'rgba(239, 68, 68, 0.7)', borderRadius: 6, barPercentage: 0.7 },
+            {
+                data: [todayCash || 0.01, todayMpesa || 0.01, todayKcb || 0.01, todayCredit || 0.01],
+                backgroundColor: ['#f59e0b', '#10b981', '#3b82f6', '#ef4444'],
+                borderWidth: 0,
+                cutout: '74%',
+            },
         ],
     };
 
-    const paymentBarOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: { position: 'top' as const, labels: { usePointStyle: true, padding: 15, font: { size: 12 } } },
-            tooltip: {
-                backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                padding: 12, cornerRadius: 10,
-                callbacks: {
-                    label: (ctx: { dataset: { label?: string }; parsed: { y: number | null } }) =>
-                        `${ctx.dataset.label}: Ksh ${(ctx.parsed.y || 0).toLocaleString()}`,
-                },
-            },
-        },
-        scales: {
-            x: { grid: { display: false }, ticks: { font: { size: 11 }, maxRotation: 45 } },
-            y: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 11 }, callback: (v: string | number) => `Ksh ${Number(v).toLocaleString()}` } },
-        },
-    };
-
-    const userBarData = {
-        labels: userSales.map(u => u.name),
-        datasets: [{
-            label: 'Revenue',
-            data: userSales.map(u => u.sales),
-            backgroundColor: userSales.map((_, i) => {
-                const colors = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#818cf8', '#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#818cf8'];
-                return colors[i % colors.length];
-            }),
-            borderRadius: 8,
-            barPercentage: 0.6,
-        }],
-    };
-
-    const userBarOptions = {
-        indexAxis: 'y' as const,
+    const paymentDonutOptions = {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
             legend: { display: false },
             tooltip: {
-                backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                padding: 12, cornerRadius: 10,
+                backgroundColor: 'rgba(2, 22, 69, 0.95)',
+                padding: 12,
+                cornerRadius: 10,
                 callbacks: {
-                    label: (ctx: { parsed: { x: number | null } }) =>
-                        `Revenue: Ksh ${(ctx.parsed.x || 0).toLocaleString()}`,
-                },
-            },
-        },
-        scales: {
-            x: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 11 }, callback: (v: string | number) => `Ksh ${Number(v).toLocaleString()}` } },
-            y: { grid: { display: false }, ticks: { font: { size: 12, weight: 500 as const } } },
-        },
-    };
-
-    // Payment donut
-    const totalPayments = todayCash + todayMpesa + todayKcb + todayCredit;
-    const donutData = {
-        labels: ['Cash', 'M-Pesa', 'KCB Buni', 'Credit'],
-        datasets: [{
-            data: [todayCash || 0.01, todayMpesa || 0.01, todayKcb || 0.01, todayCredit || 0.01],
-            backgroundColor: ['#10b981', '#f59e0b', '#3b82f6', '#ef4444'],
-            borderWidth: 0,
-            cutout: '72%',
-        }],
-    };
-    const donutOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: { display: false },
-            tooltip: {
-                backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                padding: 12, cornerRadius: 10,
-                callbacks: {
-                    label: (ctx: { label?: string; parsed: number }) =>
-                        `${ctx.label}: Ksh ${ctx.parsed.toLocaleString()}`,
+                    label: (ctx: any) => `${ctx.label}: Ksh ${Number(ctx.parsed).toLocaleString()}`,
                 },
             },
         },
     };
 
-    // ──── Helpers ────
-    const fmt = (n: number) => n >= 1000000 ? `${(n / 1000000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}K` : n.toLocaleString();
-    const pct = (val: number) => val >= 0 ? `+${val.toFixed(1)}%` : `${val.toFixed(1)}%`;
-
-    // ──────────────── RENDER ────────────────
     return (
-        <div className="space-y-5 pb-8" ref={scrollRef}>
-            {/* ══════ Header ══════ */}
-            <div className="flex items-center justify-between flex-wrap gap-4">
-                <div>
-                    <h1 className="text-2xl font-extrabold text-gray-900 flex items-center gap-3">
-                        <span className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white text-lg shadow-lg shadow-indigo-200">📊</span>
-                        Analytics Dashboard
-                    </h1>
-                    <p className="text-sm text-gray-500 mt-0.5">Real-time business intelligence</p>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                    {/* Date Presets */}
-                    {['1d', '7d', '14d', '30d', 'month'].map(p => (
-                        <button key={p} onClick={() => setPreset(p)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${rangePreset === p ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}>
-                            {p === '1d' ? 'Today' : p === 'month' ? 'This Month' : p.toUpperCase()}
-                        </button>
-                    ))}
-                    <div className="flex items-center gap-1.5 ml-2">
-                        <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setRangePreset('custom'); }}
-                            className="px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs bg-white focus:ring-2 focus:ring-indigo-300 focus:outline-none" />
-                        <span className="text-gray-400 text-xs">→</span>
-                        <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setRangePreset('custom'); }}
-                            className="px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs bg-white focus:ring-2 focus:ring-indigo-300 focus:outline-none" />
-                    </div>
-                    <button onClick={loadDashboardData}
-                        className="px-4 py-1.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg text-xs font-bold hover:shadow-lg hover:shadow-indigo-200 transition-all">
-                        {isLoading ? '⏳' : '🔄'} Refresh
-                    </button>
-                </div>
-            </div>
+        <div className="space-y-6 pb-12 font-sans">
+            {/* ══════════════════════════════════════════════════════════════════
+                1. EXECUTIVE INTELLIGENCE HERO BANNER
+            ══════════════════════════════════════════════════════════════════ */}
+            <div
+                className="rounded-3xl p-6 lg:p-8 text-white relative overflow-hidden shadow-2xl border border-blue-800/40"
+                style={{
+                    background: 'linear-gradient(135deg, #021a4d 0%, #003399 50%, #002266 100%)',
+                }}
+            >
+                {/* Tech background hexagon accent glow */}
+                <div className="absolute top-0 right-0 w-96 h-96 bg-amber-400/10 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute -bottom-10 -left-10 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl pointer-events-none" />
 
-            {/* ══════ Alert Banner ══════ */}
-            {(lowStock.filter(i => i.status === 'out').length > 0 || pendingBills > 0) && (
-                <div className="bg-gradient-to-r from-red-500 via-orange-500 to-amber-500 rounded-2xl px-5 py-3 text-white flex items-center justify-between shadow-lg shadow-orange-200/50">
-                    <div className="flex items-center gap-3">
-                        <span className="text-2xl animate-pulse">🚨</span>
-                        <div>
-                            <p className="font-bold text-sm">Action Required</p>
-                            <p className="text-xs opacity-90">
-                                {lowStock.filter(i => i.status === 'out').length > 0 && `${lowStock.filter(i => i.status === 'out').length} items OUT OF STOCK • `}
-                                {pendingBills > 0 && `${pendingBills} unpaid bills`}
-                            </p>
+                <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                    {/* Store Title & Badge */}
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                            <span className="px-3 py-1 rounded-full text-xs font-black bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 shadow-md flex items-center gap-1.5">
+                                <ShieldCheck size={13} />
+                                ULTRA INTELLIGENCE POS
+                            </span>
+                            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-white/10 text-blue-200 border border-white/15">
+                                Active Outlet: {activeOutlet?.outlet_name || 'Main Hardware Hub'}
+                            </span>
+                            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 flex items-center gap-1">
+                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                LIVE CLOUD SYNC
+                            </span>
                         </div>
+                        <h1 className="text-3xl lg:text-4xl font-black tracking-tight text-white flex items-center gap-3">
+                            Executive Command Dashboard
+                        </h1>
+                        <p className="text-blue-100/80 text-sm max-w-2xl leading-relaxed">
+                            Real-time sales velocity, multi-channel cash flow, predictive inventory reorders, and debtor risk intelligence.
+                        </p>
                     </div>
-                    <div className="flex gap-2">
-                        <a href="/dashboard/low-stock" className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-bold transition">View Stock</a>
-                        <a href="/dashboard/bills" className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-bold transition">View Bills</a>
-                    </div>
-                </div>
-            )}
 
-            {/* ══════ KPI Cards Row ══════ */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                {/* Today's Sales */}
-                <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-4 text-white shadow-lg shadow-emerald-200/50 relative overflow-hidden">
-                    <div className="absolute -top-6 -right-6 w-20 h-20 bg-white/10 rounded-full" />
-                    <p className="text-xs font-medium opacity-80">Today&apos;s Sales</p>
-                    <p className="text-2xl font-extrabold mt-1">Ksh {fmt(todaySales)}</p>
-                    <div className="flex items-center gap-1 mt-1">
-                        <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${salesChange >= 0 ? 'bg-white/25' : 'bg-red-400/40'}`}>
-                            {pct(salesChange)}
-                        </span>
-                        <span className="text-xs opacity-70">vs yesterday</span>
-                    </div>
-                </div>
-                {/* Orders */}
-                <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-4 text-white shadow-lg shadow-blue-200/50 relative overflow-hidden">
-                    <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-white/10 rounded-full" />
-                    <p className="text-xs font-medium opacity-80">Orders Today</p>
-                    <p className="text-2xl font-extrabold mt-1">{todayOrders}</p>
-                    <p className="text-xs opacity-70 mt-1">Avg: Ksh {avgOrderValue.toLocaleString()}</p>
-                </div>
-                {/* Cash */}
-                <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-4 text-white shadow-lg shadow-green-200/50">
-                    <p className="text-xs font-medium opacity-80">💵 Cash Today</p>
-                    <p className="text-2xl font-extrabold mt-1">Ksh {fmt(todayCash)}</p>
-                    <p className="text-xs opacity-70 mt-1">{totalPayments > 0 ? ((todayCash / totalPayments) * 100).toFixed(0) : 0}% of total</p>
-                </div>
-                {/* M-Pesa */}
-                <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-4 text-white shadow-lg shadow-amber-200/50">
-                    <p className="text-xs font-medium opacity-80">📱 M-Pesa Today</p>
-                    <p className="text-2xl font-extrabold mt-1">Ksh {fmt(todayMpesa)}</p>
-                    <p className="text-xs opacity-70 mt-1">{totalPayments > 0 ? ((todayMpesa / totalPayments) * 100).toFixed(0) : 0}% of total</p>
-                </div>
-                {/* KCB Buni */}
-                <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl p-4 text-white shadow-lg shadow-blue-200/50">
-                    <p className="text-xs font-medium opacity-80">🏦 KCB Buni Today</p>
-                    <p className="text-2xl font-extrabold mt-1">Ksh {fmt(todayKcb)}</p>
-                    <p className="text-xs opacity-70 mt-1">{totalPayments > 0 ? ((todayKcb / totalPayments) * 100).toFixed(0) : 0}% of total</p>
-                </div>
-                {/* Credit */}
-                <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl p-4 text-white shadow-lg shadow-red-200/50">
-                    <p className="text-xs font-medium opacity-80">🏦 Credit Today</p>
-                    <p className="text-2xl font-extrabold mt-1">Ksh {fmt(todayCredit)}</p>
-                    <p className="text-xs opacity-70 mt-1">{totalPayments > 0 ? ((todayCredit / totalPayments) * 100).toFixed(0) : 0}% of total</p>
-                </div>
-                {/* Returns */}
-                {todayReturns > 0 && (
-                <div className="bg-gradient-to-br from-pink-600 to-red-700 rounded-2xl p-4 text-white shadow-lg shadow-pink-200/50">
-                    <p className="text-xs font-medium opacity-80">↩️ Returns Today</p>
-                    <p className="text-2xl font-extrabold mt-1">Ksh {fmt(todayReturns)}</p>
-                    <p className="text-xs opacity-70 mt-1">Goods returned &amp; refunded</p>
-                </div>
-                )}
-                {/* Credit Paid Today */}
-                <div className="bg-gradient-to-br from-teal-500 to-cyan-600 rounded-2xl p-4 text-white shadow-lg shadow-teal-200/50">
-                    <p className="text-xs font-medium opacity-80">💰 Credit Paid Today</p>
-                    <p className="text-2xl font-extrabold mt-1">Ksh {fmt(todayCreditPaid)}</p>
-                    <p className="text-xs opacity-70 mt-1">Collections from debtors</p>
-                </div>
-                {/* Net Profit */}
-                <div className="bg-gradient-to-br from-violet-600 to-purple-700 rounded-2xl p-4 text-white shadow-lg shadow-purple-200/50 relative overflow-hidden">
-                    <div className="absolute -top-4 -left-4 w-16 h-16 bg-white/10 rounded-full" />
-                    <p className="text-xs font-medium opacity-80">📊 Net Today</p>
-                    <p className={`text-2xl font-extrabold mt-1 ${netSales < 0 ? 'text-red-300' : ''}`}>Ksh {fmt(netSales)}</p>
-                    <p className="text-xs opacity-70 mt-1">After deductions</p>
-                </div>
-            </div>
-
-            {/* ══════ Main Charts Row ══════ */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                {/* Sales Trend Line Chart */}
-                <div className="lg:col-span-2 bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                            <span className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-sm">📈</span>
-                            Sales Trend
-                        </h3>
-                        <span className="text-xs text-gray-400 font-medium">
-                            Total: Ksh {totalRangeSales.toLocaleString()} • {totalRangeOrders} orders
-                        </span>
-                    </div>
-                    <div style={{ height: '320px' }}>
-                        {dailySales.length > 0 ? (
-                            <Line data={salesLineData} options={salesLineOptions} />
-                        ) : (
-                            <div className="h-full flex items-center justify-center text-gray-400">
-                                <div className="text-center"><span className="text-4xl">📊</span><p className="mt-2">No sales data for this period</p></div>
+                    {/* Store Health Index & POS Quick Launch */}
+                    <div className="flex items-center gap-4 flex-wrap">
+                        {/* Store Health Score Gauge */}
+                        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3.5 flex items-center gap-3.5 shadow-lg">
+                            <div className="relative w-14 h-14 flex items-center justify-center">
+                                <svg className="w-14 h-14 -rotate-90" viewBox="0 0 56 56">
+                                    <circle cx="28" cy="28" r="23" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="5" />
+                                    <circle
+                                        cx="28"
+                                        cy="28"
+                                        r="23"
+                                        fill="none"
+                                        stroke={storeHealthScore >= 80 ? '#10b981' : storeHealthScore >= 60 ? '#f59e0b' : '#ef4444'}
+                                        strokeWidth="5"
+                                        strokeLinecap="round"
+                                        strokeDasharray={`${2 * Math.PI * 23}`}
+                                        strokeDashoffset={`${2 * Math.PI * 23 * (1 - storeHealthScore / 100)}`}
+                                        style={{ transition: 'stroke-dashoffset 1s ease' }}
+                                    />
+                                </svg>
+                                <span className="absolute text-sm font-black text-amber-300">
+                                    {storeHealthScore}%
+                                </span>
                             </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Payment Split Donut */}
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
-                        <span className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center text-sm">💳</span>
-                        Today&apos;s Payment Split
-                    </h3>
-                    <div style={{ height: '200px' }} className="flex items-center justify-center relative">
-                        <Doughnut data={donutData} options={donutOptions} />
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="text-center">
-                                <p className="text-2xl font-extrabold text-gray-800">Ksh {fmt(totalPayments)}</p>
-                                <p className="text-xs text-gray-500">Total</p>
+                            <div>
+                                <p className="text-[10px] font-black uppercase tracking-wider text-blue-200">Store Health</p>
+                                <p className="text-sm font-extrabold text-white">
+                                    {storeHealthScore >= 80 ? 'Optimal Operations' : storeHealthScore >= 60 ? 'Standard Pace' : 'Attention Required'}
+                                </p>
+                                <p className="text-[10px] text-emerald-300 font-semibold">Active Monitoring</p>
                             </div>
                         </div>
+
+                        {/* Quick POS Launch Button (Golden Hero Pill) */}
+                        <Link
+                            href="/dashboard/pos"
+                            className="px-6 py-3.5 rounded-full font-black text-slate-950 text-sm flex items-center gap-2.5 transition-all hover:scale-105 shadow-xl hover:shadow-amber-400/30"
+                            style={{
+                                background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)',
+                                boxShadow: '0 8px 25px rgba(245, 158, 11, 0.45)',
+                            }}
+                        >
+                            <ShoppingCart size={18} className="text-slate-950" />
+                            <span>LAUNCH RETAIL POS</span>
+                            <ArrowRight size={16} />
+                        </Link>
                     </div>
-                    <div className="mt-4 space-y-2">
+                </div>
+
+                {/* Date Controls & Refresh Bar */}
+                <div className="mt-6 pt-5 border-t border-white/10 flex flex-wrap items-center justify-between gap-4">
+                    {/* Range Preset Tabs */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
                         {[
-                            { label: 'Cash', value: todayCash, color: '#10b981', icon: '💵' },
-                            { label: 'M-Pesa', value: todayMpesa, color: '#f59e0b', icon: '📱' },
-                            { label: 'KCB Buni', value: todayKcb, color: '#3b82f6', icon: '🏦' },
-                            { label: 'Credit', value: todayCredit, color: '#ef4444', icon: '🏦' },
-                        ].map(m => (
-                            <div key={m.label} className="flex items-center gap-2">
-                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: m.color }} />
-                                <span className="text-sm text-gray-600 flex-1">{m.icon} {m.label}</span>
-                                <span className="text-sm font-bold text-gray-800">Ksh {m.value.toLocaleString()}</span>
-                                <span className="text-xs text-gray-400">{totalPayments > 0 ? ((m.value / totalPayments) * 100).toFixed(0) : 0}%</span>
-                            </div>
+                            { key: '1d', label: 'Today' },
+                            { key: 'yesterday', label: 'Yesterday' },
+                            { key: '7d', label: '7 Days' },
+                            { key: '14d', label: '14 Days' },
+                            { key: '30d', label: '30 Days' },
+                            { key: 'month', label: 'This Month' },
+                        ].map(p => (
+                            <button
+                                key={p.key}
+                                onClick={() => setPreset(p.key)}
+                                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all ${
+                                    rangePreset === p.key
+                                        ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/20'
+                                        : 'bg-white/10 hover:bg-white/20 text-white/90'
+                                }`}
+                            >
+                                {p.label}
+                            </button>
                         ))}
                     </div>
+
+                    {/* Date Pickers & Manual Refresh */}
+                    <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 bg-slate-900/60 border border-white/15 px-3 py-1.5 rounded-xl text-xs text-white">
+                            <Calendar size={13} className="text-amber-400" />
+                            <input
+                                type="date"
+                                value={dateFrom}
+                                onChange={e => { setDateFrom(e.target.value); setRangePreset('custom'); }}
+                                className="bg-transparent text-white outline-none text-xs"
+                            />
+                            <span className="text-white/40">→</span>
+                            <input
+                                type="date"
+                                value={dateTo}
+                                onChange={e => { setDateTo(e.target.value); setRangePreset('custom'); }}
+                                className="bg-transparent text-white outline-none text-xs"
+                            />
+                        </div>
+
+                        <button
+                            onClick={loadDashboardData}
+                            disabled={isLoading}
+                            className="px-4 py-1.5 bg-white/15 hover:bg-white/25 border border-white/20 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-1.5"
+                        >
+                            <RefreshCw size={13} className={isLoading ? 'animate-spin text-amber-300' : 'text-white'} />
+                            <span>{isLoading ? 'Updating...' : 'Refresh'}</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            {/* ══════ Payment Comparison + User Sales ══════ */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                {/* Payment Comparison Bar Chart */}
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
-                        <span className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center text-sm">📊</span>
-                        Payment Method Comparison
-                    </h3>
-                    <div style={{ height: '300px' }}>
-                        {dailySales.length > 0 ? <Bar data={paymentBarData} options={paymentBarOptions} /> : (
-                            <div className="h-full flex items-center justify-center text-gray-400"><p>No data</p></div>
+            {/* ══════════════════════════════════════════════════════════════════
+                2. DYNAMIC REAL-TIME BUSINESS ADVISOR / ALERTS
+            ══════════════════════════════════════════════════════════════════ */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* 1. Velocity Insight */}
+                <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-sm flex items-start gap-3.5 hover:shadow-md transition-all">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 shadow-sm font-black">
+                        <Zap size={18} className="text-blue-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-black uppercase tracking-wider text-slate-400">Peak Velocity</p>
+                        <p className="text-base font-black text-slate-800 truncate">
+                            {activeHours.length > 0 ? `${peakHour.hour}:00 hrs Peak` : 'Standard Flow'}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">
+                            {activeHours.length > 0
+                                ? `Peak trading generated Ksh ${fmt(peakHour.sales)} with ${peakHour.orders} checkout orders.`
+                                : 'Waiting for peak customer footfall.'}
+                        </p>
+                    </div>
+                </div>
+
+                {/* 2. Inventory Alert */}
+                <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-sm flex items-start gap-3.5 hover:shadow-md transition-all">
+                    <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 shadow-sm font-black">
+                        <Package size={18} className="text-amber-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-black uppercase tracking-wider text-slate-400">Inventory Status</p>
+                        <p className="text-base font-black text-slate-800">
+                            {lowStock.length === 0 ? 'All Stock Optimal' : `${lowStock.length} Low Stock Items`}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">
+                            {lowStock.filter(s => s.status === 'out').length > 0
+                                ? `${lowStock.filter(s => s.status === 'out').length} items completely out of stock.`
+                                : `Total warehouse value stands at Ksh ${fmt(inventoryValue)}.`}
+                        </p>
+                    </div>
+                </div>
+
+                {/* 3. Margin & Profitability */}
+                <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-sm flex items-start gap-3.5 hover:shadow-md transition-all">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 shadow-sm font-black">
+                        <TrendingUp size={18} className="text-emerald-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-black uppercase tracking-wider text-slate-400">Gross Margin</p>
+                        <p className="text-base font-black text-emerald-600">
+                            {grossMarginPct}% Margin ({rangePreset.toUpperCase()})
+                        </p>
+                        <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">
+                            Period gross margin reached Ksh {fmt(totalRangeProfit)} with healthy product markups.
+                        </p>
+                    </div>
+                </div>
+
+                {/* 4. Debtor Risk Exposure */}
+                <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-sm flex items-start gap-3.5 hover:shadow-md transition-all">
+                    <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 shadow-sm font-black">
+                        <CreditCard size={18} className="text-rose-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-black uppercase tracking-wider text-slate-400">Store Credit Risk</p>
+                        <p className="text-base font-black text-rose-600">
+                            Ksh {fmt(outstandingCredit)}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">
+                            {totalCreditCustomers} active customer credit accounts currently open.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            {/* ══════════════════════════════════════════════════════════════════
+                3. EXECUTIVE FINANCIAL KPI GRID
+            ══════════════════════════════════════════════════════════════════ */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
+                {/* 1. Today's Gross Sales */}
+                <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
+                    <div className="h-1 w-full bg-gradient-to-r from-blue-600 to-indigo-600 absolute top-0 left-0" />
+                    <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wide">Today&apos;s Gross Sales</p>
+                    <p className="text-2xl font-black text-slate-900 mt-1">Ksh {fmt(todaySales)}</p>
+                    <div className="flex items-center gap-1.5 mt-2">
+                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${salesChange >= 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                            {salesChange >= 0 ? `+${salesChange.toFixed(1)}%` : `${salesChange.toFixed(1)}%`}
+                        </span>
+                        <span className="text-[11px] text-slate-400">vs yesterday</span>
+                    </div>
+                </div>
+
+                {/* 2. Today's Profit & Margin */}
+                <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-sm hover:shadow-md transition-all relative overflow-hidden">
+                    <div className="h-1 w-full bg-gradient-to-r from-amber-500 to-yellow-500 absolute top-0 left-0" />
+                    <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wide">Today&apos;s Gross Profit</p>
+                    <p className="text-2xl font-black text-amber-600 mt-1">Ksh {fmt(todayProfit)}</p>
+                    <div className="flex items-center gap-1.5 mt-2">
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded bg-amber-100 text-amber-800">
+                            {todayMarginPct}% Margin
+                        </span>
+                        <span className="text-[11px] text-slate-400">profit markup</span>
+                    </div>
+                </div>
+
+                {/* 3. M-Pesa Collections */}
+                <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-sm hover:shadow-md transition-all relative overflow-hidden">
+                    <div className="h-1 w-full bg-emerald-500 absolute top-0 left-0" />
+                    <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                        <Smartphone size={13} className="text-emerald-500" /> M-Pesa Today
+                    </p>
+                    <p className="text-2xl font-black text-emerald-700 mt-1">Ksh {fmt(todayMpesa)}</p>
+                    <p className="text-[11px] text-slate-400 mt-2">
+                        {totalPaymentsToday > 0 ? ((todayMpesa / totalPaymentsToday) * 100).toFixed(0) : 0}% of all payments
+                    </p>
+                </div>
+
+                {/* 4. Cash In Drawer */}
+                <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-sm hover:shadow-md transition-all relative overflow-hidden">
+                    <div className="h-1 w-full bg-blue-500 absolute top-0 left-0" />
+                    <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                        <DollarSign size={13} className="text-blue-500" /> Cash In Drawer
+                    </p>
+                    <p className="text-2xl font-black text-blue-800 mt-1">Ksh {fmt(todayCash)}</p>
+                    <p className="text-[11px] text-slate-400 mt-2">
+                        {totalPaymentsToday > 0 ? ((todayCash / totalPaymentsToday) * 100).toFixed(0) : 0}% of all payments
+                    </p>
+                </div>
+
+                {/* 5. Credit Paid / Collected Today */}
+                <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-sm hover:shadow-md transition-all relative overflow-hidden">
+                    <div className="h-1 w-full bg-teal-500 absolute top-0 left-0" />
+                    <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wide">Debt Recovered</p>
+                    <p className="text-2xl font-black text-teal-700 mt-1">Ksh {fmt(todayCreditPaid)}</p>
+                    <p className="text-[11px] text-slate-400 mt-2">Collections from debtors</p>
+                </div>
+
+                {/* 6. Completed Orders Today */}
+                <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-sm hover:shadow-md transition-all relative overflow-hidden">
+                    <div className="h-1 w-full bg-purple-500 absolute top-0 left-0" />
+                    <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wide">Orders Processed</p>
+                    <p className="text-2xl font-black text-purple-800 mt-1">{todayOrders}</p>
+                    <p className="text-[11px] text-slate-400 mt-2">
+                        Avg Ticket: Ksh {todayOrders > 0 ? Math.round(todaySales / todayOrders).toLocaleString() : 0}
+                    </p>
+                </div>
+            </div>
+
+            {/* ══════════════════════════════════════════════════════════════════
+                4. MULTI-DIMENSIONAL REVENUE & PROFIT VISUALIZATIONS
+            ══════════════════════════════════════════════════════════════════ */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Interactive Revenue & Profit Trend (2 Cols) */}
+                <div className="lg:col-span-2 bg-white rounded-3xl p-6 border border-slate-200/90 shadow-sm">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <span className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-sm">
+                                    📈
+                                </span>
+                                <h3 className="font-extrabold text-slate-900 text-lg">Sales Velocity & Revenue Stream</h3>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                                Cumulative period revenue: <strong className="text-slate-800">Ksh {totalRangeSales.toLocaleString()}</strong> across {totalRangeOrders} customer orders.
+                            </p>
+                        </div>
+
+                        {/* Chart Metric Toggle */}
+                        <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-bold text-slate-600">
+                            <button
+                                onClick={() => setChartMode('revenue')}
+                                className={`px-3 py-1.5 rounded-lg transition-all ${
+                                    chartMode === 'revenue' ? 'bg-blue-600 text-white shadow-sm' : 'hover:text-slate-900'
+                                }`}
+                            >
+                                Revenue
+                            </button>
+                            <button
+                                onClick={() => setChartMode('profit')}
+                                className={`px-3 py-1.5 rounded-lg transition-all ${
+                                    chartMode === 'profit' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'hover:text-slate-900'
+                                }`}
+                            >
+                                Gross Profit
+                            </button>
+                            <button
+                                onClick={() => setChartMode('orders')}
+                                className={`px-3 py-1.5 rounded-lg transition-all ${
+                                    chartMode === 'orders' ? 'bg-indigo-600 text-white shadow-sm' : 'hover:text-slate-900'
+                                }`}
+                            >
+                                Volume
+                            </button>
+                        </div>
+                    </div>
+
+                    <div style={{ height: '330px' }}>
+                        {dailySales.length > 0 ? (
+                            <Line data={trendChartData} options={trendChartOptions} />
+                        ) : (
+                            <div className="h-full flex items-center justify-center text-slate-400 text-sm">
+                                No sales data recorded for the selected timeline.
+                            </div>
                         )}
                     </div>
                 </div>
 
-                {/* User/Waiter Sales */}
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
-                        <span className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center text-sm">👥</span>
-                        Staff Sales Ranking
-                    </h3>
-                    <div style={{ height: '300px' }}>
-                        {userSales.length > 0 ? <Bar data={userBarData} options={userBarOptions} /> : (
-                            <div className="h-full flex items-center justify-center text-gray-400"><p>No staff data</p></div>
+                {/* Payment Ecosystem Donut & Breakdown (1 Col) */}
+                <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+                                <span className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-sm">
+                                    💳
+                                </span>
+                                Payment Channels
+                            </h3>
+                            <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                                Today
+                            </span>
+                        </div>
+
+                        {/* Donut Chart with Center Metric */}
+                        <div style={{ height: '190px' }} className="relative flex items-center justify-center">
+                            <Doughnut data={paymentDonutData} options={paymentDonutOptions} />
+                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Total Inflow</span>
+                                <span className="text-xl font-black text-slate-900">Ksh {fmt(totalPaymentsToday)}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Channel Detail Rows */}
+                    <div className="mt-4 space-y-2 pt-3 border-t border-slate-100">
+                        {[
+                            { label: 'M-Pesa Paybill / Till', value: todayMpesa, color: '#10b981', icon: '📱' },
+                            { label: 'Cash in Drawer', value: todayCash, color: '#f59e0b', icon: '💵' },
+                            { label: 'KCB Buni POS', value: todayKcb, color: '#3b82f6', icon: '🏦' },
+                            { label: 'Customer Credit', value: todayCredit, color: '#ef4444', icon: '📝' },
+                        ].map(c => {
+                            const pct = totalPaymentsToday > 0 ? ((c.value / totalPaymentsToday) * 100).toFixed(0) : '0';
+                            return (
+                                <div key={c.label} className="flex items-center justify-between text-xs py-1">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c.color }} />
+                                        <span className="font-semibold text-slate-700">{c.icon} {c.label}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-black text-slate-900">Ksh {c.value.toLocaleString()}</span>
+                                        <span className="text-[10px] font-bold text-slate-400 w-8 text-right">{pct}%</span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+
+            {/* ══════════════════════════════════════════════════════════════════
+                5. OPERATIONAL INTELLIGENCE: HOURLY HEATMAP & STAFF LEADERBOARD
+            ══════════════════════════════════════════════════════════════════ */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Hourly Sales Distribution Heatmap */}
+                <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 className="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+                                <span className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-sm">
+                                    ⏱️
+                                </span>
+                                Hourly Sales Velocity — Today
+                            </h3>
+                            <p className="text-xs text-slate-500 mt-0.5">Identifies customer traffic patterns to optimize cashier shift rosters.</p>
+                        </div>
+                        {activeHours.length > 0 && (
+                            <span className="text-xs font-black px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
+                                🔥 Peak: {peakHour.hour}:00
+                            </span>
                         )}
                     </div>
-                </div>
-            </div>
 
-            {/* ══════ Data Grids Row ══════ */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                {/* Best Sellers Grid */}
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
-                        <span className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center text-sm">🔥</span>
-                        Best Sellers
-                    </h3>
-                    <div className="overflow-auto max-h-[400px]">
-                        <table className="w-full text-sm">
-                            <thead className="sticky top-0 bg-gray-50">
-                                <tr className="text-left text-xs font-semibold text-gray-500 uppercase">
-                                    <th className="py-2 px-2">#</th>
-                                    <th className="py-2 px-2">Product</th>
-                                    <th className="py-2 px-2 text-right">Qty</th>
-                                    <th className="py-2 px-2 text-right">Revenue</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-50">
-                                {topProducts.map((p, i) => (
-                                    <tr key={i} className="hover:bg-indigo-50/50 transition">
-                                        <td className="py-2 px-2">
-                                            <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold text-white ${i === 0 ? 'bg-yellow-500' : i === 1 ? 'bg-gray-400' : i === 2 ? 'bg-amber-600' : 'bg-indigo-400'}`}>
-                                                {i + 1}
-                                            </span>
-                                        </td>
-                                        <td className="py-2 px-2 font-medium text-gray-800 max-w-[140px] truncate">{p.name}</td>
-                                        <td className="py-2 px-2 text-right font-bold text-indigo-600">{p.qty}</td>
-                                        <td className="py-2 px-2 text-right text-gray-600">Ksh {p.revenue.toLocaleString()}</td>
-                                    </tr>
-                                ))}
-                                {topProducts.length === 0 && (
-                                    <tr><td colSpan={4} className="py-8 text-center text-gray-400">No sales data</td></tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                {/* Low Stock / Out of Stock Grid */}
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
-                        <span className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center text-sm">⚠️</span>
-                        Stock Alerts
-                        {lowStock.length > 0 && (
-                            <span className="ml-auto px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-bold">{lowStock.length}</span>
-                        )}
-                    </h3>
-                    <div className="overflow-auto max-h-[400px]">
-                        <table className="w-full text-sm">
-                            <thead className="sticky top-0 bg-gray-50">
-                                <tr className="text-left text-xs font-semibold text-gray-500 uppercase">
-                                    <th className="py-2 px-2">Item</th>
-                                    <th className="py-2 px-2">Type</th>
-                                    <th className="py-2 px-2 text-right">Stock</th>
-                                    <th className="py-2 px-2 text-right">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-50">
-                                {lowStock.map((item, i) => (
-                                    <tr key={i} className={`transition ${item.status === 'out' ? 'bg-red-50' : item.status === 'critical' ? 'bg-orange-50' : 'hover:bg-yellow-50/50'}`}>
-                                        <td className="py-2 px-2 font-medium text-gray-800 max-w-[130px] truncate">{item.name}</td>
-                                        <td className="py-2 px-2">
-                                            <span className={`text-xs px-1.5 py-0.5 rounded ${item.type === 'dish' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
-                                                {item.type === 'dish' ? '🍽️' : '🥬'} {item.type}
-                                            </span>
-                                        </td>
-                                        <td className="py-2 px-2 text-right font-bold">{item.stock} / {item.reorder}</td>
-                                        <td className="py-2 px-2 text-right">
-                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${item.status === 'out' ? 'bg-red-200 text-red-800' :
-                                                    item.status === 'critical' ? 'bg-orange-200 text-orange-800' : 'bg-yellow-200 text-yellow-800'
-                                                }`}>
-                                                {item.status === 'out' ? '❌ OUT' : item.status === 'critical' ? '🔴 CRITICAL' : '🟡 LOW'}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                ))}
-                                {lowStock.length === 0 && (
-                                    <tr><td colSpan={4} className="py-8 text-center text-gray-400">
-                                        <span className="text-3xl">✅</span><p className="mt-1">All stock levels good!</p>
-                                    </td></tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                {/* Recent Purchases Grid */}
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
-                        <span className="w-8 h-8 bg-cyan-100 rounded-lg flex items-center justify-center text-sm">📦</span>
-                        Recent Purchases
-                    </h3>
-                    <div className="overflow-auto max-h-[400px]">
-                        <table className="w-full text-sm">
-                            <thead className="sticky top-0 bg-gray-50">
-                                <tr className="text-left text-xs font-semibold text-gray-500 uppercase">
-                                    <th className="py-2 px-2">Date</th>
-                                    <th className="py-2 px-2">Supplier</th>
-                                    <th className="py-2 px-2 text-right">Total</th>
-                                    <th className="py-2 px-2 text-right">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-50">
-                                {recentPurchases.map((p, i) => (
-                                    <tr key={i} className="hover:bg-cyan-50/50 transition">
-                                        <td className="py-2 px-2 text-gray-600">{new Date(p.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</td>
-                                        <td className="py-2 px-2 font-medium text-gray-800 max-w-[120px] truncate">{p.supplier}</td>
-                                        <td className="py-2 px-2 text-right font-bold text-gray-700">Ksh {p.total.toLocaleString()}</td>
-                                        <td className="py-2 px-2 text-right">
-                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${p.status === 'Completed' ? 'bg-green-100 text-green-700' :
-                                                    p.status === 'Pending' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
-                                                }`}>{p.status}</span>
-                                        </td>
-                                    </tr>
-                                ))}
-                                {recentPurchases.length === 0 && (
-                                    <tr><td colSpan={4} className="py-8 text-center text-gray-400">No purchase data</td></tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            {/* ══════ Financial Cards ══════ */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                <div className="bg-gradient-to-br from-rose-500 to-pink-600 rounded-2xl p-4 text-white shadow-lg shadow-rose-200/50">
-                    <p className="text-xs opacity-80">💸 Expenses</p>
-                    <p className="text-xl font-extrabold mt-1">Ksh {fmt(totalExpenses)}</p>
-                    <a href="/dashboard/expenses" className="text-xs underline opacity-70 hover:opacity-100 mt-1 inline-block">View →</a>
-                </div>
-                <div className="bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl p-4 text-white shadow-lg shadow-violet-200/50">
-                    <p className="text-xs opacity-80">💵 Advances</p>
-                    <p className="text-xl font-extrabold mt-1">Ksh {fmt(totalAdvances)}</p>
-                    <a href="/dashboard/advances" className="text-xs underline opacity-70 hover:opacity-100 mt-1 inline-block">View →</a>
-                </div>
-                <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-4 text-white shadow-lg shadow-amber-200/50">
-                    <p className="text-xs opacity-80">🎟️ Vouchers</p>
-                    <p className="text-xl font-extrabold mt-1">Ksh {fmt(totalVouchers)}</p>
-                    <a href="/dashboard/vouchers" className="text-xs underline opacity-70 hover:opacity-100 mt-1 inline-block">View →</a>
-                </div>
-                <div className="bg-gradient-to-br from-cyan-500 to-sky-600 rounded-2xl p-4 text-white shadow-lg shadow-cyan-200/50">
-                    <p className="text-xs opacity-80">⏰ Shifts</p>
-                    <div className="flex items-center gap-3 mt-1">
-                        <div><p className="text-lg font-extrabold">{activeShifts}</p><p className="text-xs opacity-70">Active</p></div>
-                        <div className="h-6 w-px bg-white/30" />
-                        <div><p className="text-lg font-extrabold">{closedShifts}</p><p className="text-xs opacity-70">Closed</p></div>
-                    </div>
-                    <a href="/dashboard/shifts" className="text-xs underline opacity-70 hover:opacity-100 mt-1 inline-block">Manage →</a>
-                </div>
-                <div className="bg-gradient-to-br from-slate-700 to-slate-900 rounded-2xl p-4 text-white shadow-lg shadow-slate-300/50">
-                    <p className="text-xs opacity-80">⚠️ Pending Bills</p>
-                    <p className="text-xl font-extrabold mt-1">{pendingBills}</p>
-                    <a href="/dashboard/bills" className="text-xs underline opacity-70 hover:opacity-100 mt-1 inline-block">View →</a>
-                </div>
-            </div>
-
-            {/* ══════ Business Intelligence KPIs (Feature-gated) ══════ */}
-            {hasFeature('advanced_analytics') && (<>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <span className="w-11 h-11 bg-emerald-100 rounded-xl flex items-center justify-center text-xl">📈</span>
-                        <div>
-                            <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Profit Margin</p>
-                            <p className={`text-3xl font-extrabold ${profitMarginPct >= 20 ? 'text-emerald-600' : profitMarginPct >= 10 ? 'text-amber-500' : 'text-red-500'}`}>{profitMarginPct}%</p>
-                            <p className="text-xs text-gray-400 mt-0.5">Gross margin · {rangePreset.toUpperCase()} period</p>
-                        </div>
-                    </div>
-                    <div className="mt-3 pt-3 border-t border-gray-50 flex justify-between text-xs text-gray-500">
-                        <span>Today: <b className={todayProfitMarginPct >= 15 ? 'text-emerald-600' : 'text-amber-500'}>{todayProfitMarginPct}%</b></span>
-                        <span>Profit: <b className="text-gray-700">Ksh {fmt(totalRangeProfit)}</b></span>
-                    </div>
-                </div>
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <span className="w-11 h-11 bg-rose-100 rounded-xl flex items-center justify-center text-xl">↩️</span>
-                        <div>
-                            <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Return Rate</p>
-                            <p className={`text-3xl font-extrabold ${returnRatePct < 2 ? 'text-emerald-600' : returnRatePct < 5 ? 'text-amber-500' : 'text-red-500'}`}>{returnRatePct}%</p>
-                            <p className="text-xs text-gray-400 mt-0.5">Returns vs gross sales</p>
-                        </div>
-                    </div>
-                    <div className="mt-3 pt-3 border-t border-gray-50 flex justify-between text-xs text-gray-500">
-                        <span>Returns: <b className="text-red-600">Ksh {fmt(totalReturnsRange)}</b></span>
-                        <span>{returnRatePct < 2 ? '✅ Excellent' : returnRatePct < 5 ? '⚠️ Monitor' : '🔴 High'}</span>
-                    </div>
-                </div>
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <span className="w-11 h-11 bg-red-100 rounded-xl flex items-center justify-center text-xl">💳</span>
-                        <div>
-                            <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Outstanding Debt</p>
-                            <p className="text-3xl font-extrabold text-red-600">Ksh {fmt(outstandingCredit)}</p>
-                            <p className="text-xs text-gray-400 mt-0.5">{totalCreditCustomers} active debtors</p>
-                        </div>
-                    </div>
-                    <div className="mt-3 pt-3 border-t border-gray-50 flex justify-between text-xs text-gray-500">
-                        <span>Avg per debtor: <b className="text-gray-700">Ksh {totalCreditCustomers > 0 ? fmt(Math.round(outstandingCredit / totalCreditCustomers)) : '0'}</b></span>
-                        <a href="/dashboard/credit-customers" className="text-indigo-500 hover:underline">View →</a>
-                    </div>
-                </div>
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <span className="w-11 h-11 bg-indigo-100 rounded-xl flex items-center justify-center text-xl">⚡</span>
-                        <div>
-                            <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Peak Hour Today</p>
-                            <p className="text-3xl font-extrabold text-indigo-600">{activeHours.length > 0 ? `${peakHour.hour}:00` : '--:--'}</p>
-                            <p className="text-xs text-gray-400 mt-0.5">{activeHours.length > 0 ? `Ksh ${fmt(peakHour.sales)} · ${peakHour.orders} orders` : 'No sales yet today'}</p>
-                        </div>
-                    </div>
-                    <div className="mt-3 pt-3 border-t border-gray-50 flex justify-between text-xs text-gray-500">
-                        <span>Avg order: <b className="text-gray-700">Ksh {fmt(avgOrderValue)}</b></span>
-                        <span>Active hrs: <b className="text-indigo-600">{activeHours.length}</b></span>
-                    </div>
-                </div>
-            </div>
-
-            {/* ══════ Hourly Heatmap + Top Debtors ══════ */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                {/* Hourly Sales Distribution */}
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
-                        <span className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-sm">⏱️</span>
-                        Hourly Sales — Today
-                        {activeHours.length > 0 && <span className="ml-auto text-xs text-gray-400">Peak: {peakHour.hour}:00h · Ksh {fmt(peakHour.sales)}</span>}
-                    </h3>
                     {activeHours.length === 0 ? (
-                        <div className="h-40 flex items-center justify-center text-gray-400 text-sm">No sales recorded today yet</div>
+                        <div className="h-48 flex items-center justify-center text-slate-400 text-sm">
+                            No transactions recorded today yet.
+                        </div>
                     ) : (
-                        <div className="space-y-2 overflow-auto max-h-80">
+                        <div className="space-y-2 overflow-y-auto max-h-[300px] pr-2 sb-scroll">
                             {hourlyData.filter(h => h.orders > 0).map(h => {
-                                const pct = Math.round(h.sales / maxHourlySales * 100);
-                                const isP = h.hour === peakHour.hour;
+                                const barWidth = Math.round((h.sales / maxHourlySales) * 100);
+                                const isPeak = h.hour === peakHour.hour;
                                 return (
-                                    <div key={h.hour} className="flex items-center gap-2 text-xs">
-                                        <span className="w-10 text-gray-500 text-right font-mono">{String(h.hour).padStart(2,'0')}:00</span>
-                                        <div className="flex-1 bg-gray-100 rounded-full h-5 overflow-hidden">
-                                            <div className={`h-full rounded-full transition-all ${isP ? 'bg-gradient-to-r from-indigo-500 to-purple-600' : 'bg-gradient-to-r from-blue-400 to-indigo-400'}`} style={{width:`${pct}%`}} />
+                                    <div key={h.hour} className="flex items-center gap-3 text-xs">
+                                        <span className="w-12 text-slate-500 font-mono font-bold text-right">
+                                            {String(h.hour).padStart(2, '0')}:00
+                                        </span>
+                                        <div className="flex-1 bg-slate-100 rounded-full h-4 overflow-hidden relative">
+                                            <div
+                                                className={`h-full rounded-full transition-all ${
+                                                    isPeak
+                                                        ? 'bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 shadow-sm'
+                                                        : 'bg-gradient-to-r from-blue-500 to-indigo-600'
+                                                }`}
+                                                style={{ width: `${Math.max(5, barWidth)}%` }}
+                                            />
                                         </div>
-                                        <span className="w-20 text-right font-bold text-gray-700">Ksh {fmt(h.sales)}</span>
-                                        <span className="w-10 text-right text-gray-400">{h.orders} ord</span>
-                                        {isP && <span className="text-yellow-500 text-base">🔥</span>}
+                                        <span className="w-24 text-right font-black text-slate-800">
+                                            Ksh {fmt(h.sales)}
+                                        </span>
+                                        <span className="w-14 text-right text-[11px] text-slate-400 font-semibold">
+                                            {h.orders} {h.orders === 1 ? 'sale' : 'sales'}
+                                        </span>
+                                        {isPeak && <span className="text-amber-500 font-black">⭐</span>}
                                     </div>
                                 );
                             })}
@@ -934,122 +1138,383 @@ export default function DashboardPage() {
                     )}
                 </div>
 
-                {/* Top Debtors */}
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
-                        <span className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center text-sm">💳</span>
-                        Top Outstanding Debtors
-                        {outstandingCredit > 0 && <span className="ml-auto text-xs font-bold text-red-600">Total: Ksh {fmt(outstandingCredit)}</span>}
-                    </h3>
-                    <div className="overflow-auto max-h-80">
-                        {topDebtors.length === 0 ? (
-                            <div className="h-32 flex items-center justify-center text-gray-400 text-sm">✅ No outstanding debts</div>
-                        ) : (
-                            <table className="w-full text-sm">
-                                <thead className="sticky top-0 bg-gray-50">
-                                    <tr className="text-left text-xs font-semibold text-gray-500 uppercase">
-                                        <th className="py-2 px-2">#</th>
-                                        <th className="py-2 px-2">Customer</th>
-                                        <th className="py-2 px-2">Phone</th>
-                                        <th className="py-2 px-2 text-right">Owes</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-50">
-                                    {topDebtors.map((d, i) => (
-                                        <tr key={i} className="hover:bg-red-50/50 transition">
-                                            <td className="py-2 px-2">
-                                                <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold text-white ${i === 0 ? 'bg-red-500' : i === 1 ? 'bg-orange-500' : 'bg-amber-500'}`}>{i+1}</span>
-                                            </td>
-                                            <td className="py-2 px-2 font-semibold text-gray-800 max-w-[130px] truncate">{d.name}</td>
-                                            <td className="py-2 px-2 text-gray-500">{d.phone || '—'}</td>
-                                            <td className="py-2 px-2 text-right font-bold text-red-600">Ksh {d.balance.toLocaleString()}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        )}
+                {/* Cashier Performance Podium Leaderboard */}
+                <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 className="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+                                <span className="w-8 h-8 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center font-bold text-sm">
+                                    🏆
+                                </span>
+                                Cashier Performance Leaderboard
+                            </h3>
+                            <p className="text-xs text-slate-500 mt-0.5">Ranked by revenue generation, order throughput, and basket size.</p>
+                        </div>
+                        <span className="text-xs text-slate-400 font-bold uppercase">{rangePreset} period</span>
                     </div>
-                    {topDebtors.length > 0 && (
-                        <a href="/dashboard/credit-customers" className="mt-3 block text-center text-xs text-indigo-500 hover:underline font-medium">View all debtors →</a>
-                    )}
+
+                    <div className="overflow-x-auto max-h-[300px] sb-scroll">
+                        <table className="w-full text-left text-xs">
+                            <thead className="bg-slate-50 sticky top-0 text-slate-500 font-black uppercase text-[10px]">
+                                <tr>
+                                    <th className="py-2.5 px-3">Rank</th>
+                                    <th className="py-2.5 px-3">Cashier</th>
+                                    <th className="py-2.5 px-3 text-right">Orders</th>
+                                    <th className="py-2.5 px-3 text-right">Revenue</th>
+                                    <th className="py-2.5 px-3 text-right">Avg Basket</th>
+                                    <th className="py-2.5 px-3 text-right">% Share</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                                {cashierSales.map((c, idx) => {
+                                    const podium = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
+                                    return (
+                                        <tr key={c.name} className={`hover:bg-blue-50/40 transition-colors ${idx === 0 ? 'bg-amber-50/40' : ''}`}>
+                                            <td className="py-2.5 px-3 text-base">{podium}</td>
+                                            <td className="py-2.5 px-3 font-extrabold text-slate-900">{c.name}</td>
+                                            <td className="py-2.5 px-3 text-right font-black text-indigo-600">{c.orders}</td>
+                                            <td className="py-2.5 px-3 text-right font-black text-slate-900">Ksh {c.sales.toLocaleString()}</td>
+                                            <td className="py-2.5 px-3 text-right text-slate-500">Ksh {c.avgTicket.toLocaleString()}</td>
+                                            <td className="py-2.5 px-3 text-right">
+                                                <span className={`px-2 py-0.5 rounded-full font-black text-[10px] ${
+                                                    c.sharePct >= 35 ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'
+                                                }`}>
+                                                    {c.sharePct}%
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                                {cashierSales.length === 0 && (
+                                    <tr>
+                                        <td colSpan={6} className="py-8 text-center text-slate-400">No staff transactions recorded yet.</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
-            {/* ══════ Enhanced Cashier Performance ══════ */}
-            {userSales.length > 0 && (
-            <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
-                    <span className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center text-sm">🏆</span>
-                    Cashier Performance Breakdown
-                    <span className="ml-auto text-xs text-gray-400">{rangePreset.toUpperCase()} period</span>
-                </h3>
-                <div className="overflow-auto">
-                    <table className="w-full text-sm">
-                        <thead className="bg-gray-50">
-                            <tr className="text-left text-xs font-semibold text-gray-500 uppercase">
-                                <th className="py-2.5 px-3">Rank</th>
-                                <th className="py-2.5 px-3">Cashier</th>
-                                <th className="py-2.5 px-3 text-right">Orders</th>
-                                <th className="py-2.5 px-3 text-right">Revenue</th>
-                                <th className="py-2.5 px-3 text-right">Avg Sale</th>
-                                <th className="py-2.5 px-3 text-right">% Share</th>
-                                <th className="py-2.5 px-3">Performance</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
-                            {userSales.map((u, i) => {
-                                const share = totalRangeSales > 0 ? Math.round(u.sales / totalRangeSales * 100) : 0;
-                                const avg = u.orders > 0 ? Math.round(u.sales / u.orders) : 0;
-                                const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i+1}`;
-                                return (
-                                    <tr key={i} className={`transition ${i === 0 ? 'bg-yellow-50/50' : 'hover:bg-purple-50/30'}`}>
-                                        <td className="py-2.5 px-3 text-lg">{medal}</td>
-                                        <td className="py-2.5 px-3 font-semibold text-gray-800">{u.name}</td>
-                                        <td className="py-2.5 px-3 text-right text-indigo-600 font-bold">{u.orders}</td>
-                                        <td className="py-2.5 px-3 text-right font-bold text-gray-800">Ksh {u.sales.toLocaleString()}</td>
-                                        <td className="py-2.5 px-3 text-right text-gray-600">Ksh {avg.toLocaleString()}</td>
-                                        <td className="py-2.5 px-3 text-right">
-                                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${share >= 40 ? 'bg-emerald-100 text-emerald-700' : share >= 20 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>{share}%</span>
+            {/* ══════════════════════════════════════════════════════════════════
+                6. BEST SELLERS LEADERBOARD & CRITICAL INVENTORY RADAR
+            ══════════════════════════════════════════════════════════════════ */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Fast-Moving Best Sellers */}
+                <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 className="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+                                <span className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center font-bold text-sm">
+                                    🔥
+                                </span>
+                                Top 10 Best Selling Products
+                            </h3>
+                            <p className="text-xs text-slate-500 mt-0.5">Top revenue contributors and velocity leaders in selected period.</p>
+                        </div>
+                        <Link href="/dashboard/products" className="text-xs text-blue-600 hover:underline font-bold">
+                            All Products →
+                        </Link>
+                    </div>
+
+                    <div className="overflow-x-auto max-h-[340px] sb-scroll">
+                        <table className="w-full text-left text-xs">
+                            <thead className="bg-slate-50 sticky top-0 text-slate-500 font-black uppercase text-[10px]">
+                                <tr>
+                                    <th className="py-2.5 px-3">#</th>
+                                    <th className="py-2.5 px-3">Product Name</th>
+                                    <th className="py-2.5 px-3 text-right">Qty Sold</th>
+                                    <th className="py-2.5 px-3 text-right">Avg Price</th>
+                                    <th className="py-2.5 px-3 text-right">Gross Revenue</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                                {topProducts.map((p, idx) => (
+                                    <tr key={p.name} className="hover:bg-slate-50 transition-colors">
+                                        <td className="py-2.5 px-3">
+                                            <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black ${
+                                                idx === 0 ? 'bg-amber-400 text-slate-950 font-black shadow-sm' : idx === 1 ? 'bg-slate-200 text-slate-800' : idx === 2 ? 'bg-amber-100 text-amber-800' : 'text-slate-400'
+                                            }`}>
+                                                {idx + 1}
+                                            </span>
                                         </td>
                                         <td className="py-2.5 px-3">
-                                            <div className="flex items-center gap-1.5">
-                                                <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
-                                                    <div className={`h-full rounded-full ${i === 0 ? 'bg-gradient-to-r from-yellow-400 to-amber-500' : 'bg-gradient-to-r from-purple-400 to-indigo-500'}`} style={{width:`${share}%`}} />
-                                                </div>
-                                            </div>
+                                            <p className="font-extrabold text-slate-900 truncate max-w-[180px]">{p.name}</p>
+                                            <p className="text-[10px] text-slate-400">{p.category}</p>
+                                        </td>
+                                        <td className="py-2.5 px-3 text-right font-black text-blue-600">{p.qty.toLocaleString()}</td>
+                                        <td className="py-2.5 px-3 text-right text-slate-500">Ksh {p.avgPrice.toLocaleString()}</td>
+                                        <td className="py-2.5 px-3 text-right font-black text-slate-900">Ksh {p.revenue.toLocaleString()}</td>
+                                    </tr>
+                                ))}
+                                {topProducts.length === 0 && (
+                                    <tr>
+                                        <td colSpan={5} className="py-8 text-center text-slate-400">No product sales in this period.</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* Critical Stock Radar & Reorder Advisory */}
+                <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 className="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+                                <span className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-sm">
+                                    ⚠️
+                                </span>
+                                Inventory Reorder Radar
+                            </h3>
+                            <p className="text-xs text-slate-500 mt-0.5">Automated detection of out-of-stock and depleted hardware inventory.</p>
+                        </div>
+                        {/* Status Filter */}
+                        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-[11px] font-bold">
+                            <button
+                                onClick={() => setStockFilter('all')}
+                                className={`px-2 py-1 rounded-lg ${stockFilter === 'all' ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}
+                            >
+                                All ({lowStock.length})
+                            </button>
+                            <button
+                                onClick={() => setStockFilter('out')}
+                                className={`px-2 py-1 rounded-lg ${stockFilter === 'out' ? 'bg-rose-600 text-white shadow' : 'text-slate-500'}`}
+                            >
+                                Out
+                            </button>
+                            <button
+                                onClick={() => setStockFilter('critical')}
+                                className={`px-2 py-1 rounded-lg ${stockFilter === 'critical' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-500'}`}
+                            >
+                                Critical
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="overflow-x-auto max-h-[340px] sb-scroll">
+                        <table className="w-full text-left text-xs">
+                            <thead className="bg-slate-50 sticky top-0 text-slate-500 font-black uppercase text-[10px]">
+                                <tr>
+                                    <th className="py-2.5 px-3">Item Name</th>
+                                    <th className="py-2.5 px-3 text-right">Current Stock</th>
+                                    <th className="py-2.5 px-3 text-right">Reorder Point</th>
+                                    <th className="py-2.5 px-3 text-center">Status</th>
+                                    <th className="py-2.5 px-3 text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                                {filteredStock.map(item => (
+                                    <tr key={item.pid} className="hover:bg-slate-50 transition-colors">
+                                        <td className="py-2.5 px-3">
+                                            <p className="font-extrabold text-slate-900 truncate max-w-[170px]">{item.name}</p>
+                                            <p className="text-[10px] text-slate-400">{item.category}</p>
+                                        </td>
+                                        <td className="py-2.5 px-3 text-right font-black text-rose-600">
+                                            {item.stock}
+                                        </td>
+                                        <td className="py-2.5 px-3 text-right text-slate-500">{item.reorder}</td>
+                                        <td className="py-2.5 px-3 text-center">
+                                            <span className={`px-2 py-0.5 rounded-full font-black text-[10px] ${
+                                                item.status === 'out'
+                                                    ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                                                    : item.status === 'critical'
+                                                    ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                                    : 'bg-yellow-100 text-yellow-800'
+                                            }`}>
+                                                {item.status === 'out' ? 'OUT OF STOCK' : item.status === 'critical' ? 'CRITICAL LOW' : 'REORDER'}
+                                            </span>
+                                        </td>
+                                        <td className="py-2.5 px-3 text-right">
+                                            <Link
+                                                href={`/dashboard/purchase?reorder=${item.pid}`}
+                                                className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-black text-[10px] hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+                                            >
+                                                Order →
+                                            </Link>
                                         </td>
                                     </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+                                ))}
+                                {filteredStock.length === 0 && (
+                                    <tr>
+                                        <td colSpan={5} className="py-8 text-center text-emerald-600 font-bold">
+                                            ✅ All warehouse inventory levels are healthy!
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
-            )}
-            </>)}
 
-            {/* ══════ Quick Actions ══════ */}
-            <div className="bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800 rounded-2xl p-5 text-white">
-                <h3 className="font-bold text-sm mb-3 flex items-center gap-2">⚡ Quick Actions</h3>
-                <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-10 gap-2">
+            {/* ══════════════════════════════════════════════════════════════════
+                7. DEBTORS & PROCUREMENT INTELLIGENCE
+            ══════════════════════════════════════════════════════════════════ */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Outstanding Debtors Ledger */}
+                <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 className="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+                                <span className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-sm">
+                                    👥
+                                </span>
+                                Debtor Exposure & Overdue Accounts
+                            </h3>
+                            <p className="text-xs text-slate-500 mt-0.5">Top customer debt balances requiring collection follow-ups.</p>
+                        </div>
+                        <Link href="/dashboard/credit-customers" className="text-xs text-blue-600 hover:underline font-bold">
+                            View All ({totalCreditCustomers}) →
+                        </Link>
+                    </div>
+
+                    <div className="overflow-x-auto max-h-[280px] sb-scroll">
+                        <table className="w-full text-left text-xs">
+                            <thead className="bg-slate-50 sticky top-0 text-slate-500 font-black uppercase text-[10px]">
+                                <tr>
+                                    <th className="py-2.5 px-3">#</th>
+                                    <th className="py-2.5 px-3">Customer Name</th>
+                                    <th className="py-2.5 px-3">Contact</th>
+                                    <th className="py-2.5 px-3 text-right">Owed Balance</th>
+                                    <th className="py-2.5 px-3 text-right">Statement</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                                {topDebtors.map((d, idx) => (
+                                    <tr key={d.name} className="hover:bg-slate-50 transition-colors">
+                                        <td className="py-2.5 px-3 font-bold text-slate-400">{idx + 1}</td>
+                                        <td className="py-2.5 px-3 font-extrabold text-slate-900">{d.name}</td>
+                                        <td className="py-2.5 px-3 text-slate-500">{d.phone || '—'}</td>
+                                        <td className="py-2.5 px-3 text-right font-black text-rose-600">
+                                            Ksh {d.balance.toLocaleString()}
+                                        </td>
+                                        <td className="py-2.5 px-3 text-right">
+                                            <Link
+                                                href={`/dashboard/credit-statements?customer=${d.id || ''}`}
+                                                className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-[10px] transition-all"
+                                            >
+                                                View →
+                                            </Link>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {topDebtors.length === 0 && (
+                                    <tr>
+                                        <td colSpan={5} className="py-8 text-center text-emerald-600 font-bold">
+                                            ✅ Zero outstanding debt. Excellent cash flow collection!
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* Recent Purchases & Supplier Deliveries */}
+                <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 className="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+                                <span className="w-8 h-8 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center font-bold text-sm">
+                                    🚚
+                                </span>
+                                Recent Procurement & Supplier Inbound
+                            </h3>
+                            <p className="text-xs text-slate-500 mt-0.5">Latest goods received vouchers and wholesale purchase entries.</p>
+                        </div>
+                        <Link href="/dashboard/purchases" className="text-xs text-blue-600 hover:underline font-bold">
+                            All Purchases →
+                        </Link>
+                    </div>
+
+                    <div className="overflow-x-auto max-h-[280px] sb-scroll">
+                        <table className="w-full text-left text-xs">
+                            <thead className="bg-slate-50 sticky top-0 text-slate-500 font-black uppercase text-[10px]">
+                                <tr>
+                                    <th className="py-2.5 px-3">Date</th>
+                                    <th className="py-2.5 px-3">Supplier</th>
+                                    <th className="py-2.5 px-3 text-right">Total (Ksh)</th>
+                                    <th className="py-2.5 px-3 text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                                {recentPurchases.map(p => (
+                                    <tr key={p.purchaseNo} className="hover:bg-slate-50 transition-colors">
+                                        <td className="py-2.5 px-3 text-slate-500">
+                                            {new Date(p.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                                        </td>
+                                        <td className="py-2.5 px-3 font-extrabold text-slate-900">{p.supplier}</td>
+                                        <td className="py-2.5 px-3 text-right font-black text-slate-900">
+                                            Ksh {p.total.toLocaleString()}
+                                        </td>
+                                        <td className="py-2.5 px-3 text-center">
+                                            <span className={`px-2 py-0.5 rounded-full font-black text-[10px] ${
+                                                p.status.toLowerCase().includes('complete') || p.status.toLowerCase().includes('received')
+                                                    ? 'bg-emerald-100 text-emerald-800'
+                                                    : 'bg-amber-100 text-amber-800'
+                                            }`}>
+                                                {p.status}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {recentPurchases.length === 0 && (
+                                    <tr>
+                                        <td colSpan={4} className="py-8 text-center text-slate-400">
+                                            No procurement orders recorded recently.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            {/* ══════════════════════════════════════════════════════════════════
+                8. INTERACTIVE ENTERPRISE QUICK ACTIONS COMMAND CENTER
+            ══════════════════════════════════════════════════════════════════ */}
+            <div
+                className="rounded-3xl p-6 text-white shadow-xl border border-blue-900/50"
+                style={{
+                    background: 'linear-gradient(135deg, #021a4d 0%, #002b80 100%)',
+                }}
+            >
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-extrabold text-base flex items-center gap-2">
+                        <span className="text-amber-400">⚡</span> Enterprise Quick Command Actions
+                    </h3>
+                    <span className="text-xs text-blue-200">1-Click Fast Navigation</span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
                     {[
-                        { icon: '🛒', label: 'POS', href: '/dashboard/pos', color: 'from-emerald-500/30 to-green-600/30 hover:from-emerald-500/50 hover:to-green-600/50' },
-                        { icon: '📥', label: 'Purchases', href: '/dashboard/purchases', color: 'from-blue-500/30 to-indigo-600/30 hover:from-blue-500/50 hover:to-indigo-600/50' },
-                        { icon: '📦', label: 'Stock Available', href: '/dashboard/products', color: 'from-cyan-500/30 to-sky-600/30 hover:from-cyan-500/50 hover:to-sky-600/50' },
-                        { icon: '⏰', label: 'Expiry Register', href: '/dashboard/expiry-register', color: 'from-amber-500/30 to-orange-600/30 hover:from-amber-500/50 hover:to-orange-600/50' },
-                        { icon: '↩️', label: 'Sales Returns', href: '/dashboard/sales-return', color: 'from-rose-500/30 to-red-600/30 hover:from-rose-500/50 hover:to-red-600/50' },
-                        { icon: '🧾', label: 'Register History', href: '/dashboard/shift-reports', color: 'from-purple-500/30 to-violet-600/30 hover:from-purple-500/50 hover:to-violet-600/50' },
-                        { icon: '📊', label: 'Reports', href: '/dashboard/reports/sales', color: 'from-indigo-500/30 to-blue-600/30 hover:from-indigo-500/50 hover:to-blue-600/50' },
-                        { icon: '📈', label: 'Sales Summary', href: '/dashboard/sales-summary', color: 'from-teal-500/30 to-emerald-600/30 hover:from-teal-500/50 hover:to-emerald-600/50' },
-                        { icon: '💸', label: 'Expenses', href: '/dashboard/expenses', color: 'from-pink-500/30 to-rose-600/30 hover:from-pink-500/50 hover:to-rose-600/50' },
-                        { icon: '👥', label: 'Payroll', href: '/dashboard/payroll', color: 'from-slate-400/30 to-gray-500/30 hover:from-slate-400/50 hover:to-gray-500/50' },
-                    ].map(a => (
-                        <a key={a.label} href={a.href}
-                            className={`flex flex-col items-center gap-1.5 p-3 bg-gradient-to-br ${a.color} rounded-xl transition-all hover:scale-105 border border-white/10 hover:border-white/25 hover:shadow-lg hover:shadow-white/5`}>
-                            <span className="text-2xl drop-shadow-sm">{a.icon}</span>
-                            <span className="text-[10px] font-semibold text-center leading-tight">{a.label}</span>
-                        </a>
-                    ))}
+                        { icon: ShoppingCart, label: 'Retail POS', href: '/dashboard/pos', highlight: true },
+                        { icon: Download, label: 'Stock In / PO', href: '/dashboard/purchase' },
+                        { icon: Package, label: 'Products', href: '/dashboard/products' },
+                        { icon: Users, label: 'Customers', href: '/dashboard/credit-customers' },
+                        { icon: TrendingDown, label: 'Expenses', href: '/dashboard/expenses' },
+                        { icon: Repeat, label: 'Returns', href: '/dashboard/sales-return' },
+                        { icon: FileText, label: 'Sales Records', href: '/dashboard/sales' },
+                        { icon: BarChart3, label: 'Full Reports', href: '/dashboard/reports/sales' },
+                    ].map(a => {
+                        const Icon = a.icon;
+                        return (
+                            <Link
+                                key={a.label}
+                                href={a.href}
+                                className={`flex flex-col items-center justify-center gap-2.5 p-3.5 rounded-2xl transition-all hover:scale-105 border ${
+                                    a.highlight
+                                        ? 'bg-gradient-to-br from-amber-400 to-yellow-500 text-slate-950 font-black border-amber-300 shadow-lg shadow-amber-400/25'
+                                        : 'bg-white/10 hover:bg-white/20 text-white border-white/10 shadow-sm'
+                                }`}
+                            >
+                                <Icon size={22} className={a.highlight ? 'text-slate-950' : 'text-amber-300'} />
+                                <span className="text-xs font-bold text-center leading-tight">{a.label}</span>
+                            </Link>
+                        );
+                    })}
                 </div>
             </div>
         </div>
