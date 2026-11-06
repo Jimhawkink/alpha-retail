@@ -411,6 +411,73 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         return () => clearInterval(interval);
     }, []);
 
+    // ── Global Silent Session Auto-Logout after 5 Minutes Inactivity ──
+    // Completely silent: NO modal, NO countdown popup.
+    // Syncs across all tabs using localStorage.
+    useEffect(() => {
+        const IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+        const STORAGE_KEY = 'alpharetail_last_activity';
+
+        const now = Date.now();
+        if (!localStorage.getItem(STORAGE_KEY)) {
+            localStorage.setItem(STORAGE_KEY, String(now));
+        }
+
+        const performSilentLogout = async () => {
+            try {
+                const stored = localStorage.getItem('user');
+                const u = stored ? JSON.parse(stored) : null;
+                if (u?.name) {
+                    await logActivity('Auto Logout', `${u.name} automatically logged out after 5 mins of inactivity`);
+                }
+            } catch { /* silent */ }
+            localStorage.removeItem('user');
+            localStorage.removeItem(STORAGE_KEY);
+            router.replace('/');
+        };
+
+        const updateActivity = () => {
+            const current = Date.now();
+            const last = Number(localStorage.getItem(STORAGE_KEY) || 0);
+            if (current - last > 2000) {
+                localStorage.setItem(STORAGE_KEY, String(current));
+            }
+        };
+
+        const checkTimeout = () => {
+            const last = Number(localStorage.getItem(STORAGE_KEY) || 0);
+            if (last > 0 && Date.now() - last >= IDLE_TIMEOUT_MS) {
+                performSilentLogout();
+            }
+        };
+
+        const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click', 'wheel'];
+        events.forEach(e => window.addEventListener(e, updateActivity, { passive: true }));
+
+        const intervalId = setInterval(checkTimeout, 5000);
+
+        const onVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                checkTimeout();
+            }
+        };
+        document.addEventListener('visibilitychange', onVisibilityChange);
+
+        const onStorageChange = (e: StorageEvent) => {
+            if (e.key === 'user' && !e.newValue) {
+                router.replace('/');
+            }
+        };
+        window.addEventListener('storage', onStorageChange);
+
+        return () => {
+            clearInterval(intervalId);
+            events.forEach(e => window.removeEventListener(e, updateActivity));
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+            window.removeEventListener('storage', onStorageChange);
+        };
+    }, [router]);
+
     useEffect(() => {
         const ns: Record<string, boolean> = { ...expanded };
         let changed = false;
@@ -440,6 +507,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const handleLogout = async () => {
         await logActivity('Logout', `${user?.name || 'Unknown'} logged out`);
         localStorage.removeItem('user');
+        localStorage.removeItem('alpharetail_last_activity');
         router.push('/');
     };
 
