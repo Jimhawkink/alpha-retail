@@ -408,17 +408,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         setUser(JSON.parse(raw));
     }, [router]);
 
-    // ── Subscription Lockout Check ────────────────────────────────────────
-    // Runs whenever the user or active outlet changes.
+    // ── Subscription Lockout & Session Termination Check ─────────────────
+    // Runs whenever the user or active outlet changes, plus polling every 10s.
     useEffect(() => {
         const checkLockout = async () => {
             setLockoutChecked(false);
             try {
                 const raw = localStorage.getItem('user') || '{}';
                 const u   = JSON.parse(raw);
+                if (!u || !u.userId) { setLockoutChecked(true); return; }
+
                 const t   = (u.userType || u.user_type || '').toLowerCase().replace(/\s/g, '');
                 const isSA = t === 'superadmin' || t === 'superuser';
                 setIsSuperAdminUser(isSA);
+
+                // 1. Verify if user is still active in database
+                const { data: dbUser } = await supabase
+                    .from('retail_users')
+                    .select('active')
+                    .eq('user_id', u.userId)
+                    .maybeSingle();
+
+                if (dbUser && dbUser.active === false) {
+                    // Forcefully cut off session immediately
+                    localStorage.removeItem('user');
+                    localStorage.removeItem('activeOutletId');
+                    localStorage.removeItem('alpharetail_last_activity');
+                    router.replace('/');
+                    return;
+                }
 
                 // Read activeOutletId directly from localStorage or from user object
                 const rawOutletId = localStorage.getItem('activeOutletId');
@@ -426,6 +444,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                 if (!outletId) { setLockoutChecked(true); return; }
 
+                // 2. Check outlet active status
+                const { data: outletDb } = await supabase
+                    .from('retail_outlets')
+                    .select('active')
+                    .eq('outlet_id', outletId)
+                    .maybeSingle();
+
+                if (outletDb && outletDb.active === false && !isSA) {
+                    setSystemLocked(true);
+                    setLockoutReason('Subscription Expired. Access to this branch has been deactivated pending subscription renewal.');
+                    setLockoutChecked(true);
+                    return;
+                }
+
+                // 3. Check organisation_settings lockout status
                 const { data } = await supabase
                     .from('organisation_settings')
                     .select('setting_key, setting_value')
@@ -445,10 +478,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             setLockoutChecked(true);
         };
         checkLockout();
-        // Re-check every 60 seconds
-        const interval = setInterval(checkLockout, 60000);
-        return () => clearInterval(interval);
-    }, []);
+        // Re-check every 10 seconds for real-time cutoff
+        const interval = setInterval(checkLockout, 10000);
+        window.addEventListener('focus', checkLockout);
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('focus', checkLockout);
+        };
+    }, [router]);
 
     // ── Global Silent Session Auto-Logout after 5 Minutes Inactivity ──
     // Completely silent: NO modal, NO countdown popup.
