@@ -598,11 +598,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
 
     // ── SUBSCRIPTION LOCKOUT SCREEN ───────────────────────────────────────
-    // Shows for ALL users when their outlet is locked.
-    // Super Admin can always access /dashboard/admin/system-lockout or bypass for preview.
-    const shouldShowLockout = lockoutChecked && systemLocked && (
-        !isSuperAdminUser || (!superAdminBypass && pathname !== '/dashboard/admin/system-lockout')
-    );
+    // Shows for ALL client/staff users when their outlet is locked.
+    // Super Admin is never blocked so they can monitor and manage the outlet without redirection.
+    const shouldShowLockout = lockoutChecked && systemLocked && !isSuperAdminUser;
 
     if (shouldShowLockout) return (
         <div className="min-h-screen flex items-center justify-center p-4"
