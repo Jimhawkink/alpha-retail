@@ -77,8 +77,45 @@ export default function DashboardPage() {
     const outletId = activeOutlet?.outlet_id || 1;
 
     // Filter range: default 30 days
-    const [period, setPeriod] = useState<'30d' | '14d' | '7d' | 'month'>('30d');
+    const [dateFrom, setDateFrom] = useState(() => {
+        const d = new Date();
+        d.setDate(d.getDate() - 30);
+        return d.toISOString().split('T')[0];
+    });
+    const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0]);
+    const [periodPreset, setPeriodPreset] = useState<string>('30d');
     const [isLoading, setIsLoading] = useState(true);
+
+    const applyPreset = (preset: string) => {
+        setPeriodPreset(preset);
+        const now = new Date();
+        const to = now.toISOString().split('T')[0];
+        let from = to;
+        if (preset === 'today') {
+            from = to;
+        } else if (preset === 'yesterday') {
+            const y = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+            setDateFrom(y);
+            setDateTo(y);
+            return;
+        } else if (preset === '7d') {
+            const d = new Date();
+            d.setDate(d.getDate() - 7);
+            from = d.toISOString().split('T')[0];
+        } else if (preset === '14d') {
+            const d = new Date();
+            d.setDate(d.getDate() - 14);
+            from = d.toISOString().split('T')[0];
+        } else if (preset === '30d') {
+            const d = new Date();
+            d.setDate(d.getDate() - 30);
+            from = d.toISOString().split('T')[0];
+        } else if (preset === 'month') {
+            from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+        }
+        setDateFrom(from);
+        setDateTo(to);
+    };
 
     // KPI Metrics
     const [todaySales, setTodaySales] = useState(0);
@@ -115,13 +152,6 @@ export default function DashboardPage() {
         setIsLoading(true);
         const today = new Date().toISOString().split('T')[0];
         const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-
-        // Compute Date Range Start
-        const now = new Date();
-        const days = period === '7d' ? 7 : period === '14d' ? 14 : 30;
-        const startDate = new Date();
-        startDate.setDate(now.getDate() - days);
-        const startDateStr = startDate.toISOString().split('T')[0];
 
         try {
             // ── 1. Today's Sales & Transactions ──
@@ -170,17 +200,19 @@ export default function DashboardPage() {
             setYesterdayProfit(yProfit);
             setYesterdayTransactions((yData || []).length);
 
-            // ── 3. Range Sales Performance Trend (Last X Days) ──
+            // ── 3. Range Sales Performance Trend (Date Range) ──
             const { data: rangeSales } = await supabase
                 .from('retail_sales')
                 .select('sale_date, total_amount, profit')
-                .gte('sale_date', startDateStr)
-                .lte('sale_date', today)
+                .gte('sale_date', dateFrom)
+                .lte('sale_date', dateTo)
                 .eq('outlet_id', outletId)
                 .order('sale_date');
 
             const dateMap = new Map<string, { total: number; profit: number; orders: number }>();
-            for (let d = new Date(startDate); d <= now; d.setDate(d.getDate() + 1)) {
+            const startD = new Date(dateFrom);
+            const endD = new Date(dateTo);
+            for (let d = new Date(startD); d <= endD; d.setDate(d.getDate() + 1)) {
                 const key = d.toISOString().split('T')[0];
                 dateMap.set(key, { total: 0, profit: 0, orders: 0 });
             }
@@ -249,7 +281,8 @@ export default function DashboardPage() {
             const { data: itemsData } = await supabase
                 .from('retail_sales_items')
                 .select('product_name, quantity, subtotal, created_at')
-                .gte('created_at', `${startDateStr}T00:00:00`)
+                .gte('created_at', `${dateFrom}T00:00:00`)
+                .lte('created_at', `${dateTo}T23:59:59`)
                 .limit(2000);
 
             const prodAgg = new Map<string, { qty: number; revenue: number }>();
@@ -318,7 +351,7 @@ export default function DashboardPage() {
             console.error('Error fetching retail dashboard data:', err);
         }
         setIsLoading(false);
-    }, [outletId, period]);
+    }, [outletId, dateFrom, dateTo]);
 
     useEffect(() => {
         loadDashboardData();
@@ -678,23 +711,61 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
                 {/* 1. Sales Performance Overview (Col Span 6) */}
                 <div className="lg:col-span-6 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col justify-between">
-                    {/* Emerald Header Bar */}
-                    <div className="bg-[#023319] px-4 py-2.5 flex items-center justify-between text-white">
+                    {/* Emerald Header Bar with Date Range Filter and White Font Dropdown */}
+                    <div className="bg-[#023319] px-4 py-2.5 flex flex-wrap items-center justify-between gap-2.5 text-white">
                         <div className="flex items-center gap-2">
                             <TrendingUp size={16} className="text-emerald-400" />
                             <span className="font-extrabold text-xs lg:text-sm tracking-tight text-white">
                                 Sales Performance Overview
                             </span>
                         </div>
-                        <select
-                            value={period}
-                            onChange={e => setPeriod(e.target.value as any)}
-                            className="bg-[#012211] text-emerald-200 border border-emerald-500/30 text-[11px] font-bold rounded-lg px-2.5 py-1 outline-none cursor-pointer"
-                        >
-                            <option value="30d">Last 30 Days ▾</option>
-                            <option value="14d">Last 14 Days ▾</option>
-                            <option value="7d">Last 7 Days ▾</option>
-                        </select>
+
+                        {/* Date Range & Preset Controls */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {/* Preset Dropdown with Bright White Fonts */}
+                            <select
+                                value={periodPreset}
+                                onChange={e => applyPreset(e.target.value)}
+                                className="bg-[#012211] text-white font-extrabold border border-emerald-400/50 text-[11px] rounded-lg px-2.5 py-1 outline-none cursor-pointer shadow-xs"
+                            >
+                                <option value="today" className="bg-[#012211] text-white font-bold">Today</option>
+                                <option value="yesterday" className="bg-[#012211] text-white font-bold">Yesterday</option>
+                                <option value="7d" className="bg-[#012211] text-white font-bold">Last 7 Days</option>
+                                <option value="14d" className="bg-[#012211] text-white font-bold">Last 14 Days</option>
+                                <option value="30d" className="bg-[#012211] text-white font-bold">Last 30 Days</option>
+                                <option value="month" className="bg-[#012211] text-white font-bold">This Month</option>
+                                <option value="custom" className="bg-[#012211] text-white font-bold">Custom Range</option>
+                            </select>
+
+                            {/* Choose From -> Choose To Date Filter Inputs */}
+                            <div className="flex items-center gap-1.5 bg-[#012211] border border-emerald-400/50 px-2 py-0.5 rounded-lg text-white text-[11px] shadow-xs">
+                                <Calendar size={12} className="text-emerald-400 shrink-0" />
+                                <span className="text-emerald-300 font-bold text-[10px]">From:</span>
+                                <input
+                                    type="date"
+                                    value={dateFrom}
+                                    onChange={e => { setDateFrom(e.target.value); setPeriodPreset('custom'); }}
+                                    className="bg-transparent text-white font-extrabold text-[11px] outline-none cursor-pointer [color-scheme:dark]"
+                                />
+                                <span className="text-emerald-400 font-bold">→</span>
+                                <span className="text-emerald-300 font-bold text-[10px]">To:</span>
+                                <input
+                                    type="date"
+                                    value={dateTo}
+                                    onChange={e => { setDateTo(e.target.value); setPeriodPreset('custom'); }}
+                                    className="bg-transparent text-white font-extrabold text-[11px] outline-none cursor-pointer [color-scheme:dark]"
+                                />
+                                <button
+                                    onClick={loadDashboardData}
+                                    disabled={isLoading}
+                                    title="Filter Sales"
+                                    className="ml-0.5 p-1 bg-emerald-600/80 hover:bg-emerald-500 text-white rounded text-[10px] font-bold flex items-center gap-1 transition-all"
+                                >
+                                    <RefreshCw size={11} className={isLoading ? 'animate-spin' : ''} />
+                                    <span className="hidden sm:inline">Filter</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <div className="p-4 flex-1 flex flex-col justify-between">
