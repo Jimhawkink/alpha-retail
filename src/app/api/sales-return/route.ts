@@ -1,8 +1,8 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InprYW11aHZybWF6b3podWRidHV3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDI0MTc5NiwiZXhwIjoyMDk5ODE3Nzk2fQ.1TiRblZHKNcNAJd4j5Oh_xl38Qo0TuaaROIP8iDVpYw';
-const SUPABASE_URL = 'https://zkamuhvrmazozhudbtuw.supabase.co';
+const SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjZWJ3enBjeWVsdHpoeXFlZnhvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5NDIzODAzMSwiZXhwIjoyMTA5ODE0MDMxfQ.m2VCkHfb-vjKdBaRTlx98iAQjwzLu8_MNRnJAeYS8bk';
+const SUPABASE_URL = 'https://gcebwzpcyeltzhyqefxo.supabase.co';
 const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 
 export async function POST(req: NextRequest) {

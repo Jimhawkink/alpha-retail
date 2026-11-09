@@ -21,8 +21,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 // This uses a separate Supabase project for M-Pesa transactions
 // Configure your Energy App Supabase project credentials here
 // ============================================
-const c2bSupabaseUrl = 'https://zkamuhvrmazozhudbtuw.supabase.co';
-const c2bSupabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InprYW11aHZybWF6b3podWRidHV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyNDE3OTYsImV4cCI6MjA5OTgxNzc5Nn0.Y6gkKQDWuLxcmhlYTZvKase7MzDO_Ehymitef6OE5JU';
+const c2bSupabaseUrl = 'https://gcebwzpcyeltzhyqefxo.supabase.co';
+const c2bSupabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjZWJ3enBjeWVsdHpoeXFlZnhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQyMzgwMzEsImV4cCI6MjEwOTgxNDAzMX0.P00UQaQW9KvKKQ5dlG1O8Ciqg4M2E8_SbQOGe9tqP6Q';
 
 // Create separate Supabase client for C2B/M-Pesa operations
 export const c2bSupabase = createClient(c2bSupabaseUrl, c2bSupabaseAnonKey);
