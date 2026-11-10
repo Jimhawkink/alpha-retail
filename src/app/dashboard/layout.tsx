@@ -371,6 +371,8 @@ function HeaderOutletBadge() {
 
     if (!activeOutlet) return null;
 
+    const cleanOutletName = (activeOutlet.outlet_name || 'Main Outlet').replace(/\s*\([^)]*\)/, '');
+
     return (
         <div ref={dropdownRef} className="relative">
             <button
@@ -403,9 +405,9 @@ function HeaderOutletBadge() {
                 </div>
 
                 {/* 2-line text: Pure white bold outlet name + soft mint subtitle */}
-                <div className="text-left leading-none">
-                    <p className="text-[13.5px] font-black text-white tracking-tight leading-tight whitespace-nowrap">
-                        {activeOutlet.outlet_name}
+                <div className="text-left leading-none min-w-0">
+                    <p className="text-[13px] lg:text-[13.5px] font-black text-white tracking-tight leading-tight whitespace-nowrap">
+                        {cleanOutletName}
                     </p>
                     <p className="text-[10px] font-bold text-emerald-200/90 leading-tight mt-0.5 whitespace-nowrap">
                         {activeOutlet.outlet_code ? activeOutlet.outlet_code : 'Head Office'}
@@ -1078,7 +1080,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             </button>
 
                             {/* 2. Full Pill Search Bar with Barcode Icon */}
-                            <div className="flex-1 min-w-[280px] max-w-2xl flex items-center gap-2.5 bg-white border border-slate-200/90 rounded-full px-4 py-2 shadow-xs hover:border-slate-300 focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500 transition-all">
+                            <div className="flex-1 min-w-[220px] max-w-xl xl:max-w-2xl flex items-center gap-2.5 bg-white border border-slate-200/90 rounded-full px-4 py-2 shadow-xs hover:border-slate-300 focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500 transition-all">
                                 <Search className="text-slate-700 shrink-0" size={16} />
                                 <input
                                     type="text"
@@ -1125,7 +1127,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 <PledgeNotificationBell />
 
                                 {/* 6. Date & Time Capsule Pill */}
-                                <div className="hidden xl:flex items-center gap-2.5 px-3.5 py-1.5 bg-white border border-slate-200 rounded-full text-slate-800 shadow-xs select-none">
+                                <div className="hidden lg:flex items-center gap-2.5 px-3.5 py-1.5 bg-white border border-slate-200 rounded-full text-slate-800 shadow-xs select-none shrink-0">
                                     <svg className="w-5 h-5 text-slate-800 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                         <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                                         <line x1="16" y1="2" x2="16" y2="6" />

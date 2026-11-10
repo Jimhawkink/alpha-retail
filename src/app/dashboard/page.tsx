@@ -573,25 +573,25 @@ export default function DashboardPage() {
     return (
         <div className="space-y-4 pb-12 font-sans bg-[#f7fafc] min-h-screen text-slate-800">
             {/* ══════════════════════════════════════════════════════════════════
-                ROW 1: TOP 6 METRIC CARDS WITH GLOSSY 3D BUBBLES & AREA SPARKLINES (COMPACT HEIGHT & BALANCED FONTS)
+                ROW 1: TOP 6 METRIC CARDS WITH FULL-SIZE GLOSSY 3D BUBBLES & COMPACT HEIGHT
             ══════════════════════════════════════════════════════════════════ */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
                 {/* 1. Today's Sales */}
-                <div className="bg-white rounded-2xl p-3 border border-slate-100 shadow-xs hover:shadow-sm transition-all relative overflow-hidden flex flex-col justify-between">
-                    <div className="flex items-center gap-2.5">
+                <div className="bg-white rounded-2xl p-3.5 border border-slate-100 shadow-xs hover:shadow-sm transition-all relative overflow-hidden flex flex-col justify-between">
+                    <div className="flex items-center gap-3">
                         <div
-                            className="w-9.5 h-9.5 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-md text-white select-none"
+                            className="w-12 h-12 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-lg text-white select-none"
                             style={{
                                 background: 'radial-gradient(circle at 35% 28%, #86efac 0%, #22c55e 35%, #15803d 75%, #14532d 100%)',
-                                boxShadow: 'inset -2px -2px 4px rgba(0,0,0,0.35), inset 2px 2px 4px rgba(255,255,255,0.85), 0 4px 10px -1px rgba(34,197,94,0.35)',
+                                boxShadow: 'inset -3px -3px 6px rgba(0,0,0,0.4), inset 3px 3px 6px rgba(255,255,255,0.85), 0 6px 14px -2px rgba(34,197,94,0.4)',
                             }}
                         >
-                            <div className="absolute top-1 left-2 w-3 h-1 rounded-full bg-white/50 blur-[0.2px] -rotate-45 pointer-events-none" />
-                            <ShoppingCart size={17} className="text-white drop-shadow-xs relative z-10" />
+                            <div className="absolute top-1.5 left-2.5 w-3.5 h-1.5 rounded-full bg-white/50 blur-[0.3px] -rotate-45 pointer-events-none" />
+                            <ShoppingCart size={21} className="text-white drop-shadow-xs relative z-10" />
                         </div>
                         <div className="min-w-0">
-                            <p className="text-[11px] font-bold text-slate-500 leading-tight">Today&apos;s Sales</p>
-                            <p className="text-[15.5px] lg:text-[16.5px] font-black text-slate-900 tracking-tight leading-tight mt-0.5">
+                            <p className="text-[11.5px] font-bold text-slate-600 leading-tight">Today&apos;s Sales</p>
+                            <p className="text-[16px] lg:text-[17px] font-black text-slate-900 tracking-tight leading-tight mt-0.5">
                                 Ksh {todaySales > 0 ? fmt(todaySales) : '48,750'}
                             </p>
                         </div>
@@ -615,21 +615,21 @@ export default function DashboardPage() {
                 </div>
 
                 {/* 2. Total Profit */}
-                <div className="bg-white rounded-2xl p-3 border border-slate-100 shadow-xs hover:shadow-sm transition-all relative overflow-hidden flex flex-col justify-between">
-                    <div className="flex items-center gap-2.5">
+                <div className="bg-white rounded-2xl p-3.5 border border-slate-100 shadow-xs hover:shadow-sm transition-all relative overflow-hidden flex flex-col justify-between">
+                    <div className="flex items-center gap-3">
                         <div
-                            className="w-9.5 h-9.5 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-md text-white select-none"
+                            className="w-12 h-12 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-lg text-white select-none"
                             style={{
                                 background: 'radial-gradient(circle at 35% 28%, #93c5fd 0%, #3b82f6 35%, #1d4ed8 75%, #1e3a8a 100%)',
-                                boxShadow: 'inset -2px -2px 4px rgba(0,0,0,0.35), inset 2px 2px 4px rgba(255,255,255,0.85), 0 4px 10px -1px rgba(59,130,246,0.35)',
+                                boxShadow: 'inset -3px -3px 6px rgba(0,0,0,0.4), inset 3px 3px 6px rgba(255,255,255,0.85), 0 6px 14px -2px rgba(59,130,246,0.4)',
                             }}
                         >
-                            <div className="absolute top-1 left-2 w-3 h-1 rounded-full bg-white/50 blur-[0.2px] -rotate-45 pointer-events-none" />
-                            <TrendingUp size={17} className="text-white drop-shadow-xs relative z-10" />
+                            <div className="absolute top-1.5 left-2.5 w-3.5 h-1.5 rounded-full bg-white/50 blur-[0.3px] -rotate-45 pointer-events-none" />
+                            <TrendingUp size={21} className="text-white drop-shadow-xs relative z-10" />
                         </div>
                         <div className="min-w-0">
-                            <p className="text-[11px] font-bold text-slate-500 leading-tight">Total Profit</p>
-                            <p className="text-[15.5px] lg:text-[16.5px] font-black text-slate-900 tracking-tight leading-tight mt-0.5">
+                            <p className="text-[11.5px] font-bold text-slate-600 leading-tight">Total Profit</p>
+                            <p className="text-[16px] lg:text-[17px] font-black text-slate-900 tracking-tight leading-tight mt-0.5">
                                 Ksh {todayProfit > 0 ? fmt(todayProfit) : '18,920'}
                             </p>
                         </div>
@@ -653,21 +653,21 @@ export default function DashboardPage() {
                 </div>
 
                 {/* 3. Total Transactions */}
-                <div className="bg-white rounded-2xl p-3 border border-slate-100 shadow-xs hover:shadow-sm transition-all relative overflow-hidden flex flex-col justify-between">
-                    <div className="flex items-center gap-2.5">
+                <div className="bg-white rounded-2xl p-3.5 border border-slate-100 shadow-xs hover:shadow-sm transition-all relative overflow-hidden flex flex-col justify-between">
+                    <div className="flex items-center gap-3">
                         <div
-                            className="w-9.5 h-9.5 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-md text-white select-none"
+                            className="w-12 h-12 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-lg text-white select-none"
                             style={{
                                 background: 'radial-gradient(circle at 35% 28%, #d8b4fe 0%, #a855f7 35%, #7e22ce 75%, #581c87 100%)',
-                                boxShadow: 'inset -2px -2px 4px rgba(0,0,0,0.35), inset 2px 2px 5px rgba(255,255,255,0.85), 0 4px 10px -1px rgba(168,85,247,0.35)',
+                                boxShadow: 'inset -3px -3px 6px rgba(0,0,0,0.4), inset 3px 3px 6px rgba(255,255,255,0.85), 0 6px 14px -2px rgba(168,85,247,0.4)',
                             }}
                         >
-                            <div className="absolute top-1 left-2 w-3 h-1 rounded-full bg-white/50 blur-[0.2px] -rotate-45 pointer-events-none" />
-                            <ShoppingBag size={17} className="text-white drop-shadow-xs relative z-10" />
+                            <div className="absolute top-1.5 left-2.5 w-3.5 h-1.5 rounded-full bg-white/50 blur-[0.3px] -rotate-45 pointer-events-none" />
+                            <ShoppingBag size={21} className="text-white drop-shadow-xs relative z-10" />
                         </div>
                         <div className="min-w-0">
-                            <p className="text-[11px] font-bold text-slate-500 leading-tight">Total Transactions</p>
-                            <p className="text-[15.5px] lg:text-[16.5px] font-black text-slate-900 tracking-tight leading-tight mt-0.5">
+                            <p className="text-[11.5px] font-bold text-slate-600 leading-tight">Total Transactions</p>
+                            <p className="text-[16px] lg:text-[17px] font-black text-slate-900 tracking-tight leading-tight mt-0.5">
                                 {todayTransactions > 0 ? todayTransactions : 142}
                             </p>
                         </div>
@@ -691,21 +691,21 @@ export default function DashboardPage() {
                 </div>
 
                 {/* 4. Active Products */}
-                <div className="bg-white rounded-2xl p-3 border border-slate-100 shadow-xs hover:shadow-sm transition-all relative overflow-hidden flex flex-col justify-between">
-                    <div className="flex items-center gap-2.5">
+                <div className="bg-white rounded-2xl p-3.5 border border-slate-100 shadow-xs hover:shadow-sm transition-all relative overflow-hidden flex flex-col justify-between">
+                    <div className="flex items-center gap-3">
                         <div
-                            className="w-9.5 h-9.5 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-md text-white select-none"
+                            className="w-12 h-12 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-lg text-white select-none"
                             style={{
                                 background: 'radial-gradient(circle at 35% 28%, #fef08a 0%, #f59e0b 35%, #d97706 75%, #78350f 100%)',
-                                boxShadow: 'inset -2px -2px 4px rgba(0,0,0,0.35), inset 2px 2px 5px rgba(255,255,255,0.85), 0 4px 10px -1px rgba(245,158,11,0.35)',
+                                boxShadow: 'inset -3px -3px 6px rgba(0,0,0,0.4), inset 3px 3px 6px rgba(255,255,255,0.85), 0 6px 14px -2px rgba(245,158,11,0.4)',
                             }}
                         >
-                            <div className="absolute top-1 left-2 w-3 h-1 rounded-full bg-white/50 blur-[0.2px] -rotate-45 pointer-events-none" />
-                            <Package size={17} className="text-white drop-shadow-xs relative z-10" />
+                            <div className="absolute top-1.5 left-2.5 w-3.5 h-1.5 rounded-full bg-white/50 blur-[0.3px] -rotate-45 pointer-events-none" />
+                            <Package size={21} className="text-white drop-shadow-xs relative z-10" />
                         </div>
                         <div className="min-w-0">
-                            <p className="text-[11px] font-bold text-slate-500 leading-tight">Active Products</p>
-                            <p className="text-[15.5px] lg:text-[16.5px] font-black text-slate-900 tracking-tight leading-tight mt-0.5">
+                            <p className="text-[11.5px] font-bold text-slate-600 leading-tight">Active Products</p>
+                            <p className="text-[16px] lg:text-[17px] font-black text-slate-900 tracking-tight leading-tight mt-0.5">
                                 {totalActiveProducts > 0 ? fmt(totalActiveProducts) : '2,847'}
                             </p>
                         </div>
@@ -731,21 +731,21 @@ export default function DashboardPage() {
                 </div>
 
                 {/* 5. Low Stock Items */}
-                <div className="bg-white rounded-2xl p-3 border border-slate-100 shadow-xs hover:shadow-sm transition-all relative overflow-hidden flex flex-col justify-between">
-                    <div className="flex items-center gap-2.5">
+                <div className="bg-white rounded-2xl p-3.5 border border-slate-100 shadow-xs hover:shadow-sm transition-all relative overflow-hidden flex flex-col justify-between">
+                    <div className="flex items-center gap-3">
                         <div
-                            className="w-9.5 h-9.5 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-md text-white select-none"
+                            className="w-12 h-12 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-lg text-white select-none"
                             style={{
                                 background: 'radial-gradient(circle at 35% 28%, #7dd3fc 0%, #06b6d4 35%, #0284c7 75%, #0c4a6e 100%)',
-                                boxShadow: 'inset -2px -2px 4px rgba(0,0,0,0.35), inset 2px 2px 5px rgba(255,255,255,0.85), 0 4px 10px -1px rgba(6,182,212,0.35)',
+                                boxShadow: 'inset -3px -3px 6px rgba(0,0,0,0.4), inset 3px 3px 6px rgba(255,255,255,0.85), 0 6px 14px -2px rgba(6,182,212,0.4)',
                             }}
                         >
-                            <div className="absolute top-1 left-2 w-3 h-1 rounded-full bg-white/50 blur-[0.2px] -rotate-45 pointer-events-none" />
-                            <Users size={17} className="text-white drop-shadow-xs relative z-10" />
+                            <div className="absolute top-1.5 left-2.5 w-3.5 h-1.5 rounded-full bg-white/50 blur-[0.3px] -rotate-45 pointer-events-none" />
+                            <Users size={21} className="text-white drop-shadow-xs relative z-10" />
                         </div>
                         <div className="min-w-0">
-                            <p className="text-[11px] font-bold text-slate-500 leading-tight">Low Stock Items</p>
-                            <p className="text-[15.5px] lg:text-[16.5px] font-black text-slate-900 tracking-tight leading-tight mt-0.5">
+                            <p className="text-[11.5px] font-bold text-slate-600 leading-tight">Low Stock Items</p>
+                            <p className="text-[16px] lg:text-[17px] font-black text-slate-900 tracking-tight leading-tight mt-0.5">
                                 {lowStockCount > 0 ? lowStockCount : 23}
                             </p>
                         </div>
@@ -771,21 +771,21 @@ export default function DashboardPage() {
                 </div>
 
                 {/* 6. Expiring Soon */}
-                <div className="bg-white rounded-2xl p-3 border border-slate-100 shadow-xs hover:shadow-sm transition-all relative overflow-hidden flex flex-col justify-between">
-                    <div className="flex items-center gap-2.5">
+                <div className="bg-white rounded-2xl p-3.5 border border-slate-100 shadow-xs hover:shadow-sm transition-all relative overflow-hidden flex flex-col justify-between">
+                    <div className="flex items-center gap-3">
                         <div
-                            className="w-9.5 h-9.5 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-md text-white select-none"
+                            className="w-12 h-12 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-lg text-white select-none"
                             style={{
                                 background: 'radial-gradient(circle at 35% 28%, #fca5a5 0%, #ef4444 35%, #b91c1c 75%, #450a0a 100%)',
-                                boxShadow: 'inset -2px -2px 4px rgba(0,0,0,0.35), inset 2px 2px 5px rgba(255,255,255,0.85), 0 4px 10px -1px rgba(239,68,68,0.35)',
+                                boxShadow: 'inset -3px -3px 6px rgba(0,0,0,0.4), inset 3px 3px 6px rgba(255,255,255,0.85), 0 6px 14px -2px rgba(239,68,68,0.4)',
                             }}
                         >
-                            <div className="absolute top-1 left-2 w-3 h-1 rounded-full bg-white/50 blur-[0.2px] -rotate-45 pointer-events-none" />
-                            <Clock size={17} className="text-white drop-shadow-xs relative z-10" />
+                            <div className="absolute top-1.5 left-2.5 w-3.5 h-1.5 rounded-full bg-white/50 blur-[0.3px] -rotate-45 pointer-events-none" />
+                            <Clock size={21} className="text-white drop-shadow-xs relative z-10" />
                         </div>
                         <div className="min-w-0">
-                            <p className="text-[11px] font-bold text-slate-500 leading-tight">Expiring Soon</p>
-                            <p className="text-[15.5px] lg:text-[16.5px] font-black text-slate-900 tracking-tight leading-tight mt-0.5">
+                            <p className="text-[11.5px] font-bold text-slate-600 leading-tight">Expiring Soon</p>
+                            <p className="text-[16px] lg:text-[17px] font-black text-slate-900 tracking-tight leading-tight mt-0.5">
                                 {expiringCount}
                             </p>
                         </div>
