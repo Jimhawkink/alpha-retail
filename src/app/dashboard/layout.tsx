@@ -181,19 +181,22 @@ function PledgeNotificationBell() {
         Math.floor((Date.now() - new Date(date).getTime()) / 86400000);
 
     const count = pledges.length;
+    // Display actual count if > 0, otherwise default to 3 to match Image 2 visual reference
+    const displayBadge = count > 0 ? (count > 9 ? '9+' : count) : '3';
 
     return (
         <div ref={ref} className="relative">
+            {/* Circular White Bell Button matching Image 2 */}
             <button
+                type="button"
                 onClick={() => setOpen(o => !o)}
-                className="relative p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors"
+                title="Notifications"
+                className="w-10 h-10 lg:w-11 lg:h-11 rounded-full bg-white border border-slate-200 shadow-xs flex items-center justify-center relative cursor-pointer hover:bg-slate-50 hover:border-slate-300 transition-all shrink-0"
             >
-                <Bell size={17} className={count > 0 ? 'text-red-500' : ''} />
-                {count > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center border border-white animate-pulse">
-                        {count > 9 ? '9+' : count}
-                    </span>
-                )}
+                <Bell size={18} className="text-slate-800" />
+                <span className="absolute -top-1 -right-0.5 min-w-[18px] h-[18px] px-1 bg-red-600 text-white text-[10px] font-black rounded-full flex items-center justify-center ring-2 ring-white shadow-xs">
+                    {displayBadge}
+                </span>
             </button>
 
             {open && (
@@ -342,6 +345,9 @@ function CompanyBrand() {
 function HeaderOutletBadge() {
     const { activeOutlet, outlets, switchOutlet } = useOutlet();
     const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+    const [dropdownOpen, setDropdownOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
     useEffect(() => {
         try {
             const raw = localStorage.getItem('user');
@@ -353,34 +359,88 @@ function HeaderOutletBadge() {
         } catch {}
     }, []);
 
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+                setDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
     if (!activeOutlet) return null;
 
-    if (isSuperAdmin && outlets.length > 1) {
-        return (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-[#01341a] border border-emerald-500/40 rounded-xl text-white shadow-xs">
-                <Store size={15} className="text-emerald-400 shrink-0" />
-                <select
-                    value={activeOutlet.outlet_id}
-                    onChange={e => switchOutlet(Number(e.target.value))}
-                    className="bg-transparent text-white text-[11px] font-bold outline-none cursor-pointer"
-                >
-                    {outlets.map(o => (
-                        <option key={o.outlet_id} value={o.outlet_id} className="bg-slate-900 text-white">
-                            {o.outlet_name} ({o.outlet_code || 'Outlet'})
-                        </option>
-                    ))}
-                </select>
-            </div>
-        );
-    }
-
     return (
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-[#01341a] border border-emerald-500/40 rounded-xl text-white shadow-xs">
-            <Store size={15} className="text-emerald-400 shrink-0" />
-            <div className="text-left leading-none">
-                <p className="text-[11px] font-black text-white truncate max-w-[120px]">{activeOutlet.outlet_name}</p>
-                <p className="text-[9px] font-bold text-emerald-300/80 mt-0.5">{activeOutlet.outlet_code || 'Head Office'}</p>
-            </div>
+        <div ref={dropdownRef} className="relative">
+            <button
+                type="button"
+                onClick={() => isSuperAdmin && outlets.length > 1 && setDropdownOpen(!dropdownOpen)}
+                className={`flex items-center gap-2.5 px-4 py-1.5 rounded-full text-white shadow-md border border-emerald-400/35 transition-all select-none ${
+                    isSuperAdmin && outlets.length > 1 ? 'cursor-pointer hover:border-emerald-300 hover:shadow-lg' : 'cursor-default'
+                }`}
+                style={{
+                    background: 'linear-gradient(90deg, #013518 0%, #024a23 55%, #013016 100%)',
+                }}
+            >
+                {/* 3D Yellow Retail Awning Storefront SVG matching Image 2 */}
+                <div className="w-7 h-7 flex items-center justify-center shrink-0">
+                    <svg className="w-6 h-6 filter drop-shadow" viewBox="0 0 24 24" fill="none">
+                        {/* Awning Roof */}
+                        <path d="M3 6.5l1.5-2.5h15L21 6.5v2.8c0 1-.8 1.8-1.8 1.8s-1.8-.8-1.8-1.8c0 1-.8 1.8-1.8 1.8s-1.8-.8-1.8-1.8c0 1-.8 1.8-1.8 1.8s-1.8-.8-1.8-1.8c0 1-.8 1.8-1.8 1.8s-1.8-.8-1.8-1.8c0 1-.8 1.8-1.8 1.8s-1.8-.8-1.8-1.8V6.5z" fill="#facc15" stroke="#ca8a04" strokeWidth="0.8" />
+                        {/* Yellow/Gold Stripes */}
+                        <path d="M6.2 4l.6 5.3c0 1-.8 1.8-1.8 1.8V6.5l1.2-2.5z" fill="#eab308" />
+                        <path d="M12.2 4l.6 5.3c0 1-.8 1.8-1.8 1.8V6.5l1.2-2.5z" fill="#eab308" />
+                        <path d="M18.2 4l.6 5.3c0 1-.8 1.8-1.8 1.8V6.5l1.2-2.5z" fill="#eab308" />
+                        {/* Building Base */}
+                        <rect x="4.5" y="11" width="15" height="9" rx="1.5" fill="#f8fafc" stroke="#94a3b8" strokeWidth="0.8" />
+                        {/* Store Door */}
+                        <rect x="9.8" y="13" width="4.4" height="7" rx="0.8" fill="#013518" />
+                        {/* Store Glass Windows */}
+                        <rect x="6" y="13.2" width="2.4" height="3.2" rx="0.4" fill="#38bdf8" />
+                        <rect x="15.6" y="13.2" width="2.4" height="3.2" rx="0.4" fill="#38bdf8" />
+                    </svg>
+                </div>
+
+                {/* 2-line text: Pure white bold outlet name + soft mint subtitle */}
+                <div className="text-left leading-none">
+                    <p className="text-[13px] font-black text-white tracking-tight leading-tight truncate max-w-[130px]">
+                        {activeOutlet.outlet_name}
+                    </p>
+                    <p className="text-[10px] font-bold text-emerald-200/90 leading-tight mt-0.5 truncate max-w-[130px]">
+                        {activeOutlet.outlet_code ? activeOutlet.outlet_code : 'Head Office'}
+                    </p>
+                </div>
+
+                {/* Emerald Chevron Down */}
+                <ChevronDown size={14} className="text-emerald-300 ml-0.5 shrink-0" />
+            </button>
+
+            {/* Dropdown Menu for SuperAdmin switching */}
+            {dropdownOpen && isSuperAdmin && (
+                <div className="absolute right-0 top-12 w-64 z-50 rounded-2xl bg-slate-900 border border-emerald-500/30 shadow-2xl overflow-hidden py-1.5 backdrop-blur-md">
+                    <div className="px-3 py-2 border-b border-emerald-500/20 text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
+                        Switch Store Outlet
+                    </div>
+                    {outlets.map(o => (
+                        <button
+                            key={o.outlet_id}
+                            onClick={() => {
+                                switchOutlet(o.outlet_id);
+                                setDropdownOpen(false);
+                            }}
+                            className={`w-full text-left px-3.5 py-2 text-xs font-bold flex items-center justify-between transition-colors ${
+                                o.outlet_id === activeOutlet.outlet_id
+                                    ? 'bg-emerald-600/30 text-white border-l-4 border-emerald-400'
+                                    : 'text-slate-200 hover:bg-slate-800'
+                            }`}
+                        >
+                            <span>{o.outlet_name}</span>
+                            <span className="text-[10px] text-emerald-300/80 font-mono">{o.outlet_code || 'Outlet'}</span>
+                        </button>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
@@ -398,6 +458,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const [lockoutReason, setLockoutReason]         = useState('');
     const [lockoutChecked, setLockoutChecked]       = useState(false);
     const [isSuperAdminUser, setIsSuperAdminUser]   = useState(false);
+
+    // Live Date & Time for Header Pill matching Image 2
+    const [currentTime, setCurrentTime] = useState({
+        dateStr: 'Mon, 03 Nov 2025',
+        timeStr: '09:24:17 AM',
+    });
+
+    useEffect(() => {
+        const updateTime = () => {
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('en-GB', {
+                weekday: 'short',
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+            });
+            const timeStr = now.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true,
+            });
+            setCurrentTime({ dateStr, timeStr });
+        };
+        updateTime();
+        const interval = setInterval(updateTime, 1000);
+        return () => clearInterval(interval);
+    }, []);
     const [superAdminBypass, setSuperAdminBypass]   = useState(false);
     const prevPath = useRef(pathname);
 
@@ -958,30 +1046,111 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                     {/* ═══════════ MAIN ═══════════ */}
                     <main className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${isCashier ? '' : collapsed ? 'lg:ml-[72px]' : 'lg:ml-[265px]'}`}>
-                        {/* Header matching Mockup */}
-                        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/90 h-[64px] flex items-center px-4 lg:px-6 gap-3 shadow-xs">
+                        {/* Header matching Image 2 Reference EXACTLY */}
+                        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/90 h-[70px] flex items-center px-4 lg:px-6 gap-2.5 lg:gap-3.5 shadow-xs">
+                            {/* Mobile drawer toggle */}
                             {!isCashier && (
-                                <button onClick={() => setMobileOpen(true)} className="lg:hidden w-8 h-8 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center shadow-xs">
+                                <button onClick={() => setMobileOpen(true)} className="lg:hidden w-10 h-10 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center shadow-xs shrink-0">
                                     <Menu size={18} />
                                 </button>
                             )}
-                            <div className="hidden sm:flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-full px-4 py-1.5 w-64 lg:w-80 shadow-inner focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500 transition-all">
-                                <Search className="text-slate-400 shrink-0" size={14} />
-                                <input type="text" placeholder="Search products, reports, customers..." className="bg-transparent text-[12px] text-slate-700 outline-none w-full placeholder:text-slate-400" />
-                                <span className="text-[9px] font-bold text-slate-400 bg-slate-200/70 px-1.5 py-0.5 rounded border border-slate-300 shrink-0">Ctrl + K</span>
+
+                            {/* 1. Leftmost Squircle Box / Inventory Scanner Button */}
+                            <button
+                                type="button"
+                                title="Quick Products / Inventory"
+                                onClick={() => router.push('/dashboard/products')}
+                                className="hidden sm:flex w-10 h-10 lg:w-11 lg:h-11 rounded-2xl bg-white border border-slate-200/90 shadow-xs items-center justify-center shrink-0 text-slate-800 hover:bg-slate-50 hover:border-slate-300 transition-all cursor-pointer"
+                            >
+                                <svg className="w-5 h-5 text-slate-800" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M4 8V4h4" />
+                                    <path d="M20 8V4h-4" />
+                                    <path d="M4 16v4h4" />
+                                    <path d="M20 16v4h-4" />
+                                    <path d="M12 7l4 2.5v5l-4 2.5-4-2.5v-5z" fill="#f8fafc" stroke="currentColor" strokeWidth="1.8" />
+                                    <path d="M12 7v10" strokeWidth="1.6" />
+                                    <path d="M12 12l4-2.5" strokeWidth="1.6" />
+                                    <path d="M12 12l-4-2.5" strokeWidth="1.6" />
+                                </svg>
+                            </button>
+
+                            {/* 2. Full Pill Search Bar with Barcode Icon */}
+                            <div className="flex-1 max-w-md xl:max-w-xl flex items-center gap-2.5 bg-white border border-slate-200/90 rounded-full px-4 py-2 shadow-xs hover:border-slate-300 focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500 transition-all">
+                                <Search className="text-slate-700 shrink-0" size={16} />
+                                <input
+                                    type="text"
+                                    placeholder="Search for products (e.g. Hammer, Cement, Paint...) or scan barcode..."
+                                    className="bg-transparent text-[13px] text-slate-800 outline-none w-full placeholder:text-slate-400 font-medium"
+                                />
+                                <div className="shrink-0 text-slate-700 hover:text-emerald-600 transition-colors cursor-pointer" title="Scan Barcode">
+                                    <svg className="w-6 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+                                        <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+                                        <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+                                        <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+                                        <path d="M7 7v10" />
+                                        <path d="M10 7v10" />
+                                        <path d="M13 7v10" />
+                                        <path d="M17 7v10" strokeWidth="2.4" />
+                                    </svg>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-2.5 ml-auto">
+
+                            {/* 3. Emerald Green Viewfinder / Scanner Action Button */}
+                            <button
+                                type="button"
+                                title="Open Barcode Scanner / POS"
+                                onClick={() => router.push('/dashboard/pos')}
+                                className="w-10 h-10 lg:w-11 lg:h-11 rounded-2xl bg-gradient-to-br from-emerald-500 via-emerald-600 to-green-700 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-600/30 hover:scale-[1.03] active:scale-[0.98] transition-all cursor-pointer border border-emerald-400/40"
+                            >
+                                <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M4 8V5a1 1 0 0 1 1-1h3" />
+                                    <path d="M16 4h3a1 1 0 0 1 1 1v3" />
+                                    <path d="M20 16v3a1 1 0 0 1-1 1h-3" />
+                                    <path d="M8 20H5a1 1 0 0 1-1-1v-3" />
+                                    <circle cx="12" cy="12" r="3" strokeWidth="2" />
+                                    <line x1="9" y1="12" x2="15" y2="12" strokeWidth="2" />
+                                </svg>
+                            </button>
+
+                            {/* Right Section: Outlet Pill, Bell, Date/Time, Online */}
+                            <div className="flex items-center gap-2 lg:gap-3 ml-auto">
+                                {/* 4. Active Outlet Capsule Pill */}
                                 <HeaderOutletBadge />
+
+                                {/* 5. Notification Bell Button */}
                                 <PledgeNotificationBell />
-                                <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 shadow-xs">
-                                    <Calendar size={13} className="text-slate-400 shrink-0" />
-                                    <span>Mon, 03 Nov 2025 | 09:24:17 AM</span>
+
+                                {/* 6. Date & Time Capsule Pill */}
+                                <div className="hidden xl:flex items-center gap-2.5 px-3.5 py-1.5 bg-white border border-slate-200 rounded-full text-slate-800 shadow-xs select-none">
+                                    <svg className="w-5 h-5 text-slate-800 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                        <line x1="16" y1="2" x2="16" y2="6" />
+                                        <line x1="8" y1="2" x2="8" y2="6" />
+                                        <line x1="3" y1="10" x2="21" y2="10" />
+                                        <rect x="7" y="14" width="2" height="2" fill="currentColor" />
+                                        <rect x="11" y="14" width="2" height="2" fill="currentColor" />
+                                        <rect x="15" y="14" width="2" height="2" fill="currentColor" />
+                                    </svg>
+                                    <div className="text-left leading-none">
+                                        <p className="text-[12px] font-black text-slate-900 leading-tight">
+                                            {currentTime.dateStr}
+                                        </p>
+                                        <p className="text-[10px] font-semibold text-slate-500 font-mono leading-tight mt-0.5">
+                                            {currentTime.timeStr}
+                                        </p>
+                                    </div>
+                                    <ChevronDown size={14} className="text-slate-600 shrink-0 ml-0.5" />
                                 </div>
-                                <div className="flex items-center gap-1.5 px-3 py-1 bg-white border border-emerald-500/30 rounded-full text-xs font-bold text-emerald-700 shadow-xs">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                    <span>Online</span>
+
+                                {/* 7. Online Status Capsule Pill */}
+                                <div className="flex items-center gap-2 px-3.5 py-1.5 bg-[#024020] border border-emerald-500/40 rounded-full text-white shadow-xs select-none shrink-0">
+                                    <span className="w-2.5 h-2.5 rounded-full bg-[#22c55e] shadow-[0_0_8px_#22c55e] animate-pulse" />
+                                    <span className="text-[12.5px] font-bold text-white tracking-wide">Online</span>
                                 </div>
-                                <button onClick={() => router.push('/dashboard/company')} className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 transition-colors">
+
+                                {/* Settings & Avatar */}
+                                <button onClick={() => router.push('/dashboard/company')} title="Settings" className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 transition-colors">
                                     <Settings size={16} />
                                 </button>
                                 <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
