@@ -573,34 +573,34 @@ export default function DashboardPage() {
     return (
         <div className="space-y-4 pb-12 font-sans bg-[#f7fafc] min-h-screen text-slate-800">
             {/* ══════════════════════════════════════════════════════════════════
-                ROW 1: TOP 6 METRIC CARDS WITH GLOSSY 3D BUBBLES & AREA SPARKLINES (IMAGE 2 EXACT MATCH)
+                ROW 1: TOP 6 METRIC CARDS WITH GLOSSY 3D BUBBLES & AREA SPARKLINES (COMPACT HEIGHT & BALANCED FONTS)
             ══════════════════════════════════════════════════════════════════ */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
                 {/* 1. Today's Sales */}
-                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between min-h-[148px]">
-                    <div className="flex items-center gap-3">
+                <div className="bg-white rounded-2xl p-3 border border-slate-100 shadow-xs hover:shadow-sm transition-all relative overflow-hidden flex flex-col justify-between">
+                    <div className="flex items-center gap-2.5">
                         <div
-                            className="w-12 h-12 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-lg text-white select-none"
+                            className="w-9.5 h-9.5 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-md text-white select-none"
                             style={{
                                 background: 'radial-gradient(circle at 35% 28%, #86efac 0%, #22c55e 35%, #15803d 75%, #14532d 100%)',
-                                boxShadow: 'inset -3px -3px 6px rgba(0,0,0,0.4), inset 3px 3px 6px rgba(255,255,255,0.85), 0 8px 18px -2px rgba(34,197,94,0.4)',
+                                boxShadow: 'inset -2px -2px 4px rgba(0,0,0,0.35), inset 2px 2px 4px rgba(255,255,255,0.85), 0 4px 10px -1px rgba(34,197,94,0.35)',
                             }}
                         >
-                            <div className="absolute top-1.5 left-2.5 w-3.5 h-1.5 rounded-full bg-white/50 blur-[0.3px] -rotate-45 pointer-events-none" />
-                            <ShoppingCart size={21} className="text-white drop-shadow-xs relative z-10" />
+                            <div className="absolute top-1 left-2 w-3 h-1 rounded-full bg-white/50 blur-[0.2px] -rotate-45 pointer-events-none" />
+                            <ShoppingCart size={17} className="text-white drop-shadow-xs relative z-10" />
                         </div>
                         <div className="min-w-0">
-                            <p className="text-[12.5px] font-bold text-slate-700 leading-tight">Today&apos;s Sales</p>
-                            <p className="text-[19px] lg:text-[21px] font-extrabold text-slate-950 tracking-tight leading-tight mt-0.5">
+                            <p className="text-[11px] font-bold text-slate-500 leading-tight">Today&apos;s Sales</p>
+                            <p className="text-[15.5px] lg:text-[16.5px] font-black text-slate-900 tracking-tight leading-tight mt-0.5">
                                 Ksh {todaySales > 0 ? fmt(todaySales) : '48,750'}
                             </p>
                         </div>
                     </div>
-                    <div className="flex items-center justify-between mt-2 pt-1">
+                    <div className="flex items-center justify-between mt-1 pt-0.5">
                         {renderDelta(salesDelta, 12.5, 'vs yesterday')}
                     </div>
                     {/* Glowing Multi-Crest Area Wave Sparkline */}
-                    <svg className="w-full h-11 mt-1 overflow-visible" viewBox="0 0 100 38" preserveAspectRatio="none">
+                    <svg className="w-full h-7 mt-0.5 overflow-visible" viewBox="0 0 100 38" preserveAspectRatio="none">
                         <defs>
                             <linearGradient id="grad-sales" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%" stopColor="#10b981" stopOpacity="0.45" />
@@ -608,37 +608,37 @@ export default function DashboardPage() {
                             </linearGradient>
                         </defs>
                         <path d="M 0 26 Q 8 32, 16 26 T 32 26 T 48 18 T 64 24 T 80 14 T 92 18 T 100 8 L 100 38 L 0 38 Z" fill="url(#grad-sales)" />
-                        <path d="M 0 26 Q 8 32, 16 26 T 32 26 T 48 18 T 64 24 T 80 14 T 92 18 T 100 8" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" />
-                        <circle cx="100" cy="8" r="3.2" fill="#10b981" stroke="#ffffff" strokeWidth="1.8" />
-                        <circle cx="100" cy="8" r="5.5" fill="#10b981" opacity="0.25" />
+                        <path d="M 0 26 Q 8 32, 16 26 T 32 26 T 48 18 T 64 24 T 80 14 T 92 18 T 100 8" fill="none" stroke="#10b981" strokeWidth="2.4" strokeLinecap="round" />
+                        <circle cx="100" cy="8" r="3" fill="#10b981" stroke="#ffffff" strokeWidth="1.6" />
+                        <circle cx="100" cy="8" r="5" fill="#10b981" opacity="0.25" />
                     </svg>
                 </div>
 
                 {/* 2. Total Profit */}
-                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between min-h-[148px]">
-                    <div className="flex items-center gap-3">
+                <div className="bg-white rounded-2xl p-3 border border-slate-100 shadow-xs hover:shadow-sm transition-all relative overflow-hidden flex flex-col justify-between">
+                    <div className="flex items-center gap-2.5">
                         <div
-                            className="w-12 h-12 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-lg text-white select-none"
+                            className="w-9.5 h-9.5 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-md text-white select-none"
                             style={{
                                 background: 'radial-gradient(circle at 35% 28%, #93c5fd 0%, #3b82f6 35%, #1d4ed8 75%, #1e3a8a 100%)',
-                                boxShadow: 'inset -3px -3px 6px rgba(0,0,0,0.4), inset 3px 3px 6px rgba(255,255,255,0.85), 0 8px 18px -2px rgba(59,130,246,0.4)',
+                                boxShadow: 'inset -2px -2px 4px rgba(0,0,0,0.35), inset 2px 2px 4px rgba(255,255,255,0.85), 0 4px 10px -1px rgba(59,130,246,0.35)',
                             }}
                         >
-                            <div className="absolute top-1.5 left-2.5 w-3.5 h-1.5 rounded-full bg-white/50 blur-[0.3px] -rotate-45 pointer-events-none" />
-                            <TrendingUp size={21} className="text-white drop-shadow-xs relative z-10" />
+                            <div className="absolute top-1 left-2 w-3 h-1 rounded-full bg-white/50 blur-[0.2px] -rotate-45 pointer-events-none" />
+                            <TrendingUp size={17} className="text-white drop-shadow-xs relative z-10" />
                         </div>
                         <div className="min-w-0">
-                            <p className="text-[12.5px] font-bold text-slate-700 leading-tight">Total Profit</p>
-                            <p className="text-[19px] lg:text-[21px] font-extrabold text-slate-950 tracking-tight leading-tight mt-0.5">
+                            <p className="text-[11px] font-bold text-slate-500 leading-tight">Total Profit</p>
+                            <p className="text-[15.5px] lg:text-[16.5px] font-black text-slate-900 tracking-tight leading-tight mt-0.5">
                                 Ksh {todayProfit > 0 ? fmt(todayProfit) : '18,920'}
                             </p>
                         </div>
                     </div>
-                    <div className="flex items-center justify-between mt-2 pt-1">
+                    <div className="flex items-center justify-between mt-1 pt-0.5">
                         {renderDelta(profitDelta, 15.2, 'vs yesterday')}
                     </div>
                     {/* Glowing Multi-Crest Area Wave Sparkline */}
-                    <svg className="w-full h-11 mt-1 overflow-visible" viewBox="0 0 100 38" preserveAspectRatio="none">
+                    <svg className="w-full h-7 mt-0.5 overflow-visible" viewBox="0 0 100 38" preserveAspectRatio="none">
                         <defs>
                             <linearGradient id="grad-profit" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%" stopColor="#2563eb" stopOpacity="0.45" />
@@ -646,37 +646,37 @@ export default function DashboardPage() {
                             </linearGradient>
                         </defs>
                         <path d="M 0 28 Q 8 22, 16 28 T 32 22 T 48 26 T 64 14 T 80 22 T 92 12 T 100 8 L 100 38 L 0 38 Z" fill="url(#grad-profit)" />
-                        <path d="M 0 28 Q 8 22, 16 28 T 32 22 T 48 26 T 64 14 T 80 22 T 92 12 T 100 8" fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" />
-                        <circle cx="100" cy="8" r="3.2" fill="#2563eb" stroke="#ffffff" strokeWidth="1.8" />
-                        <circle cx="100" cy="8" r="5.5" fill="#2563eb" opacity="0.25" />
+                        <path d="M 0 28 Q 8 22, 16 28 T 32 22 T 48 26 T 64 14 T 80 22 T 92 12 T 100 8" fill="none" stroke="#2563eb" strokeWidth="2.4" strokeLinecap="round" />
+                        <circle cx="100" cy="8" r="3" fill="#2563eb" stroke="#ffffff" strokeWidth="1.6" />
+                        <circle cx="100" cy="8" r="5" fill="#2563eb" opacity="0.25" />
                     </svg>
                 </div>
 
                 {/* 3. Total Transactions */}
-                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between min-h-[148px]">
-                    <div className="flex items-center gap-3">
+                <div className="bg-white rounded-2xl p-3 border border-slate-100 shadow-xs hover:shadow-sm transition-all relative overflow-hidden flex flex-col justify-between">
+                    <div className="flex items-center gap-2.5">
                         <div
-                            className="w-12 h-12 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-lg text-white select-none"
+                            className="w-9.5 h-9.5 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-md text-white select-none"
                             style={{
                                 background: 'radial-gradient(circle at 35% 28%, #d8b4fe 0%, #a855f7 35%, #7e22ce 75%, #581c87 100%)',
-                                boxShadow: 'inset -3px -3px 6px rgba(0,0,0,0.4), inset 3px 3px 6px rgba(255,255,255,0.85), 0 8px 18px -2px rgba(168,85,247,0.4)',
+                                boxShadow: 'inset -2px -2px 4px rgba(0,0,0,0.35), inset 2px 2px 5px rgba(255,255,255,0.85), 0 4px 10px -1px rgba(168,85,247,0.35)',
                             }}
                         >
-                            <div className="absolute top-1.5 left-2.5 w-3.5 h-1.5 rounded-full bg-white/50 blur-[0.3px] -rotate-45 pointer-events-none" />
-                            <ShoppingBag size={21} className="text-white drop-shadow-xs relative z-10" />
+                            <div className="absolute top-1 left-2 w-3 h-1 rounded-full bg-white/50 blur-[0.2px] -rotate-45 pointer-events-none" />
+                            <ShoppingBag size={17} className="text-white drop-shadow-xs relative z-10" />
                         </div>
                         <div className="min-w-0">
-                            <p className="text-[12.5px] font-bold text-slate-700 leading-tight">Total Transactions</p>
-                            <p className="text-[19px] lg:text-[21px] font-extrabold text-slate-950 tracking-tight leading-tight mt-0.5">
+                            <p className="text-[11px] font-bold text-slate-500 leading-tight">Total Transactions</p>
+                            <p className="text-[15.5px] lg:text-[16.5px] font-black text-slate-900 tracking-tight leading-tight mt-0.5">
                                 {todayTransactions > 0 ? todayTransactions : 142}
                             </p>
                         </div>
                     </div>
-                    <div className="flex items-center justify-between mt-2 pt-1">
+                    <div className="flex items-center justify-between mt-1 pt-0.5">
                         {renderDelta(transDelta, 8.1, 'vs yesterday')}
                     </div>
                     {/* Glowing Multi-Crest Area Wave Sparkline */}
-                    <svg className="w-full h-11 mt-1 overflow-visible" viewBox="0 0 100 38" preserveAspectRatio="none">
+                    <svg className="w-full h-7 mt-0.5 overflow-visible" viewBox="0 0 100 38" preserveAspectRatio="none">
                         <defs>
                             <linearGradient id="grad-trans" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%" stopColor="#9333ea" stopOpacity="0.45" />
@@ -684,39 +684,39 @@ export default function DashboardPage() {
                             </linearGradient>
                         </defs>
                         <path d="M 0 26 Q 8 20, 16 26 T 32 18 T 48 26 T 64 16 T 80 22 T 92 14 T 100 10 L 100 38 L 0 38 Z" fill="url(#grad-trans)" />
-                        <path d="M 0 26 Q 8 20, 16 26 T 32 18 T 48 26 T 64 16 T 80 22 T 92 14 T 100 10" fill="none" stroke="#9333ea" strokeWidth="2.5" strokeLinecap="round" />
-                        <circle cx="100" cy="10" r="3.2" fill="#9333ea" stroke="#ffffff" strokeWidth="1.8" />
-                        <circle cx="100" cy="10" r="5.5" fill="#9333ea" opacity="0.25" />
+                        <path d="M 0 26 Q 8 20, 16 26 T 32 18 T 48 26 T 64 16 T 80 22 T 92 14 T 100 10" fill="none" stroke="#9333ea" strokeWidth="2.4" strokeLinecap="round" />
+                        <circle cx="100" cy="10" r="3" fill="#9333ea" stroke="#ffffff" strokeWidth="1.6" />
+                        <circle cx="100" cy="10" r="5" fill="#9333ea" opacity="0.25" />
                     </svg>
                 </div>
 
                 {/* 4. Active Products */}
-                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between min-h-[148px]">
-                    <div className="flex items-center gap-3">
+                <div className="bg-white rounded-2xl p-3 border border-slate-100 shadow-xs hover:shadow-sm transition-all relative overflow-hidden flex flex-col justify-between">
+                    <div className="flex items-center gap-2.5">
                         <div
-                            className="w-12 h-12 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-lg text-white select-none"
+                            className="w-9.5 h-9.5 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-md text-white select-none"
                             style={{
                                 background: 'radial-gradient(circle at 35% 28%, #fef08a 0%, #f59e0b 35%, #d97706 75%, #78350f 100%)',
-                                boxShadow: 'inset -3px -3px 6px rgba(0,0,0,0.4), inset 3px 3px 6px rgba(255,255,255,0.85), 0 8px 18px -2px rgba(245,158,11,0.4)',
+                                boxShadow: 'inset -2px -2px 4px rgba(0,0,0,0.35), inset 2px 2px 5px rgba(255,255,255,0.85), 0 4px 10px -1px rgba(245,158,11,0.35)',
                             }}
                         >
-                            <div className="absolute top-1.5 left-2.5 w-3.5 h-1.5 rounded-full bg-white/50 blur-[0.3px] -rotate-45 pointer-events-none" />
-                            <Package size={21} className="text-white drop-shadow-xs relative z-10" />
+                            <div className="absolute top-1 left-2 w-3 h-1 rounded-full bg-white/50 blur-[0.2px] -rotate-45 pointer-events-none" />
+                            <Package size={17} className="text-white drop-shadow-xs relative z-10" />
                         </div>
                         <div className="min-w-0">
-                            <p className="text-[12.5px] font-bold text-slate-700 leading-tight">Active Products</p>
-                            <p className="text-[19px] lg:text-[21px] font-extrabold text-slate-950 tracking-tight leading-tight mt-0.5">
+                            <p className="text-[11px] font-bold text-slate-500 leading-tight">Active Products</p>
+                            <p className="text-[15.5px] lg:text-[16.5px] font-black text-slate-900 tracking-tight leading-tight mt-0.5">
                                 {totalActiveProducts > 0 ? fmt(totalActiveProducts) : '2,847'}
                             </p>
                         </div>
                     </div>
-                    <div className="flex items-center justify-between mt-2 pt-1">
-                        <span className="text-[11px] font-bold text-amber-600 flex items-center gap-0.5">
+                    <div className="flex items-center justify-between mt-1 pt-0.5">
+                        <span className="text-[10.5px] font-bold text-amber-600 flex items-center gap-0.5">
                             <span className="text-xs">↑</span> +0.8% this month
                         </span>
                     </div>
                     {/* Glowing Multi-Crest Area Wave Sparkline */}
-                    <svg className="w-full h-11 mt-1 overflow-visible" viewBox="0 0 100 38" preserveAspectRatio="none">
+                    <svg className="w-full h-7 mt-0.5 overflow-visible" viewBox="0 0 100 38" preserveAspectRatio="none">
                         <defs>
                             <linearGradient id="grad-prod" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%" stopColor="#d97706" stopOpacity="0.45" />
@@ -724,39 +724,39 @@ export default function DashboardPage() {
                             </linearGradient>
                         </defs>
                         <path d="M 0 28 Q 8 32, 16 26 T 32 28 T 48 20 T 64 26 T 80 16 T 92 20 T 100 8 L 100 38 L 0 38 Z" fill="url(#grad-prod)" />
-                        <path d="M 0 28 Q 8 32, 16 26 T 32 28 T 48 20 T 64 26 T 80 16 T 92 20 T 100 8" fill="none" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" />
-                        <circle cx="100" cy="8" r="3.2" fill="#d97706" stroke="#ffffff" strokeWidth="1.8" />
-                        <circle cx="100" cy="8" r="5.5" fill="#d97706" opacity="0.25" />
+                        <path d="M 0 28 Q 8 32, 16 26 T 32 28 T 48 20 T 64 26 T 80 16 T 92 20 T 100 8" fill="none" stroke="#d97706" strokeWidth="2.4" strokeLinecap="round" />
+                        <circle cx="100" cy="8" r="3" fill="#d97706" stroke="#ffffff" strokeWidth="1.6" />
+                        <circle cx="100" cy="8" r="5" fill="#d97706" opacity="0.25" />
                     </svg>
                 </div>
 
                 {/* 5. Low Stock Items */}
-                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between min-h-[148px]">
-                    <div className="flex items-center gap-3">
+                <div className="bg-white rounded-2xl p-3 border border-slate-100 shadow-xs hover:shadow-sm transition-all relative overflow-hidden flex flex-col justify-between">
+                    <div className="flex items-center gap-2.5">
                         <div
-                            className="w-12 h-12 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-lg text-white select-none"
+                            className="w-9.5 h-9.5 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-md text-white select-none"
                             style={{
                                 background: 'radial-gradient(circle at 35% 28%, #7dd3fc 0%, #06b6d4 35%, #0284c7 75%, #0c4a6e 100%)',
-                                boxShadow: 'inset -3px -3px 6px rgba(0,0,0,0.4), inset 3px 3px 6px rgba(255,255,255,0.85), 0 8px 18px -2px rgba(6,182,212,0.4)',
+                                boxShadow: 'inset -2px -2px 4px rgba(0,0,0,0.35), inset 2px 2px 5px rgba(255,255,255,0.85), 0 4px 10px -1px rgba(6,182,212,0.35)',
                             }}
                         >
-                            <div className="absolute top-1.5 left-2.5 w-3.5 h-1.5 rounded-full bg-white/50 blur-[0.3px] -rotate-45 pointer-events-none" />
-                            <Users size={21} className="text-white drop-shadow-xs relative z-10" />
+                            <div className="absolute top-1 left-2 w-3 h-1 rounded-full bg-white/50 blur-[0.2px] -rotate-45 pointer-events-none" />
+                            <Users size={17} className="text-white drop-shadow-xs relative z-10" />
                         </div>
                         <div className="min-w-0">
-                            <p className="text-[12.5px] font-bold text-slate-700 leading-tight">Low Stock Items</p>
-                            <p className="text-[19px] lg:text-[21px] font-extrabold text-slate-950 tracking-tight leading-tight mt-0.5">
+                            <p className="text-[11px] font-bold text-slate-500 leading-tight">Low Stock Items</p>
+                            <p className="text-[15.5px] lg:text-[16.5px] font-black text-slate-900 tracking-tight leading-tight mt-0.5">
                                 {lowStockCount > 0 ? lowStockCount : 23}
                             </p>
                         </div>
                     </div>
-                    <div className="flex items-center justify-between mt-2 pt-1">
-                        <span className="text-[11px] font-bold text-rose-600 flex items-center gap-0.5">
+                    <div className="flex items-center justify-between mt-1 pt-0.5">
+                        <span className="text-[10.5px] font-bold text-rose-600 flex items-center gap-0.5">
                             <span className="text-xs">↓</span> -2.1% vs yesterday
                         </span>
                     </div>
                     {/* Glowing Multi-Crest Area Wave Sparkline */}
-                    <svg className="w-full h-11 mt-1 overflow-visible" viewBox="0 0 100 38" preserveAspectRatio="none">
+                    <svg className="w-full h-7 mt-0.5 overflow-visible" viewBox="0 0 100 38" preserveAspectRatio="none">
                         <defs>
                             <linearGradient id="grad-stock" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%" stopColor="#0284c7" stopOpacity="0.45" />
@@ -764,39 +764,39 @@ export default function DashboardPage() {
                             </linearGradient>
                         </defs>
                         <path d="M 0 26 Q 8 30, 16 24 T 32 28 T 48 20 T 64 26 T 80 18 T 92 24 T 100 18 L 100 38 L 0 38 Z" fill="url(#grad-stock)" />
-                        <path d="M 0 26 Q 8 30, 16 24 T 32 28 T 48 20 T 64 26 T 80 18 T 92 24 T 100 18" fill="none" stroke="#0284c7" strokeWidth="2.5" strokeLinecap="round" />
-                        <circle cx="100" cy="18" r="3.2" fill="#0284c7" stroke="#ffffff" strokeWidth="1.8" />
-                        <circle cx="100" cy="18" r="5.5" fill="#0284c7" opacity="0.25" />
+                        <path d="M 0 26 Q 8 30, 16 24 T 32 28 T 48 20 T 64 26 T 80 18 T 92 24 T 100 18" fill="none" stroke="#0284c7" strokeWidth="2.4" strokeLinecap="round" />
+                        <circle cx="100" cy="18" r="3" fill="#0284c7" stroke="#ffffff" strokeWidth="1.6" />
+                        <circle cx="100" cy="18" r="5" fill="#0284c7" opacity="0.25" />
                     </svg>
                 </div>
 
                 {/* 6. Expiring Soon */}
-                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between min-h-[148px]">
-                    <div className="flex items-center gap-3">
+                <div className="bg-white rounded-2xl p-3 border border-slate-100 shadow-xs hover:shadow-sm transition-all relative overflow-hidden flex flex-col justify-between">
+                    <div className="flex items-center gap-2.5">
                         <div
-                            className="w-12 h-12 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-lg text-white select-none"
+                            className="w-9.5 h-9.5 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-md text-white select-none"
                             style={{
                                 background: 'radial-gradient(circle at 35% 28%, #fca5a5 0%, #ef4444 35%, #b91c1c 75%, #450a0a 100%)',
-                                boxShadow: 'inset -3px -3px 6px rgba(0,0,0,0.4), inset 3px 3px 6px rgba(255,255,255,0.85), 0 8px 18px -2px rgba(239,68,68,0.4)',
+                                boxShadow: 'inset -2px -2px 4px rgba(0,0,0,0.35), inset 2px 2px 5px rgba(255,255,255,0.85), 0 4px 10px -1px rgba(239,68,68,0.35)',
                             }}
                         >
-                            <div className="absolute top-1.5 left-2.5 w-3.5 h-1.5 rounded-full bg-white/50 blur-[0.3px] -rotate-45 pointer-events-none" />
-                            <Clock size={21} className="text-white drop-shadow-xs relative z-10" />
+                            <div className="absolute top-1 left-2 w-3 h-1 rounded-full bg-white/50 blur-[0.2px] -rotate-45 pointer-events-none" />
+                            <Clock size={17} className="text-white drop-shadow-xs relative z-10" />
                         </div>
                         <div className="min-w-0">
-                            <p className="text-[12.5px] font-bold text-slate-700 leading-tight">Expiring Soon</p>
-                            <p className="text-[19px] lg:text-[21px] font-extrabold text-slate-950 tracking-tight leading-tight mt-0.5">
+                            <p className="text-[11px] font-bold text-slate-500 leading-tight">Expiring Soon</p>
+                            <p className="text-[15.5px] lg:text-[16.5px] font-black text-slate-900 tracking-tight leading-tight mt-0.5">
                                 {expiringCount}
                             </p>
                         </div>
                     </div>
-                    <div className="flex items-center justify-between mt-2 pt-1">
-                        <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1">
-                            <AlertTriangle size={11} /> Next 30 days
+                    <div className="flex items-center justify-between mt-1 pt-0.5">
+                        <span className="text-[10.5px] font-bold text-rose-600 flex items-center gap-1">
+                            <AlertTriangle size={10} /> Next 30 days
                         </span>
                     </div>
                     {/* Glowing Multi-Crest Area Wave Sparkline */}
-                    <svg className="w-full h-11 mt-1 overflow-visible" viewBox="0 0 100 38" preserveAspectRatio="none">
+                    <svg className="w-full h-7 mt-0.5 overflow-visible" viewBox="0 0 100 38" preserveAspectRatio="none">
                         <defs>
                             <linearGradient id="grad-exp" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%" stopColor="#dc2626" stopOpacity="0.45" />
@@ -804,9 +804,9 @@ export default function DashboardPage() {
                             </linearGradient>
                         </defs>
                         <path d="M 0 28 Q 8 22, 16 28 T 32 22 T 48 28 T 64 18 T 80 24 T 92 14 T 100 10 L 100 38 L 0 38 Z" fill="url(#grad-exp)" />
-                        <path d="M 0 28 Q 8 22, 16 28 T 32 22 T 48 28 T 64 18 T 80 24 T 92 14 T 100 10" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" />
-                        <circle cx="100" cy="10" r="3.2" fill="#dc2626" stroke="#ffffff" strokeWidth="1.8" />
-                        <circle cx="100" cy="10" r="5.5" fill="#dc2626" opacity="0.25" />
+                        <path d="M 0 28 Q 8 22, 16 28 T 32 22 T 48 28 T 64 18 T 80 24 T 92 14 T 100 10" fill="none" stroke="#dc2626" strokeWidth="2.4" strokeLinecap="round" />
+                        <circle cx="100" cy="10" r="3" fill="#dc2626" stroke="#ffffff" strokeWidth="1.6" />
+                        <circle cx="100" cy="10" r="5" fill="#dc2626" opacity="0.25" />
                     </svg>
                 </div>
             </div>

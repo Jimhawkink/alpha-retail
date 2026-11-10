@@ -416,29 +416,32 @@ function HeaderOutletBadge() {
                 <ChevronDown size={14} className="text-emerald-300 ml-0.5 shrink-0" />
             </button>
 
-            {/* Dropdown Menu for SuperAdmin switching */}
+            {/* Dropdown Menu for SuperAdmin switching (Light-Dark Slate Theme) */}
             {dropdownOpen && isSuperAdmin && (
-                <div className="absolute right-0 top-12 w-64 z-50 rounded-2xl bg-slate-900 border border-emerald-500/30 shadow-2xl overflow-hidden py-1.5 backdrop-blur-md">
-                    <div className="px-3 py-2 border-b border-emerald-500/20 text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
-                        Switch Store Outlet
+                <div className="absolute right-0 top-12 w-64 z-50 rounded-2xl bg-[#1e293b] border border-slate-700 shadow-2xl overflow-hidden py-1.5 backdrop-blur-md">
+                    <div className="px-3.5 py-2 border-b border-slate-700/80 text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center justify-between">
+                        <span>Switch Store Outlet</span>
+                        <span className="text-[9px] text-slate-400 font-normal">Super Admin</span>
                     </div>
-                    {outlets.map(o => (
-                        <button
-                            key={o.outlet_id}
-                            onClick={() => {
-                                switchOutlet(o.outlet_id);
-                                setDropdownOpen(false);
-                            }}
-                            className={`w-full text-left px-3.5 py-2 text-xs font-bold flex items-center justify-between transition-colors ${
-                                o.outlet_id === activeOutlet.outlet_id
-                                    ? 'bg-emerald-600/30 text-white border-l-4 border-emerald-400'
-                                    : 'text-slate-200 hover:bg-slate-800'
-                            }`}
-                        >
-                            <span>{o.outlet_name}</span>
-                            <span className="text-[10px] text-emerald-300/80 font-mono">{o.outlet_code || 'Outlet'}</span>
-                        </button>
-                    ))}
+                    <div className="max-h-60 overflow-y-auto">
+                        {outlets.map(o => (
+                            <button
+                                key={o.outlet_id}
+                                onClick={() => {
+                                    switchOutlet(o.outlet_id);
+                                    setDropdownOpen(false);
+                                }}
+                                className={`w-full text-left px-3.5 py-2.5 text-xs font-bold flex items-center justify-between transition-colors ${
+                                    o.outlet_id === activeOutlet.outlet_id
+                                        ? 'bg-emerald-600/30 text-white border-l-4 border-emerald-400 font-extrabold'
+                                        : 'text-slate-200 hover:bg-slate-800/80 hover:text-white'
+                                }`}
+                            >
+                                <span className="truncate pr-2">{o.outlet_name}</span>
+                                <span className="text-[10px] text-emerald-300/80 font-mono shrink-0">{o.outlet_code || 'Outlet'}</span>
+                            </button>
+                        ))}
+                    </div>
                 </div>
             )}
         </div>
@@ -1143,10 +1146,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     <ChevronDown size={14} className="text-slate-600 shrink-0 ml-0.5" />
                                 </div>
 
-                                {/* 7. Online Status Capsule Pill */}
-                                <div className="flex items-center gap-2 px-3.5 py-1.5 bg-[#024020] border border-emerald-500/40 rounded-full text-white shadow-xs select-none shrink-0">
-                                    <span className="w-2.5 h-2.5 rounded-full bg-[#22c55e] shadow-[0_0_8px_#22c55e] animate-pulse" />
-                                    <span className="text-[12.5px] font-bold text-white tracking-wide">Online</span>
+                                {/* 7. Online Status Capsule Pill (Light Theme - not dark) */}
+                                <div className="flex items-center gap-2 px-3.5 py-1.5 bg-white border border-slate-200/90 rounded-full text-slate-800 shadow-xs select-none shrink-0 hover:border-emerald-300 transition-colors">
+                                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
+                                    <span className="text-[12px] font-bold text-slate-800 tracking-wide">Online</span>
                                 </div>
                             </div>
                         </header>
