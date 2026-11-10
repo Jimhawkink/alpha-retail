@@ -404,10 +404,10 @@ function HeaderOutletBadge() {
 
                 {/* 2-line text: Pure white bold outlet name + soft mint subtitle */}
                 <div className="text-left leading-none">
-                    <p className="text-[13px] font-black text-white tracking-tight leading-tight truncate max-w-[130px]">
+                    <p className="text-[13.5px] font-black text-white tracking-tight leading-tight whitespace-nowrap">
                         {activeOutlet.outlet_name}
                     </p>
-                    <p className="text-[10px] font-bold text-emerald-200/90 leading-tight mt-0.5 truncate max-w-[130px]">
+                    <p className="text-[10px] font-bold text-emerald-200/90 leading-tight mt-0.5 whitespace-nowrap">
                         {activeOutlet.outlet_code ? activeOutlet.outlet_code : 'Head Office'}
                     </p>
                 </div>
@@ -1075,7 +1075,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             </button>
 
                             {/* 2. Full Pill Search Bar with Barcode Icon */}
-                            <div className="flex-1 max-w-md xl:max-w-xl flex items-center gap-2.5 bg-white border border-slate-200/90 rounded-full px-4 py-2 shadow-xs hover:border-slate-300 focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500 transition-all">
+                            <div className="flex-1 min-w-[280px] max-w-2xl flex items-center gap-2.5 bg-white border border-slate-200/90 rounded-full px-4 py-2 shadow-xs hover:border-slate-300 focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500 transition-all">
                                 <Search className="text-slate-700 shrink-0" size={16} />
                                 <input
                                     type="text"
@@ -1113,7 +1113,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 </svg>
                             </button>
 
-                            {/* Right Section: Outlet Pill, Bell, Date/Time, Online */}
+                            {/* Right Section: Outlet Pill, Bell, Date/Time, Online (matching Image 2 exactly) */}
                             <div className="flex items-center gap-2 lg:gap-3 ml-auto">
                                 {/* 4. Active Outlet Capsule Pill */}
                                 <HeaderOutletBadge />
@@ -1147,16 +1147,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 <div className="flex items-center gap-2 px-3.5 py-1.5 bg-[#024020] border border-emerald-500/40 rounded-full text-white shadow-xs select-none shrink-0">
                                     <span className="w-2.5 h-2.5 rounded-full bg-[#22c55e] shadow-[0_0_8px_#22c55e] animate-pulse" />
                                     <span className="text-[12.5px] font-bold text-white tracking-wide">Online</span>
-                                </div>
-
-                                {/* Settings & Avatar */}
-                                <button onClick={() => router.push('/dashboard/company')} title="Settings" className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 transition-colors">
-                                    <Settings size={16} />
-                                </button>
-                                <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-                                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-slate-950 text-xs font-black shadow-xs bg-gradient-to-tr from-emerald-400 to-green-300 ring-1 ring-emerald-300">
-                                        {user.name?.charAt(0)?.toUpperCase() || 'U'}
-                                    </div>
                                 </div>
                             </div>
                         </header>

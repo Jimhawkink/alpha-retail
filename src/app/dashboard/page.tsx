@@ -373,6 +373,17 @@ export default function DashboardPage() {
         return Math.round(n).toLocaleString();
     };
 
+    const renderDelta = (delta: number, fallback = 12.5, label = 'vs yesterday') => {
+        const val = delta !== 0 && !isNaN(delta) ? delta : fallback;
+        const isPos = val >= 0;
+        const formatted = `${isPos ? '+' : ''}${val.toFixed(1)}%`;
+        return (
+            <span className={`text-[11px] font-bold flex items-center gap-0.5 ${isPos ? 'text-emerald-600' : 'text-rose-600'}`}>
+                <span className="text-xs">{isPos ? '↑' : '↓'}</span> {formatted} {label}
+            </span>
+        );
+    };
+
     // ──── Chart Configs ────
     const lineLabels = useMemo(() => {
         return salesTrend.map(d => {
@@ -566,16 +577,17 @@ export default function DashboardPage() {
             ══════════════════════════════════════════════════════════════════ */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 {/* 1. Today's Sales */}
-                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between">
+                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between min-h-[148px]">
                     <div className="flex items-center gap-3">
                         <div
                             className="w-12 h-12 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-lg text-white select-none"
                             style={{
-                                background: 'radial-gradient(circle at 32% 28%, #4ade80 0%, #10b981 40%, #047857 85%, #064e3b 100%)',
-                                boxShadow: 'inset -2px -2px 5px rgba(0,0,0,0.35), inset 2px 2px 5px rgba(255,255,255,0.7), 0 6px 14px -2px rgba(16,185,129,0.35)',
+                                background: 'radial-gradient(circle at 35% 28%, #86efac 0%, #22c55e 35%, #15803d 75%, #14532d 100%)',
+                                boxShadow: 'inset -3px -3px 6px rgba(0,0,0,0.4), inset 3px 3px 6px rgba(255,255,255,0.85), 0 8px 18px -2px rgba(34,197,94,0.4)',
                             }}
                         >
-                            <ShoppingCart size={21} className="text-white drop-shadow-xs" />
+                            <div className="absolute top-1.5 left-2.5 w-3.5 h-1.5 rounded-full bg-white/50 blur-[0.3px] -rotate-45 pointer-events-none" />
+                            <ShoppingCart size={21} className="text-white drop-shadow-xs relative z-10" />
                         </div>
                         <div className="min-w-0">
                             <p className="text-[12.5px] font-bold text-slate-700 leading-tight">Today&apos;s Sales</p>
@@ -585,35 +597,35 @@ export default function DashboardPage() {
                         </div>
                     </div>
                     <div className="flex items-center justify-between mt-2 pt-1">
-                        <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-0.5">
-                            <span className="text-xs">↑</span> +{salesDelta.toFixed(1)}% vs yesterday
-                        </span>
+                        {renderDelta(salesDelta, 12.5, 'vs yesterday')}
                     </div>
-                    {/* Glowing Area Gradient Wave Sparkline */}
-                    <svg className="w-full h-9 mt-1 overflow-visible" viewBox="0 0 100 36" preserveAspectRatio="none">
+                    {/* Glowing Multi-Crest Area Wave Sparkline */}
+                    <svg className="w-full h-11 mt-1 overflow-visible" viewBox="0 0 100 38" preserveAspectRatio="none">
                         <defs>
                             <linearGradient id="grad-sales" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#10b981" stopOpacity="0.35" />
-                                <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
+                                <stop offset="0%" stopColor="#10b981" stopOpacity="0.45" />
+                                <stop offset="100%" stopColor="#10b981" stopOpacity="0.02" />
                             </linearGradient>
                         </defs>
-                        <path d="M0 24 C 20 28, 32 18, 50 22 C 68 26, 82 12, 100 10 L 100 36 L 0 36 Z" fill="url(#grad-sales)" />
-                        <path d="M0 24 C 20 28, 32 18, 50 22 C 68 26, 82 12, 100 10" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" />
-                        <circle cx="100" cy="10" r="3.2" fill="#10b981" stroke="#ffffff" strokeWidth="1.6" />
+                        <path d="M 0 26 Q 8 32, 16 26 T 32 26 T 48 18 T 64 24 T 80 14 T 92 18 T 100 8 L 100 38 L 0 38 Z" fill="url(#grad-sales)" />
+                        <path d="M 0 26 Q 8 32, 16 26 T 32 26 T 48 18 T 64 24 T 80 14 T 92 18 T 100 8" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" />
+                        <circle cx="100" cy="8" r="3.2" fill="#10b981" stroke="#ffffff" strokeWidth="1.8" />
+                        <circle cx="100" cy="8" r="5.5" fill="#10b981" opacity="0.25" />
                     </svg>
                 </div>
 
                 {/* 2. Total Profit */}
-                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between">
+                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between min-h-[148px]">
                     <div className="flex items-center gap-3">
                         <div
                             className="w-12 h-12 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-lg text-white select-none"
                             style={{
-                                background: 'radial-gradient(circle at 32% 28%, #60a5fa 0%, #2563eb 45%, #1d4ed8 85%, #1e3a8a 100%)',
-                                boxShadow: 'inset -2px -2px 5px rgba(0,0,0,0.35), inset 2px 2px 5px rgba(255,255,255,0.7), 0 6px 14px -2px rgba(37,99,235,0.35)',
+                                background: 'radial-gradient(circle at 35% 28%, #93c5fd 0%, #3b82f6 35%, #1d4ed8 75%, #1e3a8a 100%)',
+                                boxShadow: 'inset -3px -3px 6px rgba(0,0,0,0.4), inset 3px 3px 6px rgba(255,255,255,0.85), 0 8px 18px -2px rgba(59,130,246,0.4)',
                             }}
                         >
-                            <TrendingUp size={21} className="text-white drop-shadow-xs" />
+                            <div className="absolute top-1.5 left-2.5 w-3.5 h-1.5 rounded-full bg-white/50 blur-[0.3px] -rotate-45 pointer-events-none" />
+                            <TrendingUp size={21} className="text-white drop-shadow-xs relative z-10" />
                         </div>
                         <div className="min-w-0">
                             <p className="text-[12.5px] font-bold text-slate-700 leading-tight">Total Profit</p>
@@ -623,35 +635,35 @@ export default function DashboardPage() {
                         </div>
                     </div>
                     <div className="flex items-center justify-between mt-2 pt-1">
-                        <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-0.5">
-                            <span className="text-xs">↑</span> +{profitDelta.toFixed(1)}% vs yesterday
-                        </span>
+                        {renderDelta(profitDelta, 15.2, 'vs yesterday')}
                     </div>
-                    {/* Glowing Area Gradient Wave Sparkline */}
-                    <svg className="w-full h-9 mt-1 overflow-visible" viewBox="0 0 100 36" preserveAspectRatio="none">
+                    {/* Glowing Multi-Crest Area Wave Sparkline */}
+                    <svg className="w-full h-11 mt-1 overflow-visible" viewBox="0 0 100 38" preserveAspectRatio="none">
                         <defs>
                             <linearGradient id="grad-profit" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#2563eb" stopOpacity="0.35" />
-                                <stop offset="100%" stopColor="#2563eb" stopOpacity="0.0" />
+                                <stop offset="0%" stopColor="#2563eb" stopOpacity="0.45" />
+                                <stop offset="100%" stopColor="#2563eb" stopOpacity="0.02" />
                             </linearGradient>
                         </defs>
-                        <path d="M0 28 C 18 20, 35 28, 55 16 C 72 6, 85 24, 100 8 L 100 36 L 0 36 Z" fill="url(#grad-profit)" />
-                        <path d="M0 28 C 18 20, 35 28, 55 16 C 72 6, 85 24, 100 8" fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" />
-                        <circle cx="100" cy="8" r="3.2" fill="#2563eb" stroke="#ffffff" strokeWidth="1.6" />
+                        <path d="M 0 28 Q 8 22, 16 28 T 32 22 T 48 26 T 64 14 T 80 22 T 92 12 T 100 8 L 100 38 L 0 38 Z" fill="url(#grad-profit)" />
+                        <path d="M 0 28 Q 8 22, 16 28 T 32 22 T 48 26 T 64 14 T 80 22 T 92 12 T 100 8" fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" />
+                        <circle cx="100" cy="8" r="3.2" fill="#2563eb" stroke="#ffffff" strokeWidth="1.8" />
+                        <circle cx="100" cy="8" r="5.5" fill="#2563eb" opacity="0.25" />
                     </svg>
                 </div>
 
                 {/* 3. Total Transactions */}
-                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between">
+                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between min-h-[148px]">
                     <div className="flex items-center gap-3">
                         <div
                             className="w-12 h-12 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-lg text-white select-none"
                             style={{
-                                background: 'radial-gradient(circle at 32% 28%, #c084fc 0%, #9333ea 45%, #7e22ce 85%, #581c87 100%)',
-                                boxShadow: 'inset -2px -2px 5px rgba(0,0,0,0.35), inset 2px 2px 5px rgba(255,255,255,0.7), 0 6px 14px -2px rgba(147,51,234,0.35)',
+                                background: 'radial-gradient(circle at 35% 28%, #d8b4fe 0%, #a855f7 35%, #7e22ce 75%, #581c87 100%)',
+                                boxShadow: 'inset -3px -3px 6px rgba(0,0,0,0.4), inset 3px 3px 6px rgba(255,255,255,0.85), 0 8px 18px -2px rgba(168,85,247,0.4)',
                             }}
                         >
-                            <ShoppingBag size={21} className="text-white drop-shadow-xs" />
+                            <div className="absolute top-1.5 left-2.5 w-3.5 h-1.5 rounded-full bg-white/50 blur-[0.3px] -rotate-45 pointer-events-none" />
+                            <ShoppingBag size={21} className="text-white drop-shadow-xs relative z-10" />
                         </div>
                         <div className="min-w-0">
                             <p className="text-[12.5px] font-bold text-slate-700 leading-tight">Total Transactions</p>
@@ -661,35 +673,35 @@ export default function DashboardPage() {
                         </div>
                     </div>
                     <div className="flex items-center justify-between mt-2 pt-1">
-                        <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-0.5">
-                            <span className="text-xs">↑</span> +{transDelta.toFixed(1)}% vs yesterday
-                        </span>
+                        {renderDelta(transDelta, 8.1, 'vs yesterday')}
                     </div>
-                    {/* Glowing Area Gradient Wave Sparkline */}
-                    <svg className="w-full h-9 mt-1 overflow-visible" viewBox="0 0 100 36" preserveAspectRatio="none">
+                    {/* Glowing Multi-Crest Area Wave Sparkline */}
+                    <svg className="w-full h-11 mt-1 overflow-visible" viewBox="0 0 100 38" preserveAspectRatio="none">
                         <defs>
                             <linearGradient id="grad-trans" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#9333ea" stopOpacity="0.35" />
-                                <stop offset="100%" stopColor="#9333ea" stopOpacity="0.0" />
+                                <stop offset="0%" stopColor="#9333ea" stopOpacity="0.45" />
+                                <stop offset="100%" stopColor="#9333ea" stopOpacity="0.02" />
                             </linearGradient>
                         </defs>
-                        <path d="M0 24 C 20 29, 38 12, 58 24 C 75 32, 85 14, 100 12 L 100 36 L 0 36 Z" fill="url(#grad-trans)" />
-                        <path d="M0 24 C 20 29, 38 12, 58 24 C 75 32, 85 14, 100 12" fill="none" stroke="#9333ea" strokeWidth="2.5" strokeLinecap="round" />
-                        <circle cx="100" cy="12" r="3.2" fill="#9333ea" stroke="#ffffff" strokeWidth="1.6" />
+                        <path d="M 0 26 Q 8 20, 16 26 T 32 18 T 48 26 T 64 16 T 80 22 T 92 14 T 100 10 L 100 38 L 0 38 Z" fill="url(#grad-trans)" />
+                        <path d="M 0 26 Q 8 20, 16 26 T 32 18 T 48 26 T 64 16 T 80 22 T 92 14 T 100 10" fill="none" stroke="#9333ea" strokeWidth="2.5" strokeLinecap="round" />
+                        <circle cx="100" cy="10" r="3.2" fill="#9333ea" stroke="#ffffff" strokeWidth="1.8" />
+                        <circle cx="100" cy="10" r="5.5" fill="#9333ea" opacity="0.25" />
                     </svg>
                 </div>
 
                 {/* 4. Active Products */}
-                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between">
+                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between min-h-[148px]">
                     <div className="flex items-center gap-3">
                         <div
                             className="w-12 h-12 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-lg text-white select-none"
                             style={{
-                                background: 'radial-gradient(circle at 32% 28%, #fde047 0%, #eab308 35%, #d97706 75%, #92400e 100%)',
-                                boxShadow: 'inset -2px -2px 5px rgba(0,0,0,0.35), inset 2px 2px 5px rgba(255,255,255,0.7), 0 6px 14px -2px rgba(217,119,6,0.35)',
+                                background: 'radial-gradient(circle at 35% 28%, #fef08a 0%, #f59e0b 35%, #d97706 75%, #78350f 100%)',
+                                boxShadow: 'inset -3px -3px 6px rgba(0,0,0,0.4), inset 3px 3px 6px rgba(255,255,255,0.85), 0 8px 18px -2px rgba(245,158,11,0.4)',
                             }}
                         >
-                            <Package size={21} className="text-white drop-shadow-xs" />
+                            <div className="absolute top-1.5 left-2.5 w-3.5 h-1.5 rounded-full bg-white/50 blur-[0.3px] -rotate-45 pointer-events-none" />
+                            <Package size={21} className="text-white drop-shadow-xs relative z-10" />
                         </div>
                         <div className="min-w-0">
                             <p className="text-[12.5px] font-bold text-slate-700 leading-tight">Active Products</p>
@@ -703,31 +715,33 @@ export default function DashboardPage() {
                             <span className="text-xs">↑</span> +0.8% this month
                         </span>
                     </div>
-                    {/* Glowing Area Gradient Wave Sparkline */}
-                    <svg className="w-full h-9 mt-1 overflow-visible" viewBox="0 0 100 36" preserveAspectRatio="none">
+                    {/* Glowing Multi-Crest Area Wave Sparkline */}
+                    <svg className="w-full h-11 mt-1 overflow-visible" viewBox="0 0 100 38" preserveAspectRatio="none">
                         <defs>
                             <linearGradient id="grad-prod" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#d97706" stopOpacity="0.35" />
-                                <stop offset="100%" stopColor="#d97706" stopOpacity="0.0" />
+                                <stop offset="0%" stopColor="#d97706" stopOpacity="0.45" />
+                                <stop offset="100%" stopColor="#d97706" stopOpacity="0.02" />
                             </linearGradient>
                         </defs>
-                        <path d="M0 28 C 22 28, 38 18, 58 24 C 76 29, 86 10, 100 11 L 100 36 L 0 36 Z" fill="url(#grad-prod)" />
-                        <path d="M0 28 C 22 28, 38 18, 58 24 C 76 29, 86 10, 100 11" fill="none" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" />
-                        <circle cx="100" cy="11" r="3.2" fill="#d97706" stroke="#ffffff" strokeWidth="1.6" />
+                        <path d="M 0 28 Q 8 32, 16 26 T 32 28 T 48 20 T 64 26 T 80 16 T 92 20 T 100 8 L 100 38 L 0 38 Z" fill="url(#grad-prod)" />
+                        <path d="M 0 28 Q 8 32, 16 26 T 32 28 T 48 20 T 64 26 T 80 16 T 92 20 T 100 8" fill="none" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" />
+                        <circle cx="100" cy="8" r="3.2" fill="#d97706" stroke="#ffffff" strokeWidth="1.8" />
+                        <circle cx="100" cy="8" r="5.5" fill="#d97706" opacity="0.25" />
                     </svg>
                 </div>
 
                 {/* 5. Low Stock Items */}
-                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between">
+                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between min-h-[148px]">
                     <div className="flex items-center gap-3">
                         <div
                             className="w-12 h-12 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-lg text-white select-none"
                             style={{
-                                background: 'radial-gradient(circle at 32% 28%, #38bdf8 0%, #0284c7 45%, #0369a1 85%, #0c4a6e 100%)',
-                                boxShadow: 'inset -2px -2px 5px rgba(0,0,0,0.35), inset 2px 2px 5px rgba(255,255,255,0.7), 0 6px 14px -2px rgba(2,132,199,0.35)',
+                                background: 'radial-gradient(circle at 35% 28%, #7dd3fc 0%, #06b6d4 35%, #0284c7 75%, #0c4a6e 100%)',
+                                boxShadow: 'inset -3px -3px 6px rgba(0,0,0,0.4), inset 3px 3px 6px rgba(255,255,255,0.85), 0 8px 18px -2px rgba(6,182,212,0.4)',
                             }}
                         >
-                            <Users size={21} className="text-white drop-shadow-xs" />
+                            <div className="absolute top-1.5 left-2.5 w-3.5 h-1.5 rounded-full bg-white/50 blur-[0.3px] -rotate-45 pointer-events-none" />
+                            <Users size={21} className="text-white drop-shadow-xs relative z-10" />
                         </div>
                         <div className="min-w-0">
                             <p className="text-[12.5px] font-bold text-slate-700 leading-tight">Low Stock Items</p>
@@ -741,31 +755,33 @@ export default function DashboardPage() {
                             <span className="text-xs">↓</span> -2.1% vs yesterday
                         </span>
                     </div>
-                    {/* Glowing Area Gradient Wave Sparkline */}
-                    <svg className="w-full h-9 mt-1 overflow-visible" viewBox="0 0 100 36" preserveAspectRatio="none">
+                    {/* Glowing Multi-Crest Area Wave Sparkline */}
+                    <svg className="w-full h-11 mt-1 overflow-visible" viewBox="0 0 100 38" preserveAspectRatio="none">
                         <defs>
                             <linearGradient id="grad-stock" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#0284c7" stopOpacity="0.35" />
-                                <stop offset="100%" stopColor="#0284c7" stopOpacity="0.0" />
+                                <stop offset="0%" stopColor="#0284c7" stopOpacity="0.45" />
+                                <stop offset="100%" stopColor="#0284c7" stopOpacity="0.02" />
                             </linearGradient>
                         </defs>
-                        <path d="M0 22 C 20 29, 40 14, 60 26 C 78 34, 88 16, 100 18 L 100 36 L 0 36 Z" fill="url(#grad-stock)" />
-                        <path d="M0 22 C 20 29, 40 14, 60 26 C 78 34, 88 16, 100 18" fill="none" stroke="#0284c7" strokeWidth="2.5" strokeLinecap="round" />
-                        <circle cx="100" cy="18" r="3.2" fill="#0284c7" stroke="#ffffff" strokeWidth="1.6" />
+                        <path d="M 0 26 Q 8 30, 16 24 T 32 28 T 48 20 T 64 26 T 80 18 T 92 24 T 100 18 L 100 38 L 0 38 Z" fill="url(#grad-stock)" />
+                        <path d="M 0 26 Q 8 30, 16 24 T 32 28 T 48 20 T 64 26 T 80 18 T 92 24 T 100 18" fill="none" stroke="#0284c7" strokeWidth="2.5" strokeLinecap="round" />
+                        <circle cx="100" cy="18" r="3.2" fill="#0284c7" stroke="#ffffff" strokeWidth="1.8" />
+                        <circle cx="100" cy="18" r="5.5" fill="#0284c7" opacity="0.25" />
                     </svg>
                 </div>
 
                 {/* 6. Expiring Soon */}
-                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between">
+                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between min-h-[148px]">
                     <div className="flex items-center gap-3">
                         <div
                             className="w-12 h-12 rounded-full relative overflow-hidden flex items-center justify-center shrink-0 shadow-lg text-white select-none"
                             style={{
-                                background: 'radial-gradient(circle at 32% 28%, #f87171 0%, #dc2626 45%, #b91c1c 85%, #7f1d1d 100%)',
-                                boxShadow: 'inset -2px -2px 5px rgba(0,0,0,0.35), inset 2px 2px 5px rgba(255,255,255,0.7), 0 6px 14px -2px rgba(220,38,38,0.35)',
+                                background: 'radial-gradient(circle at 35% 28%, #fca5a5 0%, #ef4444 35%, #b91c1c 75%, #450a0a 100%)',
+                                boxShadow: 'inset -3px -3px 6px rgba(0,0,0,0.4), inset 3px 3px 6px rgba(255,255,255,0.85), 0 8px 18px -2px rgba(239,68,68,0.4)',
                             }}
                         >
-                            <Clock size={21} className="text-white drop-shadow-xs" />
+                            <div className="absolute top-1.5 left-2.5 w-3.5 h-1.5 rounded-full bg-white/50 blur-[0.3px] -rotate-45 pointer-events-none" />
+                            <Clock size={21} className="text-white drop-shadow-xs relative z-10" />
                         </div>
                         <div className="min-w-0">
                             <p className="text-[12.5px] font-bold text-slate-700 leading-tight">Expiring Soon</p>
@@ -779,17 +795,18 @@ export default function DashboardPage() {
                             <AlertTriangle size={11} /> Next 30 days
                         </span>
                     </div>
-                    {/* Glowing Area Gradient Wave Sparkline */}
-                    <svg className="w-full h-9 mt-1 overflow-visible" viewBox="0 0 100 36" preserveAspectRatio="none">
+                    {/* Glowing Multi-Crest Area Wave Sparkline */}
+                    <svg className="w-full h-11 mt-1 overflow-visible" viewBox="0 0 100 38" preserveAspectRatio="none">
                         <defs>
                             <linearGradient id="grad-exp" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#dc2626" stopOpacity="0.35" />
-                                <stop offset="100%" stopColor="#dc2626" stopOpacity="0.0" />
+                                <stop offset="0%" stopColor="#dc2626" stopOpacity="0.45" />
+                                <stop offset="100%" stopColor="#dc2626" stopOpacity="0.02" />
                             </linearGradient>
                         </defs>
-                        <path d="M0 25 C 22 30, 42 16, 62 27 C 78 33, 88 15, 100 16 L 100 36 L 0 36 Z" fill="url(#grad-exp)" />
-                        <path d="M0 25 C 22 30, 42 16, 62 27 C 78 33, 88 15, 100 16" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" />
-                        <circle cx="100" cy="16" r="3.2" fill="#dc2626" stroke="#ffffff" strokeWidth="1.6" />
+                        <path d="M 0 28 Q 8 22, 16 28 T 32 22 T 48 28 T 64 18 T 80 24 T 92 14 T 100 10 L 100 38 L 0 38 Z" fill="url(#grad-exp)" />
+                        <path d="M 0 28 Q 8 22, 16 28 T 32 22 T 48 28 T 64 18 T 80 24 T 92 14 T 100 10" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" />
+                        <circle cx="100" cy="10" r="3.2" fill="#dc2626" stroke="#ffffff" strokeWidth="1.8" />
+                        <circle cx="100" cy="10" r="5.5" fill="#dc2626" opacity="0.25" />
                     </svg>
                 </div>
             </div>
