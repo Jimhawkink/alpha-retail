@@ -638,8 +638,15 @@ export default function ProductsPage() {
     };
 
     const exportCSV = () => {
-        const csv = [['Code', 'Name', 'Category', 'Buy', 'Sell', 'Wholesale', 'Stock', 'Margin', 'Status'].join(','),
-        ...filtered.map(p => { const cpp = (p.purchase_cost || 0) / (p.pieces_per_package || 1); const sp = (p as any).wholesale_price || p.sales_cost || 0; return [p.product_code, `"${p.product_name}"`, p.category || '', p.purchase_cost, p.sales_cost, (p as any).wholesale_price || 0, stockData[p.pid] || 0, (sp - cpp).toFixed(0), p.active ? 'Active' : 'Off'].join(','); })].join('\n');
+        const csv = [['Code', 'Name', 'Category', 'Buy', 'Cost_Per_Pc', 'Sell', 'Big_Qty_Price', 'Wholesale', 'Stock', 'Margin', 'Status'].join(','),
+        ...filtered.map(p => {
+            const cpp = (p.purchase_cost || 0) / (p.pieces_per_package || 1);
+            const sp = (p as any).wholesale_price || p.sales_cost || 0;
+            const bigPrice = (p.pieces_per_package || 1) > 1
+                ? ((p.package_sales_cost && p.package_sales_cost > 0) ? p.package_sales_cost : ((p.sales_cost || 0) * (p.pieces_per_package || 1)))
+                : '';
+            return [p.product_code, `"${p.product_name}"`, p.category || '', p.purchase_cost, Math.round(cpp), p.sales_cost, bigPrice, (p as any).wholesale_price || 0, stockData[p.pid] || 0, (sp - cpp).toFixed(0), p.active ? 'Active' : 'Off'].join(',');
+        })].join('\n');
         const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'products.csv'; a.click();
         toast.success('Exported!');
     };
@@ -1153,7 +1160,14 @@ export default function ProductsPage() {
                                         <span className="text-[10px] font-medium text-gray-400">{p.category || 'N/A'}</span>
                                     </div>
                                     <div className="flex items-center justify-between mt-3">
-                                        <p className="text-base font-bold text-gray-900">Ksh {(p.sales_cost || 0).toLocaleString()}</p>
+                                        <div>
+                                            <p className="text-base font-bold text-gray-900">Ksh {(p.sales_cost || 0).toLocaleString()}</p>
+                                            {(p.pieces_per_package || 1) > 1 && (
+                                                <p className="text-[10px] font-black text-indigo-600 mt-0.5">
+                                                    📦 {p.purchase_unit}: Ksh {((p.package_sales_cost && p.package_sales_cost > 0) ? p.package_sales_cost : ((p.sales_cost || 0) * (p.pieces_per_package || 1))).toLocaleString()}
+                                                </p>
+                                            )}
+                                        </div>
                                         <div className="flex flex-col items-end gap-0.5">
                                             {(bagStockData[p.pid] || 0) > 0 && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">📦 {bagStockData[p.pid]} {p.purchase_unit}</span>}
                                             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${(pieceStockData[p.pid] || 0) > 0 ? 'bg-emerald-100 text-emerald-700' : stk <= 0 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>🔢 {pieceStockData[p.pid] || 0} {p.sales_unit}</span>
@@ -1176,6 +1190,7 @@ export default function ProductsPage() {
                                     <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Buy Price</th>
                                     <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden lg:table-cell">Cost/Pc</th>
                                     <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Sell Price</th>
+                                    <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Big Qty Price</th>
                                     <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden lg:table-cell">Wholesale</th>
                                     <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Stock</th>
                                     <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden lg:table-cell">Profit</th>
@@ -1216,6 +1231,20 @@ export default function ProductsPage() {
                                                 {(p.pieces_per_package || 1) > 1 && <span className="text-[9px] text-gray-400 block">÷{p.pieces_per_package}pcs</span>}
                                             </td>
                                             <td className="px-4 py-3 text-right text-sm font-bold text-gray-900">Ksh {(p.sales_cost || 0).toLocaleString()}</td>
+                                            <td className="px-4 py-3 text-right">
+                                                {(p.pieces_per_package || 1) > 1 ? (
+                                                    <div>
+                                                        <span className="text-sm font-black text-indigo-700">
+                                                            Ksh {((p.package_sales_cost && p.package_sales_cost > 0) ? p.package_sales_cost : ((p.sales_cost || 0) * (p.pieces_per_package || 1))).toLocaleString()}
+                                                        </span>
+                                                        <span className="text-[10px] text-indigo-600 block font-medium">
+                                                            per {p.purchase_unit || 'Pack'} ({p.pieces_per_package} {p.sales_unit || 'pcs'})
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-gray-300 text-xs">-</span>
+                                                )}
+                                            </td>
                                             <td className="px-4 py-3 text-right text-xs text-purple-600 font-semibold hidden lg:table-cell">{(p as any).wholesale_price ? `Ksh ${((p as any).wholesale_price || 0).toLocaleString()}` : '-'}</td>
                                             <td className="px-4 py-3 text-center">
                                                 <div className="flex flex-col items-center gap-0.5">
