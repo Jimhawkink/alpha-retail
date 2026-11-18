@@ -765,11 +765,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         };
     }, [router]);
 
-    // ── Global Silent Session Auto-Logout after 5 Minutes Inactivity ──
+    // ── Global Silent Session Auto-Logout after 20 Minutes Inactivity ──
     // Completely silent: NO modal, NO countdown popup.
     // Syncs across all tabs using localStorage.
     useEffect(() => {
-        const IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+        const IDLE_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
         const STORAGE_KEY = 'alpharetail_last_activity';
 
         const now = Date.now();
@@ -782,7 +782,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 const stored = localStorage.getItem('user');
                 const u = stored ? JSON.parse(stored) : null;
                 if (u?.name) {
-                    await logActivity('Auto Logout', `${u.name} automatically logged out after 5 mins of inactivity`);
+                    await logActivity('Auto Logout', `${u.name} automatically logged out after 20 mins of inactivity`);
                 }
             } catch { /* silent */ }
             localStorage.removeItem('user');
