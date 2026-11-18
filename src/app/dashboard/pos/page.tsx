@@ -17,6 +17,7 @@ interface Product {
     costPrice: number;
     salesPrice: number;
     retailPrice?: number;
+    packageSalesCost?: number;
     color?: string;
     imageUrl?: string;
     salesUnit?: string;
@@ -1809,6 +1810,7 @@ export default function RetailPOSPage() {
                 costPrice: p.purchase_cost || 0,
                 salesPrice: p.wholesale_price || p.sales_cost || 0,
                 retailPrice: p.sales_cost || p.wholesale_price || 0,
+                packageSalesCost: Number((p as any).package_sales_cost) || 0,
                 color: p.button_ui_color || 'from-blue-400 to-blue-600',
                 imageUrl: p.photo || '',
                 salesUnit: p.sales_unit || 'Piece',
@@ -3499,7 +3501,7 @@ export default function RetailPOSPage() {
                 mpesaShortcode={activeOutlet?.mpesa_shortcode}
                 mpesaTillNumber={(activeOutlet as any)?.mpesa_till_number}
                 mpesaCallbackUrl={activeOutlet?.mpesa_callback_url}
-                kcbEnabled={activeOutlet?.kcb_enabled}
+                kcbEnabled={(activeOutlet as any)?.kcb_enabled}
             />
 
             <DiscountModal
@@ -3514,7 +3516,9 @@ export default function RetailPOSPage() {
                 const ppp        = unitPickerProduct.piecesPerPackage || 1;
                 const retailPrice    = unitPickerProduct.retailPrice || unitPickerProduct.salesPrice;
                 const wholesalePrice = unitPickerProduct.salesPrice;
-                const bigQtyPrice    = wholesalePrice * ppp;
+                const bigQtyPrice    = (unitPickerProduct.packageSalesCost && unitPickerProduct.packageSalesCost > 0)
+                    ? unitPickerProduct.packageSalesCost
+                    : (wholesalePrice * ppp);
 
                 // ── Unit-aware stock ──────────────────────────────────────────
                 // bagQty  = full bags/boxes/dozens

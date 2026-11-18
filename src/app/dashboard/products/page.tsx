@@ -13,7 +13,7 @@ interface Product {
     purchase_unit: string; sales_unit: string; purchase_cost: number; sales_cost: number;
     wholesale_price: number; reorder_point: number; margin_per: number; show_ps: boolean; button_ui_color: string;
     photo: string; hscode: string; batch_no: string; supplier_name: string; active: boolean;
-    pieces_per_package: number;
+    pieces_per_package: number; package_sales_cost?: number;
 }
 interface StockHistoryRow { id: number; date: string; ref: string; type: string; qty_in: number; qty_out: number; balance: number; }
 interface PriceHistoryRow { id: number; date: string; old_buy: number; new_buy: number; old_sell: number; new_sell: number; }
@@ -24,7 +24,7 @@ interface Unit { unit_id: number; unit_name: string; abbreviation: string; }
 const defaultProduct: Omit<Product, 'pid' | 'product_code'> = {
     product_name: '', alias: '', vat_commodity: 'Standard', description: '', barcode: '',
     category: '', purchase_unit: 'Piece', sales_unit: 'Piece', purchase_cost: 0, sales_cost: 0,
-    wholesale_price: 0, reorder_point: 10, margin_per: 0, show_ps: true, button_ui_color: 'from-blue-400 to-blue-600',
+    wholesale_price: 0, package_sales_cost: 0, reorder_point: 10, margin_per: 0, show_ps: true, button_ui_color: 'from-blue-400 to-blue-600',
     photo: '', hscode: '', batch_no: '', supplier_name: '', active: true, pieces_per_package: 1,
 };
 const UNIT_CONVERSIONS: Record<string, Record<string, number>> = {
@@ -421,7 +421,8 @@ export default function ProductsPage() {
             product_name: p.product_name, alias: p.alias || '', vat_commodity: p.vat_commodity || 'Standard',
             description: p.description || '', barcode: p.barcode || '', category: p.category || '',
             purchase_unit: p.purchase_unit || 'Piece', sales_unit: p.sales_unit || 'Piece',
-            purchase_cost: p.purchase_cost || 0, sales_cost: p.sales_cost || 0, wholesale_price: (p as any).wholesale_price || 0, reorder_point: p.reorder_point || 10,
+            purchase_cost: p.purchase_cost || 0, sales_cost: p.sales_cost || 0, wholesale_price: (p as any).wholesale_price || 0,
+            package_sales_cost: (p as any).package_sales_cost || 0, reorder_point: p.reorder_point || 10,
             margin_per: p.margin_per || 0, show_ps: p.show_ps !== false, button_ui_color: p.button_ui_color || 'from-blue-400 to-blue-600',
             photo: p.photo || '', hscode: p.hscode || '', batch_no: p.batch_no || '', supplier_name: p.supplier_name || '', active: p.active !== false,
             pieces_per_package: p.pieces_per_package || 1,
@@ -443,6 +444,7 @@ export default function ProductsPage() {
         try {
             const costPerPiece = formData.purchase_cost / (formData.pieces_per_package || 1);
             const margin = calcMargin(costPerPiece, formData.wholesale_price || formData.sales_cost);
+            const pkgCost = parseFloat(String(formData.package_sales_cost)) || 0;
             const d = {
                 product_name: formData.product_name, alias: formData.alias || null, description: formData.description || null,
                 barcode: formData.barcode || null, category: formData.category || null, purchase_unit: formData.purchase_unit,
@@ -450,6 +452,7 @@ export default function ProductsPage() {
                 purchase_cost:   parseFloat(String(formData.purchase_cost))   || 0,
                 sales_cost:      parseFloat(String(formData.sales_cost))      || 0,
                 wholesale_price: parseFloat(String(formData.wholesale_price)) || 0,
+                package_sales_cost: pkgCost,
                 reorder_point: Math.round(parseFloat(String(formData.reorder_point)) || 10),
                 margin_per: margin, show_in_pos: formData.show_ps !== false,
                 button_ui_color: formData.button_ui_color, photo: formData.photo || null, batch_no: formData.batch_no || null,
@@ -468,7 +471,13 @@ export default function ProductsPage() {
                         });
                     } catch { /* silent if table doesn't exist */ }
                 }
-                const { error } = await supabase.from('retail_products').update({ ...d, updated_at: new Date().toISOString() }).eq('pid', editingProduct.pid);
+                let updatePayload: any = { ...d, updated_at: new Date().toISOString() };
+                let { error } = await supabase.from('retail_products').update(updatePayload).eq('pid', editingProduct.pid);
+                if (error && error.message?.includes('package_sales_cost')) {
+                    delete updatePayload.package_sales_cost;
+                    const res2 = await supabase.from('retail_products').update(updatePayload).eq('pid', editingProduct.pid);
+                    error = res2.error;
+                }
                 if (error) throw new Error(error.message); toast.success('Product updated!');
                 logActivity('Update', `Updated product: ${formData.product_name}`, `PID: ${editingProduct.pid}, Buy: ${formData.purchase_cost}, Sell: ${formData.sales_cost}`);
             } else {
@@ -488,11 +497,20 @@ export default function ProductsPage() {
                 const { code, pid: newPid } = previewCode && previewPid
                     ? { code: previewCode, pid: previewPid }
                     : await generateProductCode();
-                // INSERT with explicit pid — prevents pid=NULL which breaks delete and stock linking
-                const { data: np, error } = await supabase
+                let insertPayload: any = { ...d, pid: newPid, product_code: code, outlet_id: outletId, created_at: new Date().toISOString() };
+                let { data: np, error } = await supabase
                     .from('retail_products')
-                    .insert({ ...d, pid: newPid, product_code: code, outlet_id: outletId, created_at: new Date().toISOString() })
+                    .insert(insertPayload)
                     .select().single();
+                if (error && error.message?.includes('package_sales_cost')) {
+                    delete insertPayload.package_sales_cost;
+                    const res2 = await supabase
+                        .from('retail_products')
+                        .insert(insertPayload)
+                        .select().single();
+                    np = res2.data;
+                    error = res2.error;
+                }
                 if (error) throw new Error(error.message);
                 if (np) {
                     const stockRecords: any[] = [];
@@ -1428,6 +1446,41 @@ export default function ProductsPage() {
                                 {formData.pieces_per_package > 1 && formData.purchase_cost > 0 && (
                                     <div className="mt-3 p-3 bg-orange-50 rounded-xl border border-orange-200 text-sm">
                                         <span className="font-bold text-orange-700">📦 Conversion:</span> 1 {formData.purchase_unit} = <span className="font-bold text-orange-800">{formData.pieces_per_package}</span> {formData.sales_unit?.toLowerCase() === formData.purchase_unit?.toLowerCase() ? 'Piece' : formData.sales_unit}(s)
+                                    </div>
+                                )}
+                                {/* ── Pack / Box Selling Price (Big Quantity Price) ── */}
+                                {formData.pieces_per_package > 1 && (
+                                    <div className="mt-3 p-3.5 bg-gradient-to-r from-indigo-50 via-purple-50 to-blue-50 rounded-2xl border-2 border-indigo-200 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm">
+                                        <div className="flex-1">
+                                            <label className="block text-xs font-black text-indigo-950 uppercase tracking-wider flex items-center gap-1.5 mb-1">
+                                                <span>📦 Selling Price / {formData.purchase_unit} (Big Qty Price in Ksh)</span>
+                                            </label>
+                                            <p className="text-[11px] text-indigo-700 font-medium">
+                                                1 {formData.purchase_unit} = {formData.pieces_per_package} {formData.sales_unit}s. POS will charge this price when selling a full {formData.purchase_unit}.
+                                            </p>
+                                        </div>
+                                        <div className="w-full md:w-64">
+                                            <div className="relative">
+                                                <span className="absolute left-3.5 top-2.5 text-xs font-bold text-indigo-500">Ksh</span>
+                                                <input
+                                                    type="number"
+                                                    step="any"
+                                                    min="0"
+                                                    value={(formData as any).package_sales_cost || ''}
+                                                    onChange={e => setFormData({ ...formData, package_sales_cost: parseFloat(e.target.value) || 0 } as any)}
+                                                    placeholder={String((formData.sales_cost || 0) * (formData.pieces_per_package || 1))}
+                                                    className="w-full pl-12 pr-3 py-2.5 bg-white border-2 border-indigo-300 rounded-xl text-base font-black text-indigo-900 focus:border-indigo-600 outline-none shadow-inner"
+                                                />
+                                            </div>
+                                            <p className="text-[10px] text-gray-500 mt-1 text-right">
+                                                Standard: Ksh {((formData.sales_cost || 0) * (formData.pieces_per_package || 1)).toLocaleString()}
+                                                {(formData as any).package_sales_cost > 0 && (formData as any).package_sales_cost !== ((formData.sales_cost || 0) * (formData.pieces_per_package || 1)) && (
+                                                    <span className="font-bold ml-1 text-emerald-600">
+                                                        (Special: Ksh {Number((formData as any).package_sales_cost).toLocaleString()})
+                                                    </span>
+                                                )}
+                                            </p>
+                                        </div>
                                     </div>
                                 )}
                                 {/* Cost Per Piece + Profit Breakdown */}
