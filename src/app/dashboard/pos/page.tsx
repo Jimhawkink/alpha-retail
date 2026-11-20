@@ -205,7 +205,7 @@ const CartItemRow = ({
     };
 
     return (
-        <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all hover:border-slate-300">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-2xs hover:border-indigo-300 hover:shadow-xs transition-all overflow-hidden">
             {/* Main row */}
             <div className="px-3 py-2 flex items-center gap-2">
                 {/* Product info */}
@@ -226,7 +226,7 @@ const CartItemRow = ({
                             />
                         ) : (
                             <span
-                                className={`text-[10px] text-slate-500 ${
+                                className={`text-[10px] text-slate-500 font-medium ${
                                     onEditPrice ? 'cursor-pointer hover:text-indigo-600 hover:underline decoration-dotted' : ''
                                 }`}
                                 onClick={() => {
@@ -235,11 +235,11 @@ const CartItemRow = ({
                                 title={onEditPrice ? `Click to edit price (min: Ksh ${(minPrice || 0).toLocaleString()})` : undefined}
                             >
                                 @ Ksh {item.effectivePrice.toLocaleString()} / {item.sellingUnit || item.salesUnit || 'Pc'}
-                                {onEditPrice && <FiEdit2 size={9} className="inline ml-1 text-indigo-400" />}
+                                {onEditPrice && <FiEdit2 size={9} className="inline ml-1 text-indigo-400 hover:text-indigo-600" />}
                             </span>
                         )}
                         {item.unitMultiplier > 1 && !editingPrice && (
-                            <span className="text-[9px] text-purple-700 font-bold bg-purple-50 border border-purple-200 px-1 py-0.2 rounded">×{item.unitMultiplier}</span>
+                            <span className="text-[9px] text-purple-700 font-black bg-purple-50 border border-purple-200 px-1 py-0.2 rounded">×{item.unitMultiplier}</span>
                         )}
                     </div>
                     {editingPrice && minPrice && (
@@ -247,12 +247,12 @@ const CartItemRow = ({
                     )}
                 </div>
 
-                {/* Qty Stepper */}
-                <div className="flex items-center bg-slate-50 rounded-lg border border-slate-200 overflow-hidden shrink-0">
+                {/* Qty Stepper with vibrant premium colors */}
+                <div className="flex items-center bg-slate-50 rounded-lg border border-slate-200 overflow-hidden shrink-0 shadow-2xs">
                     <button
                         onClick={onDecrease}
-                        className="w-6 h-6 flex items-center justify-center font-bold text-slate-600 hover:bg-rose-500 hover:text-white transition-colors"
-                        title="Decrease"
+                        className="w-6 h-6 flex items-center justify-center font-bold text-rose-600 bg-rose-50/70 hover:bg-rose-500 hover:text-white transition-all active:scale-95"
+                        title="Decrease quantity"
                     >
                         <FiMinus size={10} />
                     </button>
@@ -263,7 +263,7 @@ const CartItemRow = ({
                             onChange={(e) => setQtyInput(e.target.value)}
                             onBlur={handleQtySubmit}
                             onKeyDown={(e) => { if (e.key === 'Enter') handleQtySubmit(); }}
-                            className="w-10 h-6 text-center font-bold text-slate-800 text-xs bg-white border-x border-slate-200 focus:outline-none"
+                            className="w-10 h-6 text-center font-black text-slate-800 text-xs bg-white border-x border-slate-200 focus:outline-none"
                             autoFocus
                             min={0.01}
                             step="any"
@@ -271,7 +271,7 @@ const CartItemRow = ({
                     ) : (
                         <button
                             onClick={() => { setQtyInput(item.qty.toString()); setEditingQty(true); }}
-                            className="w-9 h-6 text-center font-bold text-slate-800 text-xs hover:bg-indigo-50 transition-colors border-x border-slate-200"
+                            className="w-8 h-6 text-center font-black text-slate-800 text-xs hover:bg-indigo-50 transition-colors border-x border-slate-200 font-mono"
                             title="Click to edit quantity"
                         >
                             {item.qty}
@@ -279,8 +279,8 @@ const CartItemRow = ({
                     )}
                     <button
                         onClick={onIncrease}
-                        className="w-6 h-6 flex items-center justify-center font-bold text-slate-600 hover:bg-emerald-600 hover:text-white transition-colors"
-                        title="Increase"
+                        className="w-6 h-6 flex items-center justify-center font-bold text-emerald-600 bg-emerald-50/70 hover:bg-emerald-600 hover:text-white transition-all active:scale-95"
+                        title="Increase quantity"
                     >
                         <FiPlus size={10} />
                     </button>
@@ -288,30 +288,30 @@ const CartItemRow = ({
 
                 {/* Total */}
                 <div className="text-right shrink-0 min-w-[56px]">
-                    <p className="font-bold text-slate-800 text-xs font-mono">Ksh {itemTotal.toLocaleString()}</p>
+                    <p className="font-black text-slate-900 text-xs font-mono">Ksh {itemTotal.toLocaleString()}</p>
                     {item.discount > 0 && (
                         <p className="text-[9px] text-emerald-600 font-bold">-Ksh {item.discount.toLocaleString()}</p>
                     )}
                 </div>
 
-                {/* Remove */}
+                {/* Remove button */}
                 <button
                     onClick={onRemove}
-                    className="w-6 h-6 rounded-md flex items-center justify-center text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors shrink-0"
+                    className="w-6 h-6 rounded-md flex items-center justify-center text-rose-400 bg-rose-50/60 hover:bg-rose-600 hover:text-white border border-rose-200/60 transition-all shrink-0 active:scale-95 shadow-2xs"
                     title="Remove item"
                 >
-                    <FiTrash2 size={12} />
+                    <FiTrash2 size={11} />
                 </button>
             </div>
 
             {/* Discount row */}
             {canDiscount && (
-                <div className="border-t border-slate-100 bg-slate-50/50">
+                <div className="border-t border-slate-100 bg-slate-50/60">
                     <button
                         onClick={onEditDiscount}
-                        className="w-full py-1 text-[10px] text-slate-500 hover:text-amber-700 hover:bg-amber-50/80 flex items-center justify-center gap-1 transition-colors font-semibold"
+                        className="w-full py-0.5 text-[10px] text-amber-700 hover:text-amber-800 hover:bg-amber-100/70 flex items-center justify-center gap-1 transition-colors font-bold"
                     >
-                        <FiPercent size={10} className="text-amber-500" />
+                        <FiPercent size={10} className="text-amber-600" />
                         <span>Add / Edit Discount</span>
                     </button>
                 </div>
@@ -343,95 +343,87 @@ const CategoryButton = ({
     </button>
 );
 
-// Product Card — Premium Compact Design: name + price on same line
+// Product Card — Ultra Compact High-Density Touch Design
 const ProductCard = ({ product, onAdd, posDefaultPrice, shouldShowCost = true }: { product: Product; onAdd: () => void; posDefaultPrice?: 'retail' | 'wholesale'; shouldShowCost?: boolean }) => (
     <div
-        className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col cursor-pointer group transition-all duration-200 hover:shadow-xl hover:border-emerald-300 hover:-translate-y-0.5"
+        className="bg-white rounded-xl shadow-2xs border border-slate-200 overflow-hidden flex flex-col cursor-pointer group transition-all duration-150 hover:shadow-md hover:border-emerald-400 hover:-translate-y-0.5"
         title={product.name}
     >
-        {/* Image */}
-        <div className="h-[90px] bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center flex-shrink-0 relative overflow-hidden">
+        {/* Compact Image */}
+        <div className="h-[74px] bg-slate-50 flex items-center justify-center flex-shrink-0 relative overflow-hidden border-b border-slate-100">
             {product.imageUrl ? (
                 <img
                     src={product.imageUrl}
                     alt={product.name}
-                    className="max-h-[80px] max-w-[80px] object-contain group-hover:scale-105 transition-transform duration-200"
+                    className="max-h-[66px] max-w-[66px] object-contain group-hover:scale-105 transition-transform duration-200"
                     onError={(e) => { (e.target as HTMLImageElement).src = '/no-image.png'; }}
                 />
             ) : (
-                <img src="/no-image.png" alt="No image" className="h-[80px] w-[80px] object-contain opacity-50" />
+                <img src="/no-image.png" alt="No image" className="h-[66px] w-[66px] object-contain opacity-40" />
             )}
             {product.availableQty === 0 && (
-                <div className="absolute inset-0 bg-red-500/5 flex items-end justify-center pb-1.5">
-                    <span className="text-[8px] font-black text-red-500 bg-white border border-red-200 px-1.5 py-0.5 rounded-full shadow-sm tracking-wide">OUT OF STOCK</span>
+                <div className="absolute inset-0 bg-rose-500/10 backdrop-blur-[1px] flex items-end justify-center pb-1">
+                    <span className="text-[7.5px] font-black text-rose-600 bg-white/95 border border-rose-300 px-1.5 py-0.2 rounded-full shadow-2xs tracking-wider">OUT OF STOCK</span>
                 </div>
             )}
         </div>
 
-        {/* Content — flex-col with flex-1 spacer keeps button pinned to bottom */}
-        <div className="flex-1 px-2.5 pt-2 pb-2 flex flex-col">
-
-            {/* ── Name + Price on the SAME LINE ── */}
+        {/* Content — compact, no huge gap */}
+        <div className="p-2 flex flex-col gap-1">
+            {/* Name + Price */}
             <div className="flex items-start justify-between gap-1">
                 <h3
-                    className="text-[11px] font-semibold text-gray-800 line-clamp-2 flex-1 leading-tight cursor-default"
+                    className="text-[11px] font-bold text-slate-800 line-clamp-1 flex-1 leading-snug cursor-default"
                     title={product.name}
                 >
                     {product.name}
                 </h3>
-                <span className="text-[12px] font-black text-emerald-600 whitespace-nowrap shrink-0 ml-1 mt-px">
+                <span className="text-[11px] font-black font-mono text-emerald-600 whitespace-nowrap shrink-0">
                     Ksh {(posDefaultPrice === 'retail' ? (product.retailPrice ?? product.salesPrice) : product.salesPrice).toLocaleString()}
                 </span>
             </div>
 
             {/* Category + SKU */}
-            <div className="flex items-center gap-1 mt-1">
-                <span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-[8px] truncate max-w-[90px]">
+            <div className="flex items-center gap-1">
+                <span className="px-1.5 py-0.2 bg-slate-100 text-slate-600 rounded text-[8px] font-medium truncate max-w-[85px]">
                     {product.category || 'General'}
                 </span>
-                <span className="text-[8px] text-gray-300 truncate">#{product.barcode || product.id}</span>
+                <span className="text-[8px] text-slate-400 font-mono truncate">#{product.barcode || product.id}</span>
             </div>
 
             {/* Stock Badges */}
-            <div className="flex items-center gap-1 flex-wrap mt-1 min-h-[18px]">
+            <div className="flex items-center gap-1 flex-wrap min-h-[16px]">
                 {(product.bagQty || 0) > 0 && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200"><FiPackage size={10} /> {product.bagQty} {product.purchaseUnit}</span>
-                )}
-                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                    (product.pieceQty || 0) > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
-                }`}>🔢 {product.pieceQty || 0} {product.salesUnit}</span>
-            </div>
-
-            {/* ── Price breakdown: Cost / Sales / Wholesale ── */}
-            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                {shouldShowCost && (
-                    <span className="text-[8px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded whitespace-nowrap">
-                        Cost: Ksh {product.costPrice.toLocaleString()}
+                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[8.5px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        <FiPackage size={9} /> {product.bagQty} {product.purchaseUnit}
                     </span>
                 )}
-                <span className="text-[8px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded whitespace-nowrap">
-                    Sale: Ksh {product.retailPrice?.toLocaleString() ?? product.salesPrice.toLocaleString()}
+                <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[8.5px] font-bold ${
+                    (product.pieceQty || 0) > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                }`}>
+                    <FiTag size={9} /> {product.pieceQty || 0} {product.salesUnit}
                 </span>
-                {shouldShowCost && product.salesPrice !== product.retailPrice && product.salesPrice > 0 && (
-                    <span className="text-[8px] font-semibold text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded whitespace-nowrap">
-                        W/Sale: Ksh {product.salesPrice.toLocaleString()}
-                    </span>
-                )}
             </div>
 
-            {/* ── Spacer: pushes Add to Cart to the SAME position on every card ── */}
-            <div className="flex-1" />
+            {/* Price breakdown: Cost / Sale */}
+            <div className="flex items-center gap-1 flex-wrap">
+                {shouldShowCost && (
+                    <span className="text-[8px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1 py-0.2 rounded whitespace-nowrap">
+                        Cost: {product.costPrice.toLocaleString()}
+                    </span>
+                )}
+                <span className="text-[8px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1 py-0.2 rounded whitespace-nowrap">
+                    Sale: {(product.retailPrice ?? product.salesPrice).toLocaleString()}
+                </span>
+            </div>
 
-            {/* Add to Cart Button — Super Premium */}
+            {/* Add to Cart Button — tight, compact, sleek */}
             <button
                 onClick={(e) => { e.stopPropagation(); onAdd(); }}
-                className="mt-1.5 w-full py-2 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all duration-200 relative overflow-hidden bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white active:scale-[0.97] shadow-md shadow-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/45"
+                className="mt-1 w-full py-1.5 rounded-lg text-[10.5px] font-bold flex items-center justify-center gap-1 transition-all duration-150 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white active:scale-[0.97] shadow-xs"
             >
-                <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-[200%] transition-transform duration-700 ease-in-out pointer-events-none" />
-                <svg className="relative w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-                <span className="relative">Add to Cart</span>
+                <FiShoppingCart size={11} className="shrink-0" />
+                <span>Add to Cart</span>
             </button>
         </div>
     </div>
@@ -877,103 +869,175 @@ const PaymentModal = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
-                <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                        <span>💳</span> Payment
-                    </h2>
-                    <div className="text-right">
-                        <p className="text-xs text-gray-500">Receipt</p>
-                        <p className="font-semibold text-blue-600">{receiptNo}</p>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl w-full max-w-xl shadow-2xl max-h-[92vh] overflow-hidden flex flex-col border border-slate-200">
+                {/* ═══ Super Executive Modal Header ═══ */}
+                <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 px-5 py-4 text-white flex items-center justify-between border-b border-slate-800 shrink-0">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md shadow-emerald-500/25 border border-emerald-400/30 shrink-0">
+                            <FiCreditCard size={18} />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-sm sm:text-base font-black tracking-wider uppercase text-white">
+                                    Payment Settlement
+                                </h2>
+                                <span className="text-[10px] font-mono font-black text-indigo-300 bg-indigo-500/20 border border-indigo-400/30 px-2 py-0.5 rounded">
+                                    {receiptNo}
+                                </span>
+                            </div>
+                            <p className="text-[10px] text-slate-400 font-medium">Alpha Retail Checkout Terminal</p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <div className="text-right">
+                            <p className="text-[9px] uppercase font-bold tracking-wider text-slate-400">Total Due</p>
+                            <p className="text-lg sm:text-xl font-black font-mono text-emerald-400 leading-tight">
+                                Ksh {total.toLocaleString()}
+                            </p>
+                        </div>
+                        <button
+                            onClick={handleClose}
+                            className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-all ml-1"
+                            title="Close"
+                        >
+                            <FiX size={16} />
+                        </button>
                     </div>
                 </div>
 
-                {/* Total */}
-                <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl p-5 text-white mb-6">
-                    <p className="text-sm opacity-90">Total Amount</p>
-                    <p className="text-4xl font-bold">Ksh {total.toLocaleString()}</p>
-                </div>
-
-                {/* Payment Methods */}
-                <div className={`grid gap-2 mb-6 ${kcbEnabled ? 'grid-cols-5' : 'grid-cols-4'}`}>
+                {/* ═══ Payment Method Tabs ═══ */}
+                <div className={`grid gap-2 p-3.5 bg-slate-50/90 border-b border-slate-200 shrink-0 ${kcbEnabled ? 'grid-cols-5' : 'grid-cols-4'}`}>
                     {[
-                        { id: 'cash',   icon: '💵', label: 'Cash' },
-                        { id: 'mpesa',  icon: '📱', label: 'M-Pesa' },
-                        { id: 'card',   icon: '💳', label: 'Card' },
-                        { id: 'credit', icon: '📋', label: 'Credit' },
-                        ...(kcbEnabled ? [{ id: 'kcb', icon: '🏦', label: 'KCB Buni' }] : []),
+                        { id: 'cash',   icon: FiDollarSign,  label: 'Cash' },
+                        { id: 'mpesa',  icon: FiSmartphone,  label: 'M-Pesa' },
+                        { id: 'card',   icon: FiCreditCard,  label: 'Card' },
+                        { id: 'credit', icon: FiUser,        label: 'Credit' },
+                        ...(kcbEnabled ? [{ id: 'kcb', icon: FiArchive, label: 'KCB Buni' }] : []),
                     ].map(method => {
+                        const Icon = method.icon;
                         const isMpesa = method.id === 'mpesa';
                         const isDisabled = isMpesa && !mpesaEnabled;
+                        const isSelected = paymentMethod === method.id;
                         return (
                             <button
                                 key={method.id}
                                 disabled={isDisabled}
                                 onClick={() => { if (!isDisabled) { setPaymentMethod(method.id); resetMpesaState(); resetKcbState(); } }}
                                 title={isDisabled ? 'M-Pesa not configured for this outlet. Contact Super Admin.' : method.label}
-                                className={`p-3 rounded-xl border-2 transition-all relative ${
+                                className={`p-2.5 rounded-xl border-2 transition-all duration-150 flex flex-col items-center gap-1 relative ${
                                     isDisabled
-                                        ? 'border-gray-100 bg-gray-50 opacity-40 cursor-not-allowed'
-                                        : paymentMethod === method.id
-                                            ? method.id === 'kcb'
-                                                ? 'border-blue-500 bg-blue-50'
-                                                : 'border-green-500 bg-green-50'
-                                            : 'border-gray-200 hover:border-gray-300 bg-gray-50'
+                                        ? 'border-slate-200 bg-slate-100 opacity-40 cursor-not-allowed text-slate-400'
+                                        : isSelected
+                                            ? 'border-indigo-600 bg-white text-indigo-950 shadow-sm scale-[1.02]'
+                                            : 'border-slate-200 hover:border-slate-300 bg-white/90 text-slate-600 hover:bg-white'
                                 }`}
                             >
-                                <span className="text-2xl block mb-1">{isDisabled ? '🔒' : method.icon}</span>
-                                <span className="text-xs font-medium text-gray-600">{method.label}</span>
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm ${
+                                    isSelected
+                                        ? 'bg-indigo-600 text-white shadow-xs'
+                                        : 'bg-slate-100 text-slate-600'
+                                }`}>
+                                    <Icon size={16} />
+                                </div>
+                                <span className="text-[11px] font-bold">{method.label}</span>
                                 {isDisabled && (
-                                    <span className="absolute -top-1.5 -right-1.5 text-[9px] bg-gray-400 text-white px-1 py-0.5 rounded-full font-bold">OFF</span>
+                                    <span className="absolute -top-1.5 -right-1.5 text-[8px] bg-slate-400 text-white px-1 py-0.2 rounded-full font-bold">OFF</span>
+                                )}
+                                {isSelected && (
+                                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-indigo-600 text-white rounded-full flex items-center justify-center text-[8px] font-bold shadow-xs">✓</span>
                                 )}
                             </button>
                         );
                     })}
                 </div>
 
+                {/* ═══ Scrollable Body Area ═══ */}
+                <div className="p-5 flex-1 overflow-y-auto space-y-4">
                 {/* Cash Input */}
                 {paymentMethod === 'cash' && (
-                    <div className="space-y-4 mb-6">
+                    <div className="space-y-3.5">
                         <div>
-                            <label className="text-sm font-medium text-gray-600 mb-2 block">Amount Received</label>
-                            <input
-                                type="number"
-                                value={amountPaid}
-                                onChange={(e) => setAmountPaid(e.target.value)}
-                                placeholder="Enter amount..."
-                                className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none text-lg font-semibold"
-                            />
+                            <label className="text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                                <FiDollarSign size={13} className="text-emerald-600" />
+                                <span>Amount Received (Cash Tendered)</span>
+                            </label>
+                            <div className="relative">
+                                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold font-mono text-sm">KSH</span>
+                                <input
+                                    type="number"
+                                    value={amountPaid}
+                                    onChange={(e) => setAmountPaid(e.target.value)}
+                                    placeholder={total.toString()}
+                                    className="w-full pl-14 pr-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl focus:border-indigo-500 focus:bg-white focus:outline-none text-2xl font-black font-mono text-slate-900 transition-all"
+                                    autoFocus
+                                />
+                            </div>
                         </div>
-                        <div className="grid grid-cols-6 gap-2">
+
+                        {/* Quick Cash Tender Pills */}
+                        <div className="grid grid-cols-6 gap-1.5">
                             {quickAmounts.map(amt => (
                                 <button
                                     key={amt}
                                     onClick={() => setAmountPaid(amt.toString())}
-                                    className="py-2 bg-gray-100 hover:bg-gray-200 rounded-xl text-gray-700 font-medium transition-colors text-sm"
+                                    className={`py-2 px-1 rounded-lg border text-xs font-mono font-bold transition-all active:scale-95 ${
+                                        Number(amountPaid) === amt
+                                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                                            : 'bg-slate-50 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border-slate-200 hover:border-indigo-300'
+                                    }`}
                                 >
                                     {amt.toLocaleString()}
                                 </button>
                             ))}
                         </div>
+
+                        {/* Exact Amount Button */}
                         <button
                             onClick={() => setAmountPaid(total.toString())}
-                            className="w-full py-2 bg-green-100 hover:bg-green-200 rounded-xl text-green-700 font-medium transition-colors"
+                            className="w-full py-2.5 bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 border border-emerald-200 text-emerald-800 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-2xs active:scale-[0.99]"
                         >
-                            Exact Amount ({total.toLocaleString()})
+                            <FiZap size={14} className="text-emerald-600" />
+                            <span>Exact Amount (Ksh {total.toLocaleString()})</span>
                         </button>
-                        <div className="flex items-center justify-between p-4 bg-green-50 rounded-xl border border-green-200">
-                            <span className="text-green-700 font-medium">Change:</span>
-                            <span className="text-2xl font-bold text-green-600">Ksh {change.toLocaleString()}</span>
+
+                        {/* Change Due Display */}
+                        <div className={`flex items-center justify-between p-3.5 rounded-xl border transition-all ${
+                            change > 0 
+                                ? 'bg-emerald-50/90 border-emerald-300 shadow-xs' 
+                                : 'bg-slate-50 border-slate-200'
+                        }`}>
+                            <div className="flex items-center gap-2.5">
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                                    change > 0 ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-600'
+                                }`}>
+                                    <FiDollarSign size={16} />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Change Due</p>
+                                    <p className="text-xs font-bold text-slate-700">Cash Return</p>
+                                </div>
+                            </div>
+                            <span className={`text-2xl font-black font-mono ${
+                                change > 0 ? 'text-emerald-600' : 'text-slate-500'
+                            }`}>
+                                Ksh {change.toLocaleString()}
+                            </span>
                         </div>
+
+                        {/* Customer Name */}
                         <div>
-                            <label className="text-sm font-medium text-gray-600 mb-2 block">👤 Customer Name (Optional)</label>
+                            <label className="text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                                <FiUser size={13} className="text-slate-400" />
+                                <span>Customer Name (Optional)</span>
+                            </label>
                             <input
                                 type="text"
                                 value={customerName}
                                 onChange={(e) => setCustomerName(e.target.value)}
-                                placeholder="Enter customer name"
-                                className="w-full p-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none"
+                                placeholder="Walk-in customer..."
+                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-indigo-500 focus:bg-white focus:outline-none text-xs font-medium text-slate-800"
                             />
                         </div>
                     </div>
@@ -1362,10 +1426,13 @@ const PaymentModal = ({
                 )}
 
                 {/* Actions */}
-                <div className="flex gap-3">
+                </div>
+
+                {/* Actions Footer */}
+                <div className="flex gap-2.5 p-4 border-t border-slate-200 bg-slate-50/70 shrink-0">
                     <button
                         onClick={handleClose}
-                        className="flex-1 py-3 border-2 border-gray-200 text-gray-600 rounded-xl font-semibold hover:bg-gray-50"
+                        className="py-3 px-5 border border-slate-300 text-slate-700 rounded-xl font-bold text-xs hover:bg-slate-100 transition-all shadow-2xs active:scale-95"
                         disabled={mpesaStatus === 'sending' || mpesaStatus === 'waiting' || kcbStatus === 'sending' || kcbStatus === 'waiting'}
                     >
                         Cancel
@@ -1414,15 +1481,13 @@ const PaymentModal = ({
                                 }
                             }}
                             disabled={isSaving || (paymentMethod === 'mpesa' && !mpesaReceipt && mpesaStatus !== 'success') || (paymentMethod === 'kcb' && !kcbReceipt && kcbStatus !== 'success') || (paymentMethod === 'credit' && !selectedCustomer)}
-                            className={`flex-1 py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 ${
+                            className={`flex-1 py-3.5 px-6 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md ${
                                 isSaving || (paymentMethod === 'mpesa' && !mpesaReceipt && mpesaStatus !== 'success') || (paymentMethod === 'kcb' && !kcbReceipt && kcbStatus !== 'success') || (paymentMethod === 'credit' && !selectedCustomer)
-                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                : paymentMethod === 'kcb'
-                                    ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:shadow-lg'
-                                    : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-lg'
+                                ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed shadow-none'
+                                : 'bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 hover:from-slate-800 hover:to-indigo-900 text-white border border-slate-700 shadow-indigo-950/20 active:scale-[0.98]'
                                 }`}
                         >
-                            <span>{isSaving ? '⏳' : '✅'}</span>
+                            <FiCheckCircle size={15} className="text-emerald-400" />
                             <span>{isSaving ? 'Processing...' : (paymentMethod === 'credit' && !selectedCustomer ? 'Select Customer' : 'Complete Sale')}</span>
                         </button>
                     )}
@@ -2953,60 +3018,65 @@ export default function RetailPOSPage() {
 
     return (
         <div className="-mt-4 lg:-mt-6 -mx-4 lg:-mx-6 -mb-4 lg:-mb-6 h-[calc(100vh)] lg:h-[calc(100vh-64px)] flex flex-col bg-slate-100 overflow-hidden select-none">
-            {/* ═══ Executive Session HUD — Top Bar (Negative margins eliminate all top gaps) ═══ */}
-            <div className="bg-white/95 backdrop-blur border-b border-slate-200 px-3.5 py-2 flex items-center justify-between shrink-0 shadow-xs z-20">
-                {/* Left: Terminal status & Brand */}
-                <div className="flex items-center gap-2.5">
-                    {/* Live Online Beacon */}
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 rounded-lg border border-emerald-200/80">
+            {/* ═══ Super Executive Alpha Retail Top Banner (Zero blank headroom) ═══ */}
+            <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 text-white px-4 py-2 flex items-center justify-between shrink-0 shadow-lg border-b border-slate-800 z-20">
+                {/* Left: Alpha Retail Brand Identity */}
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md shadow-emerald-500/25 border border-emerald-400/30 shrink-0">
+                        <FiShoppingCart size={16} />
+                    </div>
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-xs sm:text-sm font-black tracking-wide text-white uppercase flex items-center gap-1.5 leading-none">
+                                <span>ALPHA RETAIL</span>
+                                <span className="text-emerald-400 font-extrabold text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 border border-emerald-500/30">POS</span>
+                            </h1>
+                            <span className="text-slate-600">|</span>
+                            <span className="text-xs font-bold text-slate-200 bg-white/10 px-2 py-0.5 rounded-lg border border-white/10 flex items-center gap-1">
+                                <FiShoppingBag size={11} className="text-emerald-400" />
+                                {storeName}
+                            </span>
+                            <span className="text-[10px] font-mono font-black text-indigo-300 bg-indigo-500/20 border border-indigo-400/30 px-1.5 py-0.5 rounded">
+                                {outletCode}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right: Live Terminal Metrics & Profile */}
+                <div className="flex items-center gap-2">
+                    {/* Live Online Badge */}
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/15 border border-emerald-500/30 rounded-lg text-emerald-400">
                         <span className="relative flex h-2 w-2">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                         </span>
-                        <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Terminal Live</span>
+                        <span className="text-[10px] font-black uppercase tracking-wider">Live Online</span>
                     </div>
 
-                    <div className="h-4 w-px bg-slate-200" />
-
-                    {/* Terminal Title & Store Chip */}
-                    <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-black uppercase tracking-wide text-slate-800">APSIMS POS</span>
-                        <span className="text-slate-300">/</span>
-                        <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 flex items-center gap-1">
-                            <FiShoppingBag size={11} className="text-slate-500" />
-                            {storeName}
-                        </span>
-                        <span className="text-[10px] font-mono font-black text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded">
-                            {outletCode}
-                        </span>
-                    </div>
-                </div>
-
-                {/* Right: Date, Live Clock, Receipt #, Cashier, Fullscreen */}
-                <div className="flex items-center gap-2">
                     {/* Date */}
-                    <div className="hidden md:flex items-center gap-1 text-slate-500 text-xs font-semibold px-2 py-1 bg-slate-50 rounded-lg border border-slate-200">
+                    <div className="hidden lg:flex items-center gap-1.5 text-slate-300 text-xs font-semibold px-2 py-1 bg-white/5 rounded-lg border border-white/10">
                         <FiCalendar size={12} className="text-slate-400" />
                         <span>{new Date().toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}</span>
                     </div>
 
                     {/* Live Digital Clock */}
-                    <div className="flex items-center gap-1 px-2.5 py-1 bg-slate-900 text-emerald-400 rounded-lg border border-slate-800 text-xs font-mono font-bold shadow-xs">
-                        <FiClock size={12} className="text-emerald-400" />
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-black/40 text-emerald-400 rounded-lg border border-emerald-500/30 text-xs font-mono font-black shadow-inner">
+                        <FiClock size={12} />
                         <span>{currentTime || '00:00:00'}</span>
                     </div>
 
-                    {/* Receipt Number Badge */}
-                    <div className="flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg border border-blue-200 text-xs font-mono font-black shadow-2xs" title="Current Receipt Sequence">
-                        <FiTag size={12} className="text-blue-500" />
+                    {/* Receipt Sequence Chip */}
+                    <div className="flex items-center gap-1 px-2.5 py-1 bg-blue-500/15 text-blue-300 rounded-lg border border-blue-400/30 text-xs font-mono font-black" title="Current Receipt Sequence">
+                        <FiTag size={12} className="text-blue-400" />
                         <span>{receiptNo}</span>
                     </div>
 
-                    {/* Cashier identification badge */}
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 rounded-lg border border-purple-200 text-purple-800 text-xs font-bold shadow-2xs">
-                        <FiUser size={12} className="text-purple-600" />
+                    {/* Cashier Badge */}
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-purple-500/15 rounded-lg border border-purple-400/30 text-purple-200 text-xs font-bold">
+                        <FiUser size={12} className="text-purple-400" />
                         <span className="max-w-[100px] truncate">{loggedInUserName || 'Cashier'}</span>
-                        <span className="text-[9px] font-black uppercase tracking-wider bg-purple-200/70 text-purple-800 px-1 py-0.2 rounded">
+                        <span className="text-[9px] font-black uppercase tracking-wider bg-purple-400/20 text-purple-200 px-1 py-0.2 rounded">
                             {isWaiterUser ? 'Cashier' : 'Admin'}
                         </span>
                     </div>
@@ -3015,7 +3085,7 @@ export default function RetailPOSPage() {
                     {isWaiterUser && (
                         <button
                             onClick={() => { localStorage.removeItem('user'); window.location.href = '/'; }}
-                            className="h-7 px-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1 active:scale-95"
+                            className="h-7 px-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-xs font-bold transition-all shadow-md flex items-center gap-1 active:scale-95"
                             title="Sign out of cashier terminal"
                         >
                             <FiLogOut size={12} />
@@ -3026,7 +3096,7 @@ export default function RetailPOSPage() {
                     {/* Fullscreen Toggle */}
                     <button
                         onClick={toggleFullscreen}
-                        className="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-200 transition-all hover:scale-105 active:scale-95 shadow-2xs"
+                        className="w-7 h-7 flex items-center justify-center bg-white/10 hover:bg-white/20 text-slate-200 hover:text-white rounded-lg border border-white/15 transition-all hover:scale-105 active:scale-95"
                         title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
                     >
                         {isFullscreen ? <FiMinimize size={13} /> : <FiMaximize size={13} />}
@@ -3486,16 +3556,18 @@ export default function RetailPOSPage() {
                         )}
                     </div>
 
-                    {/* Pay Button */}
+                    {/* Pay Button — Matches Shopping Cart Header Exactly */}
                     <div className="p-3 border-t border-slate-200 shrink-0 bg-white">
                         <button
                             onClick={() => setShowPayment(true)}
                             disabled={cart.length === 0}
-                            className="w-full py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-black text-sm uppercase tracking-wider hover:shadow-lg hover:shadow-emerald-500/25 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-[0.98] shadow-md shadow-emerald-600/20"
+                            className="w-full py-3.5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 hover:from-slate-800 hover:via-indigo-900 hover:to-slate-800 text-white rounded-xl font-black text-xs uppercase tracking-wider hover:shadow-xl hover:shadow-indigo-950/30 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2.5 active:scale-[0.98] border border-slate-700/60 shadow-lg"
                         >
-                            <FiCreditCard size={17} />
-                            <span>PAY Ksh {grandTotal.toLocaleString()}</span>
-                            <span className="ml-auto text-[10px] bg-white/20 px-1.5 py-0.5 rounded font-mono font-normal">F12</span>
+                            <div className="w-6 h-6 rounded-lg bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400 shrink-0">
+                                <FiCreditCard size={13} />
+                            </div>
+                            <span className="tracking-wider">PAY Ksh {grandTotal.toLocaleString()}</span>
+                            <span className="ml-auto text-[10px] bg-white/10 border border-white/10 px-2 py-0.5 rounded font-mono font-bold text-slate-300">F12</span>
                         </button>
                     </div>
                 </div>
