@@ -1256,13 +1256,28 @@ export default function ProductsPage() {
                                             </td>
                                             <td className="px-4 py-3 text-center hidden lg:table-cell">
                                                 {(() => {
-                                                    const cpp = (p.purchase_cost || 0) / (p.pieces_per_package || 1);
+                                                    const ppp = p.pieces_per_package || 1;
+                                                    const cpp = (p.purchase_cost || 0) / ppp;
                                                     const sp = (p as any).wholesale_price || p.sales_cost || 0;
-                                                    const margin = Math.round((sp - cpp) * 100) / 100;
+                                                    const pieceProfit = Math.round((sp - cpp) * 100) / 100;
+                                                    const pkgSell = (p.package_sales_cost && p.package_sales_cost > 0)
+                                                        ? p.package_sales_cost
+                                                        : (sp * ppp);
+                                                    const pkgProfit = Math.round((pkgSell - (p.purchase_cost || 0)) * 100) / 100;
+
                                                     return (
-                                                        <div className="flex items-center justify-center gap-1">
-                                                            <FiTrendingUp size={11} className={margin >= 0 ? 'text-emerald-500' : 'text-red-400'} />
-                                                            <span className={`text-xs font-bold ${margin > 0 ? 'text-emerald-600' : margin === 0 ? 'text-gray-500' : 'text-red-600'}`}>Ksh {margin.toLocaleString()}</span>
+                                                        <div className="flex flex-col items-center justify-center gap-0.5">
+                                                            <div className="flex items-center gap-1">
+                                                                <FiTrendingUp size={11} className={pieceProfit >= 0 ? 'text-emerald-500' : 'text-red-400'} />
+                                                                <span className={`text-xs font-bold ${pieceProfit > 0 ? 'text-emerald-600' : pieceProfit === 0 ? 'text-gray-500' : 'text-red-600'}`}>
+                                                                    +Ksh {pieceProfit.toLocaleString()} <span className="text-[10px] text-gray-400 font-normal">/pc</span>
+                                                                </span>
+                                                            </div>
+                                                            {ppp > 1 && (
+                                                                <span className={`text-[10px] font-bold ${pkgProfit >= 0 ? 'text-indigo-600' : 'text-red-500'}`}>
+                                                                    +Ksh {pkgProfit.toLocaleString()} <span className="text-gray-400 font-normal">/{p.purchase_unit || 'pack'}</span>
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     );
                                                 })()}

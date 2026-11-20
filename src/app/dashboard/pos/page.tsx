@@ -2455,7 +2455,7 @@ export default function RetailPOSPage() {
             // Correct cost: piece sale = costPrice/piecesPerPackage, bag/package = full costPrice
             const getEffectiveCost = (item: any): number => {
                 if ((item.unitMultiplier || 1) > 1) return item.costPrice || 0;
-                return Math.ceil((item.costPrice || 0) / (item.piecesPerPackage || 1));
+                return (item.costPrice || 0) / (item.piecesPerPackage || 1);
             };
             const totalCost = cart.reduce((s, item) => s + getEffectiveCost(item) * (item.qty || 0), 0);
             const saleProfit = grandTotal - totalCost;
