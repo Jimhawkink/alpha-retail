@@ -258,6 +258,18 @@ const defUnits: Unit[] = [
 /* ══════════════════════════════════════════════════════════════════════════════
    HELPER UTILITY FUNCTIONS
    ══════════════════════════════════════════════════════════════════════════════ */
+function fmtK(n: number): string {
+    if (!n || isNaN(n)) return '0';
+    if (Math.abs(n) >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+    if (Math.abs(n) >= 1_000) return (n / 1_000).toFixed(1) + 'K';
+    return Math.round(n).toLocaleString();
+}
+
+function fmtKES(n: number): string {
+    if (!n || isNaN(n)) return 'Ksh 0';
+    return 'Ksh ' + Math.round(n).toLocaleString();
+}
+
 function formatKsh(val: number): string {
     if (isNaN(val) || val === null || val === undefined) return '0.00';
     return Number(val).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -280,9 +292,6 @@ function calcMarkup(sell: number, cost: number): number {
     return Number((((sell - cost) / cost) * 100).toFixed(1));
 }
 
-/**
- * Generates smooth cubic bezier SVG path from coordinate points
- */
 function getBezierPath(points: { x: number; y: number }[]): string {
     if (!points || points.length === 0) return '';
     if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
@@ -297,9 +306,6 @@ function getBezierPath(points: { x: number; y: number }[]): string {
     return d;
 }
 
-/**
- * Generates closed gradient area path below bezier line
- */
 function getAreaPath(points: { x: number; y: number }[], baseY: number): string {
     if (!points || points.length === 0) return '';
     const linePath = getBezierPath(points);
@@ -308,9 +314,6 @@ function getAreaPath(points: { x: number; y: number }[], baseY: number): string 
     return `${linePath} L ${last.x.toFixed(1)} ${baseY.toFixed(1)} L ${first.x.toFixed(1)} ${baseY.toFixed(1)} Z`;
 }
 
-/**
- * Returns batch expiry calculation and badge properties
- */
 function getBatchStatus(expiryDate: string): {
     label: string;
     daysLeft: number;
@@ -398,9 +401,6 @@ function getBatchStatus(expiryDate: string): {
     };
 }
 
-/**
- * Helper: Fetch ALL retail_stock rows by paginating (Supabase caps at 1000 per request)
- */
 async function fetchAllStock(outletId: number): Promise<Array<{ pid: number; qty: number; storage_type: string }>> {
     const PAGE_SIZE = 1000;
     let allRows: Array<{ pid: number; qty: number; storage_type: string }> = [];
@@ -425,9 +425,6 @@ async function fetchAllStock(outletId: number): Promise<Array<{ pid: number; qty
     return allRows;
 }
 
-/**
- * Robust CSV Line Parser handling quotes and internal commas
- */
 function parseCSV(text: string): string[][] {
     const lines: string[][] = [];
     let row: string[] = [];
@@ -1954,303 +1951,265 @@ export default function ProductsPage() {
 
 
     return (
-        <div className="-mt-2 sm:-mt-3.5 pt-0 space-y-3 pb-8 text-slate-800">
+        <div className="-mt-2 sm:-mt-3.5 pt-0 space-y-2.5 pb-8 text-slate-800">
             <Toaster position="top-right" />
 
-            {/* ━━━ TOP EXECUTIVE COMMAND BAR (APSIMS STUDIO POLISH) ━━━ */}
-            <div className="bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl shadow-xs px-4 py-2.5 transition-all">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            {/* ━━━ TOP EXECUTIVE COMMAND BAR (SINGLE-LINE SCREEN-FITTING WITH SMALL FONTS & NO DUPLICATE ICONS) ━━━ */}
+            <div className="bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl shadow-xs px-3 py-1.5 transition-all">
+                <div className="flex items-center justify-between gap-2 overflow-x-auto scrollbar-none">
                     
-                    {/* Brand & Inventory Scope Pill */}
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-sky-500 flex items-center justify-center text-white font-black shadow-md shadow-blue-500/20 ring-2 ring-blue-500/10">
-                            <FiPackage size={20} className="animate-pulse" />
+                    {/* Brand & Inventory Scope Pill (Small fonts fitting in one line) */}
+                    <div className="flex items-center gap-2 shrink-0">
+                        <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-600 via-indigo-600 to-sky-500 flex items-center justify-center text-white font-black shadow-xs">
+                            <FiPackage size={14} />
                         </div>
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <h1 className="text-base sm:text-lg font-black tracking-tight text-slate-900 flex items-center gap-1.5">
-                                    <span>Inventory Catalog & Stock Ledger</span>
-                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                                        v2.6 Pro
-                                    </span>
+                        <div className="leading-tight">
+                            <div className="flex items-center gap-1.5">
+                                <h1 className="text-xs font-black tracking-tight text-slate-900 whitespace-nowrap">
+                                    Inventory Catalog &amp; Stock Ledger
                                 </h1>
-                            </div>
-                            <p className="text-xs font-semibold text-slate-500 flex items-center gap-2">
-                                <span>{companyName || 'Alpha Retail'}</span>
-                                <span className="text-slate-300">•</span>
-                                <span className="font-mono text-slate-700 font-bold">{products.length} Master SKUs</span>
-                                <span className="text-slate-300">•</span>
-                                <span className="inline-flex items-center gap-1 text-emerald-600 font-bold text-[11px]">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                                    Active Matrix
+                                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                                    v2.6
                                 </span>
-                            </p>
+                            </div>
+                            <div className="text-[10px] font-semibold text-slate-400 flex items-center gap-1.5 whitespace-nowrap">
+                                <span className="text-slate-600">{companyName || 'Alpha Retail'}</span>
+                                <span>•</span>
+                                <span className="font-mono text-slate-700 font-bold">{products.length} SKUs</span>
+                                <span>•</span>
+                                <span className="text-emerald-600 font-bold">● Active Matrix</span>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Executive Action Toolbar with Emojis & Icons */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
+                    {/* Quick Action Toolbar - Clean single icons, NO DUPLICATE EMOJIS! */}
+                    <div className="flex items-center gap-1 shrink-0">
                         <button
                             onClick={() => {
                                 loadProducts();
                                 loadStockData();
                                 toast.success('Catalog data refreshed');
                             }}
-                            className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all shadow-2xs hover:border-slate-300 flex items-center gap-1.5"
+                            className="px-2 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-bold transition-all shadow-2xs hover:border-slate-300 flex items-center gap-1"
                             title="Refresh Catalog Data"
                         >
-                            <FiRefreshCw size={13} className={isLoading ? 'animate-spin text-blue-600' : ''} />
-                            <span className="hidden sm:inline">Refresh</span>
+                            <FiRefreshCw size={11} className={isLoading ? 'animate-spin text-blue-600' : 'text-slate-500'} />
+                            <span>Refresh</span>
                         </button>
 
                         <button
                             onClick={() => openLabelModal()}
-                            className="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all shadow-2xs hover:border-slate-300 flex items-center gap-1.5"
+                            className="px-2 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-bold transition-all shadow-2xs hover:border-slate-300 flex items-center gap-1"
                             title="Print Barcode Labels (Ctrl+L)"
                         >
-                            <FiPrinter size={13} className="text-indigo-600" />
-                            <span>🏷️ Labels</span>
+                            <FiPrinter size={11} className="text-indigo-600" />
+                            <span>Labels</span>
                         </button>
 
                         <button
                             onClick={openLookupModal}
-                            className="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all shadow-2xs hover:border-slate-300 flex items-center gap-1.5"
+                            className="px-2 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-bold transition-all shadow-2xs hover:border-slate-300 flex items-center gap-1"
                             title="Fast Barcode Lookup (Ctrl+K)"
                         >
-                            <FiSearch size={13} className="text-sky-600" />
-                            <span>🔍 Lookup</span>
+                            <FiSearch size={11} className="text-sky-600" />
+                            <span>Lookup</span>
                         </button>
 
                         <button
                             onClick={() => setShowAnalyticsStudio(prev => !prev)}
-                            className={`px-3 py-2 rounded-xl border text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 ${
+                            className={`px-2 py-1 rounded-lg border text-[11px] font-bold transition-all shadow-2xs flex items-center gap-1 ${
                                 showAnalyticsStudio
                                     ? 'bg-blue-50 border-blue-300 text-blue-700'
                                     : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                             }`}
                             title="Toggle Linear Trend Charts Studio"
                         >
-                            <FiBarChart2 size={13} className="text-blue-600" />
-                            <span>{showAnalyticsStudio ? '📊 Charts On' : '📈 Show Charts'}</span>
+                            <FiBarChart2 size={11} className="text-blue-600" />
+                            <span>{showAnalyticsStudio ? 'Charts On' : 'Charts'}</span>
                         </button>
 
                         <button
                             onClick={exportCSV}
-                            className="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all shadow-2xs hover:border-slate-300 flex items-center gap-1.5"
+                            className="px-2 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-bold transition-all shadow-2xs hover:border-slate-300 flex items-center gap-1"
                             title="Export Catalog to CSV (Ctrl+E)"
                         >
-                            <FiDownload size={13} className="text-emerald-600" />
-                            <span className="hidden md:inline">📥 Export</span>
+                            <FiDownload size={11} className="text-emerald-600" />
+                            <span>Export</span>
                         </button>
 
                         <button
                             onClick={() => setShowInactive(prev => !prev)}
-                            className={`px-3 py-2 rounded-xl border text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 ${
+                            className={`px-2 py-1 rounded-lg border text-[11px] font-bold transition-all shadow-2xs flex items-center gap-1 ${
                                 showInactive
                                     ? 'bg-amber-50 border-amber-300 text-amber-700'
                                     : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                             }`}
                             title="Show / Hide Inactive SKUs"
                         >
-                            {showInactive ? <FiEye size={13} /> : <FiEyeOff size={13} />}
-                            <span className="hidden lg:inline">{showInactive ? '👁️ Inactive On' : '👁️ Inactive Off'}</span>
+                            {showInactive ? <FiEye size={11} className="text-amber-600" /> : <FiEyeOff size={11} className="text-slate-400" />}
+                            <span>{showInactive ? 'Inactive On' : 'Inactive Off'}</span>
                         </button>
 
                         <button
                             onClick={() => setShowImportModal(true)}
-                            className="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all shadow-2xs hover:border-slate-300 flex items-center gap-1.5"
+                            className="px-2 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-bold transition-all shadow-2xs hover:border-slate-300 flex items-center gap-1"
                             title="Batch CSV Import"
                         >
-                            <FiUpload size={13} className="text-violet-600" />
-                            <span className="hidden md:inline">📤 Import</span>
+                            <FiUpload size={11} className="text-violet-600" />
+                            <span>Import</span>
                         </button>
 
                         <button
                             onClick={openAddModal}
-                            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-600 text-white text-xs font-black transition-all shadow-sm hover:shadow-blue-500/25 active:scale-[0.98] flex items-center gap-1.5 ml-1"
+                            className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-600 text-white text-[11px] font-black transition-all shadow-xs hover:shadow-blue-500/25 active:scale-[0.98] flex items-center gap-1 shrink-0"
                             title="Add New Inventory Product (Ctrl+N)"
                         >
-                            <FiPlus size={14} className="stroke-[3]" />
-                            <span>✨ Add Product</span>
+                            <FiPlus size={12} className="stroke-[3]" />
+                            <span>Add Product</span>
                         </button>
                     </div>
                 </div>
             </div>
 
-            {/* ━━━ STAT CARDS (GLASSMORPHIC WITH REALTIME SPARKLINES) ━━━ */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                {/* Total Products */}
-                <div className="bg-white/95 backdrop-blur-md rounded-2xl p-3.5 border border-slate-200/90 shadow-2xs relative overflow-hidden group hover:border-blue-300 transition-all">
-                    <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">📦 Total Catalog</span>
-                        <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-                            <FiPackage size={14} />
+            {/* ━━━ EXECUTIVE METRIC HUD CARDS (EXACT COMPACT CARDS FROM 6d90947) ━━━ */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {/* 1. Total Catalog */}
+                <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200/90 shadow-2xs hover:shadow-xs transition-shadow">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Products</span>
+                        <div className="w-5 h-5 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
+                            <FiPackage size={11} />
                         </div>
                     </div>
-                    <div className="flex items-baseline justify-between">
-                        <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-mono">
-                            {products.length}
-                        </div>
-                        <svg className="w-20 h-7 overflow-visible opacity-75 group-hover:opacity-100 transition-opacity" viewBox="0 0 90 28">
-                            <path d={sparkPath([12, 18, 15, 24, 28, 35, 42, products.length || 50])} fill="none" stroke="#3B82F6" strokeWidth="2.2" strokeLinecap="round" />
-                        </svg>
-                    </div>
-                    <div className="text-[10px] font-semibold text-slate-500 mt-1 flex items-center gap-1">
-                        <span className="text-blue-600 font-bold">100% indexed</span> in active store
-                    </div>
+                    <div className="text-lg font-black text-slate-900 font-mono">{products.length.toLocaleString()}</div>
+                    <div className="text-[10px] text-slate-400 font-medium">All registered items</div>
                 </div>
 
-                {/* Active SKUs */}
-                <div className="bg-white/95 backdrop-blur-md rounded-2xl p-3.5 border border-slate-200/90 shadow-2xs relative overflow-hidden group hover:border-emerald-300 transition-all">
-                    <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">⚡ Active SKUs</span>
-                        <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                            <FiCheckCircle size={14} />
+                {/* 2. Active SKUs */}
+                <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-emerald-200/90 bg-gradient-to-br from-emerald-50/30 via-white to-white shadow-2xs">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Live Active SKUs</span>
+                        <div className="w-5 h-5 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700">
+                            <FiCheck size={11} />
                         </div>
                     </div>
-                    <div className="flex items-baseline justify-between">
-                        <div className="text-xl sm:text-2xl font-black text-emerald-700 tracking-tight font-mono">
-                            {activeProducts.length}
-                        </div>
-                        <svg className="w-20 h-7 overflow-visible opacity-75 group-hover:opacity-100 transition-opacity" viewBox="0 0 90 28">
-                            <path d={sparkPath([10, 16, 20, 25, 30, 38, activeProducts.length || 45])} fill="none" stroke="#10B981" strokeWidth="2.2" strokeLinecap="round" />
-                        </svg>
-                    </div>
-                    <div className="text-[10px] font-semibold text-slate-500 mt-1 flex items-center gap-1">
-                        <span className="text-emerald-600 font-bold">
-                            {products.length > 0 ? ((activeProducts.length / products.length) * 100).toFixed(0) : 0}%
-                        </span>{' '}
-                        live on cashier terminal
-                    </div>
+                    <div className="text-lg font-black text-emerald-700 font-mono">{activeProducts.length.toLocaleString()}</div>
+                    <div className="text-[10px] text-emerald-600 font-medium">Selling in POS</div>
                 </div>
 
-                {/* Categories */}
-                <div className="bg-white/95 backdrop-blur-md rounded-2xl p-3.5 border border-slate-200/90 shadow-2xs relative overflow-hidden group hover:border-purple-300 transition-all">
-                    <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">📂 Categories</span>
-                        <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
-                            <FiLayers size={14} />
+                {/* 3. Product Categories */}
+                <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-purple-200/90 bg-gradient-to-br from-purple-50/30 via-white to-white shadow-2xs">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700">Categories</span>
+                        <div className="w-5 h-5 rounded-lg bg-purple-100 flex items-center justify-center text-purple-700">
+                            <FiLayers size={11} />
                         </div>
                     </div>
-                    <div className="flex items-baseline justify-between">
-                        <div className="text-xl sm:text-2xl font-black text-purple-700 tracking-tight font-mono">
-                            {categories.length}
-                        </div>
-                        <svg className="w-20 h-7 overflow-visible opacity-75 group-hover:opacity-100 transition-opacity" viewBox="0 0 90 28">
-                            <path d={sparkPath([3, 5, 8, 9, 11, 12, categories.length || 14])} fill="none" stroke="#A855F7" strokeWidth="2.2" strokeLinecap="round" />
-                        </svg>
-                    </div>
-                    <div className="text-[10px] font-semibold text-slate-500 mt-1 flex items-center gap-1">
-                        <span className="text-purple-600 font-bold">{categories.length} departments</span> organized
-                    </div>
+                    <div className="text-lg font-black text-purple-700 font-mono">{categories.length}</div>
+                    <div className="text-[10px] text-purple-600 font-medium">Distinct taxonomies</div>
                 </div>
 
-                {/* Low Stock Alert */}
-                <div className="bg-white/95 backdrop-blur-md rounded-2xl p-3.5 border border-slate-200/90 shadow-2xs relative overflow-hidden group hover:border-amber-300 transition-all">
-                    <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">⚠️ Stock Alert</span>
-                        <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-                            <FiAlertTriangle size={14} />
+                {/* 4. Low Inventory Warnings */}
+                <div className={`bg-white rounded-2xl p-2.5 sm:p-3 border shadow-2xs ${
+                    lowStock.length > 0
+                        ? 'border-rose-200/90 bg-gradient-to-br from-rose-50/40 via-white to-white'
+                        : 'border-teal-200/90 bg-gradient-to-br from-teal-50/30 via-white to-white'
+                }`}>
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider ${lowStock.length > 0 ? 'text-rose-700' : 'text-teal-700'}`}>
+                            Low Inventory
+                        </span>
+                        <div className={`w-5 h-5 rounded-lg flex items-center justify-center ${lowStock.length > 0 ? 'bg-rose-100 text-rose-700' : 'bg-teal-100 text-teal-700'}`}>
+                            <FiAlertTriangle size={11} />
                         </div>
                     </div>
-                    <div className="flex items-baseline justify-between">
-                        <div className="text-xl sm:text-2xl font-black text-amber-700 tracking-tight font-mono">
-                            {lowStock.length}
-                        </div>
-                        <svg className="w-20 h-7 overflow-visible opacity-75 group-hover:opacity-100 transition-opacity" viewBox="0 0 90 28">
-                            <path d={sparkPath([8, 12, 10, 15, 11, 9, lowStock.length || 5])} fill="none" stroke="#F59E0B" strokeWidth="2.2" strokeLinecap="round" />
-                        </svg>
+                    <div className={`text-lg font-black font-mono ${lowStock.length > 0 ? 'text-rose-700' : 'text-teal-700'}`}>
+                        {lowStock.length}
                     </div>
-                    <div className="text-[10px] font-semibold text-slate-500 mt-1 flex items-center gap-1">
-                        <span className="text-amber-600 font-bold">{lowStock.length} items</span> below reorder safety
+                    <div className={`text-[10px] font-medium ${lowStock.length > 0 ? 'text-rose-600' : 'text-teal-600'}`}>
+                        {lowStock.length > 0 ? 'Reorder threshold reached' : 'All items optimal'}
                     </div>
                 </div>
             </div>
 
-            {/* ━━━ 5 VALUATION INTELLIGENCE CARDS ━━━ */}
+            {/* ━━━ STOCK VALUATION & CAPITAL INTELLIGENCE STRIP (EXACT 5-BOX CARD FROM 6d90947) ━━━ */}
             {hasValuationAccess ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                    <div className="bg-gradient-to-br from-blue-500/10 via-blue-500/5 to-transparent rounded-2xl p-3 border border-blue-200/80 shadow-2xs">
-                        <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700">💵 Cost Capital</span>
-                            <FiDollarSign className="text-blue-500" size={13} />
+                <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200/90 shadow-2xs">
+                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+                                Stock Valuation &amp; Capital Intelligence
+                            </span>
                         </div>
-                        <div className="text-base sm:text-lg font-black text-blue-950 font-mono">
-                            Ksh {formatCompactNumber(stockValCost)}
-                        </div>
-                        <div className="text-[9px] text-blue-600/80 font-medium mt-0.5">Purchasing Asset Base</div>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent rounded-2xl p-3 border border-emerald-200/80 shadow-2xs">
-                        <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">💎 Retail Value</span>
-                            <FiTrendingUp className="text-emerald-500" size={13} />
-                        </div>
-                        <div className="text-base sm:text-lg font-black text-emerald-950 font-mono">
-                            Ksh {formatCompactNumber(stockValRetail)}
-                        </div>
-                        <div className="text-[9px] text-emerald-600/80 font-medium mt-0.5">Potential Loose Sales</div>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-purple-500/10 via-purple-500/5 to-transparent rounded-2xl p-3 border border-purple-200/80 shadow-2xs">
-                        <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700">🤝 Wholesale Val</span>
-                            <FiBox className="text-purple-500" size={13} />
-                        </div>
-                        <div className="text-base sm:text-lg font-black text-purple-950 font-mono">
-                            Ksh {formatCompactNumber(stockValWholesale)}
-                        </div>
-                        <div className="text-[9px] text-purple-600/80 font-medium mt-0.5">Bulk Wholesale Potential</div>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-teal-500/10 via-teal-500/5 to-transparent rounded-2xl p-3 border border-teal-200/80 shadow-2xs">
-                        <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-teal-700">📈 Retail Profit</span>
-                            <FiAward className="text-teal-500" size={13} />
-                        </div>
-                        <div className="text-base sm:text-lg font-black text-teal-950 font-mono">
-                            +Ksh {formatCompactNumber(stockRetailProfit)}
-                        </div>
-                        <div className="text-[9px] text-teal-600/80 font-medium mt-0.5">
-                            {stockValCost > 0 ? ((stockRetailProfit / stockValCost) * 100).toFixed(1) : 0}% Potential Margin
+                        <div className="text-[10px] text-slate-400 font-mono">
+                            {products.length} cataloged • {Object.keys(stockData).length} with active balances
                         </div>
                     </div>
 
-                    <div className="bg-gradient-to-br from-indigo-500/10 via-indigo-500/5 to-transparent rounded-2xl p-3 border border-indigo-200/80 shadow-2xs col-span-2 sm:col-span-1">
-                        <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700">📦 Wholesale Profit</span>
-                            <FiPercent className="text-indigo-500" size={13} />
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                        {/* 1. Cost Basis */}
+                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">Cost Valuation</span>
+                            <div className="text-sm font-black text-slate-900 font-mono">{fmtK(stockValCost)}</div>
+                            <div className="text-[10px] text-slate-400 font-mono truncate">{fmtKES(stockValCost)}</div>
                         </div>
-                        <div className="text-base sm:text-lg font-black text-indigo-950 font-mono">
-                            +Ksh {formatCompactNumber(stockWholesaleProfit)}
+
+                        {/* 2. Retail Valuation */}
+                        <div className="p-2.5 rounded-xl bg-emerald-50/60 border border-emerald-200">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block mb-0.5">Retail Gross</span>
+                            <div className="text-sm font-black text-emerald-700 font-mono">{fmtK(stockValRetail)}</div>
+                            <div className="text-[10px] text-emerald-600 font-mono truncate">{fmtKES(stockValRetail)}</div>
                         </div>
-                        <div className="text-[9px] text-indigo-600/80 font-medium mt-0.5">
-                            {stockValCost > 0 ? ((stockWholesaleProfit / stockValCost) * 100).toFixed(1) : 0}% Wholesale Spread
+
+                        {/* 3. Wholesale Valuation */}
+                        <div className="p-2.5 rounded-xl bg-sky-50/60 border border-sky-200">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-sky-700 block mb-0.5">Wholesale Gross</span>
+                            <div className="text-sm font-black text-sky-700 font-mono">{fmtK(stockValWholesale)}</div>
+                            <div className="text-[10px] text-sky-600 font-mono truncate">{fmtKES(stockValWholesale)}</div>
+                        </div>
+
+                        {/* 4. Retail Potential Profit */}
+                        <div className="p-2.5 rounded-xl bg-teal-50/60 border border-teal-200">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-teal-700 block mb-0.5">Retail Profit</span>
+                            <div className="text-sm font-black text-teal-700 font-mono">{fmtK(stockRetailProfit)}</div>
+                            <div className="text-[10px] text-teal-600 font-bold truncate">
+                                {stockValCost > 0 ? `+${((stockRetailProfit / stockValCost) * 100).toFixed(1)}% margin` : '0%'}
+                            </div>
+                        </div>
+
+                        {/* 5. Wholesale Potential Profit */}
+                        <div className="p-2.5 rounded-xl bg-amber-50/60 border border-amber-200">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 block mb-0.5">Wholesale Profit</span>
+                            <div className="text-sm font-black text-amber-800 font-mono">{fmtK(stockWholesaleProfit)}</div>
+                            <div className="text-[10px] text-amber-600 font-bold truncate">
+                                {stockValCost > 0 ? `+${((stockWholesaleProfit / stockValCost) * 100).toFixed(1)}% margin` : '0%'}
+                            </div>
                         </div>
                     </div>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="bg-white/90 rounded-2xl p-3 border border-slate-200 shadow-2xs flex items-center justify-between">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div className="bg-white rounded-2xl p-2.5 border border-slate-200 shadow-2xs flex items-center justify-between">
                         <div>
                             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Inventory Cost</div>
-                            <div className="text-base font-black text-slate-900 font-mono">Ksh {formatCompactNumber(stockValCost)}</div>
+                            <div className="text-sm font-black text-slate-900 font-mono">{fmtKES(stockValCost)}</div>
                         </div>
-                        <FiDollarSign className="text-blue-500" size={18} />
+                        <FiDollarSign className="text-blue-500" size={16} />
                     </div>
-                    <div className="bg-white/90 rounded-2xl p-3 border border-slate-200 shadow-2xs flex items-center justify-between">
+                    <div className="bg-white rounded-2xl p-2.5 border border-slate-200 shadow-2xs flex items-center justify-between">
                         <div>
                             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Retail Worth</div>
-                            <div className="text-base font-black text-slate-900 font-mono">Ksh {formatCompactNumber(stockValRetail)}</div>
+                            <div className="text-sm font-black text-slate-900 font-mono">{fmtKES(stockValRetail)}</div>
                         </div>
-                        <FiTrendingUp className="text-emerald-500" size={18} />
+                        <FiTrendingUp className="text-emerald-500" size={16} />
                     </div>
-                    <div className="bg-white/90 rounded-2xl p-3 border border-slate-200 shadow-2xs flex items-center justify-between">
+                    <div className="bg-white rounded-2xl p-2.5 border border-slate-200 shadow-2xs flex items-center justify-between">
                         <div>
                             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Potential Profit</div>
-                            <div className="text-base font-black text-emerald-700 font-mono">+Ksh {formatCompactNumber(stockRetailProfit)}</div>
+                            <div className="text-sm font-black text-emerald-700 font-mono">+{fmtKES(stockRetailProfit)}</div>
                         </div>
-                        <FiAward className="text-emerald-500" size={18} />
+                        <FiAward className="text-emerald-500" size={16} />
                     </div>
                 </div>
             )}
@@ -2258,67 +2217,67 @@ export default function ProductsPage() {
 
             {/* ━━━ INTERACTIVE ANALYTICS & LINEAR TREND STUDIO (SIDE-BY-SIDE CHARTS) ━━━ */}
             {showAnalyticsStudio && (
-                <div className="bg-white/95 backdrop-blur-md rounded-2xl p-4 border border-slate-200/90 shadow-sm transition-all space-y-3.5">
+                <div className="bg-white/95 backdrop-blur-md rounded-2xl p-3 sm:p-3.5 border border-slate-200/90 shadow-sm transition-all space-y-3">
                     
                     {/* Studio Header & Navigation Pills */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-                        <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-500 text-white flex items-center justify-center shadow-xs">
-                                <FiBarChart2 size={16} />
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-600 to-blue-500 text-white flex items-center justify-center shadow-xs">
+                                <FiBarChart2 size={14} />
                             </div>
                             <div>
-                                <h2 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                                    <span>📈 Realtime Financial & Linear Trend Studio</span>
-                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 font-mono">
+                                <h2 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                                    <span>Realtime Financial &amp; Linear Trend Studio</span>
+                                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 font-mono">
                                         Live Vector Engine
                                     </span>
                                 </h2>
-                                <p className="text-[11px] text-slate-500 font-medium">
-                                    Side-by-side pricing spreads, cost margins & category asset distribution curves
+                                <p className="text-[10px] text-slate-500 font-medium">
+                                    Side-by-side pricing spreads, cost margins &amp; category asset distribution curves
                                 </p>
                             </div>
                         </div>
 
                         {/* Interactive Metric Filter Horizon */}
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider mr-1">Sort Curve:</span>
+                        <div className="flex items-center gap-1 flex-wrap">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider mr-1">Sort:</span>
                             {(['all', 'top_margin', 'top_price', 'low_stock'] as const).map(metric => (
                                 <button
                                     key={metric}
                                     onClick={() => setLinearChartMetric(metric)}
-                                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all ${
                                         linearChartMetric === metric
                                             ? 'bg-indigo-600 text-white shadow-2xs'
                                             : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                     }`}
                                 >
-                                    {metric === 'all' && '⚡ Top Products'}
-                                    {metric === 'top_margin' && '💎 Top Margins'}
-                                    {metric === 'top_price' && '💵 High Price'}
-                                    {metric === 'low_stock' && '⚠️ Stock Critical'}
+                                    {metric === 'all' && 'Top Products'}
+                                    {metric === 'top_margin' && 'Top Margins'}
+                                    {metric === 'top_price' && 'High Price'}
+                                    {metric === 'low_stock' && 'Stock Critical'}
                                 </button>
                             ))}
                             <button
                                 onClick={() => setShowAnalyticsStudio(false)}
-                                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors ml-1"
+                                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors ml-1"
                                 title="Collapse Studio"
                             >
-                                <FiX size={14} />
+                                <FiX size={13} />
                             </button>
                         </div>
                     </div>
 
                     {/* SIDE-BY-SIDE CHARTS GRID */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                         
                         {/* ─── LEFT CHART: LINEAR PRICING & PROFIT SPREAD ─── */}
-                        <div className="bg-slate-50/70 rounded-2xl p-3.5 border border-slate-200/80 relative overflow-hidden flex flex-col justify-between">
+                        <div className="bg-slate-50/70 rounded-2xl p-3 border border-slate-200/80 relative overflow-hidden flex flex-col justify-between">
                             
                             {/* Left Chart Header */}
-                            <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center justify-between mb-1.5">
                                 <div>
                                     <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                                        <span>📈 Linear Price vs Cost Spread</span>
+                                        <span>Linear Price vs Cost Spread</span>
                                     </h3>
                                     <p className="text-[10px] text-slate-500 font-medium">
                                         Multi-curve cubic bezier trajectory across active SKUs
@@ -2326,10 +2285,10 @@ export default function ProductsPage() {
                                 </div>
                                 <div className="flex items-center gap-2 text-[10px] font-bold">
                                     <span className="inline-flex items-center gap-1 text-emerald-600">
-                                        <span className="w-2 h-2 rounded-full bg-emerald-500" /> Sell Price
+                                        <span className="w-2 h-2 rounded-full bg-emerald-500" /> Sell
                                     </span>
                                     <span className="inline-flex items-center gap-1 text-rose-600">
-                                        <span className="w-2 h-2 rounded-full bg-rose-500" /> Cost/Pc
+                                        <span className="w-2 h-2 rounded-full bg-rose-500" /> Cost
                                     </span>
                                     <span className="inline-flex items-center gap-1 text-purple-600">
                                         <span className="w-2 h-2 rounded-full bg-purple-500" /> Wholesale
@@ -2339,18 +2298,18 @@ export default function ProductsPage() {
 
                             {/* Left Chart KPI Mini HUD */}
                             {linearPriceChart && (
-                                <div className="grid grid-cols-3 gap-2 mb-2">
-                                    <div className="bg-white/90 p-2 rounded-xl border border-slate-200/80">
+                                <div className="grid grid-cols-3 gap-1.5 mb-2">
+                                    <div className="bg-white/90 p-1.5 rounded-xl border border-slate-200/80">
                                         <div className="text-[9px] font-bold text-slate-400 uppercase">Avg Margin</div>
                                         <div className="text-xs font-black text-emerald-700 font-mono">+{linearPriceChart.avgMargin}%</div>
                                     </div>
-                                    <div className="bg-white/90 p-2 rounded-xl border border-slate-200/80">
+                                    <div className="bg-white/90 p-1.5 rounded-xl border border-slate-200/80">
                                         <div className="text-[9px] font-bold text-slate-400 uppercase">Top Margin SKU</div>
                                         <div className="text-xs font-black text-indigo-700 truncate font-mono">
                                             {linearPriceChart.highestMarginItem ? `+${linearPriceChart.highestMarginItem.marginPer}%` : 'N/A'}
                                         </div>
                                     </div>
-                                    <div className="bg-white/90 p-2 rounded-xl border border-slate-200/80">
+                                    <div className="bg-white/90 p-1.5 rounded-xl border border-slate-200/80">
                                         <div className="text-[9px] font-bold text-slate-400 uppercase">Max Unit Price</div>
                                         <div className="text-xs font-black text-slate-800 font-mono">
                                             Ksh {formatCompactNumber(linearPriceChart.maxPrice)}
@@ -2361,14 +2320,14 @@ export default function ProductsPage() {
 
                             {/* Left SVG Vector Chart */}
                             {linearPriceChart ? (
-                                <div className="relative w-full h-48 bg-white rounded-xl border border-slate-200/90 shadow-inner p-1">
+                                <div className="relative w-full h-44 bg-white rounded-xl border border-slate-200/90 shadow-inner p-1">
                                     <svg
                                         viewBox={`0 0 ${linearPriceChart.svgW} ${linearPriceChart.svgH}`}
                                         className="w-full h-full overflow-visible"
                                     >
                                         <defs>
                                             <linearGradient id="profitLinearGradient" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="0%" stopColor="#10B981" stopOpacity="0.28" />
+                                                <stop offset="0%" stopColor="#10B981" stopOpacity="0.25" />
                                                 <stop offset="100%" stopColor="#3B82F6" stopOpacity="0.04" />
                                             </linearGradient>
                                             <linearGradient id="sellCurveGrad" x1="0" y1="0" x2="1" y2="0">
@@ -2471,15 +2430,14 @@ export default function ProductsPage() {
                                                     onMouseEnter={() => setActiveHoverIndex(i)}
                                                     onMouseLeave={() => setActiveHoverIndex(null)}
                                                 >
-                                                    {/* Invisible click/hover capture target */}
                                                     <circle cx={sellPt.x} cy={sellPt.y} r="10" fill="transparent" />
                                                     <circle
                                                         cx={sellPt.x}
                                                         cy={sellPt.y}
-                                                        r={isHovered ? 5.5 : 3.5}
+                                                        r={isHovered ? 5 : 3}
                                                         fill="#10B981"
                                                         stroke="#FFFFFF"
-                                                        strokeWidth="1.8"
+                                                        strokeWidth="1.5"
                                                         className="transition-all"
                                                     />
                                                 </g>
@@ -2490,7 +2448,7 @@ export default function ProductsPage() {
                                     {/* Dynamic Interactive Tooltip Floating Badge */}
                                     {activeHoverIndex !== null && linearPriceChart.pointsData[activeHoverIndex] && (
                                         <div
-                                            className="absolute top-2 z-20 bg-slate-900/95 backdrop-blur-md text-white px-3 py-2 rounded-xl text-xs shadow-xl border border-slate-700 pointer-events-none transition-all"
+                                            className="absolute top-2 z-20 bg-slate-900/95 backdrop-blur-md text-white px-2.5 py-1.5 rounded-xl text-[11px] shadow-xl border border-slate-700 pointer-events-none transition-all"
                                             style={{
                                                 left: `${Math.min(
                                                     Math.max(10, (linearPriceChart.sellPts[activeHoverIndex]?.x / linearPriceChart.svgW) * 100 - 20),
@@ -2498,44 +2456,44 @@ export default function ProductsPage() {
                                                 )}%`,
                                             }}
                                         >
-                                            <div className="font-bold text-amber-300 truncate max-w-[200px]">
+                                            <div className="font-bold text-amber-300 truncate max-w-[180px]">
                                                 {linearPriceChart.pointsData[activeHoverIndex].name}
                                             </div>
-                                            <div className="text-[10px] text-slate-300 font-mono mb-1">
+                                            <div className="text-[9px] text-slate-300 font-mono mb-0.5">
                                                 {linearPriceChart.pointsData[activeHoverIndex].code} • {linearPriceChart.pointsData[activeHoverIndex].category}
                                             </div>
                                             <div className="grid grid-cols-2 gap-x-2 text-[10px] font-mono">
                                                 <span className="text-emerald-400">
-                                                    Sell: Ksh {formatKsh(linearPriceChart.pointsData[activeHoverIndex].sellPrice)}
+                                                    Sell: {fmtKES(linearPriceChart.pointsData[activeHoverIndex].sellPrice)}
                                                 </span>
                                                 <span className="text-rose-400">
-                                                    Cost: Ksh {formatKsh(linearPriceChart.pointsData[activeHoverIndex].costPrice)}
+                                                    Cost: {fmtKES(linearPriceChart.pointsData[activeHoverIndex].costPrice)}
                                                 </span>
                                                 <span className="text-purple-300">
-                                                    Wholesale: Ksh {formatKsh(linearPriceChart.pointsData[activeHoverIndex].wholesalePrice)}
+                                                    WS: {fmtKES(linearPriceChart.pointsData[activeHoverIndex].wholesalePrice)}
                                                 </span>
                                                 <span className="text-amber-400 font-bold">
-                                                    Margin: +{linearPriceChart.pointsData[activeHoverIndex].marginPer}%
+                                                    +{linearPriceChart.pointsData[activeHoverIndex].marginPer}%
                                                 </span>
                                             </div>
                                         </div>
                                     )}
                                 </div>
                             ) : (
-                                <div className="h-48 flex items-center justify-center text-xs text-slate-400">
+                                <div className="h-44 flex items-center justify-center text-xs text-slate-400">
                                     No pricing trend data available
                                 </div>
                             )}
                         </div>
 
                         {/* ─── RIGHT CHART: CATEGORY ASSET & VALUATION DISTRIBUTION ─── */}
-                        <div className="bg-slate-50/70 rounded-2xl p-3.5 border border-slate-200/80 relative overflow-hidden flex flex-col justify-between">
+                        <div className="bg-slate-50/70 rounded-2xl p-3 border border-slate-200/80 relative overflow-hidden flex flex-col justify-between">
                             
                             {/* Right Chart Header */}
-                            <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center justify-between mb-1.5">
                                 <div>
                                     <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                                        <span>📊 Category Capital & Asset Spread</span>
+                                        <span>Category Capital &amp; Asset Spread</span>
                                     </h3>
                                     <p className="text-[10px] text-slate-500 font-medium">
                                         Purchasing cost tied vs potential retail revenue by department
@@ -2543,33 +2501,33 @@ export default function ProductsPage() {
                                 </div>
                                 <div className="flex items-center gap-2 text-[10px] font-bold">
                                     <span className="inline-flex items-center gap-1 text-blue-600">
-                                        <span className="w-2 h-2 rounded-full bg-blue-500" /> Cost Capital
+                                        <span className="w-2 h-2 rounded-full bg-blue-500" /> Cost
                                     </span>
                                     <span className="inline-flex items-center gap-1 text-emerald-600">
-                                        <span className="w-2 h-2 rounded-full bg-emerald-500" /> Retail Potential
+                                        <span className="w-2 h-2 rounded-full bg-emerald-500" /> Retail
                                     </span>
                                 </div>
                             </div>
 
                             {/* Right Chart KPI Mini HUD */}
                             {categoryValuationChart && (
-                                <div className="grid grid-cols-3 gap-2 mb-2">
-                                    <div className="bg-white/90 p-2 rounded-xl border border-slate-200/80">
-                                        <div className="text-[9px] font-bold text-slate-400 uppercase">Top Capital Dept</div>
+                                <div className="grid grid-cols-3 gap-1.5 mb-2">
+                                    <div className="bg-white/90 p-1.5 rounded-xl border border-slate-200/80">
+                                        <div className="text-[9px] font-bold text-slate-400 uppercase">Top Cost Dept</div>
                                         <div className="text-xs font-black text-blue-700 truncate font-mono">
                                             {categoryValuationChart.topCapitalCategory?.name || 'General'}
                                         </div>
                                     </div>
-                                    <div className="bg-white/90 p-2 rounded-xl border border-slate-200/80">
-                                        <div className="text-[9px] font-bold text-slate-400 uppercase">Top Revenue Dept</div>
+                                    <div className="bg-white/90 p-1.5 rounded-xl border border-slate-200/80">
+                                        <div className="text-[9px] font-bold text-slate-400 uppercase">Top Retail Dept</div>
                                         <div className="text-xs font-black text-emerald-700 truncate font-mono">
                                             {categoryValuationChart.topRevenueCategory?.name || 'General'}
                                         </div>
                                     </div>
-                                    <div className="bg-white/90 p-2 rounded-xl border border-slate-200/80">
-                                        <div className="text-[9px] font-bold text-slate-400 uppercase">Total Asset Worth</div>
+                                    <div className="bg-white/90 p-1.5 rounded-xl border border-slate-200/80">
+                                        <div className="text-[9px] font-bold text-slate-400 uppercase">Total Worth</div>
                                         <div className="text-xs font-black text-slate-800 font-mono">
-                                            Ksh {formatCompactNumber(categoryValuationChart.totalCatRetail)}
+                                            {fmtK(categoryValuationChart.totalCatRetail)}
                                         </div>
                                     </div>
                                 </div>
@@ -2577,18 +2535,18 @@ export default function ProductsPage() {
 
                             {/* Right SVG Vector Chart */}
                             {categoryValuationChart ? (
-                                <div className="relative w-full h-48 bg-white rounded-xl border border-slate-200/90 shadow-inner p-1">
+                                <div className="relative w-full h-44 bg-white rounded-xl border border-slate-200/90 shadow-inner p-1">
                                     <svg
                                         viewBox={`0 0 ${categoryValuationChart.svgW} ${categoryValuationChart.svgH}`}
                                         className="w-full h-full overflow-visible"
                                     >
                                         <defs>
                                             <linearGradient id="catRetailAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="0%" stopColor="#10B981" stopOpacity="0.32" />
+                                                <stop offset="0%" stopColor="#10B981" stopOpacity="0.28" />
                                                 <stop offset="100%" stopColor="#10B981" stopOpacity="0.03" />
                                             </linearGradient>
                                             <linearGradient id="catCostAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.25" />
+                                                <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.22" />
                                                 <stop offset="100%" stopColor="#3B82F6" stopOpacity="0.02" />
                                             </linearGradient>
                                         </defs>
@@ -2668,13 +2626,13 @@ export default function ProductsPage() {
                                                     onMouseEnter={() => setActiveValHoverIndex(i)}
                                                     onMouseLeave={() => setActiveValHoverIndex(null)}
                                                 >
-                                                    <circle cx={rPt.x} cy={rPt.y} r={isHovered ? 5.5 : 3.5} fill="#10B981" stroke="#FFFFFF" strokeWidth="1.8" />
-                                                    <circle cx={cPt.x} cy={cPt.y} r={isHovered ? 5 : 3} fill="#3B82F6" stroke="#FFFFFF" strokeWidth="1.8" />
+                                                    <circle cx={rPt.x} cy={rPt.y} r={isHovered ? 5 : 3} fill="#10B981" stroke="#FFFFFF" strokeWidth="1.5" />
+                                                    <circle cx={cPt.x} cy={cPt.y} r={isHovered ? 4.5 : 2.5} fill="#3B82F6" stroke="#FFFFFF" strokeWidth="1.5" />
                                                     <text
                                                         x={rPt.x}
-                                                        y={categoryValuationChart.padT + categoryValuationChart.plotH + 16}
+                                                        y={categoryValuationChart.padT + categoryValuationChart.plotH + 14}
                                                         textAnchor="middle"
-                                                        fontSize="8.5"
+                                                        fontSize="8"
                                                         fill={isHovered ? '#1E293B' : '#64748B'}
                                                         fontWeight={isHovered ? 'bold' : 'normal'}
                                                     >
@@ -2688,7 +2646,7 @@ export default function ProductsPage() {
                                     {/* Dynamic Interactive Tooltip Floating Badge */}
                                     {activeValHoverIndex !== null && categoryValuationChart.catList[activeValHoverIndex] && (
                                         <div
-                                            className="absolute top-2 z-20 bg-slate-900/95 backdrop-blur-md text-white px-3 py-2 rounded-xl text-xs shadow-xl border border-slate-700 pointer-events-none transition-all"
+                                            className="absolute top-2 z-20 bg-slate-900/95 backdrop-blur-md text-white px-2.5 py-1.5 rounded-xl text-[11px] shadow-xl border border-slate-700 pointer-events-none transition-all"
                                             style={{
                                                 left: `${Math.min(
                                                     Math.max(
@@ -2702,43 +2660,43 @@ export default function ProductsPage() {
                                             <div className="font-bold text-emerald-300">
                                                 {categoryValuationChart.catList[activeValHoverIndex].name}
                                             </div>
-                                            <div className="text-[10px] text-slate-300 font-mono mb-1">
-                                                {categoryValuationChart.catList[activeValHoverIndex].count} Products Cataloged
+                                            <div className="text-[9px] text-slate-300 font-mono mb-0.5">
+                                                {categoryValuationChart.catList[activeValHoverIndex].count} SKUs Cataloged
                                             </div>
                                             <div className="grid grid-cols-2 gap-x-2 text-[10px] font-mono">
                                                 <span className="text-blue-400">
-                                                    Cost: Ksh {formatCompactNumber(categoryValuationChart.catList[activeValHoverIndex].costVal)}
+                                                    Cost: {fmtK(categoryValuationChart.catList[activeValHoverIndex].costVal)}
                                                 </span>
                                                 <span className="text-emerald-400">
-                                                    Retail: Ksh {formatCompactNumber(categoryValuationChart.catList[activeValHoverIndex].retailVal)}
+                                                    Retail: {fmtK(categoryValuationChart.catList[activeValHoverIndex].retailVal)}
                                                 </span>
                                                 <span className="text-amber-400 font-bold col-span-2">
-                                                    Profit Margin: +Ksh {formatCompactNumber(categoryValuationChart.catList[activeValHoverIndex].profitVal)}
+                                                    Margin: +{fmtK(categoryValuationChart.catList[activeValHoverIndex].profitVal)}
                                                 </span>
                                             </div>
                                         </div>
                                     )}
                                 </div>
                             ) : (
-                                <div className="h-48 flex items-center justify-center text-xs text-slate-400">
+                                <div className="h-44 flex items-center justify-center text-xs text-slate-400">
                                     No category valuation data available
                                 </div>
                             )}
                         </div>
                     </div>
 
-                    {/* Expiry Risk Horizon Horizon Alert Bar */}
+                    {/* Expiry Risk Horizon Alert Bar */}
                     {expiryHorizon.totalValAtRisk > 0 && (
-                        <div className="p-2.5 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-2">
+                        <div className="p-2 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-1.5">
                                 <span className="p-1 rounded-md bg-amber-200 text-amber-800">
-                                    <FiAlertTriangle size={14} />
+                                    <FiAlertTriangle size={12} />
                                 </span>
                                 <span className="font-bold text-amber-900">
-                                    Expiry Capital Alert: <strong>Ksh {formatKsh(expiryHorizon.totalValAtRisk)}</strong> at risk across near-expiry/expired batches.
+                                    Expiry Risk: <strong>{fmtKES(expiryHorizon.totalValAtRisk)}</strong> across near-expiry/expired batches.
                                 </span>
                             </div>
-                            <span className="text-[11px] font-mono text-amber-800 font-bold">
+                            <span className="text-[10px] font-mono text-amber-800 font-bold">
                                 {expiryHorizon.expiredCount} Expired • {expiryHorizon.warningCount} &lt;30d Critical
                             </span>
                         </div>
@@ -2748,12 +2706,12 @@ export default function ProductsPage() {
 
 
             {/* ━━━ SEARCH, FILTER & VIEW BAR ━━━ */}
-            <div className="bg-white/95 backdrop-blur-md rounded-2xl p-3 border border-slate-200/90 shadow-2xs space-y-2.5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="bg-white/95 backdrop-blur-md rounded-2xl p-2.5 sm:p-3 border border-slate-200/90 shadow-2xs space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     
                     {/* Search Input */}
                     <div className="relative flex-1">
-                        <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
                         <input
                             type="text"
                             value={searchQuery}
@@ -2762,7 +2720,7 @@ export default function ProductsPage() {
                                 setPage(1);
                             }}
                             placeholder="Search by product name, SKU code, barcode, or alias... (Ctrl+F)"
-                            className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:border-blue-500 focus:bg-white outline-none transition-all placeholder:text-slate-400"
+                            className="w-full pl-8 pr-8 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:border-blue-500 focus:bg-white outline-none transition-all placeholder:text-slate-400"
                         />
                         {searchQuery && (
                             <button
@@ -2776,16 +2734,16 @@ export default function ProductsPage() {
 
                     {/* Filter Category Dropdown */}
                     <div className="flex items-center gap-2">
-                        <div className="relative min-w-[150px]">
+                        <div className="relative min-w-[140px]">
                             <select
                                 value={filterCategory}
                                 onChange={e => {
                                     setFilterCategory(e.target.value);
                                     setPage(1);
                                 }}
-                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-blue-500 cursor-pointer"
+                                className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-blue-500 cursor-pointer"
                             >
-                                <option value="All">All Categories ({products.length})</option>
+                                <option value="All">All Categories ({categories.length})</option>
                                 {categories.map(c => (
                                     <option key={c.category_id} value={c.category_name}>
                                         {c.category_name}
@@ -2798,34 +2756,34 @@ export default function ProductsPage() {
                         <div className="flex items-center border border-slate-200 rounded-xl p-0.5 bg-slate-50">
                             <button
                                 onClick={() => setViewMode('list')}
-                                className={`p-1.5 rounded-lg text-xs transition-all ${
-                                    viewMode === 'list' ? 'bg-white shadow-2xs text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-700'
+                                className={`p-1 rounded-lg text-xs transition-all ${
+                                    viewMode === 'list' ? 'bg-white shadow-2xs text-blue-600 font-bold' : 'text-slate-400 hover:text-slate-700'
                                 }`}
                                 title="List / Datagrid View"
                             >
-                                <FiList size={14} />
+                                <FiList size={13} />
                             </button>
                             <button
                                 onClick={() => setViewMode('grid')}
-                                className={`p-1.5 rounded-lg text-xs transition-all ${
-                                    viewMode === 'grid' ? 'bg-white shadow-2xs text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-700'
+                                className={`p-1 rounded-lg text-xs transition-all ${
+                                    viewMode === 'grid' ? 'bg-white shadow-2xs text-blue-600 font-bold' : 'text-slate-400 hover:text-slate-700'
                                 }`}
                                 title="Card Grid View"
                             >
-                                <FiGrid size={14} />
+                                <FiGrid size={13} />
                             </button>
                         </div>
                     </div>
                 </div>
 
                 {/* Active Category Chips */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] font-semibold text-slate-600 scrollbar-none">
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 text-[10px] font-semibold text-slate-600 scrollbar-none">
                     <button
                         onClick={() => {
                             setFilterCategory('All');
                             setPage(1);
                         }}
-                        className={`px-2.5 py-1 rounded-lg transition-all shrink-0 ${
+                        className={`px-2 py-0.5 rounded-lg transition-all shrink-0 ${
                             filterCategory === 'All'
                                 ? 'bg-blue-600 text-white font-bold shadow-2xs'
                                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -2842,7 +2800,7 @@ export default function ProductsPage() {
                                     setFilterCategory(c.category_name);
                                     setPage(1);
                                 }}
-                                className={`px-2.5 py-1 rounded-lg transition-all shrink-0 ${
+                                className={`px-2 py-0.5 rounded-lg transition-all shrink-0 ${
                                     filterCategory === c.category_name
                                         ? 'bg-blue-600 text-white font-bold shadow-2xs'
                                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -2857,14 +2815,14 @@ export default function ProductsPage() {
 
             {/* ━━━ BULK ACTION BAR (WHEN ITEMS SELECTED) ━━━ */}
             {selectedPids.size > 0 && (
-                <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-600 text-white rounded-2xl px-4 py-2.5 shadow-md flex items-center justify-between gap-3 animate-fadeIn">
+                <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-600 text-white rounded-2xl px-3.5 py-2 shadow-md flex items-center justify-between gap-2.5 animate-fadeIn">
                     <div className="flex items-center gap-2 text-xs font-bold">
                         <span className="w-5 h-5 rounded-full bg-white text-blue-600 flex items-center justify-center text-[10px] font-black">
                             {selectedPids.size}
                         </span>
                         <span>Products Selected</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                         <button
                             onClick={() => openLabelModal()}
                             className="px-2.5 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-bold transition-all flex items-center gap-1"
@@ -2888,7 +2846,7 @@ export default function ProductsPage() {
                             className="p-1 hover:bg-white/20 rounded-lg text-xs"
                             title="Deselect All"
                         >
-                            <FiX size={14} />
+                            <FiX size={13} />
                         </button>
                     </div>
                 </div>
@@ -2896,51 +2854,51 @@ export default function ProductsPage() {
 
             {/* ━━━ CONTENT: LIST VIEW (DATAGRID TABLE) OR GRID VIEW ━━━ */}
             {isLoading ? (
-                <div className="bg-white rounded-2xl p-12 text-center border border-slate-200 shadow-2xs">
-                    <FiRefreshCw className="animate-spin text-blue-600 mx-auto mb-3" size={28} />
-                    <p className="text-xs font-bold text-slate-600">Loading catalog inventory & live valuation...</p>
+                <div className="bg-white rounded-2xl p-10 text-center border border-slate-200 shadow-2xs">
+                    <FiRefreshCw className="animate-spin text-blue-600 mx-auto mb-2" size={24} />
+                    <p className="text-xs font-bold text-slate-600">Loading catalog inventory &amp; live valuation...</p>
                 </div>
             ) : filtered.length === 0 ? (
-                <div className="bg-white rounded-2xl p-12 text-center border border-slate-200 shadow-2xs">
-                    <FiPackage className="text-slate-300 mx-auto mb-3" size={40} />
-                    <p className="text-sm font-bold text-slate-700">No products match your search or filter</p>
-                    <p className="text-xs text-slate-400 mt-1">Try clearing filters or adding a new inventory product</p>
+                <div className="bg-white rounded-2xl p-10 text-center border border-slate-200 shadow-2xs">
+                    <FiPackage className="text-slate-300 mx-auto mb-2" size={36} />
+                    <p className="text-xs font-bold text-slate-700">No products match your search or filter</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Try clearing filters or adding a new inventory product</p>
                     <button
                         onClick={openAddModal}
-                        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold shadow-xs hover:bg-blue-700 transition-all inline-flex items-center gap-1.5"
+                        className="mt-3 px-3 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-bold shadow-xs hover:bg-blue-700 transition-all inline-flex items-center gap-1"
                     >
-                        <FiPlus size={14} /> Add First Product
+                        <FiPlus size={13} /> Add Product
                     </button>
                 </div>
             ) : viewMode === 'list' ? (
-                /* ─── DATAGRID TABLE (HIGH CONTRAST APSIMS STYLING) ─── */
-                <div className="bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+                /* ─── DATAGRID TABLE (LIGHT APSIMS STUDIO HEADER - NO BLACK BACKGROUND) ─── */
+                <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse min-w-[1100px]">
+                        <table className="w-full text-left border-collapse min-w-[1050px]">
                             <thead>
-                                <tr className="bg-slate-900 text-white text-[11px] font-black uppercase tracking-wider border-b border-slate-800">
-                                    <th className="py-3 px-3.5 w-10 text-center">
+                                <tr className="bg-slate-50/90 border-b border-slate-200 text-[10px] font-black uppercase text-slate-500 tracking-wider">
+                                    <th className="py-2.5 px-3 w-8 text-center">
                                         <input
                                             type="checkbox"
                                             checked={selectedPids.size === filtered.length && filtered.length > 0}
                                             onChange={() => toggleSelectAll(filtered)}
-                                            className="rounded border-slate-600 text-blue-500 focus:ring-0 cursor-pointer"
+                                            className="rounded border-slate-300 accent-blue-600 cursor-pointer"
                                         />
                                     </th>
-                                    <th className="py-3 px-3.5">📦 Product Particulars</th>
-                                    <th className="py-3 px-3">📂 Category</th>
-                                    <th className="py-3 px-3 text-right">💵 Buy Price</th>
-                                    <th className="py-3 px-3 text-right">🏷️ Cost / Pc</th>
-                                    <th className="py-3 px-3 text-right">💎 Sell Price</th>
-                                    <th className="py-3 px-3 text-right">📦 Big Qty Price</th>
-                                    <th className="py-3 px-3 text-right">🤝 Wholesale</th>
-                                    <th className="py-3 px-3 text-center">📊 Stock Ledger</th>
-                                    <th className="py-3 px-3 text-center">📈 Profit Margin</th>
-                                    <th className="py-3 px-3 text-center">⚡ Status</th>
-                                    <th className="py-3 px-3.5 text-center">⚙️ Actions</th>
+                                    <th className="py-2.5 px-3">Product Name &amp; SKU</th>
+                                    <th className="py-2.5 px-3">Category</th>
+                                    <th className="py-2.5 px-3 text-right">Buy Price</th>
+                                    <th className="py-2.5 px-3 text-right">Cost / Pc</th>
+                                    <th className="py-2.5 px-3 text-right">Sell Price</th>
+                                    <th className="py-2.5 px-3 text-right">Big Qty Price</th>
+                                    <th className="py-2.5 px-3 text-right">Wholesale</th>
+                                    <th className="py-2.5 px-3 text-center">Stock Ledger</th>
+                                    <th className="py-2.5 px-3 text-center">Profit Margin</th>
+                                    <th className="py-2.5 px-3 text-center">Status</th>
+                                    <th className="py-2.5 px-3 text-center w-36">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 text-xs">
+                            <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
                                 {paginated.map((product, idx) => {
                                     const ppp = product.pieces_per_package || 1;
                                     const costPerPiece = ppp > 1 ? product.purchase_cost / ppp : product.purchase_cost;
@@ -2961,210 +2919,214 @@ export default function ProductsPage() {
                                     return (
                                         <tr
                                             key={product.pid}
-                                            className={`transition-colors hover:bg-blue-50/40 ${
-                                                isSelected ? 'bg-blue-50/80' : idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'
+                                            className={`transition-colors hover:bg-amber-50/30 ${
+                                                isSelected ? 'bg-blue-50/70' : idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'
                                             } ${!product.active ? 'opacity-60' : ''}`}
                                         >
                                             {/* Checkbox */}
-                                            <td className="py-2.5 px-3.5 text-center">
+                                            <td className="py-2 px-3 text-center">
                                                 <input
                                                     type="checkbox"
                                                     checked={isSelected}
                                                     onChange={() => toggleSelect(product.pid)}
-                                                    className="rounded border-slate-300 text-blue-600 focus:ring-0 cursor-pointer"
+                                                    className="rounded border-slate-300 accent-blue-600 cursor-pointer"
                                                 />
                                             </td>
 
                                             {/* Product Particulars */}
-                                            <td className="py-2.5 px-3.5">
-                                                <div className="flex items-center gap-2.5">
+                                            <td className="py-2 px-3">
+                                                <div className="flex items-center gap-2">
                                                     {product.photo ? (
-                                                        <img
-                                                            src={product.photo}
-                                                            alt={product.product_name}
-                                                            className="w-9 h-9 rounded-xl object-cover border border-slate-200 shrink-0"
-                                                        />
+                                                        <div className="w-8 h-8 rounded-lg overflow-hidden border border-slate-200 shrink-0 shadow-2xs">
+                                                            <img
+                                                                src={product.photo}
+                                                                alt=""
+                                                                className="w-full h-full object-cover"
+                                                                onError={e => {
+                                                                    (e.target as HTMLImageElement).src = '/no-image.png';
+                                                                }}
+                                                            />
+                                                        </div>
                                                     ) : (
                                                         <div
-                                                            className={`w-9 h-9 rounded-xl bg-gradient-to-tr ${
+                                                            className={`w-8 h-8 rounded-lg bg-gradient-to-tr ${
                                                                 product.button_ui_color || 'from-blue-500 to-indigo-600'
-                                                            } flex items-center justify-center text-white font-bold text-xs shadow-2xs shrink-0`}
+                                                            } flex items-center justify-center text-white font-bold text-[10px] shadow-2xs shrink-0`}
                                                         >
                                                             {product.product_name.slice(0, 2).toUpperCase()}
                                                         </div>
                                                     )}
                                                     <div className="min-w-0">
-                                                        <div className="font-bold text-slate-900 truncate max-w-[220px]">
+                                                        <div className="font-extrabold text-slate-900 tracking-tight leading-tight truncate max-w-[200px]">
                                                             {product.product_name}
                                                         </div>
-                                                        <div className="flex items-center gap-1.5 text-[10px] font-mono text-slate-500">
-                                                            <span className="bg-slate-100 text-slate-700 px-1.5 py-0.2 rounded font-bold">
-                                                                {product.product_code}
-                                                            </span>
-                                                            {product.barcode && (
-                                                                <span className="text-slate-400">#{product.barcode}</span>
-                                                            )}
-                                                            {product.alias && (
-                                                                <span className="text-blue-600 italic">({product.alias})</span>
-                                                            )}
+                                                        <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1.5 mt-0.5">
+                                                            <span className="text-indigo-600 font-bold">{product.product_code}</span>
+                                                            {product.barcode && <span>• #{product.barcode}</span>}
+                                                            {product.alias && <span className="text-blue-600 italic">({product.alias})</span>}
                                                         </div>
                                                     </div>
                                                 </div>
                                             </td>
 
                                             {/* Category */}
-                                            <td className="py-2.5 px-3">
-                                                <span className="inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                            <td className="py-2 px-3">
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md text-[10px] font-bold">
+                                                    <FiTag size={9} className="text-slate-400" />
                                                     {product.category || 'General'}
                                                 </span>
                                             </td>
 
                                             {/* Buy Price */}
-                                            <td className="py-2.5 px-3 text-right font-mono font-semibold text-slate-700">
-                                                Ksh {formatKsh(product.purchase_cost)}
-                                                <div className="text-[9px] text-slate-400">/{product.purchase_unit}</div>
+                                            <td className="py-2 px-3 text-right font-mono font-bold text-slate-700 text-xs">
+                                                {fmtKES(product.purchase_cost || 0)}
                                             </td>
 
                                             {/* Cost / Pc */}
-                                            <td className="py-2.5 px-3 text-right font-mono text-slate-600">
-                                                Ksh {formatKsh(costPerPiece)}
+                                            <td className="py-2 px-3 text-right font-mono text-xs font-bold text-amber-800">
+                                                {fmtKES(Math.round(costPerPiece))}
                                                 {ppp > 1 && (
-                                                    <div className="text-[9px] text-orange-600 font-bold">1:{ppp}</div>
+                                                    <span className="text-[9px] text-slate-400 block font-normal">
+                                                        1:{ppp}
+                                                    </span>
                                                 )}
                                             </td>
 
                                             {/* Sell Price */}
-                                            <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">
-                                                Ksh {formatKsh(product.sales_cost)}
-                                                <div className="text-[9px] text-slate-400">/{product.sales_unit}</div>
+                                            <td className="py-2 px-3 text-right font-mono font-black text-slate-900 text-xs">
+                                                {fmtKES(product.sales_cost || 0)}
                                             </td>
 
                                             {/* Big Qty Price */}
-                                            <td className="py-2.5 px-3 text-right font-mono font-bold text-indigo-700">
+                                            <td className="py-2 px-3 text-right font-mono font-black text-indigo-700 text-xs">
                                                 {ppp > 1 && bigPrice > 0 ? (
                                                     <div>
-                                                        <span>Ksh {formatKsh(bigPrice)}</span>
-                                                        <div className="text-[9px] text-indigo-500 font-semibold">
-                                                            Per {product.purchase_unit} ({ppp} pcs)
-                                                        </div>
+                                                        <span>{fmtKES(bigPrice)}</span>
+                                                        <span className="text-[9px] text-indigo-500 block font-medium">
+                                                            /{product.purchase_unit} ({ppp} pcs)
+                                                        </span>
                                                     </div>
                                                 ) : (
-                                                    <span className="text-slate-300 text-[10px]">—</span>
+                                                    <span className="text-slate-300 text-xs">—</span>
                                                 )}
                                             </td>
 
                                             {/* Wholesale */}
-                                            <td className="py-2.5 px-3 text-right font-mono text-purple-700 font-semibold">
+                                            <td className="py-2 px-3 text-right font-mono font-bold text-purple-700 text-xs">
                                                 {product.wholesale_price && product.wholesale_price > 0 ? (
-                                                    `Ksh ${formatKsh(product.wholesale_price)}`
+                                                    fmtKES(product.wholesale_price)
                                                 ) : (
                                                     <span className="text-slate-300">—</span>
                                                 )}
                                             </td>
 
                                             {/* Stock Ledger (Dual-Stock Pills) */}
-                                            <td className="py-2.5 px-3 text-center">
-                                                <div className="inline-flex items-center gap-1.5 flex-wrap justify-center font-mono">
-                                                    {ppp > 1 && (
-                                                        <span
-                                                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                                                bags > 0
-                                                                    ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                                                                    : 'bg-slate-100 text-slate-400'
-                                                            }`}
-                                                            title={`Bulk ${product.purchase_unit}s`}
-                                                        >
+                                            <td className="py-2 px-3 text-center">
+                                                <div className="flex flex-col items-center gap-0.5">
+                                                    {ppp > 1 && bags > 0 && (
+                                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-200/80 font-mono">
                                                             📦 {bags} {product.purchase_unit}
                                                         </span>
                                                     )}
                                                     <span
-                                                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                                        className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black font-mono ${
                                                             pieces > 0
-                                                                ? 'bg-sky-100 text-sky-900 border border-sky-300'
-                                                                : 'bg-slate-100 text-slate-400'
+                                                                ? 'bg-sky-50 text-sky-800 border border-sky-200/80'
+                                                                : 'bg-rose-50 text-rose-700 border border-rose-200'
                                                         }`}
-                                                        title="Loose Selling Pieces"
                                                     >
-                                                        🔢 {pieces} {product.sales_unit?.toLowerCase() === product.purchase_unit?.toLowerCase() ? 'Pc' : product.sales_unit}
+                                                        🔢 {pieces} {product.sales_unit}
                                                     </span>
                                                 </div>
                                                 {isLow && (
                                                     <div className="text-[9px] font-bold text-rose-600 mt-0.5 flex items-center justify-center gap-0.5">
-                                                        <FiAlertTriangle size={10} /> Low Stock
+                                                        <FiAlertTriangle size={9} /> Low Stock
                                                     </div>
                                                 )}
                                             </td>
 
                                             {/* Profit Margin */}
-                                            <td className="py-2.5 px-3 text-center">
-                                                <span
-                                                    className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-black font-mono ${
-                                                        marginPercent >= 20
-                                                            ? 'bg-emerald-100 text-emerald-800'
-                                                            : marginPercent > 0
-                                                            ? 'bg-blue-100 text-blue-800'
-                                                            : 'bg-rose-100 text-rose-800'
-                                                    }`}
-                                                >
-                                                    +{marginPercent}%
-                                                </span>
-                                                <div className="text-[9px] font-mono text-slate-400 mt-0.5">
-                                                    +Ksh {formatKsh(profitPerPiece)}/pc
+                                            <td className="py-2 px-3 text-center">
+                                                <div className="flex flex-col items-center justify-center gap-0.5">
+                                                    <span
+                                                        className={`inline-block px-1.5 py-0.2 rounded-full text-[10px] font-black font-mono ${
+                                                            marginPercent >= 20
+                                                                ? 'bg-emerald-100 text-emerald-800'
+                                                                : marginPercent > 0
+                                                                ? 'bg-blue-100 text-blue-800'
+                                                                : 'bg-rose-100 text-rose-800'
+                                                        }`}
+                                                    >
+                                                        +{marginPercent}%
+                                                    </span>
+                                                    <span className="text-[9px] font-mono text-emerald-700 font-bold">
+                                                        +{fmtKES(profitPerPiece)}/pc
+                                                    </span>
                                                 </div>
                                             </td>
 
-                                            {/* Status */}
-                                            <td className="py-2.5 px-3 text-center">
-                                                <button
-                                                    onClick={() => deactivateProduct(product)}
-                                                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all ${
+                                            {/* Status Badge */}
+                                            <td className="py-2 px-3 text-center">
+                                                <span
+                                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black ${
                                                         product.active
-                                                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
-                                                            : 'bg-slate-100 text-slate-500 border border-slate-300 hover:bg-slate-200'
+                                                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                                            : 'bg-slate-100 text-slate-500 border border-slate-200'
                                                     }`}
-                                                    title="Click to toggle active status"
                                                 >
-                                                    {product.active ? '● Active' : '○ Inactive'}
-                                                </button>
+                                                    <span className={`w-1.5 h-1.5 rounded-full ${product.active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                                                    {product.active ? 'Live' : 'Off'}
+                                                </span>
                                             </td>
 
-                                            {/* Actions */}
-                                            <td className="py-2.5 px-3.5 text-center">
-                                                <div className="flex items-center justify-center gap-1">
+                                            {/* Action Toolbar — RESTORED COLORFUL BUTTONS FROM 6d90947 */}
+                                            <td className="py-2 px-3 text-center">
+                                                <div className="flex items-center justify-center gap-1 flex-wrap">
                                                     <button
                                                         onClick={() => openEditModal(product)}
-                                                        className="p-1.5 rounded-lg text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                                        className="p-1 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
                                                         title="Edit Product Details"
                                                     >
-                                                        <FiEdit2 size={13} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => openStockAdjust(product)}
-                                                        className="p-1.5 rounded-lg text-slate-600 hover:text-amber-600 hover:bg-amber-50 transition-colors"
-                                                        title="Adjust Stock Quantity"
-                                                    >
-                                                        <FiSliders size={13} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => openPriceHistory(product)}
-                                                        className="p-1.5 rounded-lg text-slate-600 hover:text-purple-600 hover:bg-purple-50 transition-colors"
-                                                        title="View Price Changes History"
-                                                    >
-                                                        <FiClock size={13} />
+                                                        <FiEdit2 size={12} />
                                                     </button>
                                                     <button
                                                         onClick={() => openStockHistory(product)}
-                                                        className="p-1.5 rounded-lg text-slate-600 hover:text-teal-600 hover:bg-teal-50 transition-colors"
-                                                        title="View Stock Movement Ledger"
+                                                        className="p-1 rounded-lg bg-sky-50 text-sky-600 hover:bg-sky-100 transition-colors"
+                                                        title="Stock Ledger Movements"
                                                     >
-                                                        <FiFileText size={13} />
+                                                        <FiClock size={12} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => openPriceHistory(product)}
+                                                        className="p-1 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
+                                                        title="Price Change History"
+                                                    >
+                                                        <FiTrendingUp size={12} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => openStockAdjust(product)}
+                                                        className="p-1 rounded-lg bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors"
+                                                        title="Manual Stock Adjustment"
+                                                    >
+                                                        <FiSliders size={12} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => deactivateProduct(product)}
+                                                        className={`p-1 rounded-lg transition-colors ${
+                                                            product.active
+                                                                ? 'bg-orange-50 text-orange-600 hover:bg-orange-100'
+                                                                : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                                                        }`}
+                                                        title={product.active ? 'Deactivate' : 'Reactivate'}
+                                                    >
+                                                        {product.active ? <FiEyeOff size={12} /> : <FiEye size={12} />}
                                                     </button>
                                                     <button
                                                         onClick={() => deleteProduct(product)}
-                                                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                                                        title="Permanently Delete Product"
+                                                        className="p-1 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors"
+                                                        title="Delete Permanently"
                                                     >
-                                                        <FiTrash2 size={13} />
+                                                        <FiTrash2 size={12} />
                                                     </button>
                                                 </div>
                                             </td>
@@ -3177,110 +3139,126 @@ export default function ProductsPage() {
                 </div>
             ) : (
                 /* ─── CARD GRID VIEW (GRID MODE) ─── */
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                    {paginated.map(product => {
-                        const ppp = product.pieces_per_package || 1;
-                        const costPerPiece = ppp > 1 ? product.purchase_cost / ppp : product.purchase_cost;
-                        const marginPercent = calcMargin(product.sales_cost, costPerPiece);
-                        const bags = bagStockData[product.pid] || 0;
-                        const pieces = pieceStockData[product.pid] || 0;
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5">
+                    {paginated.map(p => {
+                        const stk = stockData[p.pid] || 0;
+                        const isSelected = selectedPids.has(p.pid);
+                        const ppp = p.pieces_per_package || 1;
+                        const cpp = (p.purchase_cost || 0) / ppp;
+                        const marginPercent = calcMargin(p.sales_cost, cpp);
+                        const bags = bagStockData[p.pid] || 0;
+                        const pieces = pieceStockData[p.pid] || 0;
                         const bigPrice =
-                            product.package_sales_cost && product.package_sales_cost > 0
-                                ? product.package_sales_cost
+                            p.package_sales_cost && p.package_sales_cost > 0
+                                ? p.package_sales_cost
                                 : ppp > 1
-                                ? product.sales_cost * ppp
+                                ? p.sales_cost * ppp
                                 : 0;
 
                         return (
                             <div
-                                key={product.pid}
-                                className="bg-white/95 backdrop-blur-md rounded-2xl p-3.5 border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-blue-300 transition-all flex flex-col justify-between group"
+                                key={p.pid}
+                                className={`bg-white rounded-2xl border overflow-hidden shadow-2xs hover:shadow-md transition-all group flex flex-col justify-between ${
+                                    isSelected ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-slate-200/90'
+                                }`}
                             >
-                                <div>
-                                    <div className="flex items-start justify-between gap-2 mb-2">
-                                        <div className="flex items-center gap-2">
-                                            {product.photo ? (
-                                                <img
-                                                    src={product.photo}
-                                                    alt={product.product_name}
-                                                    className="w-10 h-10 rounded-xl object-cover border border-slate-200"
-                                                />
-                                            ) : (
-                                                <div
-                                                    className={`w-10 h-10 rounded-xl bg-gradient-to-tr ${
-                                                        product.button_ui_color || 'from-blue-500 to-indigo-600'
-                                                    } flex items-center justify-center text-white font-bold text-xs shadow-2xs`}
-                                                >
-                                                    {product.product_name.slice(0, 2).toUpperCase()}
-                                                </div>
-                                            )}
-                                            <div>
-                                                <h4 className="text-xs font-bold text-slate-900 line-clamp-1">{product.product_name}</h4>
-                                                <p className="text-[10px] font-mono text-slate-500">{product.product_code}</p>
-                                            </div>
+                                <div className={`h-24 bg-gradient-to-br ${p.button_ui_color || 'from-blue-400 to-blue-600'} relative flex items-center justify-center overflow-hidden`}>
+                                    {p.photo ? (
+                                        <img
+                                            src={p.photo}
+                                            alt={p.product_name}
+                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                            onError={e => {
+                                                (e.target as HTMLImageElement).src = '/no-image.png';
+                                            }}
+                                        />
+                                    ) : (
+                                        <div className="text-white font-black text-sm uppercase">
+                                            {p.product_name.slice(0, 2)}
                                         </div>
-                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                                            {product.category || 'General'}
-                                        </span>
+                                    )}
+
+                                    {/* Action overlay */}
+                                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button
+                                            onClick={() => openEditModal(p)}
+                                            className="p-1 bg-white/95 rounded-lg text-blue-600 hover:bg-white shadow-xs"
+                                            title="Edit"
+                                        >
+                                            <FiEdit2 size={11} />
+                                        </button>
+                                        <button
+                                            onClick={() => deactivateProduct(p)}
+                                            className={`p-1 bg-white/95 rounded-lg shadow-xs ${p.active ? 'text-amber-600' : 'text-emerald-600'}`}
+                                            title={p.active ? 'Deactivate' : 'Reactivate'}
+                                        >
+                                            {p.active ? <FiEyeOff size={11} /> : <FiEye size={11} />}
+                                        </button>
+                                        <button
+                                            onClick={() => deleteProduct(p)}
+                                            className="p-1 bg-white/95 rounded-lg text-rose-600 hover:bg-white shadow-xs"
+                                            title="Delete"
+                                        >
+                                            <FiTrash2 size={11} />
+                                        </button>
+                                    </div>
+
+                                    {/* Status Badge */}
+                                    <span
+                                        className={`absolute top-2 left-2 px-1.5 py-0.2 rounded-full text-[9px] font-black tracking-wider ${
+                                            p.active ? 'bg-emerald-500 text-white shadow-2xs' : 'bg-slate-600 text-white'
+                                        }`}
+                                    >
+                                        {p.active ? 'ACTIVE' : 'OFF'}
+                                    </span>
+                                </div>
+
+                                <div className="p-2.5 flex-1 flex flex-col justify-between">
+                                    <div>
+                                        <div className="flex items-center justify-between gap-1 mb-1">
+                                            <span className="text-[10px] font-mono font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.2 rounded">
+                                                {p.product_code}
+                                            </span>
+                                            <span className="text-[10px] text-slate-400 font-medium truncate">
+                                                {p.category || 'General'}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs font-black text-slate-900 truncate" title={p.product_name}>
+                                            {p.product_name}
+                                        </p>
                                     </div>
 
                                     {/* Dual-Stock Pills */}
-                                    <div className="flex items-center gap-1.5 my-2.5">
-                                        {ppp > 1 && (
-                                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                                                📦 {bags} {product.purchase_unit}
+                                    <div className="flex items-center gap-1 my-2">
+                                        {ppp > 1 && bags > 0 && (
+                                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                                📦 {bags} {p.purchase_unit}
                                             </span>
                                         )}
-                                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-50 text-sky-800 border border-sky-200">
-                                            🔢 {pieces} {product.sales_unit}
+                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-50 text-sky-800 border border-sky-200">
+                                            🔢 {pieces} {p.sales_unit}
                                         </span>
-                                        <span className="ml-auto text-[10px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+                                        <span className="ml-auto text-[10px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded">
                                             +{marginPercent}%
                                         </span>
                                     </div>
 
                                     {/* Pricing Matrix */}
-                                    <div className="p-2 bg-slate-50 rounded-xl space-y-1 text-[11px] font-mono">
+                                    <div className="p-1.5 bg-slate-50 rounded-xl space-y-0.5 text-[11px] font-mono">
                                         <div className="flex justify-between">
                                             <span className="text-slate-500">Retail Sell:</span>
-                                            <span className="font-bold text-emerald-700">Ksh {formatKsh(product.sales_cost)}</span>
+                                            <span className="font-bold text-emerald-700">{fmtKES(p.sales_cost || 0)}</span>
                                         </div>
                                         {ppp > 1 && bigPrice > 0 && (
                                             <div className="flex justify-between text-indigo-700">
-                                                <span>Big Qty Price:</span>
-                                                <span className="font-bold">Ksh {formatKsh(bigPrice)}</span>
+                                                <span>Big Qty:</span>
+                                                <span className="font-bold">{fmtKES(bigPrice)}</span>
                                             </div>
                                         )}
                                         <div className="flex justify-between text-slate-400 text-[10px]">
                                             <span>Buy Cost:</span>
-                                            <span>Ksh {formatKsh(product.purchase_cost)}</span>
+                                            <span>{fmtKES(p.purchase_cost || 0)}</span>
                                         </div>
-                                    </div>
-                                </div>
-
-                                {/* Action Buttons */}
-                                <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-slate-100">
-                                    <button
-                                        onClick={() => openEditModal(product)}
-                                        className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                                    >
-                                        <FiEdit2 size={12} /> Edit
-                                    </button>
-                                    <div className="flex items-center gap-1">
-                                        <button
-                                            onClick={() => openStockAdjust(product)}
-                                            className="p-1 rounded text-slate-500 hover:text-amber-600 hover:bg-amber-50"
-                                            title="Stock Adjust"
-                                        >
-                                            <FiSliders size={13} />
-                                        </button>
-                                        <button
-                                            onClick={() => deleteProduct(product)}
-                                            className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50"
-                                            title="Delete"
-                                        >
-                                            <FiTrash2 size={13} />
-                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -3290,17 +3268,17 @@ export default function ProductsPage() {
             )}
 
             {/* ━━━ FLOATING PAGINATION FOOTER ━━━ */}
-            <div className="sticky bottom-0 z-30 bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl shadow-[0_-4px_20px_rgba(0,0,0,0.06)] px-4 py-2.5 mt-3">
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5">
-                    <div className="flex items-center gap-2 text-xs text-slate-500">
-                        <span>Showing</span>
+            <div className="sticky bottom-0 z-30 bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl shadow-lg px-4 py-2 mt-2">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+                    <div className="flex items-center gap-2">
+                        <span>Show</span>
                         <select
                             value={perPage}
                             onChange={e => {
                                 setPerPage(parseInt(e.target.value, 10));
                                 setPage(1);
                             }}
-                            className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 outline-none cursor-pointer"
+                            className="px-2 py-0.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 outline-none cursor-pointer"
                         >
                             {[10, 20, 50, 100].map(n => (
                                 <option key={n} value={n}>
@@ -3309,7 +3287,7 @@ export default function ProductsPage() {
                             ))}
                         </select>
                         <span>
-                            of <strong className="font-bold text-slate-800 font-mono">{filtered.length}</strong> catalog items
+                            of <strong className="font-bold text-slate-800 font-mono">{filtered.length}</strong> items
                         </span>
                     </div>
 
@@ -3317,18 +3295,18 @@ export default function ProductsPage() {
                         <button
                             onClick={() => setPage(1)}
                             disabled={page === 1}
-                            className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-blue-600 disabled:opacity-30 transition-all"
+                            className="p-1 rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-blue-600 disabled:opacity-30 transition-all"
                             title="First Page"
                         >
-                            <FiChevronsLeft size={13} />
+                            <FiChevronsLeft size={12} />
                         </button>
                         <button
                             onClick={() => setPage(p => Math.max(1, p - 1))}
                             disabled={page === 1}
-                            className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-blue-600 disabled:opacity-30 transition-all"
+                            className="p-1 rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-blue-600 disabled:opacity-30 transition-all"
                             title="Previous Page"
                         >
-                            <FiChevronLeft size={13} />
+                            <FiChevronLeft size={12} />
                         </button>
                         {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
                             const start = Math.max(1, Math.min(page - 3, totalPages - 6));
@@ -3338,7 +3316,7 @@ export default function ProductsPage() {
                                 <button
                                     key={pg}
                                     onClick={() => setPage(pg)}
-                                    className={`w-7 h-7 rounded-lg text-xs font-bold font-mono transition-all ${
+                                    className={`w-6 h-6 rounded-lg text-[11px] font-bold font-mono transition-all ${
                                         pg === page
                                             ? 'bg-blue-600 text-white shadow-xs'
                                             : 'bg-slate-50 border border-slate-200 text-slate-600 hover:text-blue-600'
@@ -3351,22 +3329,22 @@ export default function ProductsPage() {
                         <button
                             onClick={() => setPage(p => Math.min(totalPages || 1, p + 1))}
                             disabled={page >= totalPages}
-                            className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-blue-600 disabled:opacity-30 transition-all"
+                            className="p-1 rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-blue-600 disabled:opacity-30 transition-all"
                             title="Next Page"
                         >
-                            <FiChevronRight size={13} />
+                            <FiChevronRight size={12} />
                         </button>
                         <button
                             onClick={() => setPage(totalPages || 1)}
                             disabled={page >= totalPages}
-                            className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-blue-600 disabled:opacity-30 transition-all"
+                            className="p-1 rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-blue-600 disabled:opacity-30 transition-all"
                             title="Last Page"
                         >
-                            <FiChevronsRight size={13} />
+                            <FiChevronsRight size={12} />
                         </button>
                     </div>
 
-                    <span className="text-xs text-slate-400 font-mono">
+                    <span className="text-[11px] text-slate-400 font-mono">
                         Page <strong className="font-bold text-slate-700">{page}</strong> of{' '}
                         <strong className="font-bold text-slate-700">{totalPages || 1}</strong>
                     </span>
@@ -3374,83 +3352,78 @@ export default function ProductsPage() {
             </div>
 
 
-            {/* ━━━ ADD / EDIT PRODUCT MODAL (ULTRA PREMIUM WITH VIBRANT ROYAL GRADIENT HEADER - NO DARK HEADER) ━━━ */}
+            {/* ━━━ ADD / EDIT PRODUCT MODAL (ULTRA COMPACT, BALANCED & PROFESSIONAL - NOT TOO BIG, NOT TOO SMALL) ━━━ */}
             {showModal && (
                 <div
-                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-50 animate-fadeIn"
+                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 z-50 animate-fadeIn"
                     onClick={() => setShowModal(false)}
                 >
                     <div
-                        className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[92vh] overflow-hidden border border-slate-100 flex flex-col"
+                        className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[88vh] overflow-hidden border border-slate-100 flex flex-col"
                         onClick={e => e.stopPropagation()}
                     >
-                        
-                        {/* ─── VIBRANT ROYAL GRADIENT HEADER (REPLACED DARK HEADER) ─── */}
-                        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-600 px-6 py-4 text-white shrink-0 flex items-center justify-between shadow-md relative overflow-hidden">
-                            {/* Decorative ambient background accents */}
-                            <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-                            <div className="absolute right-32 -top-10 w-24 h-24 bg-sky-400/20 rounded-full blur-xl pointer-events-none" />
-
-                            <div className="flex items-center gap-3.5 relative z-10">
-                                <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white font-black shadow-inner ring-2 ring-white/25">
-                                    <FiPackage size={22} className="drop-shadow-sm" />
+                        {/* ─── VIBRANT ROYAL GRADIENT HEADER (COMPACT & SLEEK - NO DARK HEADER) ─── */}
+                        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-600 px-5 py-3 text-white shrink-0 flex items-center justify-between shadow-md relative overflow-hidden">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white font-black shadow-inner">
+                                    <FiPackage size={18} />
                                 </div>
                                 <div>
-                                    <div className="flex items-center gap-2">
-                                        <h2 className="text-base sm:text-lg font-black tracking-wide text-white drop-shadow-xs flex items-center gap-2">
-                                            <span>{editingProduct ? '✏️ Edit Catalog Master SKU' : '✨ Register New Inventory Product'}</span>
+                                    <div className="flex items-center gap-1.5">
+                                        <h2 className="text-sm sm:text-base font-black tracking-wide text-white">
+                                            {editingProduct ? 'Edit Catalog Product' : 'Register New Inventory Product'}
                                         </h2>
-                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/30 uppercase tracking-wider font-mono">
-                                            {editingProduct ? 'Update SKU' : 'New Entry'}
+                                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-white/20 text-white font-mono uppercase">
+                                            {editingProduct ? 'Edit' : 'New'}
                                         </span>
                                     </div>
-                                    <p className="text-blue-100 text-xs font-mono mt-0.5 flex items-center gap-2">
+                                    <p className="text-blue-100 text-[11px] font-mono flex items-center gap-1.5">
                                         {editingProduct ? (
-                                            <span className="bg-white/20 px-2 py-0.5 rounded-md font-bold text-white">
+                                            <span className="bg-white/20 px-1.5 py-0.2 rounded font-bold text-white">
                                                 {editingProduct.product_code}
                                             </span>
                                         ) : (
-                                            <span className="bg-white/20 px-2 py-0.5 rounded-md font-bold text-white">
+                                            <span className="bg-white/20 px-1.5 py-0.2 rounded font-bold text-white">
                                                 {previewCode || 'PRD-AUTO'} • Auto-assigned
                                             </span>
                                         )}
-                                        <span className="text-blue-200">•</span>
-                                        <span className="text-white/80">Live Dual-Stock & Profit Intelligence Engine</span>
+                                        <span>•</span>
+                                        <span className="text-white/80">Dual-Stock Matrix &amp; Profit Engine</span>
                                     </p>
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-2 relative z-10">
-                                <span className="hidden sm:inline-block text-[10px] text-blue-200 font-mono bg-white/10 px-2 py-1 rounded-lg">
-                                    Esc to cancel
+                            <div className="flex items-center gap-1.5">
+                                <span className="hidden sm:inline-block text-[10px] text-blue-200 font-mono bg-white/10 px-1.5 py-0.5 rounded">
+                                    Esc
                                 </span>
                                 <button
                                     onClick={() => setShowModal(false)}
-                                    className="p-2 hover:bg-white/20 active:bg-white/30 rounded-xl transition-all text-white/90 hover:text-white"
+                                    className="p-1.5 hover:bg-white/20 rounded-xl transition-all text-white/90 hover:text-white"
                                     title="Close Window (Esc)"
                                 >
-                                    <FiX size={20} />
+                                    <FiX size={18} />
                                 </button>
                             </div>
                         </div>
 
-                        {/* ─── QUICK NAVIGATION TABS SUBHEADER ─── */}
-                        <div className="bg-slate-50 border-b border-slate-200 px-6 py-2 shrink-0 flex items-center gap-1.5 overflow-x-auto scrollbar-none text-xs font-bold text-slate-600">
+                        {/* ─── COMPACT NAVIGATION TABS SUBHEADER ─── */}
+                        <div className="bg-slate-50 border-b border-slate-200 px-5 py-1.5 shrink-0 flex items-center gap-1 overflow-x-auto scrollbar-none text-[11px] font-bold text-slate-600">
                             {[
-                                { id: 'general', label: '📌 1. Basic Info & SKU' },
-                                { id: 'stock', label: '📦 2. Dual-Stock & Packaging' },
-                                { id: 'pricing', label: '💎 3. Pricing & Profit Matrix' },
-                                { id: 'batches', label: `🛡️ 4. Expiry Batches (${productBatches.length})` },
-                                { id: 'tax', label: '⚙️ 5. Tax, Supplier & Safety' },
-                                { id: 'pos', label: '🎨 6. POS Theme & Image' },
+                                { id: 'general', label: 'Basic Info' },
+                                { id: 'stock', label: 'Dual-Stock' },
+                                { id: 'pricing', label: 'Pricing Matrix' },
+                                { id: 'batches', label: `Batches (${productBatches.length})` },
+                                { id: 'tax', label: 'Tax & Safety' },
+                                { id: 'pos', label: 'POS Theme' },
                             ].map(tab => (
                                 <button
                                     key={tab.id}
                                     type="button"
                                     onClick={() => setModalActiveTab(tab.id as any)}
-                                    className={`px-3 py-1.5 rounded-xl transition-all shrink-0 ${
+                                    className={`px-2.5 py-1 rounded-lg transition-all shrink-0 ${
                                         modalActiveTab === tab.id
-                                            ? 'bg-blue-600 text-white shadow-2xs'
+                                            ? 'bg-blue-600 text-white shadow-2xs font-extrabold'
                                             : 'hover:bg-slate-200/70 text-slate-600'
                                     }`}
                                 >
@@ -3459,85 +3432,82 @@ export default function ProductsPage() {
                             ))}
                         </div>
 
-                        {/* ─── MODAL BODY: SCROLLABLE SECTIONS ─── */}
-                        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-6 flex-1">
+                        {/* ─── MODAL BODY: COMPACT SCROLLABLE SECTIONS ─── */}
+                        <form onSubmit={handleSubmit} className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
                             
                             {/* SECTION 1: CORE IDENTIFICATION */}
                             {(modalActiveTab === 'general' || modalActiveTab === 'stock' || modalActiveTab === 'pricing') && (
-                                <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-3.5">
-                                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                                        <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                                            <span>📌 Product Master Identification</span>
+                                <div className="bg-white rounded-2xl border border-slate-200/90 p-3.5 shadow-2xs space-y-2.5">
+                                    <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
+                                        <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                                            <span>Product Master Identification</span>
                                         </h3>
-                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                                            Essential Particulars
-                                        </span>
+                                        <span className="text-[9px] text-slate-400 font-bold uppercase">Particulars</span>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                                        
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                                         {/* Product Name */}
                                         <div className="md:col-span-2">
                                             <label className="block text-xs font-black text-slate-700 mb-1 uppercase tracking-wider">
-                                                🏷️ Product Name <span className="text-rose-500">*</span>
+                                                Product Name <span className="text-rose-500">*</span>
                                             </label>
                                             <input
                                                 type="text"
                                                 value={formData.product_name}
                                                 onChange={e => setFormData({ ...formData, product_name: e.target.value })}
-                                                placeholder="e.g., Sugar 2Kg Mumias Extra Sweet"
+                                                placeholder="e.g., Sugar 2Kg Mumias"
                                                 required
-                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 focus:bg-white outline-none font-bold text-xs"
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 focus:bg-white outline-none font-bold text-xs"
                                             />
                                         </div>
 
-                                        {/* Auto-Assigned PID & Product Code preview */}
+                                        {/* PID & Code Preview */}
                                         {!editingProduct && (
-                                            <div className="md:col-span-2 grid grid-cols-2 gap-3">
+                                            <div className="md:col-span-2 grid grid-cols-2 gap-2">
                                                 <div>
-                                                    <label className="block text-[10px] font-black text-slate-500 mb-1 uppercase tracking-wider">
-                                                        🆔 Master PID
+                                                    <label className="block text-[9px] font-black text-slate-500 mb-0.5 uppercase tracking-wider">
+                                                        Master PID
                                                     </label>
-                                                    <div className="flex items-center gap-2 px-3 py-2 bg-blue-50/70 border border-blue-200 rounded-xl">
+                                                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50/70 border border-blue-200 rounded-xl">
                                                         <span className="font-bold text-blue-700 font-mono text-xs">{previewPid ?? '...'}</span>
-                                                        <span className="ml-auto text-[10px] text-blue-500 italic font-semibold">Auto-assigned</span>
+                                                        <span className="ml-auto text-[9px] text-blue-500 italic">Auto</span>
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <label className="block text-[10px] font-black text-slate-500 mb-1 uppercase tracking-wider">
-                                                        ⚡ Master Code
+                                                    <label className="block text-[9px] font-black text-slate-500 mb-0.5 uppercase tracking-wider">
+                                                        Master Code
                                                     </label>
-                                                    <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50/70 border border-emerald-200 rounded-xl">
+                                                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50/70 border border-emerald-200 rounded-xl">
                                                         <span className="font-bold text-emerald-700 font-mono text-xs">{previewCode || '...'}</span>
-                                                        <span className="ml-auto text-[10px] text-emerald-500 italic font-semibold">Auto-assigned</span>
+                                                        <span className="ml-auto text-[9px] text-emerald-500 italic">Auto</span>
                                                     </div>
                                                 </div>
                                             </div>
                                         )}
 
-                                        {/* Alias / Short Name */}
+                                        {/* Alias */}
                                         <div>
                                             <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">
-                                                📝 Alias / Short Name
+                                                Alias / Short Name
                                             </label>
                                             <input
                                                 type="text"
                                                 value={formData.alias}
                                                 onChange={e => setFormData({ ...formData, alias: e.target.value })}
                                                 placeholder="e.g., Sug2k"
-                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 outline-none text-xs font-bold"
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 outline-none text-xs font-bold"
                                             />
                                         </div>
 
                                         {/* Category */}
                                         <div>
                                             <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">
-                                                📂 Category Department
+                                                Category Department
                                             </label>
                                             <select
                                                 value={formData.category}
                                                 onChange={e => setFormData({ ...formData, category: e.target.value })}
-                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 outline-none text-xs font-bold cursor-pointer"
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 outline-none text-xs font-bold cursor-pointer"
                                             >
                                                 <option value="">Select Category</option>
                                                 {categories.map(c => (
@@ -3548,18 +3518,18 @@ export default function ProductsPage() {
                                             </select>
                                         </div>
 
-                                        {/* Barcode with Auto-Generate Button */}
+                                        {/* Barcode */}
                                         <div>
                                             <div className="flex items-center justify-between mb-1">
                                                 <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                                                    🔍 Barcode / SKU
+                                                    Barcode / SKU
                                                 </label>
                                                 <button
                                                     type="button"
                                                     onClick={() => setFormData({ ...formData, barcode: generateBarcode() })}
                                                     className="text-[10px] font-bold text-blue-600 hover:text-blue-800"
                                                 >
-                                                    ⚡ Generate New
+                                                    Generate
                                                 </button>
                                             </div>
                                             <input
@@ -3567,21 +3537,21 @@ export default function ProductsPage() {
                                                 value={formData.barcode}
                                                 onChange={e => setFormData({ ...formData, barcode: e.target.value })}
                                                 placeholder="Scan or enter code"
-                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 outline-none text-xs font-mono font-bold"
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 outline-none text-xs font-mono font-bold"
                                             />
                                         </div>
 
                                         {/* HS Code */}
                                         <div>
                                             <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">
-                                                📑 HS Code (Tax Tariff)
+                                                HS Code (Taxation)
                                             </label>
                                             <input
                                                 type="text"
                                                 value={formData.hscode}
                                                 onChange={e => setFormData({ ...formData, hscode: e.target.value })}
-                                                placeholder="Optional taxation tariff code"
-                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 outline-none text-xs font-mono font-bold"
+                                                placeholder="Optional tariff code"
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 outline-none text-xs font-mono font-bold"
                                             />
                                         </div>
                                     </div>
@@ -3590,21 +3560,19 @@ export default function ProductsPage() {
 
                             {/* SECTION 2: DUAL-STOCK & PACKAGING EQUATION */}
                             {(modalActiveTab === 'stock' || modalActiveTab === 'general' || modalActiveTab === 'pricing') && (
-                                <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-3.5">
-                                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                                        <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                                            <span>📦 Dual-Stock Ledger & Packaging Multiplier</span>
+                                <div className="bg-white rounded-2xl border border-slate-200/90 p-3.5 shadow-2xs space-y-2.5">
+                                    <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
+                                        <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                                            <span>Packaging Ratio &amp; Stock</span>
                                         </h3>
-                                        <span className="text-[10px] text-amber-600 font-bold uppercase tracking-wider">
-                                            Ratio & Opening Stock
-                                        </span>
+                                        <span className="text-[9px] text-amber-600 font-bold uppercase">Dual-Stock</span>
                                     </div>
 
                                     {/* Packaging Equation Badge */}
-                                    <div className="p-3 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-transparent rounded-xl border border-amber-200 flex items-center justify-between text-xs">
-                                        <span className="font-bold text-amber-900 flex items-center gap-2">
-                                            <span>📦 Packaging Equation:</span>
-                                            <strong className="font-mono text-sm">
+                                    <div className="p-2.5 bg-amber-50/70 rounded-xl border border-amber-200 flex items-center justify-between text-xs">
+                                        <span className="font-bold text-amber-900 flex items-center gap-1.5">
+                                            <span>Packaging Equation:</span>
+                                            <strong className="font-mono">
                                                 1 {formData.purchase_unit} = {formData.pieces_per_package || 1}{' '}
                                                 {formData.sales_unit?.toLowerCase() === formData.purchase_unit?.toLowerCase()
                                                     ? 'Piece'
@@ -3612,21 +3580,20 @@ export default function ProductsPage() {
                                                 s
                                             </strong>
                                         </span>
-                                        <span className="text-[11px] text-amber-700 font-semibold hidden sm:inline">
-                                            Auto-converts bulk packages when pieces deplete
+                                        <span className="text-[10px] text-amber-700 font-semibold hidden sm:inline">
+                                            Auto-converts bulk packages when pieces reach 0
                                         </span>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-                                        {/* Purchase Unit */}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
                                         <div>
-                                            <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">
-                                                📦 Purchase Unit (Bulk)
+                                            <label className="block text-[11px] font-bold text-slate-700 mb-1 uppercase tracking-wider">
+                                                Purchase Unit (Bulk)
                                             </label>
                                             <select
                                                 value={formData.purchase_unit}
                                                 onChange={e => setFormData({ ...formData, purchase_unit: e.target.value })}
-                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 outline-none text-xs font-bold cursor-pointer"
+                                                className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 outline-none text-xs font-bold cursor-pointer"
                                             >
                                                 {units.map(u => (
                                                     <option key={u.unit_id} value={u.unit_name}>
@@ -3636,15 +3603,14 @@ export default function ProductsPage() {
                                             </select>
                                         </div>
 
-                                        {/* Sales Unit */}
                                         <div>
-                                            <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">
-                                                🏷️ Sales Unit (Loose)
+                                            <label className="block text-[11px] font-bold text-slate-700 mb-1 uppercase tracking-wider">
+                                                Sales Unit (Loose)
                                             </label>
                                             <select
                                                 value={formData.sales_unit}
                                                 onChange={e => setFormData({ ...formData, sales_unit: e.target.value })}
-                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 outline-none text-xs font-bold cursor-pointer"
+                                                className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 outline-none text-xs font-bold cursor-pointer"
                                             >
                                                 {units.map(u => (
                                                     <option key={u.unit_id} value={u.unit_name}>
@@ -3654,27 +3620,26 @@ export default function ProductsPage() {
                                             </select>
                                         </div>
 
-                                        {/* Multiplier (Pieces per Package) */}
                                         <div>
-                                            <label className="block text-xs font-bold text-orange-800 mb-1 uppercase tracking-wider">
-                                                🔢 Pcs per {formData.purchase_unit}
+                                            <label className="block text-[11px] font-bold text-orange-800 mb-1 uppercase tracking-wider">
+                                                Pcs per {formData.purchase_unit}
                                             </label>
                                             <input
                                                 type="number"
                                                 value={formData.pieces_per_package}
                                                 onChange={e => setFormData({ ...formData, pieces_per_package: parseInt(e.target.value, 10) || 1 })}
                                                 min="1"
-                                                className="w-full px-3.5 py-2.5 bg-orange-50 border border-orange-300 rounded-xl focus:border-orange-500 outline-none text-xs font-mono font-black text-orange-900 text-center"
+                                                className="w-full px-2.5 py-1.5 bg-orange-50 border border-orange-300 rounded-xl focus:border-orange-500 outline-none text-xs font-mono font-black text-orange-900 text-center"
                                             />
                                         </div>
                                     </div>
 
                                     {/* Opening Stock Inputs (Only on Add) */}
                                     {!editingProduct ? (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-2 border-t border-slate-100">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-2 border-t border-slate-100">
                                             <div>
                                                 <label className="block text-xs font-bold text-amber-700 mb-1 uppercase tracking-wider">
-                                                    📦 Opening {formData.purchase_unit}s (Bulk Boxes / Bags)
+                                                    Opening {formData.purchase_unit}s (Bulk Boxes / Bags)
                                                 </label>
                                                 <input
                                                     type="number"
@@ -3682,12 +3647,12 @@ export default function ProductsPage() {
                                                     onChange={e => setOpeningBags(Number(e.target.value))}
                                                     min="0"
                                                     placeholder="e.g. 5"
-                                                    className="w-full px-3.5 py-2.5 bg-amber-50/60 border border-amber-200 rounded-xl focus:border-amber-500 outline-none text-xs font-mono font-black text-amber-900 text-center"
+                                                    className="w-full px-3 py-2 bg-amber-50/60 border border-amber-200 rounded-xl focus:border-amber-500 outline-none text-xs font-mono font-black text-amber-900 text-center"
                                                 />
                                             </div>
                                             <div>
                                                 <label className="block text-xs font-bold text-sky-700 mb-1 uppercase tracking-wider">
-                                                    🔢 Opening Loose Pieces ({formData.sales_unit}s)
+                                                    Opening Loose Pieces ({formData.sales_unit}s)
                                                 </label>
                                                 <input
                                                     type="number"
@@ -3695,31 +3660,20 @@ export default function ProductsPage() {
                                                     onChange={e => setOpeningPieces(Number(e.target.value))}
                                                     min="0"
                                                     placeholder="e.g. 20"
-                                                    className="w-full px-3.5 py-2.5 bg-sky-50/60 border border-sky-200 rounded-xl focus:border-sky-500 outline-none text-xs font-mono font-black text-sky-900 text-center"
+                                                    className="w-full px-3 py-2 bg-sky-50/60 border border-sky-200 rounded-xl focus:border-sky-500 outline-none text-xs font-mono font-black text-sky-900 text-center"
                                                 />
                                             </div>
-
-                                            {/* Equivalent total preview */}
-                                            {(openingBags > 0 || openingPieces > 0) && (
-                                                <div className="md:col-span-2 p-2.5 bg-slate-50 rounded-xl text-center text-xs font-mono text-slate-700">
-                                                    📊 Initial Stock Count:{' '}
-                                                    <strong className="text-blue-700">
-                                                        {openingBags * (formData.pieces_per_package || 1) + openingPieces} total pieces
-                                                    </strong>{' '}
-                                                    ({openingBags} bulk {formData.purchase_unit}s + {openingPieces} loose pieces)
-                                                </div>
-                                            )}
                                         </div>
                                     ) : (
                                         <div className="pt-2 border-t border-slate-100">
                                             <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">
-                                                📊 Current Ledger Stock
+                                                Current Ledger Stock
                                             </label>
-                                            <div className="flex gap-2.5">
-                                                <div className="flex-1 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl text-xs font-black text-amber-900 font-mono">
+                                            <div className="flex gap-2">
+                                                <div className="flex-1 px-2.5 py-1.5 bg-amber-50 border border-amber-200 rounded-xl text-xs font-black text-amber-900 font-mono">
                                                     📦 {bagStockData[editingProduct.pid] || 0} {editingProduct.purchase_unit}(s)
                                                 </div>
-                                                <div className="flex-1 px-3 py-2 bg-sky-50 border border-sky-200 rounded-xl text-xs font-black text-sky-900 font-mono">
+                                                <div className="flex-1 px-2.5 py-1.5 bg-sky-50 border border-sky-200 rounded-xl text-xs font-black text-sky-900 font-mono">
                                                     🔢 {pieceStockData[editingProduct.pid] || 0} {editingProduct.sales_unit}(s)
                                                 </div>
                                             </div>
@@ -3730,22 +3684,19 @@ export default function ProductsPage() {
 
                             {/* SECTION 3: PRICING & LIVE PROFIT INTELLIGENCE MATRIX */}
                             {(modalActiveTab === 'pricing' || modalActiveTab === 'general' || modalActiveTab === 'stock') && (
-                                <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-3.5">
-                                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                                        <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                                            <span>💎 Pricing & Live Profit Intelligence Matrix</span>
+                                <div className="bg-white rounded-2xl border border-slate-200/90 p-3.5 shadow-2xs space-y-2.5">
+                                    <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
+                                        <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                                            <span>Pricing &amp; Live Profit Matrix</span>
                                         </h3>
-                                        <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">
-                                            Dual-Pricing & Margins
-                                        </span>
+                                        <span className="text-[9px] text-emerald-600 font-bold uppercase">Dual-Pricing</span>
                                     </div>
 
-                                    {/* 5-Column Pricing Inputs */}
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                        {/* Buy Price */}
+                                    {/* 4-Column Pricing Inputs */}
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                                         <div>
                                             <label className="block text-[10px] font-bold text-slate-600 mb-1 uppercase tracking-wider">
-                                                💵 Buy Price / {formData.purchase_unit}
+                                                Buy Price / {formData.purchase_unit}
                                             </label>
                                             <input
                                                 type="number"
@@ -3753,14 +3704,13 @@ export default function ProductsPage() {
                                                 onChange={e => setFormData({ ...formData, purchase_cost: parseFloat(e.target.value) || 0 })}
                                                 min="0"
                                                 step="0.01"
-                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 outline-none focus:border-blue-500"
+                                                className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 outline-none focus:border-blue-500"
                                             />
                                         </div>
 
-                                        {/* Sell Price per Piece */}
                                         <div>
                                             <label className="block text-[10px] font-bold text-emerald-700 mb-1 uppercase tracking-wider">
-                                                💎 Sell Price / {formData.sales_unit}
+                                                Sell Price / {formData.sales_unit}
                                             </label>
                                             <input
                                                 type="number"
@@ -3768,14 +3718,13 @@ export default function ProductsPage() {
                                                 onChange={e => setFormData({ ...formData, sales_cost: parseFloat(e.target.value) || 0 })}
                                                 min="0"
                                                 step="0.01"
-                                                className="w-full px-3 py-2 bg-emerald-50/70 border border-emerald-300 rounded-xl text-xs font-mono font-black text-emerald-800 outline-none focus:border-emerald-500"
+                                                className="w-full px-2.5 py-1.5 bg-emerald-50/70 border border-emerald-300 rounded-xl text-xs font-mono font-black text-emerald-800 outline-none focus:border-emerald-500"
                                             />
                                         </div>
 
-                                        {/* Big Qty Price (Box Selling Price) */}
                                         <div>
                                             <label className="block text-[10px] font-bold text-indigo-700 mb-1 uppercase tracking-wider">
-                                                📦 Big Qty Price / {formData.purchase_unit}
+                                                Big Qty / {formData.purchase_unit}
                                             </label>
                                             <input
                                                 type="number"
@@ -3784,14 +3733,13 @@ export default function ProductsPage() {
                                                 min="0"
                                                 step="0.01"
                                                 placeholder={formData.pieces_per_package > 1 ? (formData.sales_cost * formData.pieces_per_package).toString() : '0'}
-                                                className="w-full px-3 py-2 bg-indigo-50/70 border border-indigo-300 rounded-xl text-xs font-mono font-black text-indigo-800 outline-none focus:border-indigo-500"
+                                                className="w-full px-2.5 py-1.5 bg-indigo-50/70 border border-indigo-300 rounded-xl text-xs font-mono font-black text-indigo-800 outline-none focus:border-indigo-500"
                                             />
                                         </div>
 
-                                        {/* Wholesale Price */}
                                         <div>
                                             <label className="block text-[10px] font-bold text-purple-700 mb-1 uppercase tracking-wider">
-                                                🤝 Wholesale / {formData.sales_unit}
+                                                Wholesale / {formData.sales_unit}
                                             </label>
                                             <input
                                                 type="number"
@@ -3800,38 +3748,35 @@ export default function ProductsPage() {
                                                 min="0"
                                                 step="0.01"
                                                 placeholder="0.00"
-                                                className="w-full px-3 py-2 bg-purple-50/70 border border-purple-200 rounded-xl text-xs font-mono font-bold text-purple-700 outline-none focus:border-purple-500"
+                                                className="w-full px-2.5 py-1.5 bg-purple-50/70 border border-purple-200 rounded-xl text-xs font-mono font-bold text-purple-700 outline-none focus:border-purple-500"
                                             />
                                         </div>
                                     </div>
 
-                                    {/* Editable Cost Per Piece Section */}
+                                    {/* Cost per piece override */}
                                     {formData.pieces_per_package > 1 && (
-                                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                                        <div className="p-2 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between text-xs">
                                             <div>
-                                                <span className="font-bold text-slate-700">Calculated Cost Per Piece:</span>{' '}
+                                                <span className="font-bold text-slate-700">Cost Per Piece:</span>{' '}
                                                 <span className="font-mono font-black text-blue-700">
                                                     Ksh {(formData.purchase_cost / formData.pieces_per_package).toFixed(2)}
                                                 </span>
-                                                <span className="text-slate-400 text-[10px] ml-1.5">
-                                                    (Ksh {formData.purchase_cost} ÷ {formData.pieces_per_package} pcs)
-                                                </span>
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[10px] text-slate-500 font-bold uppercase">Custom Override:</span>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="text-[10px] text-slate-400 font-bold uppercase">Override:</span>
                                                 <input
                                                     type="number"
                                                     value={costPerPieceOverride !== null ? costPerPieceOverride : ''}
                                                     onChange={e => setCostPerPieceOverride(e.target.value ? parseFloat(e.target.value) : null)}
                                                     placeholder="Auto"
                                                     step="0.01"
-                                                    className="w-20 px-2 py-1 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-center outline-none"
+                                                    className="w-16 px-1.5 py-0.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-center outline-none"
                                                 />
                                             </div>
                                         </div>
                                     )}
 
-                                    {/* ── LIVE PROFIT INTELLIGENCE CARDS INSIDE MODAL ── */}
+                                    {/* 3 Compact Live Profit Cards */}
                                     {(() => {
                                         const ppp = formData.pieces_per_package || 1;
                                         const cpp = costPerPieceOverride !== null ? costPerPieceOverride : (ppp > 1 ? formData.purchase_cost / ppp : formData.purchase_cost);
@@ -3846,44 +3791,31 @@ export default function ProductsPage() {
                                         const boxMargin = calcMargin(boxSell, formData.purchase_cost);
 
                                         return (
-                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-slate-100">
-                                                {/* Retail Profit Card */}
-                                                <div className="bg-emerald-50 rounded-xl p-2.5 border border-emerald-200">
-                                                    <div className="text-[9px] font-bold text-emerald-800 uppercase tracking-wider">
-                                                        💎 Loose Retail Margin
+                                            <div className="grid grid-cols-3 gap-2 pt-1 border-t border-slate-100">
+                                                <div className="bg-emerald-50 rounded-xl p-2 border border-emerald-200">
+                                                    <div className="text-[9px] font-bold text-emerald-800 uppercase">Retail Margin</div>
+                                                    <div className="text-xs font-black text-emerald-900 font-mono mt-0.5">
+                                                        +{fmtKES(retailProfit)}/pc
                                                     </div>
-                                                    <div className="text-sm font-black text-emerald-900 font-mono mt-0.5">
-                                                        +Ksh {retailProfit.toFixed(2)}/pc
+                                                    <div className="text-[9px] font-bold text-emerald-700">+{retailMargin}% Gross</div>
+                                                </div>
+
+                                                <div className="bg-purple-50 rounded-xl p-2 border border-purple-200">
+                                                    <div className="text-[9px] font-bold text-purple-800 uppercase">Wholesale</div>
+                                                    <div className="text-xs font-black text-purple-900 font-mono mt-0.5">
+                                                        {formData.wholesale_price > 0 ? `+${fmtKES(wsProfit)}/pc` : '—'}
                                                     </div>
-                                                    <div className="text-[10px] font-bold text-emerald-700 mt-0.5">
-                                                        +{retailMargin}% Gross Margin
+                                                    <div className="text-[9px] font-bold text-purple-700">
+                                                        {formData.wholesale_price > 0 ? `+${wsMargin}% Margin` : 'None'}
                                                     </div>
                                                 </div>
 
-                                                {/* Wholesale Margin Card */}
-                                                <div className="bg-purple-50 rounded-xl p-2.5 border border-purple-200">
-                                                    <div className="text-[9px] font-bold text-purple-800 uppercase tracking-wider">
-                                                        🤝 Wholesale Margin
+                                                <div className="bg-indigo-50 rounded-xl p-2 border border-indigo-200">
+                                                    <div className="text-[9px] font-bold text-indigo-800 uppercase">Full Box</div>
+                                                    <div className="text-xs font-black text-indigo-900 font-mono mt-0.5">
+                                                        +{fmtKES(boxProfit)}/box
                                                     </div>
-                                                    <div className="text-sm font-black text-purple-900 font-mono mt-0.5">
-                                                        {formData.wholesale_price > 0 ? `+Ksh ${wsProfit.toFixed(2)}/pc` : '—'}
-                                                    </div>
-                                                    <div className="text-[10px] font-bold text-purple-700 mt-0.5">
-                                                        {formData.wholesale_price > 0 ? `+${wsMargin}% Margin` : 'No Wholesale Set'}
-                                                    </div>
-                                                </div>
-
-                                                {/* Big Box Margin Card */}
-                                                <div className="bg-indigo-50 rounded-xl p-2.5 border border-indigo-200">
-                                                    <div className="text-[9px] font-bold text-indigo-800 uppercase tracking-wider">
-                                                        📦 Full Box / Pack Margin
-                                                    </div>
-                                                    <div className="text-sm font-black text-indigo-900 font-mono mt-0.5">
-                                                        +Ksh {boxProfit.toFixed(2)}/box
-                                                    </div>
-                                                    <div className="text-[10px] font-bold text-indigo-700 mt-0.5">
-                                                        +{boxMargin}% Box Markup
-                                                    </div>
+                                                    <div className="text-[9px] font-bold text-indigo-700">+{boxMargin}% Markup</div>
                                                 </div>
                                             </div>
                                         );
@@ -3893,12 +3825,12 @@ export default function ProductsPage() {
 
                             {/* SECTION 4: BATCH & EXPIRY MANAGEMENT SUITE */}
                             {(modalActiveTab === 'batches' || modalActiveTab === 'general') && (
-                                <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-3.5">
-                                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                                        <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                                            <span>🛡️ Expiry & Lot Batches Management</span>
-                                            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-800">
-                                                {productBatches.length} Batches Active
+                                <div className="bg-white rounded-2xl border border-slate-200/90 p-3.5 shadow-2xs space-y-2.5">
+                                    <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
+                                        <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                                            <span>Expiry &amp; Lot Batches</span>
+                                            <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-orange-100 text-orange-800">
+                                                {productBatches.length} Batches
                                             </span>
                                         </h3>
                                         <button
@@ -3916,43 +3848,30 @@ export default function ProductsPage() {
                                                 setEditingBatchIdx(null);
                                                 setShowBatchForm(true);
                                             }}
-                                            className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1"
+                                            className="px-2.5 py-1 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1"
                                         >
-                                            <FiPlus size={12} /> Add New Batch
+                                            <FiPlus size={11} /> Add Batch
                                         </button>
                                     </div>
 
                                     {/* Inline Add / Edit Batch Form */}
                                     {showBatchForm && (
-                                        <div className="bg-orange-50/70 rounded-2xl p-3.5 border border-orange-200 space-y-3 animate-fadeIn">
-                                            <div className="flex items-center justify-between pb-1.5 border-b border-orange-200/60">
-                                                <span className="text-xs font-black text-orange-950 uppercase tracking-wider">
-                                                    {editingBatchIdx !== null ? '✏️ Edit Batch Record' : '✨ Add New Product Batch'}
-                                                </span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowBatchForm(false)}
-                                                    className="text-orange-700 hover:text-orange-900"
-                                                >
-                                                    <FiX size={14} />
-                                                </button>
-                                            </div>
-
-                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                        <div className="bg-orange-50/70 rounded-xl p-3 border border-orange-200 space-y-2 animate-fadeIn">
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                                 <div>
-                                                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
-                                                        Batch Number
+                                                    <label className="block text-[9px] font-bold text-slate-600 uppercase mb-0.5">
+                                                        Batch #
                                                     </label>
                                                     <input
                                                         type="text"
                                                         value={batchForm.batch_number}
                                                         onChange={e => setBatchForm({ ...batchForm, batch_number: e.target.value })}
-                                                        placeholder="Auto-generated"
-                                                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold outline-none"
+                                                        placeholder="Auto"
+                                                        className="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold outline-none"
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-[10px] font-bold text-rose-600 uppercase mb-1">
+                                                    <label className="block text-[9px] font-bold text-rose-600 uppercase mb-0.5">
                                                         Expiry Date *
                                                     </label>
                                                     <input
@@ -3960,11 +3879,11 @@ export default function ProductsPage() {
                                                         value={batchForm.expiry_date}
                                                         onChange={e => setBatchForm({ ...batchForm, expiry_date: e.target.value })}
                                                         required
-                                                        className="w-full px-3 py-2 bg-white border border-rose-300 rounded-xl text-xs font-bold text-slate-800 outline-none"
+                                                        className="w-full px-2 py-1 bg-white border border-rose-300 rounded-lg text-xs font-bold text-slate-800 outline-none"
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
+                                                    <label className="block text-[9px] font-bold text-slate-600 uppercase mb-0.5">
                                                         Supplier
                                                     </label>
                                                     <input
@@ -3972,14 +3891,14 @@ export default function ProductsPage() {
                                                         value={batchForm.supplier_name}
                                                         onChange={e => setBatchForm({ ...batchForm, supplier_name: e.target.value })}
                                                         placeholder="Optional"
-                                                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none"
+                                                        className="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold outline-none"
                                                     />
                                                 </div>
                                             </div>
 
-                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                            <div className="grid grid-cols-4 gap-2">
                                                 <div>
-                                                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
+                                                    <label className="block text-[9px] font-bold text-slate-600 uppercase mb-0.5">
                                                         Qty Received
                                                     </label>
                                                     <input
@@ -3993,58 +3912,58 @@ export default function ProductsPage() {
                                                                 qty_remaining: editingBatchIdx !== null ? batchForm.qty_remaining : val,
                                                             });
                                                         }}
-                                                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold outline-none"
+                                                        className="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold outline-none"
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
-                                                        Qty Remaining
+                                                    <label className="block text-[9px] font-bold text-slate-600 uppercase mb-0.5">
+                                                        Qty Left
                                                     </label>
                                                     <input
                                                         type="number"
                                                         value={batchForm.qty_remaining}
                                                         onChange={e => setBatchForm({ ...batchForm, qty_remaining: Number(e.target.value) || 0 })}
-                                                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold outline-none"
+                                                        className="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold outline-none"
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
-                                                        Cost Price (Ksh)
+                                                    <label className="block text-[9px] font-bold text-slate-600 uppercase mb-0.5">
+                                                        Cost
                                                     </label>
                                                     <input
                                                         type="number"
                                                         value={batchForm.cost_price}
                                                         onChange={e => setBatchForm({ ...batchForm, cost_price: Number(e.target.value) || 0 })}
-                                                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold outline-none"
+                                                        className="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold outline-none"
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
-                                                        Sell Price (Ksh)
+                                                    <label className="block text-[9px] font-bold text-slate-600 uppercase mb-0.5">
+                                                        Sell
                                                     </label>
                                                     <input
                                                         type="number"
                                                         value={batchForm.selling_price}
                                                         onChange={e => setBatchForm({ ...batchForm, selling_price: Number(e.target.value) || 0 })}
-                                                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold outline-none"
+                                                        className="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold outline-none"
                                                     />
                                                 </div>
                                             </div>
 
-                                            <div className="flex justify-end gap-2 pt-1">
+                                            <div className="flex justify-end gap-1.5 pt-1">
                                                 <button
                                                     type="button"
                                                     onClick={() => setShowBatchForm(false)}
-                                                    className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 rounded-xl text-xs font-bold text-slate-700"
+                                                    className="px-2.5 py-1 bg-slate-200 hover:bg-slate-300 rounded-lg text-xs font-bold text-slate-700"
                                                 >
                                                     Cancel
                                                 </button>
                                                 <button
                                                     type="button"
                                                     onClick={handleSaveBatch}
-                                                    className="px-3.5 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold shadow-xs"
+                                                    className="px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold shadow-xs"
                                                 >
-                                                    {editingBatchIdx !== null ? 'Save Changes' : 'Queue Batch'}
+                                                    {editingBatchIdx !== null ? 'Save Batch' : 'Queue Batch'}
                                                 </button>
                                             </div>
                                         </div>
@@ -4054,49 +3973,49 @@ export default function ProductsPage() {
                                     {productBatches.length > 0 ? (
                                         <div className="overflow-x-auto rounded-xl border border-slate-200">
                                             <table className="w-full text-left text-xs divide-y divide-slate-100">
-                                                <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-600">
+                                                <thead className="bg-slate-50 text-[9px] font-black uppercase text-slate-600">
                                                     <tr>
-                                                        <th className="p-2.5">Batch #</th>
-                                                        <th className="p-2.5">Expiry Date</th>
-                                                        <th className="p-2.5 text-center">Remaining</th>
-                                                        <th className="p-2.5 text-right">Cost</th>
-                                                        <th className="p-2.5 text-right">Sell</th>
-                                                        <th className="p-2.5 text-center">Status</th>
-                                                        <th className="p-2.5 text-center">Actions</th>
+                                                        <th className="p-2">Batch #</th>
+                                                        <th className="p-2">Expiry</th>
+                                                        <th className="p-2 text-center">Left</th>
+                                                        <th className="p-2 text-right">Cost</th>
+                                                        <th className="p-2 text-right">Sell</th>
+                                                        <th className="p-2 text-center">Status</th>
+                                                        <th className="p-2 text-center">Actions</th>
                                                     </tr>
                                                 </thead>
-                                                <tbody className="divide-y divide-slate-100 font-mono">
+                                                <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
                                                     {productBatches.map((b, idx) => {
                                                         const status = getBatchStatus(b.expiry_date);
                                                         return (
                                                             <tr key={idx} className="hover:bg-slate-50">
-                                                                <td className="p-2.5 font-bold text-slate-800">{b.batch_number}</td>
-                                                                <td className="p-2.5 text-slate-600">{b.expiry_date}</td>
-                                                                <td className="p-2.5 text-center font-bold text-blue-700">{b.qty_remaining}</td>
-                                                                <td className="p-2.5 text-right text-slate-600">Ksh {formatKsh(b.cost_price)}</td>
-                                                                <td className="p-2.5 text-right text-emerald-700 font-bold">Ksh {formatKsh(b.selling_price)}</td>
-                                                                <td className="p-2.5 text-center">
+                                                                <td className="p-2 font-bold text-slate-800">{b.batch_number}</td>
+                                                                <td className="p-2 text-slate-600">{b.expiry_date}</td>
+                                                                <td className="p-2 text-center font-bold text-blue-700">{b.qty_remaining}</td>
+                                                                <td className="p-2 text-right text-slate-600">{fmtKES(b.cost_price)}</td>
+                                                                <td className="p-2 text-right text-emerald-700 font-bold">{fmtKES(b.selling_price)}</td>
+                                                                <td className="p-2 text-center">
                                                                     <span
-                                                                        className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold border ${status.bg} ${status.color} ${status.border}`}
+                                                                        className={`inline-block px-1.5 py-0.2 rounded text-[9px] font-bold border ${status.bg} ${status.color} ${status.border}`}
                                                                     >
                                                                         {status.label}
                                                                     </span>
                                                                 </td>
-                                                                <td className="p-2.5 text-center">
+                                                                <td className="p-2 text-center">
                                                                     <div className="flex items-center justify-center gap-1 font-sans">
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => handleEditBatch(idx)}
                                                                             className="p-1 text-blue-600 hover:bg-blue-50 rounded"
                                                                         >
-                                                                            <FiEdit2 size={12} />
+                                                                            <FiEdit2 size={11} />
                                                                         </button>
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => handleDeleteBatch(idx)}
                                                                             className="p-1 text-rose-600 hover:bg-rose-50 rounded"
                                                                         >
-                                                                            <FiTrash2 size={12} />
+                                                                            <FiTrash2 size={11} />
                                                                         </button>
                                                                     </div>
                                                                 </td>
@@ -4107,8 +4026,8 @@ export default function ProductsPage() {
                                             </table>
                                         </div>
                                     ) : (
-                                        <div className="p-4 bg-slate-50 rounded-xl text-center text-xs text-slate-500">
-                                            No tracking batches recorded for this product. Click <strong>Add New Batch</strong> above to register expiry dates.
+                                        <div className="p-3 bg-slate-50 rounded-xl text-center text-xs text-slate-400">
+                                            No tracking batches recorded for this product.
                                         </div>
                                     )}
                                 </div>
@@ -4116,26 +4035,23 @@ export default function ProductsPage() {
 
                             {/* SECTION 5: TAX, SUPPLIER & REORDER SAFETY */}
                             {(modalActiveTab === 'tax' || modalActiveTab === 'general') && (
-                                <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-3.5">
-                                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                                        <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                                            <span>⚙️ Taxation, Logistics & Inventory Safety</span>
+                                <div className="bg-white rounded-2xl border border-slate-200/90 p-3.5 shadow-2xs space-y-2.5">
+                                    <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
+                                        <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                                            <span>Taxation &amp; Logistics</span>
                                         </h3>
-                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                                            Compliance & Reorder
-                                        </span>
+                                        <span className="text-[9px] text-slate-400 font-bold uppercase">Compliance</span>
                                     </div>
 
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                                        {/* VAT Commodity */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                                         <div>
                                             <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">
-                                                ⚖️ VAT Commodity Type
+                                                VAT Commodity
                                             </label>
                                             <select
                                                 value={formData.vat_commodity}
                                                 onChange={e => setFormData({ ...formData, vat_commodity: e.target.value })}
-                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 outline-none text-xs font-bold cursor-pointer"
+                                                className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 outline-none text-xs font-bold cursor-pointer"
                                             >
                                                 {vatOptions.map(v => (
                                                     <option key={v} value={v}>
@@ -4145,35 +4061,32 @@ export default function ProductsPage() {
                                             </select>
                                         </div>
 
-                                        {/* Reorder Point */}
                                         <div>
                                             <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">
-                                                ⚠️ Reorder Safety Threshold
+                                                Reorder Safety Point
                                             </label>
                                             <input
                                                 type="number"
                                                 value={formData.reorder_point}
                                                 onChange={e => setFormData({ ...formData, reorder_point: parseInt(e.target.value, 10) || 0 })}
                                                 min="0"
-                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 outline-none text-xs font-mono font-bold"
+                                                className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 outline-none text-xs font-mono font-bold"
                                             />
-                                            <p className="text-[9px] text-slate-400 mt-1">Triggers low stock alert when stock drops below this number</p>
                                         </div>
 
-                                        {/* Supplier */}
                                         <div>
                                             <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">
-                                                🏢 Assigned Supplier
+                                                Supplier
                                             </label>
                                             <select
                                                 value={formData.supplier_name}
                                                 onChange={e => setFormData({ ...formData, supplier_name: e.target.value })}
-                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 outline-none text-xs font-bold cursor-pointer"
+                                                className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 outline-none text-xs font-bold cursor-pointer"
                                             >
                                                 <option value="">Select Supplier</option>
                                                 {suppliers.map(s => (
                                                     <option key={s.supplier_id} value={s.supplier_name}>
-                                                        {s.supplier_name} {s.is_kitchen ? '🍳 (Kitchen)' : ''}
+                                                        {s.supplier_name} {s.is_kitchen ? '(Kitchen)' : ''}
                                                     </option>
                                                 ))}
                                             </select>
@@ -4184,22 +4097,20 @@ export default function ProductsPage() {
 
                             {/* SECTION 6: POS THEME & IMAGE */}
                             {(modalActiveTab === 'pos' || modalActiveTab === 'general') && (
-                                <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-3.5">
-                                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                                        <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                                            <span>🎨 POS Cashier Tile Theme & Image Presentation</span>
+                                <div className="bg-white rounded-2xl border border-slate-200/90 p-3.5 shadow-2xs space-y-2.5">
+                                    <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
+                                        <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                                            <span>POS Tile Palette &amp; Image</span>
                                         </h3>
-                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                                            14 Color Presets
-                                        </span>
+                                        <span className="text-[9px] text-slate-400 font-bold uppercase">Appearance</span>
                                     </div>
 
                                     {/* 14 POS Color Gradient Presets */}
                                     <div>
-                                        <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider">
-                                            Select Cashier Tile Gradient
+                                        <label className="block text-[11px] font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
+                                            Tile Gradient Swatch
                                         </label>
-                                        <div className="flex items-center gap-2 flex-wrap">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
                                             {colorPresets.map(preset => {
                                                 const isSelected = formData.button_ui_color === preset.gradient;
                                                 return (
@@ -4207,8 +4118,8 @@ export default function ProductsPage() {
                                                         key={preset.name}
                                                         type="button"
                                                         onClick={() => setFormData({ ...formData, button_ui_color: preset.gradient })}
-                                                        className={`w-7 h-7 rounded-xl bg-gradient-to-tr ${preset.gradient} transition-transform ${
-                                                            isSelected ? 'scale-125 ring-2 ring-blue-600 ring-offset-2 shadow-md' : 'hover:scale-110 opacity-80 hover:opacity-100'
+                                                        className={`w-6 h-6 rounded-lg bg-gradient-to-tr ${preset.gradient} transition-transform ${
+                                                            isSelected ? 'scale-125 ring-2 ring-blue-600 ring-offset-1 shadow-xs' : 'opacity-80 hover:opacity-100'
                                                         }`}
                                                         title={preset.name}
                                                     />
@@ -4217,37 +4128,24 @@ export default function ProductsPage() {
                                         </div>
                                     </div>
 
-                                    {/* Image Upload Zone */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2 border-t border-slate-100">
+                                    {/* Image & URL */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 border-t border-slate-100">
                                         <div>
-                                            <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">
-                                                🖼️ Product Photo / Image URL
+                                            <label className="block text-[11px] font-bold text-slate-700 mb-1 uppercase tracking-wider">
+                                                Image URL
                                             </label>
-                                            <div className="flex gap-2">
-                                                <input
-                                                    type="text"
-                                                    value={formData.photo}
-                                                    onChange={e => setFormData({ ...formData, photo: e.target.value })}
-                                                    placeholder="Paste image URL https://..."
-                                                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono outline-none focus:border-blue-500"
-                                                />
-                                                {formData.photo && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setFormData({ ...formData, photo: '' })}
-                                                        className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl"
-                                                        title="Remove Image"
-                                                    >
-                                                        <FiTrash2 size={14} />
-                                                    </button>
-                                                )}
-                                            </div>
+                                            <input
+                                                type="text"
+                                                value={formData.photo}
+                                                onChange={e => setFormData({ ...formData, photo: e.target.value })}
+                                                placeholder="https://..."
+                                                className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono outline-none focus:border-blue-500"
+                                            />
                                         </div>
 
-                                        {/* Image Preview Tile */}
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-2.5">
                                             <div
-                                                className={`w-14 h-14 rounded-2xl bg-gradient-to-tr ${formData.button_ui_color} flex items-center justify-center text-white font-black text-sm shadow-md overflow-hidden shrink-0 border border-white/40`}
+                                                className={`w-10 h-10 rounded-xl bg-gradient-to-tr ${formData.button_ui_color} flex items-center justify-center text-white font-black text-xs shadow-xs overflow-hidden shrink-0`}
                                             >
                                                 {formData.photo ? (
                                                     <img src={formData.photo} alt="Preview" className="w-full h-full object-cover" />
@@ -4255,75 +4153,61 @@ export default function ProductsPage() {
                                                     formData.product_name ? formData.product_name.slice(0, 2).toUpperCase() : 'POS'
                                                 )}
                                             </div>
-                                            <div className="text-xs text-slate-500">
-                                                <div className="font-bold text-slate-800">Cashier POS Preview</div>
-                                                <div className="text-[10px] text-slate-400">Tile renders with this color swatch on POS touchscreens</div>
+                                            <div className="text-[11px] text-slate-500 leading-tight">
+                                                <div className="font-bold text-slate-800">Cashier Tile Preview</div>
+                                                <div className="text-[10px] text-slate-400">Renders on touchscreen</div>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Description */}
-                                    <div className="pt-2 border-t border-slate-100">
-                                        <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">
-                                            📝 Product Description / Cashier Notes
-                                        </label>
-                                        <textarea
-                                            value={formData.description}
-                                            onChange={e => setFormData({ ...formData, description: e.target.value })}
-                                            rows={2}
-                                            placeholder="Optional notes or ingredients..."
-                                            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 outline-none text-xs font-medium"
-                                        />
-                                    </div>
-
                                     {/* Checkboxes */}
                                     <div className="flex items-center gap-6 pt-2">
-                                        <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-800">
+                                        <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-slate-800">
                                             <input
                                                 type="checkbox"
                                                 checked={formData.active}
                                                 onChange={e => setFormData({ ...formData, active: e.target.checked })}
-                                                className="w-4 h-4 rounded text-blue-600 focus:ring-0 cursor-pointer"
+                                                className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-0 cursor-pointer"
                                             />
-                                            <span>Active Master SKU</span>
+                                            <span>Active SKU</span>
                                         </label>
 
-                                        <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-800">
+                                        <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-slate-800">
                                             <input
                                                 type="checkbox"
                                                 checked={formData.show_ps}
                                                 onChange={e => setFormData({ ...formData, show_ps: e.target.checked })}
-                                                className="w-4 h-4 rounded text-blue-600 focus:ring-0 cursor-pointer"
+                                                className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-0 cursor-pointer"
                                             />
-                                            <span>Show on POS Cashier Grid</span>
+                                            <span>Show in POS</span>
                                         </label>
                                     </div>
                                 </div>
                             )}
 
                             {/* ─── MODAL FOOTER ACTIONS ─── */}
-                            <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
+                            <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
                                 <button
                                     type="button"
                                     onClick={() => setShowModal(false)}
-                                    className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold text-slate-700 transition-all"
+                                    className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold text-slate-700 transition-all"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={isSaving}
-                                    className="px-6 py-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-600 text-white rounded-xl text-xs font-black shadow-md hover:shadow-blue-500/25 transition-all flex items-center gap-2 active:scale-98 disabled:opacity-50"
+                                    className="px-5 py-1.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-600 text-white rounded-xl text-xs font-black shadow-md hover:shadow-blue-500/25 transition-all flex items-center gap-1.5 active:scale-98 disabled:opacity-50"
                                 >
                                     {isSaving ? (
                                         <>
-                                            <FiRefreshCw size={14} className="animate-spin" />
-                                            <span>Saving Product Record...</span>
+                                            <FiRefreshCw size={13} className="animate-spin" />
+                                            <span>Saving...</span>
                                         </>
                                     ) : (
                                         <>
-                                            <FiCheck size={14} className="stroke-[3]" />
-                                            <span>{editingProduct ? '💾 Save Catalog Changes' : '✨ Create Inventory Product'}</span>
+                                            <FiCheck size={13} className="stroke-[3]" />
+                                            <span>{editingProduct ? 'Save Changes' : 'Create Product'}</span>
                                         </>
                                     )}
                                 </button>
