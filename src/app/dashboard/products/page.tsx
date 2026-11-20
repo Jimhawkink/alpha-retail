@@ -3639,7 +3639,7 @@ export default function ProductsPage() {
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-2 border-t border-slate-100">
                                             <div>
                                                 <label className="block text-xs font-bold text-amber-700 mb-1 uppercase tracking-wider">
-                                                    Opening {formData.purchase_unit}s (Bulk Boxes / Bags)
+                                                    📦 Opening {formData.purchase_unit}s (Bulk Boxes / Bags / Big Qty)
                                                 </label>
                                                 <input
                                                     type="number"
@@ -3692,11 +3692,11 @@ export default function ProductsPage() {
                                         <span className="text-[9px] text-emerald-600 font-bold uppercase">Dual-Pricing</span>
                                     </div>
 
-                                    {/* 4-Column Pricing Inputs */}
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                    {/* 3-Column Base Pricing Inputs */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                         <div>
                                             <label className="block text-[10px] font-bold text-slate-600 mb-1 uppercase tracking-wider">
-                                                Buy Price / {formData.purchase_unit}
+                                                💵 Buy Price / {formData.purchase_unit}
                                             </label>
                                             <input
                                                 type="number"
@@ -3710,7 +3710,7 @@ export default function ProductsPage() {
 
                                         <div>
                                             <label className="block text-[10px] font-bold text-emerald-700 mb-1 uppercase tracking-wider">
-                                                Sell Price / {formData.sales_unit}
+                                                💎 Sell Price / {formData.sales_unit} (Loose)
                                             </label>
                                             <input
                                                 type="number"
@@ -3723,23 +3723,8 @@ export default function ProductsPage() {
                                         </div>
 
                                         <div>
-                                            <label className="block text-[10px] font-bold text-indigo-700 mb-1 uppercase tracking-wider">
-                                                Big Qty / {formData.purchase_unit}
-                                            </label>
-                                            <input
-                                                type="number"
-                                                value={formData.package_sales_cost || 0}
-                                                onChange={e => setFormData({ ...formData, package_sales_cost: parseFloat(e.target.value) || 0 })}
-                                                min="0"
-                                                step="0.01"
-                                                placeholder={formData.pieces_per_package > 1 ? (formData.sales_cost * formData.pieces_per_package).toString() : '0'}
-                                                className="w-full px-2.5 py-1.5 bg-indigo-50/70 border border-indigo-300 rounded-xl text-xs font-mono font-black text-indigo-800 outline-none focus:border-indigo-500"
-                                            />
-                                        </div>
-
-                                        <div>
                                             <label className="block text-[10px] font-bold text-purple-700 mb-1 uppercase tracking-wider">
-                                                Wholesale / {formData.sales_unit}
+                                                🤝 Wholesale / {formData.sales_unit}
                                             </label>
                                             <input
                                                 type="number"
@@ -3750,6 +3735,40 @@ export default function ProductsPage() {
                                                 placeholder="0.00"
                                                 className="w-full px-2.5 py-1.5 bg-purple-50/70 border border-purple-200 rounded-xl text-xs font-mono font-bold text-purple-700 outline-none focus:border-purple-500"
                                             />
+                                        </div>
+                                    </div>
+
+                                    {/* ── Pack / Box Selling Price (Big Quantity Price) ── */}
+                                    <div className="p-3 bg-gradient-to-r from-indigo-50/90 via-purple-50/70 to-blue-50/90 rounded-2xl border-2 border-indigo-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                                        <div className="flex-1">
+                                            <label className="block text-xs font-black text-indigo-950 uppercase tracking-wider flex items-center gap-1.5 mb-0.5">
+                                                <span>📦 Selling Price / {formData.purchase_unit} (Big Qty Price in Ksh)</span>
+                                            </label>
+                                            <p className="text-[11px] text-indigo-700 font-medium leading-tight">
+                                                1 {formData.purchase_unit} = {formData.pieces_per_package || 1} {formData.sales_unit}s. Charged at POS when selling a full {formData.purchase_unit}.
+                                            </p>
+                                        </div>
+                                        <div className="w-full sm:w-60">
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-2 text-xs font-bold text-indigo-500 font-mono">Ksh</span>
+                                                <input
+                                                    type="number"
+                                                    step="any"
+                                                    min="0"
+                                                    value={formData.package_sales_cost || ''}
+                                                    onChange={e => setFormData({ ...formData, package_sales_cost: parseFloat(e.target.value) || 0 })}
+                                                    placeholder={String((formData.sales_cost || 0) * (formData.pieces_per_package || 1))}
+                                                    className="w-full pl-11 pr-3 py-1.5 bg-white border-2 border-indigo-300 rounded-xl text-sm font-black text-indigo-900 focus:border-indigo-600 outline-none shadow-inner font-mono"
+                                                />
+                                            </div>
+                                            <p className="text-[10px] text-slate-500 mt-1 text-right font-mono">
+                                                Standard: Ksh {((formData.sales_cost || 0) * (formData.pieces_per_package || 1)).toLocaleString()}
+                                                {formData.package_sales_cost && formData.package_sales_cost > 0 && formData.package_sales_cost !== ((formData.sales_cost || 0) * (formData.pieces_per_package || 1)) && (
+                                                    <span className="font-bold ml-1 text-emerald-600">
+                                                        (Special: Ksh {Number(formData.package_sales_cost).toLocaleString()})
+                                                    </span>
+                                                )}
+                                            </p>
                                         </div>
                                     </div>
 
