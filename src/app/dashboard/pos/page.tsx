@@ -6,6 +6,54 @@ import { useOutlet } from '@/context/OutletContext';
 import { useFeatures } from '@/context/FeatureContext';
 import toast from 'react-hot-toast';
 import { printMpesaReceipt, printCustomerReceipt, ReceiptData, loadCompanyInfo } from '@/lib/receiptPrinter';
+import {
+    FiShoppingCart,
+    FiSearch,
+    FiMaximize,
+    FiMinimize,
+    FiUser,
+    FiUsers,
+    FiLock,
+    FiUnlock,
+    FiClock,
+    FiCalendar,
+    FiDollarSign,
+    FiCreditCard,
+    FiPackage,
+    FiInbox,
+    FiTruck,
+    FiFileText,
+    FiBarChart2,
+    FiTrendingUp,
+    FiArchive,
+    FiRotateCcw,
+    FiSettings,
+    FiBell,
+    FiPlus,
+    FiMinus,
+    FiTrash2,
+    FiX,
+    FiCheck,
+    FiPause,
+    FiPlay,
+    FiRefreshCw,
+    FiSmartphone,
+    FiPrinter,
+    FiLogOut,
+    FiTag,
+    FiPercent,
+    FiGrid,
+    FiList,
+    FiZap,
+    FiLayers,
+    FiSliders,
+    FiShoppingBag,
+    FiChevronDown,
+    FiCheckCircle,
+    FiAlertCircle,
+    FiEdit2
+} from 'react-icons/fi';
+
 
 // Types for Retail POS
 interface Product {
@@ -52,7 +100,7 @@ interface CreditCustomer {
     prepayment_balance: number;
 }
 
-// Product Search DataGrid Row
+// Product Search DataGrid Row — Ultra Premium APSIMS Styling
 const ProductRow = ({
     product,
     isSelected,
@@ -69,37 +117,44 @@ const ProductRow = ({
     <tr
         onClick={onClick}
         onDoubleClick={onDoubleClick}
-        className={`cursor-pointer transition-all border-b border-gray-100 ${isSelected
-            ? 'bg-blue-50 border-l-4 border-l-blue-500'
-            : 'hover:bg-gray-50'
+        className={`cursor-pointer transition-all border-b border-slate-100 ${isSelected
+            ? 'bg-indigo-50/80 border-l-4 border-l-indigo-600'
+            : 'hover:bg-slate-50/90'
             }`}
     >
-        <td className="px-4 py-3">
-            <p className="font-semibold text-gray-800">{product.name}</p>
+        <td className="px-3.5 py-2.5">
+            <p className="font-bold text-slate-800 text-xs leading-tight">{product.name}</p>
+            <span className="text-[10px] text-slate-400 font-mono">#{product.barcode || product.id}</span>
         </td>
-        <td className="px-4 py-3 font-mono text-sm text-gray-600">
+        <td className="px-3 py-2.5 font-mono text-xs text-slate-600">
             {product.barcode || '-'}
         </td>
-        <td className="px-4 py-3 text-center">
-            <div className="flex flex-col items-center gap-0.5">
+        <td className="px-3 py-2.5 text-center">
+            <div className="flex flex-col items-center gap-1">
                 {(product.bagQty || 0) > 0 && (
-                    <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-100 text-indigo-700">📦 {product.bagQty} {product.purchaseUnit}</span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        <FiPackage size={10} /> {product.bagQty} {product.purchaseUnit}
+                    </span>
                 )}
-                <span className={`inline-block min-w-[36px] px-2 py-0.5 rounded-md text-[10px] font-bold ${(product.pieceQty || 0) > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>🔢 {product.pieceQty || 0} {product.salesUnit}</span>
+                <span className={`inline-flex items-center gap-1 min-w-[36px] px-2 py-0.5 rounded text-[10px] font-bold ${
+                    (product.pieceQty || 0) > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                }`}>
+                    <FiTag size={10} /> {product.pieceQty || 0} {product.salesUnit}
+                </span>
             </div>
         </td>
-        <td className="px-4 py-3 text-right text-gray-600">
-            {shouldShowCost ? product.costPrice.toLocaleString() : '-'}
+        <td className="px-3.5 py-2.5 text-right font-mono text-xs text-slate-500">
+            {shouldShowCost ? `Ksh ${product.costPrice.toLocaleString()}` : '-'}
         </td>
-        <td className="px-4 py-3 text-right font-bold text-green-600">
-            {product.salesPrice.toLocaleString()}
+        <td className="px-3.5 py-2.5 text-right font-mono text-xs font-black text-emerald-600">
+            Ksh {product.salesPrice.toLocaleString()}
         </td>
-        <td className="px-4 py-3 text-center">
+        <td className="px-3.5 py-2.5 text-center">
             <button
                 onClick={(e) => { e.stopPropagation(); onDoubleClick(); }}
-                className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors"
+                className="px-2.5 py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1 mx-auto active:scale-95"
             >
-                + Add
+                <FiPlus size={12} /> Add
             </button>
         </td>
     </tr>
@@ -143,7 +198,6 @@ const CartItemRow = ({
         const min = minPrice ?? 1;
         const safePrice = Math.max(min, newPrice);
         if (safePrice !== newPrice) {
-            // Snapped to minimum — alert user
             setPriceInput(safePrice.toFixed(2));
         }
         if (onEditPrice) onEditPrice(safePrice);
@@ -151,14 +205,13 @@ const CartItemRow = ({
     };
 
     return (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all hover:border-slate-300">
             {/* Main row */}
-            <div className="px-3 py-2.5 flex items-center gap-2">
+            <div className="px-3 py-2 flex items-center gap-2">
                 {/* Product info */}
                 <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-800 text-sm truncate leading-tight">{item.name}</p>
+                    <p className="font-bold text-slate-800 text-xs truncate leading-tight">{item.name}</p>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                        {/* Price — click to edit if allowed */}
                         {editingPrice ? (
                             <input
                                 type="number"
@@ -166,15 +219,15 @@ const CartItemRow = ({
                                 onChange={e => setPriceInput(e.target.value)}
                                 onBlur={handlePriceSubmit}
                                 onKeyDown={e => { if (e.key === 'Enter') handlePriceSubmit(); if (e.key === 'Escape') setEditingPrice(false); }}
-                                className="w-24 h-5 text-[10px] text-center font-bold text-blue-700 border border-blue-400 rounded focus:outline-none focus:ring-1 focus:ring-blue-400 bg-blue-50"
+                                className="w-24 h-5 text-[10px] text-center font-bold text-indigo-700 border border-indigo-400 rounded focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-indigo-50"
                                 autoFocus
                                 min={minPrice}
                                 step="0.01"
                             />
                         ) : (
                             <span
-                                className={`text-[10px] text-gray-400 ${
-                                    onEditPrice ? 'cursor-pointer hover:text-blue-500 hover:underline decoration-dotted' : ''
+                                className={`text-[10px] text-slate-500 ${
+                                    onEditPrice ? 'cursor-pointer hover:text-indigo-600 hover:underline decoration-dotted' : ''
                                 }`}
                                 onClick={() => {
                                     if (onEditPrice) { setPriceInput(item.effectivePrice.toString()); setEditingPrice(true); }
@@ -182,26 +235,26 @@ const CartItemRow = ({
                                 title={onEditPrice ? `Click to edit price (min: Ksh ${(minPrice || 0).toLocaleString()})` : undefined}
                             >
                                 @ Ksh {item.effectivePrice.toLocaleString()} / {item.sellingUnit || item.salesUnit || 'Pc'}
-                                {onEditPrice && <span className="ml-1 text-[8px] text-blue-400">✏️</span>}
+                                {onEditPrice && <FiEdit2 size={9} className="inline ml-1 text-indigo-400" />}
                             </span>
                         )}
                         {item.unitMultiplier > 1 && !editingPrice && (
-                            <span className="text-[9px] text-purple-600 font-semibold bg-purple-50 px-1 py-0.5 rounded">×{item.unitMultiplier}</span>
+                            <span className="text-[9px] text-purple-700 font-bold bg-purple-50 border border-purple-200 px-1 py-0.2 rounded">×{item.unitMultiplier}</span>
                         )}
                     </div>
-                    {/* Min price hint when editing */}
                     {editingPrice && minPrice && (
                         <p className="text-[9px] text-amber-600 mt-0.5">Min: Ksh {minPrice.toLocaleString()} (cost + margin)</p>
                     )}
                 </div>
 
-                {/* Qty pill controls */}
-                <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 overflow-hidden shrink-0">
+                {/* Qty Stepper */}
+                <div className="flex items-center bg-slate-50 rounded-lg border border-slate-200 overflow-hidden shrink-0">
                     <button
                         onClick={onDecrease}
-                        className="w-7 h-7 flex items-center justify-center font-bold text-lg text-orange-500 hover:bg-orange-500 hover:text-white transition-colors"
+                        className="w-6 h-6 flex items-center justify-center font-bold text-slate-600 hover:bg-rose-500 hover:text-white transition-colors"
+                        title="Decrease"
                     >
-                        −
+                        <FiMinus size={10} />
                     </button>
                     {editingQty ? (
                         <input
@@ -210,7 +263,7 @@ const CartItemRow = ({
                             onChange={(e) => setQtyInput(e.target.value)}
                             onBlur={handleQtySubmit}
                             onKeyDown={(e) => { if (e.key === 'Enter') handleQtySubmit(); }}
-                            className="w-12 h-7 text-center font-bold text-gray-800 text-sm bg-white border-x border-gray-200 focus:outline-none"
+                            className="w-10 h-6 text-center font-bold text-slate-800 text-xs bg-white border-x border-slate-200 focus:outline-none"
                             autoFocus
                             min={0.01}
                             step="any"
@@ -218,51 +271,54 @@ const CartItemRow = ({
                     ) : (
                         <button
                             onClick={() => { setQtyInput(item.qty.toString()); setEditingQty(true); }}
-                            className="w-10 h-7 text-center font-bold text-gray-800 text-sm hover:bg-blue-50 transition-colors border-x border-gray-200"
-                            title="Click to edit qty"
+                            className="w-9 h-6 text-center font-bold text-slate-800 text-xs hover:bg-indigo-50 transition-colors border-x border-slate-200"
+                            title="Click to edit quantity"
                         >
                             {item.qty}
                         </button>
                     )}
                     <button
                         onClick={onIncrease}
-                        className="w-7 h-7 flex items-center justify-center font-bold text-lg text-green-600 hover:bg-green-500 hover:text-white transition-colors"
+                        className="w-6 h-6 flex items-center justify-center font-bold text-slate-600 hover:bg-emerald-600 hover:text-white transition-colors"
+                        title="Increase"
                     >
-                        +
+                        <FiPlus size={10} />
                     </button>
                 </div>
 
                 {/* Total */}
-                <div className="text-right shrink-0 min-w-[52px]">
-                    <p className="font-bold text-gray-800 text-sm">{itemTotal.toLocaleString()}</p>
+                <div className="text-right shrink-0 min-w-[56px]">
+                    <p className="font-bold text-slate-800 text-xs font-mono">Ksh {itemTotal.toLocaleString()}</p>
                     {item.discount > 0 && (
-                        <p className="text-[10px] text-green-600">-{item.discount.toLocaleString()}</p>
+                        <p className="text-[9px] text-emerald-600 font-bold">-Ksh {item.discount.toLocaleString()}</p>
                     )}
                 </div>
 
                 {/* Remove */}
                 <button
                     onClick={onRemove}
-                    className="w-6 h-6 rounded-md flex items-center justify-center text-gray-300 hover:bg-red-50 hover:text-red-500 transition-colors shrink-0 text-xs leading-none"
+                    className="w-6 h-6 rounded-md flex items-center justify-center text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors shrink-0"
+                    title="Remove item"
                 >
-                    ✕
+                    <FiTrash2 size={12} />
                 </button>
             </div>
 
             {/* Discount row */}
             {canDiscount && (
-                <div className="border-t border-gray-50">
+                <div className="border-t border-slate-100 bg-slate-50/50">
                     <button
                         onClick={onEditDiscount}
-                        className="w-full py-1 text-[10px] text-gray-400 hover:text-amber-600 hover:bg-amber-50/60 flex items-center justify-center gap-1 transition-colors font-medium"
+                        className="w-full py-1 text-[10px] text-slate-500 hover:text-amber-700 hover:bg-amber-50/80 flex items-center justify-center gap-1 transition-colors font-semibold"
                     >
-                        💰 Add / Edit Discount
+                        <FiPercent size={10} className="text-amber-500" />
+                        <span>Add / Edit Discount</span>
                     </button>
                 </div>
             )}
         </div>
     );
-}
+};
 
 // Category Button Component
 const CategoryButton = ({
@@ -339,7 +395,7 @@ const ProductCard = ({ product, onAdd, posDefaultPrice, shouldShowCost = true }:
             {/* Stock Badges */}
             <div className="flex items-center gap-1 flex-wrap mt-1 min-h-[18px]">
                 {(product.bagQty || 0) > 0 && (
-                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-100 text-indigo-700">📦 {product.bagQty} {product.purchaseUnit}</span>
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200"><FiPackage size={10} /> {product.bagQty} {product.purchaseUnit}</span>
                 )}
                 <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
                     (product.pieceQty || 0) > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
@@ -1492,6 +1548,18 @@ export default function RetailPOSPage() {
     const [receiptNo, setReceiptNo] = useState('RCP-00001');
     const [storeName, setStoreName] = useState('Alpha Retail');
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+    const [currentTime, setCurrentTime] = useState('');
+    useEffect(() => {
+        const update = () => {
+            const now = new Date();
+            setCurrentTime(now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }));
+        };
+        update();
+        const timer = setInterval(update, 1000);
+        return () => clearInterval(timer);
+    }, []);
+
 
     // Customer selection
     const [creditCustomers, setCreditCustomers] = useState<CreditCustomer[]>([]);
@@ -2884,220 +2952,271 @@ export default function RetailPOSPage() {
     };
 
     return (
-        <div className="h-[calc(100vh-64px)] flex flex-col bg-gray-50">
-            {/* Top Bar - Breadcrumb & Session */}
-            <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <span className="text-gray-400 text-sm">📍 POS - Point of Sale</span>
-                    <span className="text-gray-300">|</span>
-                    <span className="text-gray-600 text-sm font-medium">{storeName}</span>
+        <div className="-mt-4 lg:-mt-6 -mx-4 lg:-mx-6 -mb-4 lg:-mb-6 h-[calc(100vh)] lg:h-[calc(100vh-64px)] flex flex-col bg-slate-100 overflow-hidden select-none">
+            {/* ═══ Executive Session HUD — Top Bar (Negative margins eliminate all top gaps) ═══ */}
+            <div className="bg-white/95 backdrop-blur border-b border-slate-200 px-3.5 py-2 flex items-center justify-between shrink-0 shadow-xs z-20">
+                {/* Left: Terminal status & Brand */}
+                <div className="flex items-center gap-2.5">
+                    {/* Live Online Beacon */}
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 rounded-lg border border-emerald-200/80">
+                        <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                        <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Terminal Live</span>
+                    </div>
+
+                    <div className="h-4 w-px bg-slate-200" />
+
+                    {/* Terminal Title & Store Chip */}
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-black uppercase tracking-wide text-slate-800">APSIMS POS</span>
+                        <span className="text-slate-300">/</span>
+                        <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 flex items-center gap-1">
+                            <FiShoppingBag size={11} className="text-slate-500" />
+                            {storeName}
+                        </span>
+                        <span className="text-[10px] font-mono font-black text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded">
+                            {outletCode}
+                        </span>
+                    </div>
                 </div>
-                <div className="flex items-center gap-3">
-                    <span className="text-xs text-gray-500">
-                        {new Date().toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
-                    </span>
-                    <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm font-semibold">{receiptNo}</span>
-                    {/* Waiter badge + Logout */}
+
+                {/* Right: Date, Live Clock, Receipt #, Cashier, Fullscreen */}
+                <div className="flex items-center gap-2">
+                    {/* Date */}
+                    <div className="hidden md:flex items-center gap-1 text-slate-500 text-xs font-semibold px-2 py-1 bg-slate-50 rounded-lg border border-slate-200">
+                        <FiCalendar size={12} className="text-slate-400" />
+                        <span>{new Date().toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                    </div>
+
+                    {/* Live Digital Clock */}
+                    <div className="flex items-center gap-1 px-2.5 py-1 bg-slate-900 text-emerald-400 rounded-lg border border-slate-800 text-xs font-mono font-bold shadow-xs">
+                        <FiClock size={12} className="text-emerald-400" />
+                        <span>{currentTime || '00:00:00'}</span>
+                    </div>
+
+                    {/* Receipt Number Badge */}
+                    <div className="flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg border border-blue-200 text-xs font-mono font-black shadow-2xs" title="Current Receipt Sequence">
+                        <FiTag size={12} className="text-blue-500" />
+                        <span>{receiptNo}</span>
+                    </div>
+
+                    {/* Cashier identification badge */}
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 rounded-lg border border-purple-200 text-purple-800 text-xs font-bold shadow-2xs">
+                        <FiUser size={12} className="text-purple-600" />
+                        <span className="max-w-[100px] truncate">{loggedInUserName || 'Cashier'}</span>
+                        <span className="text-[9px] font-black uppercase tracking-wider bg-purple-200/70 text-purple-800 px-1 py-0.2 rounded">
+                            {isWaiterUser ? 'Cashier' : 'Admin'}
+                        </span>
+                    </div>
+
+                    {/* Waiter Logout */}
                     {isWaiterUser && (
-                        <>
-                            <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-50 rounded-lg border border-purple-200">
-                                <span className="text-xs">👤</span>
-                                <span className="text-xs font-semibold text-purple-700">{loggedInUserName}</span>
-                            </div>
-                            <button
-                                onClick={() => { localStorage.removeItem('user'); window.location.href = '/'; }}
-                                className="px-2.5 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1"
-                                title="Logout"
-                            >
-                                🚪 Logout
-                            </button>
-                        </>
+                        <button
+                            onClick={() => { localStorage.removeItem('user'); window.location.href = '/'; }}
+                            className="h-7 px-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1 active:scale-95"
+                            title="Sign out of cashier terminal"
+                        >
+                            <FiLogOut size={12} />
+                            <span>Logout</span>
+                        </button>
                     )}
+
+                    {/* Fullscreen Toggle */}
                     <button
                         onClick={toggleFullscreen}
-                        className="p-2 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white rounded-lg transition-all hover:scale-105 active:scale-95 shadow-md"
+                        className="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-200 transition-all hover:scale-105 active:scale-95 shadow-2xs"
                         title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
                     >
-                        {isFullscreen ? (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
-                            </svg>
-                        ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                            </svg>
-                        )}
+                        {isFullscreen ? <FiMinimize size={13} /> : <FiMaximize size={13} />}
                     </button>
                 </div>
             </div>
 
-            {/* ═══ Quick Action Command Bar — Premium Dark, Always Fully Visible ═══ */}
-            <div className={`bg-white border-b border-gray-100 px-4 py-1.5 flex items-center gap-1.5 z-10 shadow-sm transition-all ${showQuickActions ? 'hidden' : ''}`}>
-
+            {/* ═══ Quick Action Command Ribbon — High-Contrast Professional Studio Pills ═══ */}
+            <div className={`bg-white border-b border-slate-200 px-3.5 py-1.5 flex items-center gap-1.5 z-10 shadow-2xs overflow-x-auto transition-all ${showQuickActions ? 'hidden' : ''}`}>
                 {[
-                    { key: 'add_product',        icon: '➕', label: 'Add Product',    href: '/dashboard/products?action=add', cashierEnabled: true  },
-                    { key: 'purchases',          icon: '📥', label: 'Purchases',       href: '/dashboard/purchase',          cashierEnabled: true  },
-                    { key: 'suppliers',          icon: '🏭', label: 'Suppliers',       href: '/dashboard/suppliers',         cashierEnabled: true  },
-                    { key: 'credit_customers',   icon: '👤', label: 'New Customer',    href: '/dashboard/credit-customers',  cashierEnabled: true  },
-                    { key: 'credit_payments',    icon: '💳', label: 'Recv Payment',    href: '/dashboard/credit-payments',   cashierEnabled: true  },
-                    { key: 'full_sales_report',  icon: '📋', label: 'Sales Report',    href: '/dashboard/reports/full-sales-report', cashierEnabled: true  },
-                    { key: 'stock_available',    icon: '📦', label: 'Stock',           href: '/dashboard/products',          cashierEnabled: false },
-                    { key: 'expiry_register',    icon: '⏰', label: 'Expiry',          href: '/dashboard/expiry-register',   cashierEnabled: false },
-                    { key: 'sales_returns',      icon: '↩️', label: 'Returns',         href: '/dashboard/sales-return',      cashierEnabled: true  },
-                    { key: 'register_history',   icon: '🧾', label: 'Register',        href: '/dashboard/shift-reports',     cashierEnabled: false },
-                    { key: 'reports',            icon: '📊', label: 'Reports',         href: '/dashboard/reports/sales',     cashierEnabled: false },
-                    { key: 'sales_summary',      icon: '📈', label: 'Summary',         href: '/dashboard/sales-summary',     cashierEnabled: true  },
-                    { key: 'expenses',           icon: '💸', label: 'Expenses',        href: '/dashboard/expenses',          cashierEnabled: false },
-                    { key: 'payroll',            icon: '👥', label: 'Payroll',         href: '/dashboard/payroll',           cashierEnabled: false },
+                    { key: 'add_product',        icon: FiPlus,        label: 'Add Product',    href: '/dashboard/products?action=add', cashierEnabled: true,  color: 'text-indigo-600 bg-indigo-50/80 hover:bg-indigo-100 border-indigo-200' },
+                    { key: 'purchases',          icon: FiInbox,       label: 'Purchases',      href: '/dashboard/purchase',          cashierEnabled: true,  color: 'text-emerald-600 bg-emerald-50/80 hover:bg-emerald-100 border-emerald-200' },
+                    { key: 'suppliers',          icon: FiTruck,       label: 'Suppliers',      href: '/dashboard/suppliers',         cashierEnabled: true,  color: 'text-sky-600 bg-sky-50/80 hover:bg-sky-100 border-sky-200' },
+                    { key: 'credit_customers',   icon: FiUser,        label: 'New Customer',   href: '/dashboard/credit-customers', cashierEnabled: true,  color: 'text-purple-600 bg-purple-50/80 hover:bg-purple-100 border-purple-200' },
+                    { key: 'credit_payments',    icon: FiDollarSign,  label: 'Recv Payment',   href: '/dashboard/credit-payments',  cashierEnabled: true,  color: 'text-amber-600 bg-amber-50/80 hover:bg-amber-100 border-amber-200' },
+                    { key: 'full_sales_report',  icon: FiFileText,    label: 'Sales Report',   href: '/dashboard/reports/full-sales-report', cashierEnabled: true, color: 'text-rose-600 bg-rose-50/80 hover:bg-rose-100 border-rose-200' },
+                    { key: 'stock_available',    icon: FiPackage,     label: 'Stock Ledger',   href: '/dashboard/products',         cashierEnabled: false, color: 'text-blue-600 bg-blue-50/80 hover:bg-blue-100 border-blue-200' },
+                    { key: 'expiry_register',    icon: FiClock,       label: 'Expiry',         href: '/dashboard/expiry-register',  cashierEnabled: false, color: 'text-orange-600 bg-orange-50/80 hover:bg-orange-100 border-orange-200' },
+                    { key: 'sales_returns',      icon: FiRotateCcw,   label: 'Returns',        href: '/dashboard/sales-return',     cashierEnabled: true,  color: 'text-violet-600 bg-violet-50/80 hover:bg-violet-100 border-violet-200' },
+                    { key: 'register_history',   icon: FiArchive,     label: 'Shift History',  href: '/dashboard/shift-reports',    cashierEnabled: false, color: 'text-cyan-600 bg-cyan-50/80 hover:bg-cyan-100 border-cyan-200' },
+                    { key: 'reports',            icon: FiBarChart2,   label: 'Analytics',      href: '/dashboard/reports/sales',    cashierEnabled: false, color: 'text-teal-600 bg-teal-50/80 hover:bg-teal-100 border-teal-200' },
+                    { key: 'sales_summary',      icon: FiTrendingUp,  label: 'Summary',        href: '/dashboard/sales-summary',    cashierEnabled: true,  color: 'text-emerald-700 bg-emerald-50/80 hover:bg-emerald-100 border-emerald-300' },
+                    { key: 'expenses',           icon: FiTag,         label: 'Expenses',       href: '/dashboard/expenses',         cashierEnabled: false, color: 'text-yellow-700 bg-yellow-50/80 hover:bg-yellow-100 border-yellow-200' },
+                    { key: 'payroll',            icon: FiUsers,       label: 'Payroll',        href: '/dashboard/payroll',          cashierEnabled: false, color: 'text-blue-700 bg-blue-50/80 hover:bg-blue-100 border-blue-200' },
                 ].filter(btn => {
-                    // Cashier-enabled buttons ALWAYS show for cashiers (bypass outlet config)
                     if (isWaiterUser && btn.cashierEnabled) return true;
-                    // Non-cashier buttons: always hide for cashiers
                     if (isWaiterUser && !btn.cashierEnabled) return false;
-                    // For admins: apply outlet quick action config
                     const qa = activeOutlet?.allowed_quick_actions;
                     if (!qa || Object.keys(qa).length === 0) return true;
                     return qa[btn.key] === true;
-                }).map(btn => (
-                    <a
-                        key={btn.label}
-                        href={btn.href}
-                        title={btn.label}
-                        className="w-9 h-9 flex items-center justify-center rounded-xl bg-gray-50 hover:bg-violet-50 border border-gray-200 hover:border-violet-300 transition-all duration-150 hover:scale-110 active:scale-95 shadow-sm text-[17px] no-underline"
-                    >
-                        {btn.icon}
-                    </a>
-                ))}
+                }).map(btn => {
+                    const Icon = btn.icon;
+                    return (
+                        <a
+                            key={btn.label}
+                            href={btn.href}
+                            title={btn.label}
+                            className={`h-7 px-2.5 rounded-lg border text-xs font-bold transition-all duration-150 hover:scale-105 active:scale-95 shadow-2xs flex items-center gap-1.5 no-underline whitespace-nowrap ${btn.color}`}
+                        >
+                            <Icon size={12} className="shrink-0" />
+                            <span className="hidden sm:inline">{btn.label}</span>
+                        </a>
+                    );
+                })}
 
-                {/* Divider */}
-                <div className="h-5 w-px bg-gray-200 mx-1 shrink-0" />
+                <div className="h-4 w-px bg-slate-200 mx-1 shrink-0" />
 
-                {/* ── Premium Notification Bell ── */}
+                {/* Stock Alert Bell */}
                 <button
                     onClick={() => setShowLowStockModal(true)}
                     title={`${lowStockItems.length} low-stock item${lowStockItems.length !== 1 ? 's' : ''}`}
-                    className={`relative w-9 h-9 flex items-center justify-center rounded-xl border text-[17px] transition-all duration-200 hover:scale-110 active:scale-95 shadow-sm ${
+                    className={`relative h-7 px-2.5 rounded-lg border text-xs font-bold transition-all duration-150 hover:scale-105 active:scale-95 shadow-2xs flex items-center gap-1.5 shrink-0 ${
                         lowStockItems.length > 0
-                            ? 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100'
-                            : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'
+                            ? 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'
+                            : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
                     }`}
                 >
-                    <span className="relative">
-                        🔔
-                        {lowStockItems.length > 0 && (
-                            <span className="absolute -top-2 -right-2.5 w-4 h-4 bg-red-500 text-white text-[8px] font-black rounded-full flex items-center justify-center border border-white shadow">
-                                {lowStockItems.length}
-                            </span>
-                        )}
-                    </span>
+                    <FiBell size={12} className={lowStockItems.length > 0 ? 'text-rose-500 animate-bounce' : 'text-slate-400'} />
+                    <span className="hidden md:inline">Alerts</span>
+                    {lowStockItems.length > 0 && (
+                        <span className="w-4 h-4 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center border border-white shadow-xs">
+                            {lowStockItems.length}
+                        </span>
+                    )}
                 </button>
             </div>
 
-            {/* ═══ Main Controls Bar — Perfectly Aligned, No Labels, Uniform h-9 ═══ */}
-            <div className="bg-white border-b border-gray-100 px-4 py-2 shadow-sm">
+            {/* ═══ Main Controls Bar — Fast Touch Scanner & Controls ═══ */}
+            <div className="bg-white border-b border-slate-200 px-3.5 py-2 shadow-2xs z-10 shrink-0">
                 <div className="flex items-center gap-2">
 
-                    {/* Store/Branch */}
-                    <select
-                        className={`h-9 pl-3 pr-7 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 text-sm font-medium focus:outline-none focus:border-blue-400 focus:bg-white cursor-pointer transition-all shrink-0 ${
-                            isWaiterUser ? 'opacity-40 pointer-events-none' : ''
-                        }`}
-                        disabled={isWaiterUser}
-                    >
-                        <option>🏪 Main Store</option>
-                        <option>🏪 Branch 1</option>
-                        <option>🏪 Branch 2</option>
-                    </select>
+                    {/* Store/Branch Selector */}
+                    <div className={`flex items-center gap-1.5 h-9 px-2.5 border border-slate-200 rounded-lg bg-slate-50 text-slate-700 text-xs font-bold shrink-0 ${
+                        isWaiterUser ? 'opacity-40 pointer-events-none' : ''
+                    }`}>
+                        <FiShoppingBag size={13} className="text-slate-400" />
+                        <select
+                            className="bg-transparent text-slate-700 text-xs font-semibold focus:outline-none cursor-pointer"
+                            disabled={isWaiterUser}
+                        >
+                            <option>Main Store</option>
+                            <option>Branch 1</option>
+                            <option>Branch 2</option>
+                        </select>
+                    </div>
 
-                    {/* Counter */}
-                    <select
-                        className={`h-9 pl-3 pr-7 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 text-sm font-medium focus:outline-none focus:border-blue-400 focus:bg-white cursor-pointer transition-all shrink-0 ${
-                            isWaiterUser ? 'opacity-40 pointer-events-none' : ''
-                        }`}
-                        disabled={isWaiterUser}
-                    >
-                        <option>Counter 1</option>
-                        <option>Counter 2</option>
-                    </select>
+                    {/* Counter Selector */}
+                    <div className={`flex items-center gap-1.5 h-9 px-2.5 border border-slate-200 rounded-lg bg-slate-50 text-slate-700 text-xs font-bold shrink-0 ${
+                        isWaiterUser ? 'opacity-40 pointer-events-none' : ''
+                    }`}>
+                        <FiSliders size={13} className="text-slate-400" />
+                        <select
+                            className="bg-transparent text-slate-700 text-xs font-semibold focus:outline-none cursor-pointer"
+                            disabled={isWaiterUser}
+                        >
+                            <option>Counter 1</option>
+                            <option>Counter 2</option>
+                        </select>
+                    </div>
 
-                    {/* Visual separator */}
-                    <div className="h-5 w-px bg-gray-200 shrink-0" />
+                    <div className="h-5 w-px bg-slate-200 shrink-0" />
 
-                    {/* Search — grows to fill available space */}
+                    {/* Search / Barcode Input */}
                     <div className="flex-1 relative min-w-0">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[13px]">🔍</span>
+                        <FiSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                         <input
                             ref={searchInputRef}
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             onKeyDown={handleSearchKeyDown}
-                            placeholder="Search products by name or barcode..."
-                            className="h-9 w-full pl-9 pr-8 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400 focus:bg-white transition-all"
+                            placeholder="Scan barcode [F2] or search product by name / SKU..."
+                            className="h-9 w-full pl-9 pr-14 bg-slate-50/80 border border-slate-200 rounded-lg text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all"
                             autoFocus
                         />
-                        {searchQuery && (
-                            <button
-                                onClick={() => { setSearchQuery(''); searchInputRef.current?.focus(); }}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
-                            >✕</button>
-                        )}
+                        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                            {searchQuery ? (
+                                <button
+                                    onClick={() => { setSearchQuery(''); searchInputRef.current?.focus(); }}
+                                    className="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200 transition-colors"
+                                >
+                                    <FiX size={12} />
+                                </button>
+                            ) : (
+                                <span className="hidden sm:inline-block px-1.5 py-0.5 bg-slate-200/80 text-slate-500 rounded text-[9px] font-mono font-bold">F2</span>
+                            )}
+                        </div>
                     </div>
 
-                    {/* Visual separator */}
-                    <div className="h-5 w-px bg-gray-200 shrink-0" />
+                    <div className="h-5 w-px bg-slate-200 shrink-0" />
 
-                    {/* Category */}
-                    <select
-                        value={selectedCategory || ''}
-                        onChange={(e) => {
-                            const catId = Number(e.target.value);
-                            if (catId) {
-                                const cat = categories.find(c => c.category_id === catId);
-                                if (cat) loadCategoryProducts(catId, cat.category_name);
-                            } else {
-                                setSelectedCategory(null);
-                                setCategoryProducts([]);
-                            }
-                        }}
-                        className="h-9 pl-3 pr-7 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 text-sm focus:outline-none focus:border-blue-400 focus:bg-white cursor-pointer transition-all shrink-0"
-                    >
-                        <option value="">📂 All Categories</option>
-                        {categories.map(cat => (
-                            <option key={cat.category_id} value={cat.category_id}>
-                                {cat.icon} {cat.category_name}
-                            </option>
-                        ))}
-                    </select>
+                    {/* Category Filter */}
+                    <div className="flex items-center gap-1.5 h-9 px-2.5 border border-slate-200 rounded-lg bg-slate-50 text-slate-700 text-xs font-bold shrink-0">
+                        <FiLayers size={13} className="text-slate-400" />
+                        <select
+                            value={selectedCategory || ''}
+                            onChange={(e) => {
+                                const catId = Number(e.target.value);
+                                if (catId) {
+                                    const cat = categories.find(c => c.category_id === catId);
+                                    if (cat) loadCategoryProducts(catId, cat.category_name);
+                                } else {
+                                    setSelectedCategory(null);
+                                    setCategoryProducts([]);
+                                }
+                            }}
+                            className="bg-transparent text-slate-700 text-xs font-semibold focus:outline-none cursor-pointer max-w-[130px]"
+                        >
+                            <option value="">All Categories</option>
+                            {categories.map(cat => (
+                                <option key={cat.category_id} value={cat.category_id}>
+                                    {cat.category_name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
 
-                    {/* Customer */}
+                    {/* Customer Selector */}
                     <div className="relative shrink-0">
-                        <input
-                            value={customerSearch}
-                            onChange={e => { setCustomerSearch(e.target.value); setShowCustomerDropdown(true); if (!e.target.value) setSelectedCustomer(null); }}
-                            onFocus={() => setShowCustomerDropdown(true)}
-                            onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 200)}
-                            placeholder={selectedCustomer ? selectedCustomer.customer_name : '👤 Customer...'}
-                            className={`h-9 pl-3 pr-7 border rounded-lg text-sm focus:outline-none focus:border-blue-400 focus:bg-white transition-all w-44 ${
-                                selectedCustomer
-                                    ? 'border-blue-400 bg-blue-50 font-semibold text-blue-800'
-                                    : 'border-gray-200 bg-gray-50 text-gray-700'
-                            }`}
-                        />
-                        {selectedCustomer && (
-                            <button
-                                onClick={() => { setSelectedCustomer(null); setCustomerSearch(''); }}
-                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-xs"
-                            >✕</button>
-                        )}
+                        <div className={`flex items-center gap-1.5 h-9 px-2.5 border rounded-lg transition-all w-44 ${
+                            selectedCustomer
+                                ? 'border-indigo-300 bg-indigo-50 text-indigo-900 font-bold'
+                                : 'border-slate-200 bg-slate-50 text-slate-700'
+                        }`}>
+                            <FiUser size={13} className={selectedCustomer ? 'text-indigo-600' : 'text-slate-400'} />
+                            <input
+                                value={customerSearch}
+                                onChange={e => { setCustomerSearch(e.target.value); setShowCustomerDropdown(true); if (!e.target.value) setSelectedCustomer(null); }}
+                                onFocus={() => setShowCustomerDropdown(true)}
+                                onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 200)}
+                                placeholder={selectedCustomer ? selectedCustomer.customer_name : 'Customer...'}
+                                className="w-full bg-transparent text-xs focus:outline-none placeholder-slate-400"
+                            />
+                            {selectedCustomer && (
+                                <button
+                                    onClick={() => { setSelectedCustomer(null); setCustomerSearch(''); }}
+                                    className="w-4 h-4 flex items-center justify-center text-indigo-400 hover:text-rose-500 rounded-full"
+                                >
+                                    <FiX size={11} />
+                                </button>
+                            )}
+                        </div>
                         {showCustomerDropdown && customerSearch && (
-                            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto min-w-[240px]">
+                            <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto min-w-[240px]">
                                 {creditCustomers
                                     .filter(c =>
                                         c.customer_name?.toLowerCase().includes(customerSearch.toLowerCase()) ||
                                         c.phone?.includes(customerSearch)
                                     ).length === 0 ? (
-                                    <p className="p-3 text-sm text-gray-400">No customers found</p>
+                                    <p className="p-3 text-xs text-slate-400">No customers found</p>
                                 ) : (
                                     creditCustomers
                                         .filter(c =>
@@ -3107,10 +3226,10 @@ export default function RetailPOSPage() {
                                             <button
                                                 key={c.customer_id}
                                                 onMouseDown={() => { setSelectedCustomer(c); setCustomerSearch(c.customer_name); setShowCustomerDropdown(false); }}
-                                                className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-0"
+                                                className="w-full text-left px-3 py-2 hover:bg-indigo-50 transition-colors border-b border-slate-50 last:border-0"
                                             >
-                                                <p className="font-semibold text-gray-800 text-sm">{c.customer_name}</p>
-                                                <p className="text-[10px] text-gray-500">{c.phone} • Bal: Ksh {(c.current_balance || 0).toLocaleString()}</p>
+                                                <p className="font-bold text-slate-800 text-xs">{c.customer_name}</p>
+                                                <p className="text-[10px] text-slate-500">{c.phone} • Bal: Ksh {(c.current_balance || 0).toLocaleString()}</p>
                                             </button>
                                         ))
                                 )}
@@ -3118,71 +3237,125 @@ export default function RetailPOSPage() {
                         )}
                     </div>
 
-                    {/* Open / Close Register — allowed for all users including cashiers */}
+                    {/* View Mode Toggle */}
+                    <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 shrink-0">
+                        <button
+                            onClick={() => setViewMode('grid')}
+                            className={`h-7 px-2 rounded flex items-center gap-1 text-xs font-bold transition-all ${
+                                viewMode === 'grid'
+                                    ? 'bg-white text-indigo-600 shadow-2xs'
+                                    : 'text-slate-500 hover:text-slate-800'
+                            }`}
+                            title="Grid View"
+                        >
+                            <FiGrid size={12} />
+                        </button>
+                        <button
+                            onClick={() => setViewMode('table')}
+                            className={`h-7 px-2 rounded flex items-center gap-1 text-xs font-bold transition-all ${
+                                viewMode === 'table'
+                                    ? 'bg-white text-indigo-600 shadow-2xs'
+                                    : 'text-slate-500 hover:text-slate-800'
+                            }`}
+                            title="DataGrid Table View"
+                        >
+                            <FiList size={12} />
+                        </button>
+                    </div>
+
+                    {/* Open / Close Register Button */}
                     {!registerOpen ? (
                         <button
                             onClick={() => setShowOpeningDrop(true)}
-                            className="h-9 px-4 rounded-lg text-sm font-semibold flex items-center gap-2 shrink-0 transition-all bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-sm hover:shadow-emerald-200 hover:shadow-md"
+                            className="h-9 px-3 rounded-lg text-xs font-bold flex items-center gap-1.5 shrink-0 transition-all bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-xs hover:shadow-sm"
                             title="Open Register"
                         >
-                            <span className="w-2 h-2 rounded-full bg-green-200 animate-pulse shrink-0" />
-                            Open Register
+                            <FiUnlock size={13} className="text-emerald-200" />
+                            <span>Open Register</span>
                         </button>
                     ) : (
                         <button
                             onClick={handleCloseRegister}
-                            className="h-9 px-4 rounded-lg text-sm font-semibold flex items-center gap-2 shrink-0 transition-all bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white shadow-sm hover:shadow-red-200 hover:shadow-md"
+                            className="h-9 px-3 rounded-lg text-xs font-bold flex items-center gap-1.5 shrink-0 transition-all bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white shadow-xs hover:shadow-sm"
                             title="Close Register"
                         >
-                            <span className="w-2 h-2 rounded-full bg-red-200 animate-pulse shrink-0" />
-                            Close Register
+                            <FiLock size={13} className="text-rose-200" />
+                            <span>Close Register</span>
                         </button>
                     )}
                 </div>
             </div>
 
-            {/* Main Content */}
+            {/* ═══ Main Content: Products Catalog & Cart ═══ */}
             <div className="flex-1 flex overflow-hidden">
-                {/* Left Side - Products */}
-                <div className="flex-1 flex flex-col p-4 overflow-hidden">
-
-                    {/* Products Grid - Filters by search AND category */}
-                    <div className="flex-1 overflow-y-auto">
+                {/* Left Side - Products Grid / Table */}
+                <div className="flex-1 flex flex-col p-3 overflow-hidden">
+                    <div className="flex-1 overflow-y-auto pr-1">
                         {isLoading ? (
-                            <div className="flex items-center justify-center h-full text-gray-400">
+                            <div className="flex items-center justify-center h-full text-slate-400">
                                 <div className="flex flex-col items-center gap-3">
-                                    <div className="w-10 h-10 border-4 border-teal-400/30 border-t-teal-500 rounded-full animate-spin"></div>
-                                    <span>Loading products...</span>
+                                    <div className="w-9 h-9 border-3 border-indigo-400/30 border-t-indigo-600 rounded-full animate-spin"></div>
+                                    <span className="text-xs font-bold text-slate-500">Loading terminal inventory...</span>
                                 </div>
                             </div>
                         ) : (
                             <>
-                                {/* Filter by search or category */}
                                 {(() => {
                                     const displayProducts = searchQuery
                                         ? filteredProducts
                                         : (selectedCategory ? categoryProducts : products);
 
                                     return displayProducts.length > 0 ? (
-                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                                            {displayProducts.map(product => (
-                                                <ProductCard
-                                                    key={product.id}
-                                                    product={product}
-                                                    onAdd={() => addToCart(product)}
-                                                    posDefaultPrice={posDefaultPrice}
-                                                    shouldShowCost={shouldShowCost}
-                                                />
-                                            ))}
-                                        </div>
+                                        viewMode === 'grid' ? (
+                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5">
+                                                {displayProducts.map(product => (
+                                                    <ProductCard
+                                                        key={product.id}
+                                                        product={product}
+                                                        onAdd={() => addToCart(product)}
+                                                        posDefaultPrice={posDefaultPrice}
+                                                        shouldShowCost={shouldShowCost}
+                                                    />
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
+                                                <table className="w-full text-left border-collapse">
+                                                    <thead className="bg-slate-50/90 border-b border-slate-200 text-[10px] font-black uppercase text-slate-500 tracking-wider">
+                                                        <tr>
+                                                            <th className="px-3.5 py-2.5">Product Name</th>
+                                                            <th className="px-3 py-2.5">Barcode / SKU</th>
+                                                            <th className="px-3 py-2.5 text-center">Stock Units</th>
+                                                            <th className="px-3 py-2.5 text-right">Cost Price</th>
+                                                            <th className="px-3 py-2.5 text-right">Sale Price</th>
+                                                            <th className="px-3 py-2.5 text-center">Action</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-slate-100">
+                                                        {displayProducts.map((product, idx) => (
+                                                            <ProductRow
+                                                                key={product.id}
+                                                                product={product}
+                                                                isSelected={selectedProductIndex === idx}
+                                                                onClick={() => setSelectedProductIndex(idx)}
+                                                                onDoubleClick={() => addToCart(product)}
+                                                                shouldShowCost={shouldShowCost}
+                                                            />
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )
                                     ) : (
-                                        <div className="flex-1 flex flex-col items-center justify-center text-gray-400 py-12">
-                                            <span className="text-5xl mb-3">{searchQuery ? '🔍' : '📦'}</span>
-                                            <p className="text-lg font-medium">
+                                        <div className="flex-1 flex flex-col items-center justify-center text-slate-400 py-16">
+                                            <div className="w-16 h-16 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 mb-3 shadow-xs">
+                                                {searchQuery ? <FiSearch size={28} /> : <FiPackage size={28} />}
+                                            </div>
+                                            <p className="text-base font-bold text-slate-700">
                                                 {searchQuery ? `No products found for "${searchQuery}"` : 'No products found'}
                                             </p>
-                                            <p className="text-sm">
-                                                {searchQuery ? 'Try a different search term' : 'Add products in the Products page'}
+                                            <p className="text-xs text-slate-400 mt-1">
+                                                {searchQuery ? 'Try another search term or scan a different barcode' : 'Add products in the Inventory Catalog'}
                                             </p>
                                         </div>
                                     );
@@ -3192,38 +3365,53 @@ export default function RetailPOSPage() {
                     </div>
                 </div>
 
-                {/* Right Side - Cart */}
-                <div className="w-[400px] bg-white flex flex-col border-l border-gray-200 shadow-lg overflow-hidden min-h-0">
+                {/* Right Side - Shopping Cart & Checkout */}
+                <div className="w-[410px] bg-white flex flex-col border-l border-slate-200 shadow-xl overflow-hidden min-h-0 shrink-0">
                     {/* Cart Header */}
-                    <div className="px-4 py-3 bg-gradient-to-br from-green-600 via-emerald-600 to-teal-700 text-white shrink-0">
+                    <div className="px-3.5 py-3 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shrink-0 shadow-xs border-b border-slate-800">
                         <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                                <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0 text-lg">🛒</div>
+                            <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                                <div className="w-8 h-8 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center shrink-0 text-emerald-400">
+                                    <FiShoppingCart size={16} />
+                                </div>
                                 <div className="min-w-0">
-                                    <p className="font-bold text-sm whitespace-nowrap leading-tight">Shopping Cart</p>
-                                    <p className="text-emerald-200 text-[10px] leading-tight whitespace-nowrap">{cart.length} item{cart.length !== 1 ? 's' : ''} in cart</p>
+                                    <p className="font-black text-xs uppercase tracking-wider text-white leading-tight">Shopping Cart</p>
+                                    <p className="text-slate-300 text-[10px] leading-tight whitespace-nowrap">
+                                        {cart.length} item{cart.length !== 1 ? 's' : ''} • {cart.reduce((s, i) => s + i.qty, 0).toFixed(1)} units
+                                    </p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
                                 <button
                                     onClick={() => setShowHeldSalesModal(true)}
-                                    className="relative h-7 px-2.5 bg-white/15 hover:bg-white/25 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all"
+                                    className="relative h-7 px-2.5 bg-white/10 hover:bg-white/20 border border-white/10 rounded-lg text-xs font-bold flex items-center gap-1 transition-all"
+                                    title="Recall Held Sale"
                                 >
-                                    📋 <span>Recall</span>
+                                    <FiPlay size={11} className="text-sky-300" />
+                                    <span>Recall</span>
                                     {heldSales.length > 0 && (
-                                        <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center shadow-lg">
+                                        <span className="w-4 h-4 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center shadow-xs">
                                             {heldSales.length}
                                         </span>
                                     )}
                                 </button>
                                 {cart.length > 0 && (
-                                    <button onClick={holdCurrentSale} className="h-7 px-2.5 bg-amber-400/80 hover:bg-amber-400 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all">
-                                        ⏸️ <span>Hold</span>
+                                    <button 
+                                        onClick={holdCurrentSale} 
+                                        className="h-7 px-2.5 bg-amber-500/80 hover:bg-amber-500 text-slate-900 rounded-lg text-xs font-bold flex items-center gap-1 transition-all shadow-xs"
+                                        title="Hold Sale"
+                                    >
+                                        <FiPause size={11} />
+                                        <span>Hold</span>
                                     </button>
                                 )}
                                 {cart.length > 0 && (
-                                    <button onClick={clearCart} className="h-7 px-2.5 bg-white/15 hover:bg-red-500/50 rounded-lg text-xs font-semibold transition-all">
-                                        Clear
+                                    <button 
+                                        onClick={clearCart} 
+                                        className="h-7 px-2 bg-white/10 hover:bg-rose-500/80 rounded-lg text-xs font-bold transition-all"
+                                        title="Clear Cart"
+                                    >
+                                        <FiTrash2 size={12} className="text-rose-300" />
                                     </button>
                                 )}
                             </div>
@@ -3231,12 +3419,14 @@ export default function RetailPOSPage() {
                     </div>
 
                     {/* Cart Items */}
-                    <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                    <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50/60">
                         {cart.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                                <span className="text-5xl mb-3">🛒</span>
-                                <p className="font-medium">Cart is empty</p>
-                                <p className="text-sm">Add products to begin</p>
+                            <div className="flex flex-col items-center justify-center h-full text-slate-400 py-12">
+                                <div className="w-16 h-16 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-300 mb-3 shadow-2xs">
+                                    <FiShoppingCart size={28} />
+                                </div>
+                                <p className="font-bold text-slate-700 text-sm">Cart is empty</p>
+                                <p className="text-xs text-slate-400 mt-0.5">Scan barcode or click items to add</p>
                             </div>
                         ) : (
                             cart.map(item => (
@@ -3257,32 +3447,55 @@ export default function RetailPOSPage() {
                     </div>
 
                     {/* Cart Summary */}
-                    <div className="border-t border-gray-200 p-3 bg-gray-50 space-y-1 shrink-0">
-                        <div className="flex justify-between text-sm text-gray-600">
+                    <div className="border-t border-slate-200 p-3.5 bg-white space-y-1.5 shrink-0">
+                        <div className="flex justify-between text-xs text-slate-500 font-medium">
                             <span>Subtotal</span>
-                            <span>Ksh {subtotal.toLocaleString()}</span>
+                            <span className="font-mono text-slate-700">Ksh {subtotal.toLocaleString()}</span>
                         </div>
                         {totalDiscount > 0 && (
-                            <div className="flex justify-between text-sm text-green-600">
+                            <div className="flex justify-between text-xs text-emerald-600 font-bold">
                                 <span>Discount</span>
-                                <span>- Ksh {totalDiscount.toLocaleString()}</span>
+                                <span className="font-mono">- Ksh {totalDiscount.toLocaleString()}</span>
                             </div>
                         )}
-                        <div className="flex justify-between text-xl font-bold text-gray-800 pt-2 border-t border-gray-300">
-                            <span>TOTAL</span>
-                            <span>Ksh {grandTotal.toLocaleString()}</span>
+                        <div className="flex justify-between text-lg font-black text-slate-900 pt-1.5 border-t border-slate-200">
+                            <span className="text-xs uppercase tracking-wider text-slate-500 self-center">Grand Total</span>
+                            <span className="font-mono text-emerald-600">Ksh {grandTotal.toLocaleString()}</span>
                         </div>
+
+                        {/* Quick Cash Tender Pills */}
+                        {cart.length > 0 && (
+                            <div className="pt-2 border-t border-slate-100 flex items-center gap-1.5 overflow-x-auto pb-0.5">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">Tender:</span>
+                                {[
+                                    { label: 'Exact', amount: grandTotal },
+                                    { label: '500', amount: 500 },
+                                    { label: '1,000', amount: 1000 },
+                                    { label: '2,000', amount: 2000 },
+                                    { label: '5,000', amount: 5000 },
+                                ].filter(p => p.amount >= grandTotal || p.label === 'Exact').slice(0, 4).map(p => (
+                                    <button
+                                        key={p.label}
+                                        onClick={() => setShowPayment(true)}
+                                        className="px-2 py-0.5 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 rounded text-[10px] font-mono font-bold text-slate-700 hover:text-indigo-700 transition-all shadow-2xs whitespace-nowrap"
+                                    >
+                                        {p.label === 'Exact' ? 'Exact' : `Ksh ${p.label}`}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {/* Pay Button */}
-                    <div className="p-3 border-t border-gray-200 shrink-0">
+                    <div className="p-3 border-t border-slate-200 shrink-0 bg-white">
                         <button
                             onClick={() => setShowPayment(true)}
                             disabled={cart.length === 0}
-                            className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold text-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            className="w-full py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-black text-sm uppercase tracking-wider hover:shadow-lg hover:shadow-emerald-500/25 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-[0.98] shadow-md shadow-emerald-600/20"
                         >
-                            <span>💳</span>
+                            <FiCreditCard size={17} />
                             <span>PAY Ksh {grandTotal.toLocaleString()}</span>
+                            <span className="ml-auto text-[10px] bg-white/20 px-1.5 py-0.5 rounded font-mono font-normal">F12</span>
                         </button>
                     </div>
                 </div>
