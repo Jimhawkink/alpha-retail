@@ -1412,16 +1412,14 @@ const PaymentModal = ({
                     </div>
                 )}
 
-                {/* Actions */}
+                {/* Close Scrollable Body Area */}
                 </div>
 
-                </div>
-
-                {/* ═══ Super Fine Action Footer ═══ */}
-                <div className="flex gap-2.5 p-3.5 border-t border-slate-200 bg-slate-50 shrink-0">
+                {/* ═══ Super Fine Action Footer (INSIDE modal dialog card) ═══ */}
+                <div className="flex items-center gap-3 p-3.5 sm:p-4 border-t border-slate-200 bg-slate-50/90 shrink-0">
                     <button
                         onClick={handleClose}
-                        className="py-2.5 px-5 border border-slate-300 text-slate-700 rounded-xl font-bold text-xs hover:bg-slate-100 transition-all shadow-2xs active:scale-95"
+                        className="py-2.5 px-5 border border-slate-300 text-slate-700 bg-white hover:bg-slate-100 rounded-xl font-bold text-xs transition-all shadow-2xs active:scale-95 cursor-pointer"
                         disabled={mpesaStatus === 'sending' || mpesaStatus === 'waiting' || kcbStatus === 'sending' || kcbStatus === 'waiting'}
                     >
                         Cancel
@@ -1472,16 +1470,17 @@ const PaymentModal = ({
                             className={`flex-1 py-3 px-5 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md active:scale-95 ${
                                 isSaving || (paymentMethod === 'mpesa' && !mpesaReceipt && mpesaStatus !== 'success') || (paymentMethod === 'kcb' && !kcbReceipt && kcbStatus !== 'success') || (paymentMethod === 'credit' && !selectedCustomer)
                                 ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed shadow-none'
-                                : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-emerald-500/25'
+                                : 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-emerald-500/25 cursor-pointer'
                             }`}
                         >
-                            <FiCheckCircle size={15} className="text-white" />
+                            <FiCheckCircle size={15} className="text-white shrink-0" />
                             <span>{isSaving ? 'Processing...' : (paymentMethod === 'credit' && !selectedCustomer ? 'Select Customer' : 'Complete Sale')}</span>
-                            <span className="ml-auto text-[9px] bg-white/20 px-1.5 py-0.5 rounded font-mono font-bold text-white">Enter</span>
+                            <span className="ml-auto text-[9px] bg-white/20 px-2 py-0.5 rounded font-mono font-bold text-white uppercase tracking-wider">Enter</span>
                         </button>
                     )}
                 </div>
             </div>
+        </div>
     );
 };
 

@@ -466,11 +466,16 @@ function POSHeaderBanner({
     const { activeOutlet, outlets, switchOutlet } = useOutlet();
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const userMenuRef = useRef<HTMLDivElement>(null);
+    const [outletMenuOpen, setOutletMenuOpen] = useState(false);
+    const outletMenuRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const handler = (e: MouseEvent) => {
             if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
                 setUserMenuOpen(false);
+            }
+            if (outletMenuRef.current && !outletMenuRef.current.contains(e.target as Node)) {
+                setOutletMenuOpen(false);
             }
         };
         document.addEventListener('mousedown', handler);
@@ -483,11 +488,13 @@ function POSHeaderBanner({
 
     return (
         <header
-            className="sticky top-0 z-30 h-[72px] flex items-center px-4 lg:px-6 shadow-lg border-b border-sky-900/60 select-none relative overflow-hidden bg-gradient-to-r from-[#02132b] via-[#041e44] to-[#02132b]"
+            className="sticky top-0 z-30 h-[72px] flex items-center px-4 lg:px-6 shadow-lg border-b border-sky-900/60 select-none relative overflow-visible bg-gradient-to-r from-[#02132b] via-[#041e44] to-[#02132b]"
         >
-            {/* Ambient neon radial glows */}
-            <div className="absolute top-0 left-1/4 w-96 h-full bg-emerald-500/10 blur-3xl pointer-events-none" />
-            <div className="absolute top-0 right-1/4 w-96 h-full bg-sky-500/10 blur-3xl pointer-events-none" />
+            {/* Ambient neon radial glows (contained within header boundary) */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute top-0 left-1/4 w-96 h-full bg-emerald-500/10 blur-3xl pointer-events-none" />
+                <div className="absolute top-0 right-1/4 w-96 h-full bg-sky-500/10 blur-3xl pointer-events-none" />
+            </div>
 
             {/* Mobile drawer toggle */}
             {!isCashier && (
@@ -524,10 +531,84 @@ function POSHeaderBanner({
                 </div>
             </Link>
 
-            {/* Right-Side Capsule Pill: User + Date/Time (LIVE) + Online */}
-            <div className="ml-auto relative z-20 flex items-center">
+            {/* Right-Side Capsule: Outlets Selector + User Dropdown + Online */}
+            <div className="ml-auto relative z-30 flex items-center">
                 <div className="flex items-center gap-2 sm:gap-3 px-3.5 sm:px-4 py-2 rounded-full bg-[#021b3f]/95 border border-sky-400/50 shadow-[0_0_15px_rgba(56,189,248,0.25)] backdrop-blur-md text-white">
-                    {/* 1. Logged In User Dropdown */}
+                    {/* 1. Branch / Outlet Selector Dropdown */}
+                    <div className="relative" ref={outletMenuRef}>
+                        <button
+                            type="button"
+                            onClick={() => outlets.length > 1 && setOutletMenuOpen(!outletMenuOpen)}
+                            className={`flex items-center gap-1.5 sm:gap-2 text-white hover:text-emerald-300 transition-colors select-none ${
+                                outlets.length > 1 ? 'cursor-pointer group' : 'cursor-default'
+                            }`}
+                            title="Active Store Branch / Outlet"
+                        >
+                            <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-emerald-500/20 border border-emerald-400/50 flex items-center justify-center text-emerald-300 group-hover:scale-105 transition-transform shrink-0">
+                                <Store size={13} className="text-emerald-300" />
+                            </div>
+                            <div className="flex flex-col text-left leading-none">
+                                <span className="text-[12px] sm:text-[13px] font-bold tracking-tight text-white group-hover:text-emerald-200 transition-colors max-w-[110px] sm:max-w-[150px] truncate">
+                                    {activeOutlet?.outlet_name || 'Main Store'}
+                                </span>
+                                <span className="text-[9px] font-mono text-emerald-300/90 font-bold uppercase tracking-wider mt-0.5">
+                                    {activeOutlet?.outlet_code || 'OUTLET'}
+                                </span>
+                            </div>
+                            {outlets.length > 1 && (
+                                <ChevronDown
+                                    size={14}
+                                    className={`text-emerald-300 transition-transform duration-200 shrink-0 ${outletMenuOpen ? 'rotate-180' : ''}`}
+                                />
+                            )}
+                        </button>
+
+                        {/* Outlet Dropdown Menu */}
+                        {outletMenuOpen && (
+                            <div className="absolute right-0 top-12 w-64 rounded-2xl bg-[#031d40]/98 border border-emerald-400/40 shadow-2xl backdrop-blur-md py-2 z-50 animate-in fade-in zoom-in-95 duration-150 text-slate-200">
+                                <div className="px-4 py-2 border-b border-emerald-500/20 flex items-center justify-between">
+                                    <span className="text-[10px] uppercase font-bold text-emerald-300 tracking-wider">Switch Branch</span>
+                                    <span className="text-[9px] font-mono bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                                        {outlets.length} Outlets
+                                    </span>
+                                </div>
+                                <div className="max-h-56 overflow-y-auto py-1">
+                                    {outlets.map(o => {
+                                        const isActive = o.outlet_id === activeOutlet?.outlet_id;
+                                        return (
+                                            <button
+                                                key={o.outlet_id}
+                                                onClick={() => {
+                                                    switchOutlet(o.outlet_id);
+                                                    setOutletMenuOpen(false);
+                                                }}
+                                                className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center justify-between transition-colors ${
+                                                    isActive
+                                                        ? 'bg-emerald-500/25 text-white font-bold border-l-4 border-emerald-400'
+                                                        : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-2 truncate pr-2">
+                                                    <Store size={13} className={isActive ? 'text-emerald-300' : 'text-slate-400'} />
+                                                    <span className="truncate">{o.outlet_name}</span>
+                                                </div>
+                                                <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0 ${
+                                                    isActive ? 'bg-emerald-400/20 text-emerald-200 font-bold' : 'text-slate-400 bg-white/5'
+                                                }`}>
+                                                    {o.outlet_code || 'OUTLET'}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Divider */}
+                    <div className="h-4 w-[1px] bg-slate-400/30 shrink-0" />
+
+                    {/* 2. Logged In User Dropdown */}
                     <div className="relative" ref={userMenuRef}>
                         <button
                             type="button"
@@ -549,7 +630,7 @@ function POSHeaderBanner({
 
                         {/* User Dropdown */}
                         {userMenuOpen && (
-                            <div className="absolute right-0 top-11 w-64 rounded-2xl bg-[#031d40]/98 border border-sky-400/40 shadow-2xl backdrop-blur-md py-2 z-50 animate-in fade-in zoom-in-95 duration-150 text-slate-200">
+                            <div className="absolute right-0 top-12 w-64 rounded-2xl bg-[#031d40]/98 border border-sky-400/40 shadow-2xl backdrop-blur-md py-2 z-50 animate-in fade-in zoom-in-95 duration-150 text-slate-200">
                                 <div className="px-4 py-2.5 border-b border-sky-500/20">
                                     <p className="text-[13px] font-extrabold text-white truncate">{user?.name || 'Super Admin'}</p>
                                     <p className="text-[11px] font-semibold text-sky-300 capitalize mt-0.5">{user?.userType || 'Administrator'}</p>
@@ -560,34 +641,6 @@ function POSHeaderBanner({
                                         </div>
                                     )}
                                 </div>
-
-                                {/* Outlets switcher for SuperAdmin */}
-                                {isSuperAdmin && outlets.length > 1 && (
-                                    <div className="px-3 py-2 border-b border-sky-500/20">
-                                        <p className="text-[10px] uppercase font-bold text-sky-300/80 mb-1 tracking-wider px-1">Switch Branch</p>
-                                        <div className="space-y-1 max-h-36 overflow-y-auto">
-                                            {outlets.map(o => (
-                                                <button
-                                                    key={o.outlet_id}
-                                                    onClick={() => {
-                                                        switchOutlet(o.outlet_id);
-                                                        setUserMenuOpen(false);
-                                                    }}
-                                                    className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-between transition-colors ${
-                                                        o.outlet_id === activeOutlet?.outlet_id
-                                                            ? 'bg-sky-500/30 text-white font-bold'
-                                                            : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                                                    }`}
-                                                >
-                                                    <span className="truncate">{o.outlet_name}</span>
-                                                    {o.outlet_id === activeOutlet?.outlet_id && (
-                                                        <span className="text-[10px] text-sky-300 font-bold shrink-0">Active</span>
-                                                    )}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
 
                                 <div className="py-1">
                                     <Link
@@ -614,7 +667,7 @@ function POSHeaderBanner({
                                             setUserMenuOpen(false);
                                             handleLogout();
                                         }}
-                                        className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-bold text-rose-300 hover:text-rose-100 hover:bg-rose-500/20 transition-colors"
+                                        className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-bold text-rose-300 hover:text-rose-100 hover:bg-rose-500/20 transition-colors cursor-pointer"
                                     >
                                         <LogOut size={14} className="text-rose-400" />
                                         <span>Sign Out</span>
@@ -626,17 +679,6 @@ function POSHeaderBanner({
 
                     {/* Divider */}
                     <div className="h-4 w-[1px] bg-slate-400/30 shrink-0" />
-
-                    {/* 2. Live Date & Time Clock (ticking every second) */}
-                    <div className="hidden sm:flex items-center gap-1.5 sm:gap-2 select-none shrink-0" title="Live System Time">
-                        <Calendar size={14} className="text-sky-300 shrink-0" />
-                        <span className="text-[11px] sm:text-[12px] font-semibold text-slate-100 whitespace-nowrap font-mono tracking-wide">
-                            {currentTime.dateStr} {currentTime.timeStr}
-                        </span>
-                    </div>
-
-                    {/* Divider for sm screens */}
-                    <div className="hidden sm:block h-4 w-[1px] bg-slate-400/30 shrink-0" />
 
                     {/* 3. Online Status */}
                     <div className="flex items-center gap-1.5 sm:gap-2 select-none shrink-0" title="System Online">
