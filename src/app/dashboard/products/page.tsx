@@ -1,38 +1,154 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { logActivity } from '@/lib/supabase';
 import { useOutlet } from '@/context/OutletContext';
-import toast from 'react-hot-toast';
-import { FiPackage, FiPlus, FiEdit2, FiTrash2, FiShoppingCart, FiDownload, FiRefreshCw, FiSearch, FiGrid, FiList, FiChevronLeft, FiChevronRight, FiX, FiUpload, FiCheck, FiAlertTriangle, FiTag, FiDollarSign, FiLayers, FiFilter, FiTrendingUp, FiImage, FiPrinter, FiZap, FiClock, FiSliders, FiEye, FiEyeOff, FiChevronsLeft, FiChevronsRight, FiFileText } from 'react-icons/fi';
+import toast, { Toaster } from 'react-hot-toast';
+import {
+    FiPackage,
+    FiPlus,
+    FiEdit2,
+    FiTrash2,
+    FiShoppingCart,
+    FiDownload,
+    FiRefreshCw,
+    FiSearch,
+    FiGrid,
+    FiList,
+    FiChevronLeft,
+    FiChevronRight,
+    FiX,
+    FiUpload,
+    FiCheck,
+    FiAlertTriangle,
+    FiTag,
+    FiDollarSign,
+    FiLayers,
+    FiFilter,
+    FiTrendingUp,
+    FiImage,
+    FiPrinter,
+    FiZap,
+    FiClock,
+    FiSliders,
+    FiEye,
+    FiEyeOff,
+    FiChevronsLeft,
+    FiChevronsRight,
+    FiFileText,
+    FiBox,
+    FiArrowRight,
+    FiCheckCircle,
+    FiShield,
+    FiHash
+} from 'react-icons/fi';
 
+/* ══════════════════════════════════════════════════════════════════════════════
+   TYPES & DEFAULT INTERFACES
+   ══════════════════════════════════════════════════════════════════════════════ */
 interface Product {
-    pid: number; product_code: string; product_name: string; alias: string;
-    vat_commodity: string; description: string; barcode: string; category: string;
-    purchase_unit: string; sales_unit: string; purchase_cost: number; sales_cost: number;
-    wholesale_price: number; reorder_point: number; margin_per: number; show_ps: boolean; button_ui_color: string;
-    photo: string; hscode: string; batch_no: string; supplier_name: string; active: boolean;
-    pieces_per_package: number; package_sales_cost?: number;
+    pid: number;
+    product_code: string;
+    product_name: string;
+    alias: string;
+    vat_commodity: string;
+    description: string;
+    barcode: string;
+    category: string;
+    purchase_unit: string;
+    sales_unit: string;
+    purchase_cost: number;
+    sales_cost: number;
+    wholesale_price: number;
+    reorder_point: number;
+    margin_per: number;
+    show_ps: boolean;
+    button_ui_color: string;
+    photo: string;
+    hscode: string;
+    batch_no: string;
+    supplier_name: string;
+    active: boolean;
+    pieces_per_package: number;
+    package_sales_cost?: number;
 }
-interface StockHistoryRow { id: number; date: string; ref: string; type: string; qty_in: number; qty_out: number; balance: number; }
-interface PriceHistoryRow { id: number; date: string; old_buy: number; new_buy: number; old_sell: number; new_sell: number; }
-interface Category { category_id: number; category_name: string; icon: string; color: string; }
-interface Supplier { supplier_id: number; supplier_code: string; supplier_name: string; is_kitchen?: boolean; }
-interface Unit { unit_id: number; unit_name: string; abbreviation: string; }
+
+interface StockHistoryRow {
+    id: number;
+    date: string;
+    ref: string;
+    type: string;
+    qty_in: number;
+    qty_out: number;
+    balance: number;
+}
+
+interface PriceHistoryRow {
+    id: number;
+    date: string;
+    old_buy: number;
+    new_buy: number;
+    old_sell: number;
+    new_sell: number;
+}
+
+interface Category {
+    category_id: number;
+    category_name: string;
+    icon: string;
+    color: string;
+}
+
+interface Supplier {
+    supplier_id: number;
+    supplier_code: string;
+    supplier_name: string;
+    is_kitchen?: boolean;
+}
+
+interface Unit {
+    unit_id: number;
+    unit_name: string;
+    abbreviation: string;
+}
 
 const defaultProduct: Omit<Product, 'pid' | 'product_code'> = {
-    product_name: '', alias: '', vat_commodity: 'Standard', description: '', barcode: '',
-    category: '', purchase_unit: 'Piece', sales_unit: 'Piece', purchase_cost: 0, sales_cost: 0,
-    wholesale_price: 0, package_sales_cost: 0, reorder_point: 10, margin_per: 0, show_ps: true, button_ui_color: 'from-blue-400 to-blue-600',
-    photo: '', hscode: '', batch_no: '', supplier_name: '', active: true, pieces_per_package: 1,
+    product_name: '',
+    alias: '',
+    vat_commodity: 'Standard',
+    description: '',
+    barcode: '',
+    category: '',
+    purchase_unit: 'Piece',
+    sales_unit: 'Piece',
+    purchase_cost: 0,
+    sales_cost: 0,
+    wholesale_price: 0,
+    package_sales_cost: 0,
+    reorder_point: 10,
+    margin_per: 0,
+    show_ps: true,
+    button_ui_color: 'from-blue-400 to-blue-600',
+    photo: '',
+    hscode: '',
+    batch_no: '',
+    supplier_name: '',
+    active: true,
+    pieces_per_package: 1,
 };
+
 const UNIT_CONVERSIONS: Record<string, Record<string, number>> = {
-    'Box': { 'Piece': 1, 'Box': 1 }, 'Pack': { 'Piece': 1, 'Pack': 1 },
-    'Dozen': { 'Piece': 12, 'Dozen': 1 }, 'Kilogram': { 'Gram': 1000, 'Kilogram': 1 },
+    'Box': { 'Piece': 1, 'Box': 1 },
+    'Pack': { 'Piece': 1, 'Pack': 1 },
+    'Dozen': { 'Piece': 12, 'Dozen': 1 },
+    'Kilogram': { 'Gram': 1000, 'Kilogram': 1 },
     'Liter': { 'Milliliter': 1000, 'Liter': 1 },
 };
+
 const vatOptions = ['Standard', 'Zero Rated', 'Exempt', 'Inclusive'];
+
 const colorPresets = [
     { name: 'Orange', gradient: 'from-orange-400 to-orange-600', hex: '#F97316' },
     { name: 'Red', gradient: 'from-red-400 to-red-600', hex: '#EF4444' },
@@ -49,18 +165,31 @@ const colorPresets = [
     { name: 'Brown', gradient: 'from-amber-600 to-amber-800', hex: '#92400E' },
     { name: 'Red Dark', gradient: 'from-red-600 to-red-800', hex: '#DC2626' },
 ];
+
 const defUnits: Unit[] = [
-    { unit_id: 1, unit_name: 'Piece', abbreviation: 'Pc' }, { unit_id: 2, unit_name: 'Kilogram', abbreviation: 'Kg' },
-    { unit_id: 3, unit_name: 'Gram', abbreviation: 'g' }, { unit_id: 4, unit_name: 'Liter', abbreviation: 'L' },
-    { unit_id: 5, unit_name: 'Milliliter', abbreviation: 'ml' }, { unit_id: 6, unit_name: 'Box', abbreviation: 'Box' },
-    { unit_id: 7, unit_name: 'Pack', abbreviation: 'Pk' }, { unit_id: 8, unit_name: 'Dozen', abbreviation: 'Dz' },
-    { unit_id: 9, unit_name: 'Bottle', abbreviation: 'Btl' }, { unit_id: 10, unit_name: 'Plate', abbreviation: 'Plt' },
+    { unit_id: 1, unit_name: 'Piece', abbreviation: 'Pc' },
+    { unit_id: 2, unit_name: 'Kilogram', abbreviation: 'Kg' },
+    { unit_id: 3, unit_name: 'Gram', abbreviation: 'g' },
+    { unit_id: 4, unit_name: 'Liter', abbreviation: 'L' },
+    { unit_id: 5, unit_name: 'Milliliter', abbreviation: 'ml' },
+    { unit_id: 6, unit_name: 'Box', abbreviation: 'Box' },
+    { unit_id: 7, unit_name: 'Pack', abbreviation: 'Pk' },
+    { unit_id: 8, unit_name: 'Dozen', abbreviation: 'Dz' },
+    { unit_id: 9, unit_name: 'Bottle', abbreviation: 'Btl' },
+    { unit_id: 10, unit_name: 'Plate', abbreviation: 'Plt' },
 ];
 
-// Helper: Fetch ALL retail_stock rows by paginating (Supabase caps at 1000 per request)
-async function fetchAllStock(outletId: number): Promise<Array<{pid: number; qty: number; storage_type: string}>> {
+const fmtKES = (n: number) => `Ksh ${Math.round(n || 0).toLocaleString('en-KE')}`;
+const fmtK = (n: number) => {
+    if (n >= 1_000_000) return `Ksh ${(n / 1_000_000).toFixed(2)}M`;
+    if (n >= 1_000) return `Ksh ${(n / 1_000).toFixed(1)}K`;
+    return `Ksh ${Math.round(n || 0).toLocaleString('en-KE')}`;
+};
+
+// Helper: Fetch ALL retail_stock rows by paginating
+async function fetchAllStock(outletId: number): Promise<Array<{ pid: number; qty: number; storage_type: string }>> {
     const PAGE_SIZE = 1000;
-    let allRows: Array<{pid: number; qty: number; storage_type: string}> = [];
+    let allRows: Array<{ pid: number; qty: number; storage_type: string }> = [];
     let page = 0;
     let hasMore = true;
     while (hasMore) {
@@ -76,61 +205,72 @@ async function fetchAllStock(outletId: number): Promise<Array<{pid: number; qty:
         if (!data || data.length < PAGE_SIZE) hasMore = false;
         else page++;
     }
-    console.log(`📊 Products: Fetched ${allRows.length} stock rows (${page + 1} pages)`);
     return allRows;
 }
 
 export default function ProductsPage() {
     const { activeOutlet, expiryEnabled } = useOutlet();
     const outletId = activeOutlet?.outlet_id || 1;
+
+    // Core Data
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [units, setUnits] = useState<Unit[]>(defUnits);
     const [companyName, setCompanyName] = useState('');
     const [isLoading, setIsLoading] = useState(true);
+
+    // Modal & Form State
     const [showModal, setShowModal] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [previewPid, setPreviewPid] = useState<number | null>(null);
     const [previewCode, setPreviewCode] = useState<string>('');
     const [formData, setFormData] = useState(defaultProduct);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [filterCategory, setFilterCategory] = useState('All');
     const [isSaving, setIsSaving] = useState(false);
     const [openingBags, setOpeningBags] = useState(0);
     const [openingPieces, setOpeningPieces] = useState(0);
+
+    // Stock Data Maps
     const [stockData, setStockData] = useState<Record<number, number>>({});
     const [bagStockData, setBagStockData] = useState<Record<number, number>>({});
     const [pieceStockData, setPieceStockData] = useState<Record<number, number>>({});
+
+    // Views & Filters
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filterCategory, setFilterCategory] = useState('All');
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
     const [showValuation, setShowValuation] = useState(true);
-    const [hasRetailProfitFeature,    setHasRetailProfitFeature]    = useState(false);
-    const [hasWholesaleProfitFeature,  setHasWholesaleProfitFeature]  = useState(false);
-    const [hasValuationCardsFeature,   setHasValuationCardsFeature]   = useState(false);
-    const hasValuationAccess = hasValuationCardsFeature;
     const [showInactive, setShowInactive] = useState(false);
     const [selectedPids, setSelectedPids] = useState<Set<number>>(new Set());
     const [page, setPage] = useState(1);
     const [perPage, setPerPage] = useState(20);
-    // Add-product-only mode (when navigated from cashier quick action)
     const [isAddMode, setIsAddMode] = useState(false);
 
-    // New modal states
+    // Feature Flags from license
+    const [hasRetailProfitFeature, setHasRetailProfitFeature] = useState(false);
+    const [hasWholesaleProfitFeature, setHasWholesaleProfitFeature] = useState(false);
+    const [hasValuationCardsFeature, setHasValuationCardsFeature] = useState(false);
+    const hasValuationAccess = hasValuationCardsFeature;
+
+    // Sub-Modals
     const [showLabelModal, setShowLabelModal] = useState(false);
     const [labelProducts, setLabelProducts] = useState<number[]>([]);
     const [labelQty, setLabelQty] = useState<Record<number, number>>({});
     const [labelSearch, setLabelSearch] = useState('');
     const [labelSize, setLabelSize] = useState<'small' | 'medium' | 'large'>('medium');
-    const [showLabelPreview, setShowLabelPreview] = useState(false);
+
     const [showLookupModal, setShowLookupModal] = useState(false);
     const [lookupQuery, setLookupQuery] = useState('');
     const [lookupResult, setLookupResult] = useState<Product | null>(null);
+
     const [showStockHistoryModal, setShowStockHistoryModal] = useState(false);
     const [stockHistoryProduct, setStockHistoryProduct] = useState<Product | null>(null);
     const [stockHistory, setStockHistory] = useState<StockHistoryRow[]>([]);
+
     const [showPriceHistoryModal, setShowPriceHistoryModal] = useState(false);
     const [priceHistoryProduct, setPriceHistoryProduct] = useState<Product | null>(null);
     const [priceHistory, setPriceHistory] = useState<PriceHistoryRow[]>([]);
+
     const [showStockAdjustModal, setShowStockAdjustModal] = useState(false);
     const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
     const [adjustBags, setAdjustBags] = useState(0);
@@ -138,17 +278,32 @@ export default function ProductsPage() {
     const [adjustType, setAdjustType] = useState<'add' | 'remove'>('add');
     const [adjustReason, setAdjustReason] = useState('');
 
-    // Expiry batch management (only for expiry-enabled outlets)
+    // Expiry Batches
     const [productBatches, setProductBatches] = useState<Array<{
-        batch_id?: number; batch_number: string; expiry_date: string;
-        qty_received: number; qty_remaining: number; cost_price: number;
-        selling_price: number; supplier_name: string; isNew?: boolean; isEditing?: boolean;
+        batch_id?: number;
+        batch_number: string;
+        expiry_date: string;
+        qty_received: number;
+        qty_remaining: number;
+        cost_price: number;
+        selling_price: number;
+        supplier_name: string;
+        isNew?: boolean;
+        isEditing?: boolean;
     }>>([]);
-    const [batchForm, setBatchForm] = useState({ batch_number: '', expiry_date: '', qty_received: 0, qty_remaining: 0, cost_price: 0, selling_price: 0, supplier_name: '' });
+    const [batchForm, setBatchForm] = useState({
+        batch_number: '',
+        expiry_date: '',
+        qty_received: 0,
+        qty_remaining: 0,
+        cost_price: 0,
+        selling_price: 0,
+        supplier_name: ''
+    });
     const [showBatchForm, setShowBatchForm] = useState(false);
     const [editingBatchIdx, setEditingBatchIdx] = useState<number | null>(null);
 
-    // Import states
+    // CSV Import
     const [showImportModal, setShowImportModal] = useState(false);
     const [importFile, setImportFile] = useState<File | null>(null);
     const [importMode, setImportMode] = useState<'overwrite' | 'update' | 'add_new'>('add_new');
@@ -164,28 +319,28 @@ export default function ProductsPage() {
         if (!activeOutlet) return;
         setIsLoading(true);
         try {
-            // Paginated fetch — Supabase caps at 1000 rows per request
             const PAGE = 1000;
             let allProducts: any[] = [];
             let from = 0;
             let keepGoing = true;
             while (keepGoing) {
                 const { data, error } = await supabase
-                    .from('retail_products').select('*')
+                    .from('retail_products')
+                    .select('*')
                     .eq('outlet_id', outletId)
                     .order('pid', { ascending: false })
                     .range(from, from + PAGE - 1);
-                // If error OR no data, stop — never fall back to loading all outlets
                 if (error || !data?.length) break;
                 allProducts = allProducts.concat(data);
                 if (data.length < PAGE) keepGoing = false;
                 from += PAGE;
             }
             setProducts(allProducts);
+        } catch {
+            toast.error('Failed to load products');
         }
-        catch { toast.error('Failed to load products'); }
         setIsLoading(false);
-        // Auto-open add modal if ?action=add is in URL (cashier quick action)
+
         if (typeof window !== 'undefined' && window.location.search.includes('action=add')) {
             setIsAddMode(true);
         }
@@ -194,7 +349,6 @@ export default function ProductsPage() {
     const loadStockData = useCallback(async () => {
         if (!activeOutlet) return;
         try {
-            // Use paginated fetch to get ALL stock rows (Supabase caps at 1000/request)
             const data = await fetchAllStock(outletId);
             const total: Record<number, number> = {};
             const bags: Record<number, number> = {};
@@ -208,19 +362,18 @@ export default function ProductsPage() {
                 }
                 total[s.pid] = (total[s.pid] || 0) + q;
             });
-            setStockData(total); setBagStockData(bags); setPieceStockData(pcs);
+            setStockData(total);
+            setBagStockData(bags);
+            setPieceStockData(pcs);
         } catch { /* silent */ }
     }, [activeOutlet, outletId]);
 
-    // ─── AUTO-CONVERT: Big Units → Pieces when Pieces = 0 ───────────────────
-    // When pieces=0 but Boxes/Bags/Cartons remain, auto-open 1 big unit and
-    // assign its pieces_per_package count to Pieces stock. Runs on load + every 60s.
+    // Auto-convert big units when loose pieces = 0
     const autoConvertBigUnitsToPieces = useCallback(async (prods?: any[]) => {
         if (!activeOutlet) return;
         const prodList = prods || products;
         if (prodList.length === 0) return;
         try {
-            // Fetch all stock rows WITH st_id for targeted updates
             const PAGE_SIZE = 1000;
             let allStockRows: any[] = [];
             let page = 0, hasMore = true;
@@ -235,9 +388,8 @@ export default function ProductsPage() {
                 else page++;
             }
 
-            // Build per-product arrays: pid → [{st_id, qty}] per type
-            const bigUnitRowsMap: Record<number, Array<{st_id: number; qty: number}>> = {};
-            const pieceRowsMap:   Record<number, Array<{st_id: number; qty: number}>> = {};
+            const bigUnitRowsMap: Record<number, Array<{ st_id: number; qty: number }>> = {};
+            const pieceRowsMap: Record<number, Array<{ st_id: number; qty: number }>> = {};
             allStockRows.forEach((row: any) => {
                 const isBig = row.storage_type === 'Bags';
                 const map = isBig ? bigUnitRowsMap : pieceRowsMap;
@@ -245,10 +397,9 @@ export default function ProductsPage() {
                 map[row.pid].push({ st_id: row.st_id, qty: row.qty || 0 });
             });
 
-            // Find products needing conversion: pieces=0, big-units>0, ppp>1
             const toConvert = prodList.filter((p: any) => {
                 if ((p.pieces_per_package || 1) <= 1) return false;
-                const totalPcs  = (pieceRowsMap[p.pid]   || []).reduce((s: number, r: any) => s + r.qty, 0);
+                const totalPcs = (pieceRowsMap[p.pid] || []).reduce((s: number, r: any) => s + r.qty, 0);
                 const totalBags = (bigUnitRowsMap[p.pid] || []).reduce((s: number, r: any) => s + r.qty, 0);
                 return totalPcs <= 0 && totalBags > 0;
             });
@@ -259,20 +410,17 @@ export default function ProductsPage() {
             for (const product of toConvert) {
                 const ppp = product.pieces_per_package || 1;
                 const bagRows = bigUnitRowsMap[product.pid] || [];
-                const pcsRows = pieceRowsMap[product.pid]  || [];
+                const pcsRows = pieceRowsMap[product.pid] || [];
 
-                // Pick first big-unit row with qty > 0
                 const bagRow = bagRows.find((r: any) => r.qty > 0);
                 if (!bagRow) continue;
 
-                // Deduct 1 from big unit
                 const { error: e1 } = await supabase
                     .from('retail_stock')
                     .update({ qty: bagRow.qty - 1 })
                     .eq('st_id', bagRow.st_id);
                 if (e1) continue;
 
-                // Add pieces_per_package to Pieces
                 const pcsRow = pcsRows[0];
                 if (pcsRow) {
                     await supabase.from('retail_stock')
@@ -286,64 +434,87 @@ export default function ProductsPage() {
             }
 
             if (converted > 0) {
-                console.log(`📦 Auto-converted ${converted} product(s): 1 package → ${converted > 1 ? 'pieces' : 'pieces'}`);
                 await loadStockData();
             }
-        } catch (e) { console.error('Auto-convert error:', e); }
+        } catch (e) {
+            console.error('Auto-convert error:', e);
+        }
     }, [activeOutlet, outletId, products, loadStockData]);
 
     const loadCategories = useCallback(async () => {
         if (!activeOutlet) return;
         try {
-            let { data, error } = await supabase.from('retail_categories').select('*').eq('active', true).eq('outlet_id', outletId).order('category_name');
-            // Fallback: if outlet_id filter fails or returns empty, load ALL categories
+            let { data, error } = await supabase
+                .from('retail_categories')
+                .select('*')
+                .eq('active', true)
+                .eq('outlet_id', outletId)
+                .order('category_name');
             if (error || !data || data.length === 0) {
                 const fb = await supabase.from('retail_categories').select('*').eq('active', true).order('category_name');
                 data = fb.data;
             }
             setCategories(data || []);
-        }
-        catch { /* silent */ }
+        } catch { /* silent */ }
     }, [activeOutlet, outletId]);
 
     const loadSuppliers = useCallback(async () => {
-        try { const { data, error } = await supabase.from('retail_suppliers').select('supplier_id, supplier_code, supplier_name').eq('active', true).order('supplier_name'); if (error) throw error; setSuppliers(data || []); }
-        catch { /* silent */ }
+        try {
+            const { data, error } = await supabase
+                .from('retail_suppliers')
+                .select('supplier_id, supplier_code, supplier_name')
+                .eq('active', true)
+                .order('supplier_name');
+            if (error) throw error;
+            setSuppliers(data || []);
+        } catch { /* silent */ }
     }, []);
 
     const loadUnits = useCallback(async () => {
-        try { const { data, error } = await supabase.from('product_units').select('unit_id, unit_name, abbreviation').eq('active', true).order('unit_name'); if (error) throw error; setUnits(data || []); }
-        catch { setUnits(defUnits); }
+        try {
+            const { data, error } = await supabase
+                .from('product_units')
+                .select('unit_id, unit_name, abbreviation')
+                .eq('active', true)
+                .order('unit_name');
+            if (error) throw error;
+            setUnits(data || []);
+        } catch {
+            setUnits(defUnits);
+        }
     }, []);
 
     const loadCompanyName = useCallback(async () => {
         try {
             const { data } = await supabase.from('organisation_settings').select('setting_value').eq('setting_key', 'company_name').single();
             if (data?.setting_value) setCompanyName(data.setting_value.trim());
-        } catch { setCompanyName('Alpha Retail'); }
+        } catch {
+            setCompanyName('Alpha Retail');
+        }
     }, []);
 
-    useEffect(() => { loadProducts(); loadStockData(); loadCategories(); loadSuppliers(); loadUnits(); loadCompanyName(); },
-        [loadProducts, loadStockData, loadCategories, loadSuppliers, loadUnits, loadCompanyName]);
+    useEffect(() => {
+        loadProducts();
+        loadStockData();
+        loadCategories();
+        loadSuppliers();
+        loadUnits();
+        loadCompanyName();
+    }, [loadProducts, loadStockData, loadCategories, loadSuppliers, loadUnits, loadCompanyName]);
 
-    // ─── Trigger auto-convert after products load, then re-check every 60s ───
     useEffect(() => {
         if (products.length === 0 || isLoading) return;
-        autoConvertBigUnitsToPieces();                          // run immediately
-        const iv = setInterval(autoConvertBigUnitsToPieces, 60_000); // re-check every 60s
+        autoConvertBigUnitsToPieces();
+        const iv = setInterval(autoConvertBigUnitsToPieces, 60_000);
         return () => clearInterval(iv);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [products.length, isLoading]);
+    }, [products.length, isLoading, autoConvertBigUnitsToPieces]);
 
-    // Auto-open add modal when navigated via ?action=add (cashier quick action)
     useEffect(() => {
         if (!isLoading && isAddMode && !showModal) {
             openAddModal();
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isLoading, isAddMode]);
+    }, [isLoading, isAddMode, showModal]);
 
-    // ─── GRANULAR FEATURE FLAGS — per outlet from license_settings ───
     useEffect(() => {
         try {
             const raw = localStorage.getItem('user');
@@ -374,15 +545,22 @@ export default function ProductsPage() {
 
     const generateBarcode = async (): Promise<string> => {
         try {
-            const { data } = await supabase.from('retail_products').select('barcode').eq('outlet_id', outletId).like('barcode', '1%').order('barcode', { ascending: false }).limit(1);
-            if (data?.length && data[0].barcode) return String((parseInt(data[0].barcode) || 100) + 1); return '101';
-        } catch { return '101'; }
+            const { data } = await supabase
+                .from('retail_products')
+                .select('barcode')
+                .eq('outlet_id', outletId)
+                .like('barcode', '1%')
+                .order('barcode', { ascending: false })
+                .limit(1);
+            if (data?.length && data[0].barcode) return String((parseInt(data[0].barcode, 10) || 100) + 1);
+            return '101';
+        } catch {
+            return '101';
+        }
     };
 
     const generateProductCode = async (): Promise<{ code: string; pid: number }> => {
         try {
-            // Query global max pid across ALL outlets, excluding NULLs
-            // NULLs sort first in DESC order and would cause PRD-0001 to be generated
             const { data } = await supabase
                 .from('retail_products')
                 .select('pid')
@@ -393,7 +571,6 @@ export default function ProductsPage() {
             const nextPid = maxPid + 1;
             return { code: `PRD-${String(nextPid).padStart(4, '0')}`, pid: nextPid };
         } catch {
-            // Fallback: timestamp-based unique values
             const ts = Date.now();
             return { code: `PRD-${ts.toString().slice(-6)}`, pid: ts };
         }
@@ -404,13 +581,15 @@ export default function ProductsPage() {
     const openAddModal = async () => {
         setEditingProduct(null);
         const bc = await generateBarcode();
-        // Pre-generate pid and code so user can see them before saving
         const { code, pid: nextPid } = await generateProductCode();
         setPreviewPid(nextPid);
         setPreviewCode(code);
         setFormData({ ...defaultProduct, barcode: bc, supplier_name: getKitchenSupplier() });
-        setOpeningBags(0); setOpeningPieces(0);
-        setProductBatches([]); setShowBatchForm(false); setEditingBatchIdx(null);
+        setOpeningBags(0);
+        setOpeningPieces(0);
+        setProductBatches([]);
+        setShowBatchForm(false);
+        setEditingBatchIdx(null);
         setShowModal(true);
         if (typeof window !== 'undefined' && window.location.search.includes('action=add')) setIsAddMode(true);
     };
@@ -418,19 +597,38 @@ export default function ProductsPage() {
     const openEditModal = (p: Product) => {
         setEditingProduct(p);
         setFormData({
-            product_name: p.product_name, alias: p.alias || '', vat_commodity: p.vat_commodity || 'Standard',
-            description: p.description || '', barcode: p.barcode || '', category: p.category || '',
-            purchase_unit: p.purchase_unit || 'Piece', sales_unit: p.sales_unit || 'Piece',
-            purchase_cost: p.purchase_cost || 0, sales_cost: p.sales_cost || 0, wholesale_price: (p as any).wholesale_price || 0,
-            package_sales_cost: (p as any).package_sales_cost || 0, reorder_point: p.reorder_point || 10,
-            margin_per: p.margin_per || 0, show_ps: p.show_ps !== false, button_ui_color: p.button_ui_color || 'from-blue-400 to-blue-600',
-            photo: p.photo || '', hscode: p.hscode || '', batch_no: p.batch_no || '', supplier_name: p.supplier_name || '', active: p.active !== false,
+            product_name: p.product_name,
+            alias: p.alias || '',
+            vat_commodity: p.vat_commodity || 'Standard',
+            description: p.description || '',
+            barcode: p.barcode || '',
+            category: p.category || '',
+            purchase_unit: p.purchase_unit || 'Piece',
+            sales_unit: p.sales_unit || 'Piece',
+            purchase_cost: p.purchase_cost || 0,
+            sales_cost: p.sales_cost || 0,
+            wholesale_price: (p as any).wholesale_price || 0,
+            package_sales_cost: (p as any).package_sales_cost || 0,
+            reorder_point: p.reorder_point || 10,
+            margin_per: p.margin_per || 0,
+            show_ps: p.show_ps !== false,
+            button_ui_color: p.button_ui_color || 'from-blue-400 to-blue-600',
+            photo: p.photo || '',
+            hscode: p.hscode || '',
+            batch_no: p.batch_no || '',
+            supplier_name: p.supplier_name || '',
+            active: p.active !== false,
             pieces_per_package: p.pieces_per_package || 1,
         });
-        setShowBatchForm(false); setEditingBatchIdx(null);
-        // Load batches for this product (only if expiry tracking enabled)
+        setShowBatchForm(false);
+        setEditingBatchIdx(null);
         if (expiryEnabled) {
-            supabase.from('retail_product_batches').select('*').eq('pid', p.pid).eq('outlet_id', outletId).eq('status', 'Active').order('expiry_date', { ascending: true })
+            supabase.from('retail_product_batches')
+                .select('*')
+                .eq('pid', p.pid)
+                .eq('outlet_id', outletId)
+                .eq('status', 'Active')
+                .order('expiry_date', { ascending: true })
                 .then(({ data }) => setProductBatches((data || []).map(b => ({ ...b, isNew: false, isEditing: false }))));
         } else {
             setProductBatches([]);
@@ -439,37 +637,52 @@ export default function ProductsPage() {
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault(); if (!formData.product_name.trim()) { toast.error('Product name required!'); return; }
+        e.preventDefault();
+        if (!formData.product_name.trim()) {
+            toast.error('Product name required!');
+            return;
+        }
         setIsSaving(true);
         try {
             const costPerPiece = formData.purchase_cost / (formData.pieces_per_package || 1);
             const margin = calcMargin(costPerPiece, formData.wholesale_price || formData.sales_cost);
             const pkgCost = parseFloat(String(formData.package_sales_cost)) || 0;
             const d = {
-                product_name: formData.product_name, alias: formData.alias || null, description: formData.description || null,
-                barcode: formData.barcode || null, category: formData.category || null, purchase_unit: formData.purchase_unit,
+                product_name: formData.product_name,
+                alias: formData.alias || null,
+                description: formData.description || null,
+                barcode: formData.barcode || null,
+                category: formData.category || null,
+                purchase_unit: formData.purchase_unit,
                 sales_unit: formData.sales_unit,
-                purchase_cost:   parseFloat(String(formData.purchase_cost))   || 0,
-                sales_cost:      parseFloat(String(formData.sales_cost))      || 0,
+                purchase_cost: parseFloat(String(formData.purchase_cost)) || 0,
+                sales_cost: parseFloat(String(formData.sales_cost)) || 0,
                 wholesale_price: parseFloat(String(formData.wholesale_price)) || 0,
                 package_sales_cost: pkgCost,
                 reorder_point: Math.round(parseFloat(String(formData.reorder_point)) || 10),
-                margin_per: margin, show_in_pos: formData.show_ps !== false,
-                button_ui_color: formData.button_ui_color, photo: formData.photo || null, batch_no: formData.batch_no || null,
-                supplier_name: formData.supplier_name || null, active: formData.active !== false,
+                margin_per: margin,
+                show_in_pos: formData.show_ps !== false,
+                button_ui_color: formData.button_ui_color,
+                photo: formData.photo || null,
+                batch_no: formData.batch_no || null,
+                supplier_name: formData.supplier_name || null,
+                active: formData.active !== false,
                 pieces_per_package: Math.round(parseFloat(String(formData.pieces_per_package)) || 1),
             };
+
             if (editingProduct) {
-                // Log price change if prices changed
                 if (editingProduct.purchase_cost !== formData.purchase_cost || editingProduct.sales_cost !== formData.sales_cost) {
                     try {
                         await supabase.from('retail_price_history').insert({
-                            pid: editingProduct.pid, product_name: editingProduct.product_name,
-                            old_buy: editingProduct.purchase_cost, new_buy: formData.purchase_cost,
-                            old_sell: editingProduct.sales_cost, new_sell: formData.sales_cost,
+                            pid: editingProduct.pid,
+                            product_name: editingProduct.product_name,
+                            old_buy: editingProduct.purchase_cost,
+                            new_buy: formData.purchase_cost,
+                            old_sell: editingProduct.sales_cost,
+                            new_sell: formData.sales_cost,
                             changed_at: new Date().toISOString(),
                         });
-                    } catch { /* silent if table doesn't exist */ }
+                    } catch { /* silent */ }
                 }
                 let updatePayload: any = { ...d, updated_at: new Date().toISOString() };
                 let { error } = await supabase.from('retail_products').update(updatePayload).eq('pid', editingProduct.pid);
@@ -478,10 +691,10 @@ export default function ProductsPage() {
                     const res2 = await supabase.from('retail_products').update(updatePayload).eq('pid', editingProduct.pid);
                     error = res2.error;
                 }
-                if (error) throw new Error(error.message); toast.success('Product updated!');
-                logActivity('Update', `Updated product: ${formData.product_name}`, `PID: ${editingProduct.pid}, Buy: ${formData.purchase_cost}, Sell: ${formData.sales_cost}`);
+                if (error) throw new Error(error.message);
+                toast.success('Product updated successfully!');
+                logActivity('Update', `Updated product: ${formData.product_name}`, `PID: ${editingProduct.pid}`);
             } else {
-                // Check for duplicate product name in this outlet first
                 const { data: existing } = await supabase
                     .from('retail_products')
                     .select('pid, product_name')
@@ -489,69 +702,90 @@ export default function ProductsPage() {
                     .ilike('product_name', formData.product_name.trim())
                     .limit(1)
                     .maybeSingle();
+
                 if (existing) {
-                    toast.error(`"${formData.product_name}" already exists in this outlet! Edit the existing product instead.`);
+                    toast.error(`"${formData.product_name}" already exists in this outlet!`);
                     setIsSaving(false);
                     return;
                 }
+
                 const { code, pid: newPid } = previewCode && previewPid
                     ? { code: previewCode, pid: previewPid }
                     : await generateProductCode();
-                let insertPayload: any = { ...d, pid: newPid, product_code: code, outlet_id: outletId, created_at: new Date().toISOString() };
+
+                let insertPayload: any = {
+                    ...d,
+                    pid: newPid,
+                    product_code: code,
+                    outlet_id: outletId,
+                    created_at: new Date().toISOString()
+                };
+
                 let { data: np, error } = await supabase
                     .from('retail_products')
                     .insert(insertPayload)
-                    .select().single();
+                    .select()
+                    .single();
+
                 if (error && error.message?.includes('package_sales_cost')) {
                     delete insertPayload.package_sales_cost;
                     const res2 = await supabase
                         .from('retail_products')
                         .insert(insertPayload)
-                        .select().single();
+                        .select()
+                        .single();
                     np = res2.data;
                     error = res2.error;
                 }
                 if (error) throw new Error(error.message);
+
                 if (np) {
                     const stockRecords: any[] = [];
                     if (openingBags > 0) stockRecords.push({ pid: np.pid, invoice_no: 'OPENING', qty: openingBags, storage_type: 'Bags', outlet_id: outletId });
                     if (openingPieces > 0) stockRecords.push({ pid: np.pid, invoice_no: 'OPENING', qty: openingPieces, storage_type: 'Pieces', outlet_id: outletId });
                     if (stockRecords.length > 0) await supabase.from('retail_stock').insert(stockRecords);
-                    // Save any new batches (expiry tracking)
+
                     if (expiryEnabled && productBatches.length > 0) {
                         const newBatches = productBatches.filter(b => b.isNew).map(b => ({
-                            pid: np.pid, product_name: formData.product_name,
+                            pid: np.pid,
+                            product_name: formData.product_name,
                             batch_number: b.batch_number || `B-${Date.now().toString(36).toUpperCase()}`,
-                            expiry_date: b.expiry_date, qty_received: b.qty_received, qty_remaining: b.qty_remaining,
-                            cost_price: b.cost_price, selling_price: b.selling_price, supplier_name: b.supplier_name,
-                            outlet_id: outletId, status: 'Active', received_date: new Date().toISOString().split('T')[0],
+                            expiry_date: b.expiry_date,
+                            qty_received: b.qty_received,
+                            qty_remaining: b.qty_remaining,
+                            cost_price: b.cost_price,
+                            selling_price: b.selling_price,
+                            supplier_name: b.supplier_name,
+                            outlet_id: outletId,
+                            status: 'Active',
+                            received_date: new Date().toISOString().split('T')[0],
                         }));
                         if (newBatches.length > 0) await supabase.from('retail_product_batches').insert(newBatches);
                     }
                 }
                 toast.success(`Product ${code} created!`);
-                logActivity('Create', `Created product: ${formData.product_name}`, `Code: ${code}, Buy: ${formData.purchase_cost}, Sell: ${formData.sales_cost}`);
+                logActivity('Create', `Created product: ${formData.product_name}`, `Code: ${code}`);
             }
-            setShowModal(false); loadProducts(); loadStockData();
-        } catch (err: unknown) { toast.error(`Failed: ${err instanceof Error ? err.message : 'Unknown'}`); }
+            setShowModal(false);
+            loadProducts();
+            loadStockData();
+        } catch (err: unknown) {
+            toast.error(`Failed: ${err instanceof Error ? err.message : 'Unknown'}`);
+        }
         setIsSaving(false);
     };
 
     const deleteProduct = async (p: Product) => {
         if (!confirm(`Remove "${p.product_name}"?\n\nIf it has sales history it will be deactivated.\nIf no sales history it will be permanently deleted.`)) return;
         try {
-            // Handle products with NULL pid (created by a bug — delete by name+outlet)
             if (!p.pid) {
-                await supabase.from('retail_products')
-                    .delete()
-                    .eq('outlet_id', outletId)
-                    .eq('product_name', p.product_name);
+                await supabase.from('retail_products').delete().eq('outlet_id', outletId).eq('product_name', p.product_name);
                 toast.success(`"${p.product_name}" deleted`);
-                loadProducts(); loadStockData();
+                loadProducts();
+                loadStockData();
                 return;
             }
 
-            // Check if product has any sales records
             const { data: salesCheck } = await supabase
                 .from('retail_sales_items')
                 .select('sale_id')
@@ -560,21 +794,16 @@ export default function ProductsPage() {
                 .maybeSingle();
 
             if (salesCheck) {
-                // Has sales history — DEACTIVATE instead of delete
-                const { error } = await supabase
-                    .from('retail_products')
-                    .update({ active: false })
-                    .eq('pid', p.pid);
+                const { error } = await supabase.from('retail_products').update({ active: false }).eq('pid', p.pid);
                 if (error) throw error;
                 toast.success(`"${p.product_name}" deactivated (has sales history)`);
                 logActivity('Deactivate', `Deactivated product (has sales): ${p.product_name}`, `PID: ${p.pid}`);
             } else {
-                // No sales history — PERMANENTLY DELETE
                 await supabase.from('retail_stock').delete().eq('pid', p.pid);
                 const { error } = await supabase.from('retail_products').delete().eq('pid', p.pid);
                 if (error) throw error;
                 toast.success(`"${p.product_name}" permanently deleted`);
-                logActivity('Delete', `Deleted product: ${p.product_name}`, `PID: ${p.pid}, Code: ${p.product_code}`);
+                logActivity('Delete', `Deleted product: ${p.product_name}`, `PID: ${p.pid}`);
             }
             loadProducts();
             loadStockData();
@@ -592,10 +821,12 @@ export default function ProductsPage() {
             toast.success(`${p.active ? '🔒 Deactivated' : '✅ Reactivated'}: ${p.product_name}`);
             logActivity(action, `${action}d product: ${p.product_name}`, `PID: ${p.pid}`);
             loadProducts();
-        } catch { toast.error(`Failed to ${action.toLowerCase()} product`); }
+        } catch {
+            toast.error(`Failed to ${action.toLowerCase()} product`);
+        }
     };
 
-    // ── BULK DEACTIVATE ──
+    // ─── BULK OPERATIONS ───
     const toggleSelect = (pid: number) => {
         setSelectedPids(prev => {
             const next = new Set(prev);
@@ -603,6 +834,7 @@ export default function ProductsPage() {
             return next;
         });
     };
+
     const toggleSelectAll = () => {
         if (selectedPids.size === paginated.length) {
             setSelectedPids(new Set());
@@ -610,9 +842,10 @@ export default function ProductsPage() {
             setSelectedPids(new Set(paginated.map(p => p.pid)));
         }
     };
+
     const bulkDeactivate = async () => {
         if (selectedPids.size === 0) return;
-        if (!confirm(`Deactivate ${selectedPids.size} selected product(s)? They will be hidden from the system.`)) return;
+        if (!confirm(`Deactivate ${selectedPids.size} selected product(s)?`)) return;
         try {
             const pids = Array.from(selectedPids);
             const { error } = await supabase.from('retail_products').update({ active: false }).in('pid', pids);
@@ -621,11 +854,14 @@ export default function ProductsPage() {
             logActivity('Deactivate', `Bulk deactivated ${pids.length} products`, `PIDs: ${pids.join(', ')}`);
             setSelectedPids(new Set());
             loadProducts();
-        } catch { toast.error('Bulk deactivate failed'); }
+        } catch {
+            toast.error('Bulk deactivate failed');
+        }
     };
+
     const bulkDelete = async () => {
         if (selectedPids.size === 0) return;
-        if (!confirm(`PERMANENTLY DELETE ${selectedPids.size} selected product(s)? This cannot be undone.`)) return;
+        if (!confirm(`PERMANENTLY DELETE ${selectedPids.size} selected product(s)?`)) return;
         try {
             const pids = Array.from(selectedPids);
             const { error } = await supabase.from('retail_products').delete().in('pid', pids);
@@ -634,73 +870,153 @@ export default function ProductsPage() {
             logActivity('Delete', `Bulk deleted ${pids.length} products`, `PIDs: ${pids.join(', ')}`);
             setSelectedPids(new Set());
             loadProducts();
-        } catch { toast.error('Bulk delete failed'); }
+        } catch {
+            toast.error('Bulk delete failed');
+        }
     };
 
     const exportCSV = () => {
-        const csv = [['Code', 'Name', 'Category', 'Buy', 'Cost_Per_Pc', 'Sell', 'Big_Qty_Price', 'Wholesale', 'Stock', 'Margin', 'Status'].join(','),
-        ...filtered.map(p => {
-            const cpp = (p.purchase_cost || 0) / (p.pieces_per_package || 1);
-            const sp = (p as any).wholesale_price || p.sales_cost || 0;
-            const bigPrice = (p.pieces_per_package || 1) > 1
-                ? ((p.package_sales_cost && p.package_sales_cost > 0) ? p.package_sales_cost : ((p.sales_cost || 0) * (p.pieces_per_package || 1)))
-                : '';
-            return [p.product_code, `"${p.product_name}"`, p.category || '', p.purchase_cost, Math.round(cpp), p.sales_cost, bigPrice, (p as any).wholesale_price || 0, stockData[p.pid] || 0, (sp - cpp).toFixed(0), p.active ? 'Active' : 'Off'].join(',');
-        })].join('\n');
-        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'products.csv'; a.click();
-        toast.success('Exported!');
+        const csv = [
+            ['Code', 'Name', 'Category', 'Buy', 'Cost_Per_Pc', 'Sell', 'Big_Qty_Price', 'Wholesale', 'Stock', 'Margin', 'Status'].join(','),
+            ...filtered.map(p => {
+                const cpp = (p.purchase_cost || 0) / (p.pieces_per_package || 1);
+                const sp = (p as any).wholesale_price || p.sales_cost || 0;
+                const bigPrice = (p.pieces_per_package || 1) > 1
+                    ? ((p.package_sales_cost && p.package_sales_cost > 0) ? p.package_sales_cost : ((p.sales_cost || 0) * (p.pieces_per_package || 1)))
+                    : '';
+                return [
+                    p.product_code,
+                    `"${p.product_name}"`,
+                    p.category || '',
+                    p.purchase_cost,
+                    Math.round(cpp),
+                    p.sales_cost,
+                    bigPrice,
+                    (p as any).wholesale_price || 0,
+                    stockData[p.pid] || 0,
+                    (sp - cpp).toFixed(0),
+                    p.active ? 'Active' : 'Off'
+                ].join(',');
+            })
+        ].join('\n');
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+        a.download = `products-${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        toast.success('Products exported to CSV');
     };
 
-    // ─── STOCK HISTORY ───
+    // ─── STOCK HISTORY MODAL ───
     const openStockHistory = async (p: Product) => {
-        setStockHistoryProduct(p); setShowStockHistoryModal(true);
+        setStockHistoryProduct(p);
+        setShowStockHistoryModal(true);
         try {
             const rows: StockHistoryRow[] = [];
             const { data: stockRows } = await supabase.from('retail_stock').select('*').eq('pid', p.pid).order('created_at', { ascending: true });
-            (stockRows || []).forEach((r: any, i: number) => rows.push({ id: i, date: new Date(r.created_at).toLocaleDateString('en-GB'), ref: r.invoice_no || 'N/A', type: 'Purchase/Opening', qty_in: r.qty || 0, qty_out: 0, balance: 0 }));
+            (stockRows || []).forEach((r: any, i: number) => rows.push({
+                id: i,
+                date: new Date(r.created_at).toLocaleDateString('en-GB'),
+                ref: r.invoice_no || 'N/A',
+                type: 'Purchase/Opening',
+                qty_in: r.qty || 0,
+                qty_out: 0,
+                balance: 0
+            }));
             const { data: saleRows } = await supabase.from('retail_sales_items').select('*, retail_sales!inner(sale_datetime, receipt_no)').eq('product_id', p.pid).order('retail_sales(sale_datetime)', { ascending: true });
-            (saleRows || []).forEach((r: any, i: number) => rows.push({ id: 1000 + i, date: new Date(r.retail_sales?.sale_datetime).toLocaleDateString('en-GB'), ref: r.retail_sales?.receipt_no || 'N/A', type: 'Sale', qty_in: 0, qty_out: r.quantity || 0, balance: 0 }));
+            (saleRows || []).forEach((r: any, i: number) => rows.push({
+                id: 1000 + i,
+                date: new Date(r.retail_sales?.sale_datetime).toLocaleDateString('en-GB'),
+                ref: r.retail_sales?.receipt_no || 'N/A',
+                type: 'Sale',
+                qty_in: 0,
+                qty_out: r.quantity || 0,
+                balance: 0
+            }));
             rows.sort((a, b) => a.date.localeCompare(b.date));
-            let bal = 0; rows.forEach(r => { bal += r.qty_in - r.qty_out; r.balance = bal; });
+            let bal = 0;
+            rows.forEach(r => { bal += r.qty_in - r.qty_out; r.balance = bal; });
             setStockHistory(rows);
-        } catch { setStockHistory([]); }
+        } catch {
+            setStockHistory([]);
+        }
     };
 
-    // ─── PRICE HISTORY ───
+    // ─── PRICE HISTORY MODAL ───
     const openPriceHistory = async (p: Product) => {
-        setPriceHistoryProduct(p); setShowPriceHistoryModal(true);
+        setPriceHistoryProduct(p);
+        setShowPriceHistoryModal(true);
         try {
             const { data } = await supabase.from('retail_price_history').select('*').eq('pid', p.pid).order('changed_at', { ascending: false });
-            setPriceHistory((data || []).map((r: any, i: number) => ({ id: i, date: new Date(r.changed_at).toLocaleString('en-GB'), old_buy: r.old_buy, new_buy: r.new_buy, old_sell: r.old_sell, new_sell: r.new_sell })));
-        } catch { setPriceHistory([]); }
+            setPriceHistory((data || []).map((r: any, i: number) => ({
+                id: i,
+                date: new Date(r.changed_at).toLocaleString('en-GB'),
+                old_buy: r.old_buy,
+                new_buy: r.new_buy,
+                old_sell: r.old_sell,
+                new_sell: r.new_sell
+            })));
+        } catch {
+            setPriceHistory([]);
+        }
     };
 
-    // ─── STOCK ADJUSTMENT ───
+    // ─── STOCK ADJUSTMENT MODAL ───
     const openStockAdjust = (p: Product) => {
-        setAdjustProduct(p); setAdjustBags(0); setAdjustPieces(0); setAdjustType('add'); setAdjustReason(''); setShowStockAdjustModal(true);
+        setAdjustProduct(p);
+        setAdjustBags(0);
+        setAdjustPieces(0);
+        setAdjustType('add');
+        setAdjustReason('');
+        setShowStockAdjustModal(true);
     };
+
     const submitStockAdjust = async () => {
-        if (!adjustProduct || (adjustBags <= 0 && adjustPieces <= 0)) { toast.error('Enter valid quantity'); return; }
+        if (!adjustProduct || (adjustBags <= 0 && adjustPieces <= 0)) {
+            toast.error('Enter valid quantity');
+            return;
+        }
         try {
             const ref = `ADJ-${Date.now().toString(36).toUpperCase()}`;
             const stockRecords: any[] = [];
             if (adjustBags > 0) {
-                stockRecords.push({ pid: adjustProduct.pid, invoice_no: ref, qty: adjustType === 'add' ? adjustBags : -adjustBags, storage_type: 'Bags', notes: adjustReason || 'Stock Adjustment', outlet_id: outletId });
+                stockRecords.push({
+                    pid: adjustProduct.pid,
+                    invoice_no: ref,
+                    qty: adjustType === 'add' ? adjustBags : -adjustBags,
+                    storage_type: 'Bags',
+                    notes: adjustReason || 'Stock Adjustment',
+                    outlet_id: outletId
+                });
             }
             if (adjustPieces > 0) {
-                stockRecords.push({ pid: adjustProduct.pid, invoice_no: ref, qty: adjustType === 'add' ? adjustPieces : -adjustPieces, storage_type: 'Pieces', notes: adjustReason || 'Stock Adjustment', outlet_id: outletId });
+                stockRecords.push({
+                    pid: adjustProduct.pid,
+                    invoice_no: ref,
+                    qty: adjustType === 'add' ? adjustPieces : -adjustPieces,
+                    storage_type: 'Pieces',
+                    notes: adjustReason || 'Stock Adjustment',
+                    outlet_id: outletId
+                });
             }
             if (stockRecords.length > 0) await supabase.from('retail_stock').insert(stockRecords);
             const parts: string[] = [];
             if (adjustBags > 0) parts.push(`${adjustBags} ${adjustProduct.purchase_unit}(s)`);
             if (adjustPieces > 0) parts.push(`${adjustPieces} ${adjustProduct.sales_unit}(s)`);
             toast.success(`Stock ${adjustType === 'add' ? 'added' : 'removed'}: ${parts.join(' + ')}`);
-            setShowStockAdjustModal(false); loadStockData();
-        } catch { toast.error('Adjustment failed'); }
+            setShowStockAdjustModal(false);
+            loadStockData();
+        } catch {
+            toast.error('Adjustment failed');
+        }
     };
 
     // ─── LABEL GENERATOR ───
-    const labelSizes = { small: { w: '38mm', h: '25mm', name: 11, barcode: 14, price: 13, code: 8 }, medium: { w: '50mm', h: '30mm', name: 13, barcode: 18, price: 16, code: 9 }, large: { w: '62mm', h: '35mm', name: 15, barcode: 22, price: 20, code: 10 } };
+    const labelSizes = {
+        small: { w: '38mm', h: '25mm', name: 11, barcode: 14, price: 13, code: 8 },
+        medium: { w: '50mm', h: '30mm', name: 13, barcode: 18, price: 16, code: 9 },
+        large: { w: '62mm', h: '35mm', name: 15, barcode: 22, price: 20, code: 10 }
+    };
+
     const getLabelHTML = () => {
         const selectedProds = products.filter(p => labelProducts.includes(p.pid));
         if (selectedProds.length === 0) return '';
@@ -717,13 +1033,25 @@ export default function ProductsPage() {
             .code{font-size:${s.code}px;text-align:center;color:#555;}
         </style></head><body>${labels.map(p => `<div class='label'><div class='company'>${companyName || 'Alpha Retail'}</div><div class='name'>${p.product_name}</div><div class='barcode'>${p.barcode || p.product_code}</div><div class='price'>Ksh ${(p.sales_cost || 0).toLocaleString()}</div><div class='code'>${p.product_code} • ${p.sales_unit || 'Pc'}</div></div>`).join('')}</body></html>`;
     };
+
     const printLabels = () => {
         const html = getLabelHTML();
         if (!html) { toast.error('Select at least one product'); return; }
-        const iframe = document.createElement('iframe'); iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:none;';
-        document.body.appendChild(iframe); const doc = iframe.contentWindow?.document;
-        if (doc) { doc.open(); doc.write(html); doc.close(); setTimeout(() => { iframe.contentWindow?.print(); setTimeout(() => document.body.removeChild(iframe), 2000); }, 500); }
+        const iframe = document.createElement('iframe');
+        iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:none;';
+        document.body.appendChild(iframe);
+        const doc = iframe.contentWindow?.document;
+        if (doc) {
+            doc.open();
+            doc.write(html);
+            doc.close();
+            setTimeout(() => {
+                iframe.contentWindow?.print();
+                setTimeout(() => document.body.removeChild(iframe), 2000);
+            }, 500);
+        }
     };
+
     const filteredLabelProducts = products.filter(p => {
         if (!p.active) return false;
         if (!labelSearch.trim()) return true;
@@ -731,15 +1059,19 @@ export default function ProductsPage() {
         return p.product_name.toLowerCase().includes(q) || p.product_code.toLowerCase().includes(q) || (p.barcode && p.barcode.includes(labelSearch));
     });
 
-    // ─── IMPORT PRODUCTS ───
+    // ─── CSV IMPORT ───
     const parseCSV = (text: string): Record<string, string>[] => {
         const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
         if (lines.length < 2) return [];
         const headers = lines[0].split(',').map(h => h.trim().replace(/^"(.*)"$/, '$1').toLowerCase().replace(/\s+/g, '_'));
         return lines.slice(1).map(line => {
-            const vals: string[] = []; let current = ''; let inQuotes = false;
+            const vals: string[] = [];
+            let current = '';
+            let inQuotes = false;
             for (const ch of line) {
-                if (ch === '"') { inQuotes = !inQuotes; } else if (ch === ',' && !inQuotes) { vals.push(current.trim()); current = ''; } else { current += ch; }
+                if (ch === '"') { inQuotes = !inQuotes; }
+                else if (ch === ',' && !inQuotes) { vals.push(current.trim()); current = ''; }
+                else { current += ch; }
             }
             vals.push(current.trim());
             const row: Record<string, string> = {};
@@ -750,12 +1082,20 @@ export default function ProductsPage() {
 
     const importProducts = async () => {
         if (!importFile) { toast.error('Please select a CSV file'); return; }
-        setImportStatus('parsing'); setImportErrors([]); setImportSuccessCount(0); setImportProgress(0);
+        setImportStatus('parsing');
+        setImportErrors([]);
+        setImportSuccessCount(0);
+        setImportProgress(0);
         try {
             const text = await importFile.text();
             const rows = parseCSV(text);
-            if (rows.length === 0) { toast.error('No data found in file'); setImportStatus('error'); return; }
-            setImportTotal(rows.length); setImportStatus('importing');
+            if (rows.length === 0) {
+                toast.error('No data found in file');
+                setImportStatus('error');
+                return;
+            }
+            setImportTotal(rows.length);
+            setImportStatus('importing');
 
             if (importMode === 'overwrite') {
                 setImportCurrentItem('Clearing existing products...');
@@ -764,12 +1104,14 @@ export default function ProductsPage() {
                 setImportProgress(0);
             }
 
-            let success = 0; const errors: string[] = [];
+            let success = 0;
+            const errors: string[] = [];
             for (let i = 0; i < rows.length; i++) {
                 const r = rows[i];
                 const name = r.product_name || r.name || r.item_name || r.item || '';
                 if (!name) { errors.push(`Row ${i + 2}: Missing product name`); setImportProgress(i + 1); continue; }
                 setImportCurrentItem(name);
+
                 const prodData = {
                     product_name: name,
                     alias: r.alias || r.short_name || '',
@@ -779,14 +1121,14 @@ export default function ProductsPage() {
                     sales_unit: r.sales_unit || r.sell_unit || r.unit || 'Piece',
                     purchase_cost: parseFloat(r.purchase_cost || r.buy_price || r.cost_price || r.cost || '0') || 0,
                     sales_cost: parseFloat(r.sales_cost || r.sell_price || r.selling_price || r.price || '0') || 0,
-                    reorder_point: parseInt(r.reorder_point || r.reorder || r.min_stock || '10') || 10,
+                    reorder_point: parseInt(r.reorder_point || r.reorder || r.min_stock || '10', 10) || 10,
                     vat_commodity: r.vat_commodity || r.vat || r.tax || 'Standard',
                     supplier_name: r.supplier_name || r.supplier || '',
                     hscode: r.hscode || r.hs_code || '',
                     batch_no: r.batch_no || r.batch || '',
                     description: r.description || r.desc || '',
                     active: (r.active || r.status || 'true').toLowerCase() !== 'false',
-                    pieces_per_package: parseInt(r.pieces_per_package || r.pcs_per_pack || '1') || 1,
+                    pieces_per_package: parseInt(r.pieces_per_package || r.pcs_per_pack || '1', 10) || 1,
                     wholesale_price: parseFloat(r.wholesale_price || r.wholesale || r.ws_price || '0') || 0,
                     margin_per: 0,
                 };
@@ -815,14 +1157,21 @@ export default function ProductsPage() {
                         if (newP?.[0]) await supabase.from('retail_stock').insert({ pid: newP[0].pid, invoice_no: 'IMPORT', qty, storage_type: 'Store', outlet_id: outletId });
                     }
                     success++;
-                } catch (err: any) { errors.push(`Row ${i + 2} (${name}): ${err.message || 'DB error'}`); }
+                } catch (err: any) {
+                    errors.push(`Row ${i + 2} (${name}): ${err.message || 'DB error'}`);
+                }
                 setImportProgress(i + 1);
-                await new Promise(r => setTimeout(r, 50));
+                await new Promise(res => setTimeout(res, 30));
             }
-            setImportSuccessCount(success); setImportErrors(errors);
+            setImportSuccessCount(success);
+            setImportErrors(errors);
             setImportStatus(errors.length > 0 && success === 0 ? 'error' : 'success');
-            loadProducts(); loadStockData();
-        } catch (err: any) { setImportStatus('error'); setImportErrors([err.message || 'Failed to parse file']); }
+            loadProducts();
+            loadStockData();
+        } catch (err: any) {
+            setImportStatus('error');
+            setImportErrors([err.message || 'Failed to parse file']);
+        }
     };
 
     // ─── ITEM LOOKUP ───
@@ -833,6 +1182,7 @@ export default function ProductsPage() {
         if (!found) toast.error('Product not found');
     };
 
+    // Filter calculations
     const filtered = products.filter(p => {
         if (!showInactive && !p.active) return false;
         const q = searchQuery.toLowerCase();
@@ -843,17 +1193,21 @@ export default function ProductsPage() {
             (p.category || '').toLowerCase().includes(q)
         ) && (filterCategory === 'All' || p.category === filterCategory);
     });
+
     const totalPages = Math.ceil(filtered.length / perPage);
     const paginated = filtered.slice((page - 1) * perPage, page * perPage);
-    // Only ACTIVE products count in valuations and low-stock alerts
+
+    // Active valuations
     const activeProducts = products.filter(p => p.active);
     const lowStock = activeProducts.filter(p => (stockData[p.pid] || 0) <= (p.reorder_point || 10)).length;
+
     const stockValCost = activeProducts.reduce((s, p) => {
         const b = bagStockData[p.pid] || 0;
         const pc = pieceStockData[p.pid] || 0;
         const ppp = p.pieces_per_package || 1;
         return s + (b * (p.purchase_cost || 0)) + (pc * ((p.purchase_cost || 0) / ppp));
     }, 0);
+
     const stockValSales = activeProducts.reduce((s, p) => {
         const b = bagStockData[p.pid] || 0;
         const pc = pieceStockData[p.pid] || 0;
@@ -861,316 +1215,500 @@ export default function ProductsPage() {
         const wsPrice = (p as any).wholesale_price || p.sales_cost || 0;
         return s + (b * ppp * wsPrice) + (pc * wsPrice);
     }, 0);
+
     const potentialProfit = stockValSales - stockValCost;
-    // Retail value at sales_cost
+
     const stockValRetail = activeProducts.reduce((s, p) => {
-        const b = bagStockData[p.pid] || 0; const pc = pieceStockData[p.pid] || 0;
-        const ppp = p.pieces_per_package || 1; const rp = p.sales_cost || 0;
+        const b = bagStockData[p.pid] || 0;
+        const pc = pieceStockData[p.pid] || 0;
+        const ppp = p.pieces_per_package || 1;
+        const rp = p.sales_cost || 0;
         return s + (b * ppp * rp) + (pc * rp);
     }, 0);
-    // Wholesale value at wholesale_price
+
     const stockValWholesale = activeProducts.reduce((s, p) => {
-        const b = bagStockData[p.pid] || 0; const pc = pieceStockData[p.pid] || 0;
-        const ppp = p.pieces_per_package || 1; const wp = (p as any).wholesale_price || 0;
+        const b = bagStockData[p.pid] || 0;
+        const pc = pieceStockData[p.pid] || 0;
+        const ppp = p.pieces_per_package || 1;
+        const wp = (p as any).wholesale_price || 0;
         return s + (b * ppp * wp) + (pc * wp);
     }, 0);
+
     const stockRetailProfit = stockValRetail - stockValCost;
     const stockWholesaleProfit = stockValWholesale - stockValCost;
 
-    // ─── UI ───
+    // ─── RENDER ───
     return (
-        <div className="space-y-5" style={{ fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
+        <div className="-mt-2 sm:-mt-3.5 pt-0 space-y-2.5 pb-10" style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+            <Toaster position="top-right" toastOptions={{ style: { background: '#0f172a', color: '#fff', fontSize: '12px', fontWeight: 'bold', borderRadius: '12px' } }} />
 
-            {/* ━━━ TOP BAR ━━━ */}
-            <div className="flex items-center justify-between">
+            {/* ══════════════════════════════════════════════════════════════════════════
+               1. EXECUTIVE COMMAND HEADER
+               ══════════════════════════════════════════════════════════════════════════ */}
+            <div className="bg-white rounded-2xl p-3 sm:p-4 border border-slate-200/90 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-300/40">
-                        <FiPackage className="text-white" size={24} />
+                    <div className="relative">
+                        <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-600 via-indigo-600 to-blue-700 flex items-center justify-center shadow-md shadow-blue-500/20 text-white font-black">
+                            <FiPackage size={22} />
+                        </div>
+                        <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white ring-1 ring-emerald-500/30 animate-pulse" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-800">Products Master</h1>
-                        <p className="text-gray-500 text-sm mt-1">Manage your inventory items &bull; Code format: PRD-XX</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
+                                Products & Inventory Master
+                            </h1>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-blue-50 text-blue-700 border border-blue-200/80 font-mono">
+                                <FiHash size={11} className="text-blue-500" />
+                                {products.length} SKUs Cataloged
+                            </span>
+                            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                🏪 {activeOutlet?.outlet_name || 'Main Warehouse'}
+                            </span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-2">
+                            <span>Dual-stock ledger (Bags & Pieces)</span>
+                            <span className="text-slate-300">•</span>
+                            <span className="text-emerald-600 font-bold">Multi-tier Wholesale & Retail Pricing</span>
+                        </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <button onClick={() => { loadProducts(); loadStockData(); }} className="p-2.5 rounded-xl bg-white border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 transition-all shadow-sm" title="Refresh">
-                        <FiRefreshCw size={16} />
+
+                {/* Executive Action Toolbar */}
+                <div className="flex flex-wrap items-center gap-1.5 self-end md:self-center">
+                    <button
+                        onClick={() => { loadProducts(); loadStockData(); }}
+                        className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-blue-600 transition-all shadow-2xs"
+                        title="Refresh Inventory"
+                    >
+                        <FiRefreshCw size={14} />
                     </button>
-                    <button onClick={() => { setShowLabelModal(true); setLabelProducts([]); setLabelQty({}); }} className="p-2.5 rounded-xl bg-white border border-gray-200 text-gray-500 hover:text-purple-600 hover:border-purple-300 transition-all shadow-sm" title="Label Generator">
-                        <FiPrinter size={16} />
+
+                    <button
+                        onClick={() => { setShowLabelModal(true); setLabelProducts([]); setLabelQty({}); }}
+                        className="px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs"
+                        title="Thermal barcode & shelf label generator"
+                    >
+                        <FiPrinter size={13} className="text-purple-600" />
+                        <span className="hidden sm:inline">Labels</span>
                     </button>
-                    <button onClick={() => { setShowLookupModal(true); setLookupQuery(''); setLookupResult(null); }} className="p-2.5 rounded-xl bg-white border border-gray-200 text-gray-500 hover:text-green-600 hover:border-green-300 transition-all shadow-sm" title="Item Lookup">
-                        <FiEye size={16} />
+
+                    <button
+                        onClick={() => { setShowLookupModal(true); setLookupQuery(''); setLookupResult(null); }}
+                        className="px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs"
+                        title="Instant Item Lookup"
+                    >
+                        <FiEye size={13} className="text-emerald-600" />
+                        <span className="hidden sm:inline">Lookup</span>
                     </button>
-                    <button onClick={exportCSV} className="px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:text-blue-600 hover:border-blue-300 transition-all text-sm font-semibold flex items-center gap-2 shadow-sm">
-                        <FiDownload size={14} /> Export
+
+                    <button
+                        onClick={exportCSV}
+                        className="px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs"
+                        title="Export filtered records"
+                    >
+                        <FiDownload size={13} className="text-slate-500" />
+                        <span className="hidden sm:inline">Export</span>
                     </button>
-                    <button onClick={() => setShowInactive(v => !v)} className={`px-4 py-2.5 rounded-xl border transition-all text-sm font-semibold flex items-center gap-2 shadow-sm ${showInactive ? 'bg-orange-50 border-orange-300 text-orange-600' : 'bg-white border-gray-200 text-gray-600 hover:border-orange-300 hover:text-orange-500'}`} title="Show/hide deactivated products">
-                        {showInactive ? <FiEyeOff size={14} /> : <FiEye size={14} />} {showInactive ? 'Hide Inactive' : 'Show Inactive'}
+
+                    <button
+                        onClick={() => setShowInactive(v => !v)}
+                        className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs ${
+                            showInactive
+                                ? 'bg-amber-50 border-amber-300 text-amber-800'
+                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                        }`}
+                        title="Toggle visibility of inactive SKUs"
+                    >
+                        {showInactive ? <FiEyeOff size={13} className="text-amber-600" /> : <FiEye size={13} className="text-slate-400" />}
+                        <span className="hidden sm:inline">{showInactive ? 'Inactive Visible' : 'Active Only'}</span>
                     </button>
-                    <button onClick={() => { setShowImportModal(true); setImportFile(null); setImportStatus('idle'); setImportErrors([]); setImportProgress(0); setImportMode('add_new'); }} className="px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:text-emerald-600 hover:border-emerald-300 transition-all text-sm font-semibold flex items-center gap-2 shadow-sm">
-                        <FiUpload size={14} /> Import
+
+                    <button
+                        onClick={() => {
+                            setShowImportModal(true);
+                            setImportFile(null);
+                            setImportStatus('idle');
+                            setImportErrors([]);
+                            setImportProgress(0);
+                            setImportMode('add_new');
+                        }}
+                        className="px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs"
+                        title="Bulk CSV Import"
+                    >
+                        <FiUpload size={13} className="text-emerald-600" />
+                        <span className="hidden sm:inline">Import</span>
                     </button>
-                    <button onClick={openAddModal} className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold rounded-2xl shadow-lg shadow-blue-300/40 hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-300">
-                        <FiPlus size={16} strokeWidth={3} /> Add Product
+
+                    <button
+                        onClick={openAddModal}
+                        className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs font-black transition-all flex items-center gap-1.5 shadow-sm hover:shadow active:scale-98"
+                    >
+                        <FiPlus size={14} strokeWidth={3} />
+                        <span>Add Product</span>
                     </button>
                 </div>
             </div>
 
-            {/* ━━━ STAT CARDS ━━━ */}
-            {hasValuationAccess && !isAddMode ? (
-                /* NEW: Individual colored glassmorphic cards — Licensed/SuperAdmin */
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {([
-                        { label: 'Total Products', value: products.length, sub: 'All items in DB', color: '#3B82F6', rgb: '59,130,246', Icon: FiPackage, spark: [20,16,18,10,14,8,5] },
-                        { label: 'Active SKUs', value: products.filter(p => p.active).length, sub: 'Available for sale', color: '#10B981', rgb: '16,185,129', Icon: FiCheck, spark: [18,14,12,16,10,8,4] },
-                        { label: 'Categories', value: categories.length, sub: 'Product groups', color: '#8B5CF6', rgb: '139,92,246', Icon: FiLayers, spark: [20,18,16,14,12,14,10] },
-                        { label: 'Low Inventory', value: lowStock, sub: lowStock > 0 ? 'Items need restock' : 'All stocked well', color: lowStock > 0 ? '#EF4444' : '#14B8A6', rgb: lowStock > 0 ? '239,68,68' : '20,184,166', Icon: FiAlertTriangle, spark: [5,8,10,14,16,18,20] },
-                    ] as const).map(card => {
-                        const sparkPath = card.spark.map((y: number, i: number) => `${i * 7},${y}`).join(' ');
-                        return (
-                            <div key={card.label}
-                                className="rounded-2xl p-4 flex items-center gap-3 hover:scale-[1.02] transition-all duration-200 cursor-default"
-                                style={{
-                                    background: `linear-gradient(135deg, rgba(${card.rgb},0.09) 0%, rgba(255,255,255,0.92) 100%)`,
-                                    backdropFilter: 'blur(20px)',
-                                    WebkitBackdropFilter: 'blur(20px)',
-                                    border: `1.5px solid rgba(${card.rgb},0.22)`,
-                                    boxShadow: `0 8px 32px rgba(${card.rgb},0.13), 0 2px 8px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.95)`,
-                                }}>
-                                <div className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center"
-                                    style={{ background: `rgba(${card.rgb},0.12)`, border: `1px solid rgba(${card.rgb},0.2)` }}>
-                                    <card.Icon size={18} style={{ color: card.color }} />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-[10px] font-black uppercase tracking-widest truncate" style={{ color: card.color }}>{card.label}</p>
-                                    <p className="text-2xl font-black text-gray-800 leading-tight">{Number(card.value).toLocaleString()}</p>
-                                    <p className="text-[10px] text-gray-400 truncate">{card.sub}</p>
-                                </div>
-                                <div className="shrink-0">
-                                    <svg width="42" height="22" viewBox="0 0 42 22">
-                                        <polyline points={sparkPath} fill="none" stroke={card.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" />
-                                    </svg>
-                                </div>
+            {/* ══════════════════════════════════════════════════════════════════════════
+               2. EXECUTIVE METRIC HUD CARDS (4 SUMMARY CARDS)
+               ══════════════════════════════════════════════════════════════════════════ */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {/* 1. Total Catalog */}
+                <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200/90 shadow-2xs hover:shadow-xs transition-shadow">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Products</span>
+                        <div className="w-5 h-5 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
+                            <FiPackage size={11} />
+                        </div>
+                    </div>
+                    <div className="text-lg font-black text-slate-900 font-mono">{products.length.toLocaleString()}</div>
+                    <div className="text-[10px] text-slate-400 font-medium">All registered items</div>
+                </div>
+
+                {/* 2. Active SKUs */}
+                <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-emerald-200/90 bg-gradient-to-br from-emerald-50/30 via-white to-white shadow-2xs">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Live Active SKUs</span>
+                        <div className="w-5 h-5 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700">
+                            <FiCheck size={11} />
+                        </div>
+                    </div>
+                    <div className="text-lg font-black text-emerald-700 font-mono">{products.filter(p => p.active).length.toLocaleString()}</div>
+                    <div className="text-[10px] text-emerald-600 font-medium">Selling in POS</div>
+                </div>
+
+                {/* 3. Product Categories */}
+                <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-purple-200/90 bg-gradient-to-br from-purple-50/30 via-white to-white shadow-2xs">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700">Categories</span>
+                        <div className="w-5 h-5 rounded-lg bg-purple-100 flex items-center justify-center text-purple-700">
+                            <FiLayers size={11} />
+                        </div>
+                    </div>
+                    <div className="text-lg font-black text-purple-700 font-mono">{categories.length}</div>
+                    <div className="text-[10px] text-purple-600 font-medium">Distinct taxonomies</div>
+                </div>
+
+                {/* 4. Low Inventory Warnings */}
+                <div className={`bg-white rounded-2xl p-2.5 sm:p-3 border shadow-2xs ${
+                    lowStock > 0
+                        ? 'border-rose-200/90 bg-gradient-to-br from-rose-50/40 via-white to-white'
+                        : 'border-teal-200/90 bg-gradient-to-br from-teal-50/30 via-white to-white'
+                }`}>
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider ${lowStock > 0 ? 'text-rose-700' : 'text-teal-700'}`}>
+                            Low Inventory
+                        </span>
+                        <div className={`w-5 h-5 rounded-lg flex items-center justify-center ${lowStock > 0 ? 'bg-rose-100 text-rose-700' : 'bg-teal-100 text-teal-700'}`}>
+                            <FiAlertTriangle size={11} />
+                        </div>
+                    </div>
+                    <div className={`text-lg font-black font-mono ${lowStock > 0 ? 'text-rose-700' : 'text-teal-700'}`}>
+                        {lowStock}
+                    </div>
+                    <div className={`text-[10px] font-medium ${lowStock > 0 ? 'text-rose-600' : 'text-teal-600'}`}>
+                        {lowStock > 0 ? 'Reorder threshold reached' : 'All items optimal'}
+                    </div>
+                </div>
+            </div>
+
+            {/* ══════════════════════════════════════════════════════════════════════════
+               3. VALUATION INTELLIGENCE CARDS (5 METRIC STRIP)
+               ══════════════════════════════════════════════════════════════════════════ */}
+            {showValuation && (
+                <div className="bg-white rounded-2xl p-3 sm:p-3.5 border border-slate-200/90 shadow-2xs space-y-2.5">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+                                Stock Valuation & Capital Intelligence
+                            </span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-mono">
+                            {products.length} cataloged • {Object.keys(stockData).length} with active balances
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                        {/* 1. Cost Basis */}
+                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">Cost Valuation</span>
+                            <div className="text-sm font-black text-slate-900 font-mono">{fmtK(stockValCost)}</div>
+                            <div className="text-[10px] text-slate-400 font-mono truncate">{fmtKES(stockValCost)}</div>
+                        </div>
+
+                        {/* 2. Retail Valuation */}
+                        <div className="p-2.5 rounded-xl bg-emerald-50/60 border border-emerald-200">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block mb-0.5">Retail Gross</span>
+                            <div className="text-sm font-black text-emerald-700 font-mono">{fmtK(stockValRetail)}</div>
+                            <div className="text-[10px] text-emerald-600 font-mono truncate">{fmtKES(stockValRetail)}</div>
+                        </div>
+
+                        {/* 3. Wholesale Valuation */}
+                        <div className="p-2.5 rounded-xl bg-sky-50/60 border border-sky-200">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-sky-700 block mb-0.5">Wholesale Gross</span>
+                            <div className="text-sm font-black text-sky-700 font-mono">{fmtK(stockValWholesale)}</div>
+                            <div className="text-[10px] text-sky-600 font-mono truncate">{fmtKES(stockValWholesale)}</div>
+                        </div>
+
+                        {/* 4. Retail Potential Profit */}
+                        <div className="p-2.5 rounded-xl bg-teal-50/60 border border-teal-200">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-teal-700 block mb-0.5">Retail Profit</span>
+                            <div className="text-sm font-black text-teal-700 font-mono">{fmtK(stockRetailProfit)}</div>
+                            <div className="text-[10px] text-teal-600 font-bold truncate">
+                                {stockValCost > 0 ? `+${((stockRetailProfit / stockValCost) * 100).toFixed(1)}% margin` : '0%'}
                             </div>
-                        );
-                    })}
-                </div>
+                        </div>
 
-            ) : (
-                /* OLD: Big cards — for unlicensed outlets (Main, Chebunyo, etc.) */
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="relative overflow-hidden rounded-2xl bg-white border border-blue-100 p-5 shadow-sm hover:shadow-xl transition-all group">
-                        <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-gradient-to-br from-blue-100 to-blue-50 opacity-60 group-hover:scale-125 transition-transform" />
-                        <div className="relative flex items-center justify-between">
-                            <div><p className="text-xs font-bold text-blue-500 uppercase tracking-wider">Total Products</p><p className="text-3xl font-black text-gray-800 mt-1">{products.length}</p><p className="text-[10px] text-gray-400 mt-1">All items in database</p></div>
-                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-300/30 group-hover:scale-110 transition-transform"><FiPackage className="text-white" size={22} /></div>
-                        </div>
-                    </div>
-                    <div className="relative overflow-hidden rounded-2xl bg-white border border-emerald-100 p-5 shadow-sm hover:shadow-xl transition-all group">
-                        <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-gradient-to-br from-emerald-100 to-green-50 opacity-60 group-hover:scale-125 transition-transform" />
-                        <div className="relative flex items-center justify-between">
-                            <div><p className="text-xs font-bold text-emerald-500 uppercase tracking-wider">Active SKUs</p><p className="text-3xl font-black text-gray-800 mt-1">{products.filter(p => p.active).length}</p><p className="text-[10px] text-gray-400 mt-1">Available for sale</p></div>
-                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-300/30 group-hover:scale-110 transition-transform"><FiCheck className="text-white" size={22} /></div>
-                        </div>
-                    </div>
-                    <div className="relative overflow-hidden rounded-2xl bg-white border border-purple-100 p-5 shadow-sm hover:shadow-xl transition-all group">
-                        <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-gradient-to-br from-purple-100 to-violet-50 opacity-60 group-hover:scale-125 transition-transform" />
-                        <div className="relative flex items-center justify-between">
-                            <div><p className="text-xs font-bold text-purple-500 uppercase tracking-wider">Categories</p><p className="text-3xl font-black text-gray-800 mt-1">{categories.length}</p><p className="text-[10px] text-gray-400 mt-1">Product groups</p></div>
-                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-purple-300/30 group-hover:scale-110 transition-transform"><FiLayers className="text-white" size={22} /></div>
-                        </div>
-                    </div>
-                    <div className={`relative overflow-hidden rounded-2xl bg-white border p-5 shadow-sm hover:shadow-xl transition-all group ${lowStock > 0 ? 'border-red-100' : 'border-teal-100'}`}>
-                        <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full opacity-60 group-hover:scale-125 transition-transform ${lowStock > 0 ? 'bg-gradient-to-br from-red-100 to-orange-50' : 'bg-gradient-to-br from-teal-100 to-cyan-50'}`} />
-                        <div className="relative flex items-center justify-between">
-                            <div><p className={`text-xs font-bold uppercase tracking-wider ${lowStock > 0 ? 'text-red-500' : 'text-teal-500'}`}>Low Inventory</p><p className="text-3xl font-black text-gray-800 mt-1">{lowStock}</p><p className="text-[10px] text-gray-400 mt-1">{lowStock > 0 ? 'Items need restock' : 'All stocked well'}</p></div>
-                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform ${lowStock > 0 ? 'bg-gradient-to-br from-red-500 to-orange-600 shadow-red-300/30' : 'bg-gradient-to-br from-teal-500 to-cyan-600 shadow-teal-300/30'}`}><FiAlertTriangle className="text-white" size={22} /></div>
+                        {/* 5. Wholesale Potential Profit */}
+                        <div className="p-2.5 rounded-xl bg-amber-50/60 border border-amber-200">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 block mb-0.5">Wholesale Profit</span>
+                            <div className="text-sm font-black text-amber-800 font-mono">{fmtK(stockWholesaleProfit)}</div>
+                            <div className="text-[10px] text-amber-600 font-bold truncate">
+                                {stockValCost > 0 ? `+${((stockWholesaleProfit / stockValCost) * 100).toFixed(1)}% margin` : '0%'}
+                            </div>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* ━━━ VALUATION CARDS ━━━ */}
-            {hasValuationAccess && showValuation && (
-                /* NEW: 5-card Intelligence — Licensed/SuperAdmin */
-                <div>
-                    <div className="flex items-center gap-2 mb-2.5">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-full flex items-center gap-1">📊 Stock Valuation Intelligence</span>
-                        <span className="text-[10px] text-gray-400">{products.length} products · {Object.keys(stockData).length} stocked</span>
-                    </div>
-                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-                        {([
-                            { label: 'Cost Value',       value: stockValCost,         sub: 'At purchase price',  color: '#4F46E5', rgb: '79,70,229',   Icon: FiDollarSign,  spark: [20,18,16,14,12,10,8],  trend: 'Cost basis',        up: true  },
-                            { label: 'Retail Value',     value: stockValRetail,       sub: 'At selling price',   color: '#059669', rgb: '5,150,105',   Icon: FiTrendingUp,  spark: [8,10,12,14,16,18,20],  trend: `${stockValCost > 0 ? ((stockRetailProfit/stockValCost)*100).toFixed(1) : '0'}% above cost`, up: true  },
-                            { label: 'Wholesale Value',  value: stockValWholesale,    sub: 'At wholesale price', color: '#0EA5E9', rgb: '14,165,233',  Icon: FiLayers,      spark: [12,10,14,16,12,18,16], trend: 'B2B valuation',     up: true  },
-                            { label: 'Retail Profit',    value: stockRetailProfit,    sub: 'If sold at retail',  color: '#10B981', rgb: '16,185,129',  Icon: FiZap,         spark: [6,8,12,14,18,16,20],   trend: `${stockValCost > 0 ? ((stockRetailProfit/stockValCost)*100).toFixed(1) : '0'}% margin`, up: stockRetailProfit >= 0 },
-                            { label: 'Wholesale Profit', value: stockWholesaleProfit, sub: 'If sold wholesale',  color: '#F59E0B', rgb: '245,158,11',  Icon: FiTrendingUp,  spark: [4,6,10,8,12,14,18],   trend: `${stockValCost > 0 ? ((stockWholesaleProfit/stockValCost)*100).toFixed(1) : '0'}% margin`, up: stockWholesaleProfit >= 0 },
-                        ] as const).map(c => {
-                            const sparkPath = c.spark.map((y: number, i: number) => `${i * 7},${y}`).join(' ');
-                            return (
-                                <div key={c.label}
-                                    className="rounded-2xl p-3.5 hover:scale-[1.02] transition-all duration-200 cursor-default"
-                                    style={{
-                                        background: `linear-gradient(135deg, rgba(${c.rgb},0.09) 0%, rgba(255,255,255,0.92) 100%)`,
-                                        backdropFilter: 'blur(20px)',
-                                        WebkitBackdropFilter: 'blur(20px)',
-                                        border: `1.5px solid rgba(${c.rgb},0.22)`,
-                                        boxShadow: `0 8px 32px rgba(${c.rgb},0.12), 0 2px 8px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.95)`,
-                                    }}>
-                                    <div className="flex items-start justify-between mb-2">
-                                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                                            style={{ background: `rgba(${c.rgb},0.12)`, border: `1px solid rgba(${c.rgb},0.2)` }}>
-                                            <c.Icon size={14} style={{ color: c.color }} />
-                                        </div>
-                                        <div className="text-right">
-                                            <svg width="42" height="20" viewBox="0 0 42 20"><polyline points={sparkPath} fill="none" stroke={c.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" /></svg>
-                                            <span className={`text-[9px] font-bold ${c.up ? 'text-emerald-600' : 'text-red-500'}`}>{c.up ? '▲' : '▼'} {c.trend}</span>
-                                        </div>
-                                    </div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest truncate mb-0.5" style={{ color: c.color }}>{c.label}</p>
-                                    <p className="text-base font-black text-gray-800 leading-tight">Ksh {Math.abs(c.value).toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-                                    <p className="text-[10px] text-gray-400 mt-0.5 truncate">{c.sub}</p>
-                                </div>
-                            );
-                        })}
-                    </div>
+            {/* ══════════════════════════════════════════════════════════════════════════
+               4. SEARCH & FILTER COCKPIT
+               ══════════════════════════════════════════════════════════════════════════ */}
+            <div className="bg-white rounded-2xl p-3 border border-slate-200/90 shadow-xs flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5">
+                {/* Search Bar */}
+                <div className="relative flex-1">
+                    <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
+                        placeholder="Search products by SKU code, name, barcode, or category..."
+                        className="w-full pl-10 pr-10 py-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 outline-none transition-all shadow-2xs"
+                    />
+                    {searchQuery && (
+                        <button
+                            onClick={() => setSearchQuery('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        >
+                            <FiX size={14} />
+                        </button>
+                    )}
                 </div>
-            )}
 
-            {!hasValuationAccess && showValuation && (
-                /* OLD: 3 gradient cards — unlicensed outlets keep their original view */
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    <div className="rounded-2xl bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 p-5 text-white shadow-lg shadow-blue-400/20 hover:shadow-xl transition-all relative overflow-hidden">
-                        <div className="absolute right-3 top-3 w-16 h-16 rounded-full bg-white/10 blur-lg" />
-                        <div className="absolute right-8 bottom-2 opacity-10"><FiDollarSign size={70} /></div>
-                        <p className="text-xs font-bold text-blue-200 uppercase tracking-wider">Stock Value — Purchase Cost</p>
-                        <p className="text-3xl font-black mt-2">Ksh {stockValCost.toLocaleString()}</p>
-                        <div className="flex items-center gap-2 mt-2"><FiTrendingUp size={14} className="text-blue-200" /><span className="text-xs text-blue-200">Total cost of all stock at buying price</span></div>
-                    </div>
-                    <div className="rounded-2xl bg-gradient-to-br from-emerald-500 via-green-600 to-teal-700 p-5 text-white shadow-lg shadow-emerald-400/20 hover:shadow-xl transition-all relative overflow-hidden">
-                        <div className="absolute right-3 top-3 w-16 h-16 rounded-full bg-white/10 blur-lg" />
-                        <div className="absolute right-8 bottom-2 opacity-10"><FiTrendingUp size={70} /></div>
-                        <p className="text-xs font-bold text-emerald-200 uppercase tracking-wider">Stock Value — Sales Rate</p>
-                        <p className="text-3xl font-black mt-2">Ksh {stockValSales.toLocaleString()}</p>
-                        <div className="flex items-center gap-2 mt-2"><FiTrendingUp size={14} className="text-emerald-200" /><span className="text-xs text-emerald-200">Total value if all stock sold at sell price</span></div>
-                    </div>
-                    <div className="rounded-2xl bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 p-5 text-white shadow-lg shadow-orange-400/20 hover:shadow-xl transition-all relative overflow-hidden">
-                        <div className="absolute right-3 top-3 w-16 h-16 rounded-full bg-white/10 blur-lg" />
-                        <div className="absolute right-8 bottom-2 opacity-10"><FiZap size={70} /></div>
-                        <p className="text-xs font-bold text-amber-100 uppercase tracking-wider">Potential Profit</p>
-                        <p className="text-3xl font-black mt-2">Ksh {potentialProfit.toLocaleString()}</p>
-                        <div className="flex items-center gap-2 mt-2"><FiZap size={14} className="text-amber-100" /><span className="text-xs text-amber-100">Profit if all stock sold • Margin: {stockValCost > 0 ? ((potentialProfit / stockValCost) * 100).toFixed(1) : '0'}%</span></div>
-                    </div>
-                </div>
-            )}
-
-
-            {/* ━━━ SEARCH & FILTER BAR ━━━ */}
-            <div className="glass-card p-4 flex flex-col lg:flex-row gap-3 items-center">
-                <div className="flex-1 relative w-full">
-                    <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                    <input type="text" value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
-                        placeholder="Search by name, code, or barcode..."
-                        className="w-full px-5 py-3 pl-12 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-400/20 transition-all" />
-                </div>
-                <div className="flex items-center gap-2">
+                {/* Filter Controls */}
+                <div className="flex flex-wrap items-center gap-2">
+                    {/* Category Selector */}
                     <div className="relative">
-                        <FiFilter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-                        <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setPage(1); }}
-                            className="pl-9 pr-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-400/20 text-sm font-medium cursor-pointer min-w-[150px]">
-                            <option value="All">All Categories</option>
-                            {categories.map(c => <option key={c.category_id} value={c.category_name}>{c.category_name}</option>)}
+                        <FiFilter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={13} />
+                        <select
+                            value={filterCategory}
+                            onChange={e => { setFilterCategory(e.target.value); setPage(1); }}
+                            className="pl-8 pr-7 py-2 bg-slate-50 hover:bg-slate-100/80 focus:bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:border-blue-500 outline-none transition-all cursor-pointer appearance-none min-w-[140px]"
+                        >
+                            <option value="All">All Categories ({categories.length})</option>
+                            {categories.map(c => (
+                                <option key={c.category_id} value={c.category_name}>
+                                    {c.category_name}
+                                </option>
+                            ))}
                         </select>
                     </div>
-                    <div className="flex rounded-xl overflow-hidden border-2 border-gray-200 bg-white">
-                        <button onClick={() => setViewMode('list')} className={`p-3 transition-all ${viewMode === 'list' ? 'bg-blue-500 text-white' : 'text-gray-400 hover:text-blue-500'}`}><FiList size={16} /></button>
-                        <button onClick={() => setViewMode('grid')} className={`p-3 transition-all ${viewMode === 'grid' ? 'bg-blue-500 text-white' : 'text-gray-400 hover:text-blue-500'}`}><FiGrid size={16} /></button>
+
+                    {/* View Switcher: List vs Grid */}
+                    <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200">
+                        <button
+                            onClick={() => setViewMode('list')}
+                            className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white text-blue-600 shadow-2xs' : 'text-slate-400 hover:text-slate-700'}`}
+                            title="List Table View"
+                        >
+                            <FiList size={14} />
+                        </button>
+                        <button
+                            onClick={() => setViewMode('grid')}
+                            className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white text-blue-600 shadow-2xs' : 'text-slate-400 hover:text-slate-700'}`}
+                            title="Grid Card View"
+                        >
+                            <FiGrid size={14} />
+                        </button>
                     </div>
+
+                    {/* Valuation Toggle */}
                     <button
                         onClick={() => setShowValuation(!showValuation)}
-                        className={`flex items-center gap-2 px-4 py-3 rounded-xl border-2 font-semibold text-sm transition-all ${showValuation ? 'bg-indigo-500 text-white border-indigo-500 shadow-md shadow-indigo-300/30' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-400 hover:text-indigo-600'}`}
-                        title={showValuation ? 'Hide Valuation Columns' : 'Show Valuation Columns'}
+                        className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 ${
+                            showValuation
+                                ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                        }`}
+                        title={showValuation ? 'Hide Valuation Strip' : 'Show Valuation Strip'}
                     >
-                        <FiEye size={16} />
-                        {showValuation ? 'Hide Valuation' : 'Show Valuation'}
+                        <FiEye size={13} />
+                        <span>{showValuation ? 'Hide Valuation' : 'Show Valuation'}</span>
                     </button>
                 </div>
             </div>
 
-            {/* ━━━ CONTENT ━━━ */}
-
-            {/* ── Bulk Action Bar (appears when items are selected) ── */}
+            {/* ══════════════════════════════════════════════════════════════════════════
+               5. BULK ACTION BAR (ACTIVE WHEN PRODUCTS SELECTED)
+               ══════════════════════════════════════════════════════════════════════════ */}
             {selectedPids.size > 0 && (
-                <div className="flex items-center justify-between gap-3 px-5 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl text-white shadow-lg shadow-indigo-300/40 animate-in slide-in-from-top-2">
-                    <div className="flex items-center gap-3">
-                        <span className="text-2xl font-black">{selectedPids.size}</span>
-                        <span className="text-sm font-medium opacity-90">product{selectedPids.size !== 1 ? 's' : ''} selected</span>
-                        <button onClick={() => setSelectedPids(new Set())} className="text-xs underline opacity-70 hover:opacity-100">Clear</button>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <button onClick={bulkDeactivate} className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl transition-all text-sm shadow">
-                            <FiEyeOff size={14} /> Deactivate All
+                <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-slate-900 rounded-2xl text-white shadow-md animate-in slide-in-from-top-1">
+                    <div className="flex items-center gap-2.5">
+                        <span className="w-6 h-6 rounded-lg bg-amber-500 text-white font-black text-xs flex items-center justify-center font-mono">
+                            {selectedPids.size}
+                        </span>
+                        <span className="text-xs font-bold text-slate-200">
+                            {selectedPids.size === 1 ? 'Product selected' : 'Products selected'}
+                        </span>
+                        <button
+                            onClick={() => setSelectedPids(new Set())}
+                            className="text-[11px] font-bold text-slate-400 hover:text-white underline ml-1"
+                        >
+                            Deselect all
                         </button>
-                        <button onClick={bulkDelete} className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl transition-all text-sm shadow">
-                            <FiTrash2 size={14} /> Delete All
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={bulkDeactivate}
+                            className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs transition-colors flex items-center gap-1 shadow-xs"
+                        >
+                            <FiEyeOff size={12} /> Deactivate Selected
+                        </button>
+                        <button
+                            onClick={bulkDelete}
+                            className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-xs transition-colors flex items-center gap-1 shadow-xs"
+                        >
+                            <FiTrash2 size={12} /> Delete Selected
                         </button>
                     </div>
                 </div>
             )}
 
+            {/* ══════════════════════════════════════════════════════════════════════════
+               6. DATAGRID: PRODUCTS TABLE & CARDS
+               ══════════════════════════════════════════════════════════════════════════ */}
             {isLoading ? (
-                <div className="flex flex-col items-center justify-center py-20">
-                    <div className="w-14 h-14 border-4 border-blue-200 border-t-indigo-600 rounded-full animate-spin" />
-                    <p className="mt-4 text-gray-500 font-medium text-sm">Loading products...</p>
+                <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-slate-200/90 space-y-3">
+                    <div className="w-12 h-12 rounded-2xl border-4 border-slate-200 border-t-blue-600 animate-spin" />
+                    <p className="text-xs font-extrabold text-slate-700 tracking-tight">Syncing Product Ledger...</p>
                 </div>
             ) : paginated.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 glass-card">
-                    <FiPackage className="text-gray-300" size={64} />
-                    <p className="mt-4 text-gray-500 font-semibold">No products found</p>
-                    <button onClick={openAddModal} className="mt-3 px-5 py-2 bg-blue-500 text-white rounded-xl font-semibold hover:bg-blue-600 transition-all text-sm">Add First Product</button>
+                <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-slate-200/90 text-center p-6">
+                    <FiPackage className="text-slate-300 mb-2" size={48} />
+                    <h3 className="text-sm font-black text-slate-800">No products match your criteria</h3>
+                    <p className="text-xs text-slate-400 mt-1 max-w-sm">
+                        Try adjusting your search query, selecting &quot;All Categories&quot;, or adding a new inventory product.
+                    </p>
+                    <button
+                        onClick={openAddModal}
+                        className="mt-4 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black text-xs rounded-xl shadow-sm hover:shadow"
+                    >
+                        Add New Product
+                    </button>
                 </div>
             ) : viewMode === 'grid' ? (
-                /* ── CARD GRID VIEW ── */
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                /* ── GRID CARD VIEW ── */
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5">
                     {paginated.map(p => {
                         const stk = stockData[p.pid] || 0;
+                        const isSelected = selectedPids.has(p.pid);
                         return (
-                            <div key={p.pid} className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-                                {/* Card image/color */}
-                                <div className={`h-32 bg-gradient-to-br ${p.button_ui_color || 'from-blue-400 to-blue-600'} relative flex items-center justify-center`}>
+                            <div
+                                key={p.pid}
+                                className={`bg-white rounded-2xl border overflow-hidden shadow-2xs hover:shadow-md transition-all group flex flex-col justify-between ${
+                                    isSelected ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-slate-200/90'
+                                }`}
+                            >
+                                <div className={`h-28 bg-gradient-to-br ${p.button_ui_color || 'from-blue-400 to-blue-600'} relative flex items-center justify-center overflow-hidden`}>
                                     {p.photo ? (
-                                        <img src={p.photo} alt={p.product_name} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).src = '/no-image.png'; }} />
+                                        <img
+                                            src={p.photo}
+                                            alt={p.product_name}
+                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                            onError={e => { (e.target as HTMLImageElement).src = '/no-image.png'; }}
+                                        />
                                     ) : (
-                                        <img src="/no-image.png" alt="No image" className="h-[110px] w-[110px] object-contain" />
+                                        <img src="/no-image.png" alt="No image" className="h-16 w-16 object-contain opacity-70" />
                                     )}
+
+                                    {/* Action overlay */}
                                     <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button onClick={() => openEditModal(p)} className="p-1.5 bg-white/90 rounded-lg text-blue-600 hover:bg-white shadow-sm"><FiEdit2 size={12} /></button>
-                                        <button onClick={() => deactivateProduct(p)} className={`p-1.5 bg-white/90 rounded-lg shadow-sm ${p.active ? 'text-orange-500 hover:text-orange-700' : 'text-emerald-600 hover:text-emerald-700'}`} title={p.active ? 'Deactivate' : 'Reactivate'}>
+                                        <button
+                                            onClick={() => openEditModal(p)}
+                                            className="p-1.5 bg-white/95 rounded-lg text-blue-600 hover:bg-white shadow-xs"
+                                            title="Edit"
+                                        >
+                                            <FiEdit2 size={12} />
+                                        </button>
+                                        <button
+                                            onClick={() => deactivateProduct(p)}
+                                            className={`p-1.5 bg-white/95 rounded-lg shadow-xs ${p.active ? 'text-amber-600' : 'text-emerald-600'}`}
+                                            title={p.active ? 'Deactivate' : 'Reactivate'}
+                                        >
                                             {p.active ? <FiEyeOff size={12} /> : <FiEye size={12} />}
                                         </button>
-                                        <button onClick={() => deleteProduct(p)} className="p-1.5 bg-white/90 rounded-lg text-red-500 hover:bg-white shadow-sm"><FiTrash2 size={12} /></button>
+                                        <button
+                                            onClick={() => deleteProduct(p)}
+                                            className="p-1.5 bg-white/95 rounded-lg text-rose-600 hover:bg-white shadow-xs"
+                                            title="Delete"
+                                        >
+                                            <FiTrash2 size={12} />
+                                        </button>
                                     </div>
-                                    <span className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold ${p.active ? 'bg-emerald-500 text-white' : 'bg-gray-500 text-white'}`}>{p.active ? 'ACTIVE' : 'OFF'}</span>
+
+                                    {/* Status Badge */}
+                                    <span className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-black tracking-wider ${
+                                        p.active ? 'bg-emerald-500 text-white shadow-2xs' : 'bg-slate-600 text-white'
+                                    }`}>
+                                        {p.active ? 'ACTIVE' : 'OFF'}
+                                    </span>
                                 </div>
-                                <div className="p-3">
-                                    <p className="text-sm font-bold text-gray-900 truncate">{p.product_name}</p>
-                                    <div className="flex items-center justify-between mt-1">
-                                        <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{p.product_code}</span>
-                                        <span className="text-[10px] font-medium text-gray-400">{p.category || 'N/A'}</span>
+
+                                <div className="p-3 flex-1 flex flex-col justify-between">
+                                    <div>
+                                        <div className="flex items-center justify-between gap-1 mb-1">
+                                            <span className="text-[10px] font-mono font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
+                                                {p.product_code}
+                                            </span>
+                                            <span className="text-[10px] text-slate-400 font-medium truncate">
+                                                {p.category || 'General'}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs font-black text-slate-900 truncate" title={p.product_name}>
+                                            {p.product_name}
+                                        </p>
                                     </div>
-                                    <div className="flex items-center justify-between mt-3">
+
+                                    <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-end justify-between">
                                         <div>
-                                            <p className="text-base font-bold text-gray-900">Ksh {(p.sales_cost || 0).toLocaleString()}</p>
+                                            <div className="text-xs font-black text-slate-900 font-mono">
+                                                {fmtKES(p.sales_cost || 0)}
+                                            </div>
                                             {(p.pieces_per_package || 1) > 1 && (
-                                                <p className="text-[10px] font-black text-indigo-600 mt-0.5">
-                                                    📦 {p.purchase_unit}: Ksh {((p.package_sales_cost && p.package_sales_cost > 0) ? p.package_sales_cost : ((p.sales_cost || 0) * (p.pieces_per_package || 1))).toLocaleString()}
-                                                </p>
+                                                <div className="text-[10px] font-black text-indigo-600 font-mono">
+                                                    📦 {fmtKES((p.package_sales_cost && p.package_sales_cost > 0) ? p.package_sales_cost : ((p.sales_cost || 0) * (p.pieces_per_package || 1)))}
+                                                </div>
                                             )}
                                         </div>
-                                        <div className="flex flex-col items-end gap-0.5">
-                                            {(bagStockData[p.pid] || 0) > 0 && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">📦 {bagStockData[p.pid]} {p.purchase_unit}</span>}
-                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${(pieceStockData[p.pid] || 0) > 0 ? 'bg-emerald-100 text-emerald-700' : stk <= 0 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>🔢 {pieceStockData[p.pid] || 0} {p.sales_unit}</span>
+
+                                        <div className="flex flex-col items-end gap-1">
+                                            {(bagStockData[p.pid] || 0) > 0 && (
+                                                <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200/80 font-mono">
+                                                    📦 {bagStockData[p.pid]} {p.purchase_unit}
+                                                </span>
+                                            )}
+                                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded font-mono ${
+                                                (pieceStockData[p.pid] || 0) > 0
+                                                    ? 'bg-sky-50 text-sky-800 border border-sky-200/80'
+                                                    : stk <= 0
+                                                    ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                                    : 'bg-amber-50 text-amber-700'
+                                            }`}>
+                                                🔢 {pieceStockData[p.pid] || 0} {p.sales_unit}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
@@ -1179,124 +1717,232 @@ export default function ProductsPage() {
                     })}
                 </div>
             ) : (
-                /* ── LIST/TABLE VIEW ── */
-                <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                /* ── LIST/TABLE VIEW (ULTRA DATAGRID) ── */
+                <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
                     <div className="overflow-x-auto">
-                        <table className="w-full">
+                        <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="bg-gradient-to-r from-blue-500 to-blue-600">
-                                    <th className="px-4 py-3.5 text-left text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Product</th>
-                                    <th className="px-4 py-3.5 text-left text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden md:table-cell">Category</th>
-                                    <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Buy Price</th>
-                                    <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden lg:table-cell">Cost/Pc</th>
-                                    <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Sell Price</th>
-                                    <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Big Qty Price</th>
-                                    <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden lg:table-cell">Wholesale</th>
-                                    <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Stock</th>
-                                    <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden lg:table-cell">Profit</th>
-                                    <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Status</th>
-                                    <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider w-28">Actions</th>
+                                <tr className="bg-slate-900 text-white text-[10px] font-black uppercase tracking-wider">
+                                    <th className="py-2.5 px-3 w-8 text-center">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedPids.size > 0 && selectedPids.size === paginated.length}
+                                            onChange={toggleSelectAll}
+                                            className="rounded border-slate-600 accent-amber-500 cursor-pointer"
+                                        />
+                                    </th>
+                                    <th className="py-2.5 px-3">Product Name & SKU</th>
+                                    <th className="py-2.5 px-3 hidden md:table-cell">Category</th>
+                                    <th className="py-2.5 px-3 text-right">Buy Price</th>
+                                    <th className="py-2.5 px-3 text-right hidden lg:table-cell">Cost / Pc</th>
+                                    <th className="py-2.5 px-3 text-right">Sell Price</th>
+                                    <th className="py-2.5 px-3 text-right">Big Qty Price</th>
+                                    <th className="py-2.5 px-3 text-right hidden lg:table-cell">Wholesale</th>
+                                    <th className="py-2.5 px-3 text-center">Stock Ledger</th>
+                                    <th className="py-2.5 px-3 text-center hidden lg:table-cell">Profit Margin</th>
+                                    <th className="py-2.5 px-3 text-center">Status</th>
+                                    <th className="py-2.5 px-3 text-center w-28">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
                                 {paginated.map((p, idx) => {
                                     const stk = stockData[p.pid] || 0;
+                                    const isSelected = selectedPids.has(p.pid);
+                                    const ppp = p.pieces_per_package || 1;
+                                    const cpp = (p.purchase_cost || 0) / ppp;
+                                    const sp = (p as any).wholesale_price || p.sales_cost || 0;
+                                    const pieceProfit = Math.round((sp - cpp) * 100) / 100;
+                                    const pkgSell = (p.package_sales_cost && p.package_sales_cost > 0)
+                                        ? p.package_sales_cost
+                                        : (sp * ppp);
+                                    const pkgProfit = Math.round((pkgSell - (p.purchase_cost || 0)) * 100) / 100;
+
                                     return (
-                                        <tr key={p.pid} className={`border-b border-gray-50 hover:bg-blue-50/40 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
-                                            <td className="px-4 py-3">
-                                                <div className="flex items-center gap-3">
+                                        <tr
+                                            key={p.pid}
+                                            className={`hover:bg-amber-50/30 transition-colors ${
+                                                isSelected ? 'bg-indigo-50/40' : idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'
+                                            }`}
+                                        >
+                                            {/* Select Checkbox */}
+                                            <td className="py-2 px-3 text-center">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isSelected}
+                                                    onChange={() => toggleSelect(p.pid)}
+                                                    className="rounded border-slate-300 accent-amber-500 cursor-pointer"
+                                                />
+                                            </td>
+
+                                            {/* Product Particulars */}
+                                            <td className="py-2 px-3">
+                                                <div className="flex items-center gap-2.5">
                                                     {p.photo ? (
-                                                        <div className="w-10 h-10 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0 shadow-sm">
-                                                            <img src={p.photo} alt="" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).src = '/no-image.png'; }} />
+                                                        <div className="w-8 h-8 rounded-lg overflow-hidden border border-slate-200 shrink-0 shadow-2xs">
+                                                            <img
+                                                                src={p.photo}
+                                                                alt=""
+                                                                className="w-full h-full object-cover"
+                                                                onError={e => { (e.target as HTMLImageElement).src = '/no-image.png'; }}
+                                                            />
                                                         </div>
                                                     ) : (
-                                                        <div className="w-10 h-10 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0 bg-gray-50">
-                                                            <img src="/no-image.png" alt="No image" className="w-full h-full object-contain" />
+                                                        <div className="w-8 h-8 rounded-lg border border-slate-200 shrink-0 bg-slate-50 flex items-center justify-center">
+                                                            <img src="/no-image.png" alt="No image" className="w-5 h-5 object-contain opacity-50" />
                                                         </div>
                                                     )}
                                                     <div>
-                                                        <p className="text-sm font-semibold text-gray-900">{p.product_name}</p>
-                                                        <p className="text-[11px] text-blue-600 font-medium">{p.product_code}</p>
+                                                        <div className="font-extrabold text-slate-900 tracking-tight leading-tight">
+                                                            {p.product_name}
+                                                        </div>
+                                                        <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1.5 mt-0.5">
+                                                            <span className="text-indigo-600 font-bold">{p.product_code}</span>
+                                                            {p.barcode && <span>• Barcode: {p.barcode}</span>}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-3 hidden md:table-cell">
-                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 rounded-lg text-[11px] font-semibold">
-                                                    <FiTag size={10} /> {p.category || 'N/A'}
+
+                                            {/* Category */}
+                                            <td className="py-2 px-3 hidden md:table-cell">
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md text-[10px] font-bold">
+                                                    <FiTag size={9} className="text-slate-400" />
+                                                    {p.category || 'N/A'}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-3 text-right text-xs text-gray-500 font-medium">Ksh {(p.purchase_cost || 0).toLocaleString()}</td>
-                                            <td className="px-4 py-3 text-right text-xs font-bold text-orange-600 hidden lg:table-cell">
-                                                Ksh {Math.round((p.purchase_cost || 0) / (p.pieces_per_package || 1)).toLocaleString()}
-                                                {(p.pieces_per_package || 1) > 1 && <span className="text-[9px] text-gray-400 block">÷{p.pieces_per_package}pcs</span>}
+
+                                            {/* Buy Price */}
+                                            <td className="py-2 px-3 text-right font-mono font-bold text-slate-700 text-xs">
+                                                {fmtKES(p.purchase_cost || 0)}
                                             </td>
-                                            <td className="px-4 py-3 text-right text-sm font-bold text-gray-900">Ksh {(p.sales_cost || 0).toLocaleString()}</td>
-                                            <td className="px-4 py-3 text-right">
-                                                {(p.pieces_per_package || 1) > 1 ? (
+
+                                            {/* Cost / Pc */}
+                                            <td className="py-2 px-3 text-right hidden lg:table-cell font-mono text-xs font-bold text-amber-800">
+                                                {fmtKES(Math.round(cpp))}
+                                                {ppp > 1 && (
+                                                    <span className="text-[9px] text-slate-400 block font-normal">
+                                                        ÷ {ppp} pcs
+                                                    </span>
+                                                )}
+                                            </td>
+
+                                            {/* Sell Price */}
+                                            <td className="py-2 px-3 text-right font-mono font-black text-slate-900 text-xs">
+                                                {fmtKES(p.sales_cost || 0)}
+                                            </td>
+
+                                            {/* Big Qty Price */}
+                                            <td className="py-2 px-3 text-right">
+                                                {ppp > 1 ? (
                                                     <div>
-                                                        <span className="text-sm font-black text-indigo-700">
-                                                            Ksh {((p.package_sales_cost && p.package_sales_cost > 0) ? p.package_sales_cost : ((p.sales_cost || 0) * (p.pieces_per_package || 1))).toLocaleString()}
+                                                        <span className="text-xs font-mono font-black text-indigo-700">
+                                                            {fmtKES((p.package_sales_cost && p.package_sales_cost > 0) ? p.package_sales_cost : ((p.sales_cost || 0) * ppp))}
                                                         </span>
-                                                        <span className="text-[10px] text-indigo-600 block font-medium">
-                                                            per {p.purchase_unit || 'Pack'} ({p.pieces_per_package} {p.sales_unit || 'pcs'})
+                                                        <span className="text-[9px] text-indigo-600 block font-medium">
+                                                            /{p.purchase_unit || 'Pack'} ({ppp} pcs)
                                                         </span>
                                                     </div>
                                                 ) : (
-                                                    <span className="text-gray-300 text-xs">-</span>
+                                                    <span className="text-slate-300 font-mono text-xs">—</span>
                                                 )}
                                             </td>
-                                            <td className="px-4 py-3 text-right text-xs text-purple-600 font-semibold hidden lg:table-cell">{(p as any).wholesale_price ? `Ksh ${((p as any).wholesale_price || 0).toLocaleString()}` : '-'}</td>
-                                            <td className="px-4 py-3 text-center">
+
+                                            {/* Wholesale */}
+                                            <td className="py-2 px-3 text-right hidden lg:table-cell font-mono text-xs font-bold text-purple-700">
+                                                {(p as any).wholesale_price ? fmtKES((p as any).wholesale_price) : '—'}
+                                            </td>
+
+                                            {/* Dual-Stock Ledger */}
+                                            <td className="py-2 px-3 text-center">
                                                 <div className="flex flex-col items-center gap-0.5">
                                                     {(bagStockData[p.pid] || 0) > 0 && (
-                                                        <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-100 text-indigo-700">📦 {bagStockData[p.pid]} {p.purchase_unit}</span>
+                                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-200/80 font-mono">
+                                                            📦 {bagStockData[p.pid]} {p.purchase_unit}
+                                                        </span>
                                                     )}
-                                                    <span className={`inline-block min-w-[36px] px-2 py-0.5 rounded-md text-[10px] font-bold ${(pieceStockData[p.pid] || 0) > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>🔢 {pieceStockData[p.pid] || 0} {p.sales_unit?.toLowerCase() === p.purchase_unit?.toLowerCase() ? 'Piece' : p.sales_unit}</span>
+                                                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black font-mono ${
+                                                        (pieceStockData[p.pid] || 0) > 0
+                                                            ? 'bg-sky-50 text-sky-800 border border-sky-200/80'
+                                                            : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                                    }`}>
+                                                        🔢 {pieceStockData[p.pid] || 0} {p.sales_unit}
+                                                    </span>
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-3 text-center hidden lg:table-cell">
-                                                {(() => {
-                                                    const ppp = p.pieces_per_package || 1;
-                                                    const cpp = (p.purchase_cost || 0) / ppp;
-                                                    const sp = (p as any).wholesale_price || p.sales_cost || 0;
-                                                    const pieceProfit = Math.round((sp - cpp) * 100) / 100;
-                                                    const pkgSell = (p.package_sales_cost && p.package_sales_cost > 0)
-                                                        ? p.package_sales_cost
-                                                        : (sp * ppp);
-                                                    const pkgProfit = Math.round((pkgSell - (p.purchase_cost || 0)) * 100) / 100;
 
-                                                    return (
-                                                        <div className="flex flex-col items-center justify-center gap-0.5">
-                                                            <div className="flex items-center gap-1">
-                                                                <FiTrendingUp size={11} className={pieceProfit >= 0 ? 'text-emerald-500' : 'text-red-400'} />
-                                                                <span className={`text-xs font-bold ${pieceProfit > 0 ? 'text-emerald-600' : pieceProfit === 0 ? 'text-gray-500' : 'text-red-600'}`}>
-                                                                    +Ksh {pieceProfit.toLocaleString()} <span className="text-[10px] text-gray-400 font-normal">/pc</span>
-                                                                </span>
-                                                            </div>
-                                                            {ppp > 1 && (
-                                                                <span className={`text-[10px] font-bold ${pkgProfit >= 0 ? 'text-indigo-600' : 'text-red-500'}`}>
-                                                                    +Ksh {pkgProfit.toLocaleString()} <span className="text-gray-400 font-normal">/{p.purchase_unit || 'pack'}</span>
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    );
-                                                })()}
+                                            {/* Profit Margin */}
+                                            <td className="py-2 px-3 text-center hidden lg:table-cell">
+                                                <div className="flex flex-col items-center justify-center gap-0.5">
+                                                    <div className="flex items-center gap-1 font-mono font-bold text-[11px]">
+                                                        <span className={pieceProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                                                            +{fmtKES(pieceProfit)} <span className="text-[9px] text-slate-400 font-normal">/pc</span>
+                                                        </span>
+                                                    </div>
+                                                    {ppp > 1 && (
+                                                        <span className={`text-[10px] font-mono font-bold ${pkgProfit >= 0 ? 'text-indigo-600' : 'text-rose-600'}`}>
+                                                            +{fmtKES(pkgProfit)} <span className="text-[9px] text-slate-400 font-normal">/{p.purchase_unit || 'pkg'}</span>
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
-                                            <td className="px-4 py-3 text-center">
-                                                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${p.active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-500'}`}>
-                                                    <span className={`w-1.5 h-1.5 rounded-full ${p.active ? 'bg-emerald-500' : 'bg-gray-400'}`} />{p.active ? 'Live' : 'Off'}
+
+                                            {/* Status Badge */}
+                                            <td className="py-2 px-3 text-center">
+                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black ${
+                                                    p.active ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'
+                                                }`}>
+                                                    <span className={`w-1.5 h-1.5 rounded-full ${p.active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                                                    {p.active ? 'Live' : 'Off'}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-3">
+
+                                            {/* Action Toolbar */}
+                                            <td className="py-2 px-3 text-center">
                                                 <div className="flex items-center justify-center gap-1 flex-wrap">
-                                                    <button onClick={() => openEditModal(p)} className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all" title="Edit"><FiEdit2 size={12} /></button>
-                                                    <button onClick={() => openStockHistory(p)} className="p-1.5 rounded-lg bg-cyan-50 text-cyan-600 hover:bg-cyan-100 transition-all" title="Stock History"><FiClock size={12} /></button>
-                                                    <button onClick={() => openPriceHistory(p)} className="p-1.5 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all" title="Price History"><FiTrendingUp size={12} /></button>
-                                                    <button onClick={() => openStockAdjust(p)} className="p-1.5 rounded-lg bg-purple-50 text-purple-600 hover:bg-purple-100 transition-all" title="Stock Adjust"><FiSliders size={12} /></button>
-                                                    <button onClick={() => deactivateProduct(p)} className={`p-1.5 rounded-lg transition-all ${p.active ? 'bg-orange-50 text-orange-500 hover:bg-orange-100' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`} title={p.active ? 'Deactivate' : 'Reactivate'}>
+                                                    <button
+                                                        onClick={() => openEditModal(p)}
+                                                        className="p-1 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                                                        title="Edit Product"
+                                                    >
+                                                        <FiEdit2 size={12} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => openStockHistory(p)}
+                                                        className="p-1 rounded-lg bg-sky-50 text-sky-600 hover:bg-sky-100 transition-colors"
+                                                        title="Stock Ledger Movements"
+                                                    >
+                                                        <FiClock size={12} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => openPriceHistory(p)}
+                                                        className="p-1 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
+                                                        title="Price Change History"
+                                                    >
+                                                        <FiTrendingUp size={12} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => openStockAdjust(p)}
+                                                        className="p-1 rounded-lg bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors"
+                                                        title="Manual Stock Adjustment"
+                                                    >
+                                                        <FiSliders size={12} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => deactivateProduct(p)}
+                                                        className={`p-1 rounded-lg transition-colors ${
+                                                            p.active ? 'bg-orange-50 text-orange-600 hover:bg-orange-100' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                                                        }`}
+                                                        title={p.active ? 'Deactivate' : 'Reactivate'}
+                                                    >
                                                         {p.active ? <FiEyeOff size={12} /> : <FiEye size={12} />}
                                                     </button>
-                                                    <button onClick={() => deleteProduct(p)} className="p-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-all" title="Delete Permanently"><FiTrash2 size={12} /></button>
+                                                    <button
+                                                        onClick={() => deleteProduct(p)}
+                                                        className="p-1 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors"
+                                                        title="Delete Permanently"
+                                                    >
+                                                        <FiTrash2 size={12} />
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -1308,499 +1954,384 @@ export default function ProductsPage() {
                 </div>
             )}
 
-            {/* ━━━ FLOATING PAGINATION FOOTER ━━━ */}
-            <div className="sticky bottom-0 z-30 bg-white/95 backdrop-blur-md border-t border-gray-200 rounded-t-2xl shadow-[0_-4px_20px_rgba(0,0,0,0.08)] px-5 py-3 -mx-5 mt-4">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <span className="text-sm text-gray-500">Showing</span>
-                        <select value={perPage} onChange={e => { setPerPage(parseInt(e.target.value)); setPage(1); }} className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold focus:border-blue-500 outline-none">
+            {/* ══════════════════════════════════════════════════════════════════════════
+               7. FLOATING PAGINATION BAR
+               ══════════════════════════════════════════════════════════════════════════ */}
+            <div className="sticky bottom-0 z-30 bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl shadow-lg px-4 py-2.5 mt-3">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <span>Show</span>
+                        <select
+                            value={perPage}
+                            onChange={e => { setPerPage(parseInt(e.target.value, 10)); setPage(1); }}
+                            className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 outline-none cursor-pointer"
+                        >
                             {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
                         </select>
-                        <span className="text-sm text-gray-500">of <span className="font-bold text-gray-800">{filtered.length}</span> products</span>
+                        <span>per page • Total <strong className="font-mono text-slate-800 font-bold">{filtered.length}</strong> products</span>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                        <button onClick={() => setPage(1)} disabled={page === 1} className="p-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 disabled:opacity-30 transition-all" title="First"><FiChevronsLeft size={14} /></button>
-                        <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="p-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 disabled:opacity-30 transition-all" title="Previous"><FiChevronLeft size={14} /></button>
-                        {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
-                            const start = Math.max(1, Math.min(page - 3, totalPages - 6));
-                            const pg = start + i; if (pg > totalPages) return null;
-                            return (
-                                <button key={pg} onClick={() => setPage(pg)}
-                                    className={`w-9 h-9 rounded-lg text-xs font-bold transition-all ${pg === page ? 'bg-blue-500 text-white shadow-md shadow-blue-300/30' : 'bg-gray-50 border border-gray-200 text-gray-600 hover:text-blue-600 hover:border-blue-300'}`}>{pg}</button>
-                            );
-                        })}
-                        <button onClick={() => setPage(p => Math.min(totalPages || 1, p + 1))} disabled={page >= totalPages} className="p-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 disabled:opacity-30 transition-all" title="Next"><FiChevronRight size={14} /></button>
-                        <button onClick={() => setPage(totalPages || 1)} disabled={page >= totalPages} className="p-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 disabled:opacity-30 transition-all" title="Last"><FiChevronsRight size={14} /></button>
+
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => setPage(1)}
+                            disabled={page === 1}
+                            className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="First page"
+                        >
+                            <FiChevronsLeft size={13} />
+                        </button>
+                        <button
+                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                            disabled={page === 1}
+                            className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Previous page"
+                        >
+                            <FiChevronLeft size={13} />
+                        </button>
+
+                        <span className="px-2.5 text-xs font-mono font-bold text-slate-700">
+                            Page {page} of {totalPages || 1}
+                        </span>
+
+                        <button
+                            onClick={() => setPage(p => Math.min(totalPages || 1, p + 1))}
+                            disabled={page >= totalPages}
+                            className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Next page"
+                        >
+                            <FiChevronRight size={13} />
+                        </button>
+                        <button
+                            onClick={() => setPage(totalPages || 1)}
+                            disabled={page >= totalPages}
+                            className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Last page"
+                        >
+                            <FiChevronsRight size={13} />
+                        </button>
                     </div>
-                    <span className="text-sm text-gray-400">Page <span className="font-bold text-gray-700">{page}</span> of <span className="font-bold text-gray-700">{totalPages || 1}</span></span>
                 </div>
             </div>
 
-            {/* ━━━ ADD/EDIT MODAL ━━━ */}
+            {/* ══════════════════════════════════════════════════════════════════════════
+               8. ADD/EDIT PRODUCT MODAL (ULTRA STUDIO STYLING)
+               ══════════════════════════════════════════════════════════════════════════ */}
             {showModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50" onClick={() => setShowModal(false)}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-5 text-white sticky top-0 z-10 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center"><FiPackage size={20} /></div>
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={() => setShowModal(false)}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-y-auto border border-slate-100" onClick={e => e.stopPropagation()}>
+                        {/* Modal Header */}
+                        <div className="bg-slate-900 px-6 py-4 text-white sticky top-0 z-20 flex items-center justify-between border-b border-slate-800">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black">
+                                    <FiPackage size={18} />
+                                </div>
                                 <div>
-                                    <h2 className="text-lg font-bold">{editingProduct ? 'Edit Product' : 'New Product'}</h2>
-                                    {editingProduct && <p className="text-blue-100 text-xs">{editingProduct.product_code}</p>}
+                                    <h2 className="text-sm font-black tracking-wide uppercase">
+                                        {editingProduct ? 'Edit Catalog Product' : 'Register New Inventory Product'}
+                                    </h2>
+                                    <p className="text-[11px] text-slate-400 font-mono">
+                                        {editingProduct ? editingProduct.product_code : `${previewCode || 'PRD-AUTO'} • Auto-assigned`}
+                                    </p>
                                 </div>
                             </div>
-                            <button onClick={() => setShowModal(false)} className="p-2 hover:bg-white/20 rounded-xl transition-colors"><FiX size={18} /></button>
+                            <button onClick={() => setShowModal(false)} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+                                <FiX size={16} />
+                            </button>
                         </div>
-                        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                        {/* Modal Body */}
+                        <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs font-medium text-slate-700">
+                            {/* Product Particulars */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <div className="md:col-span-2">
-                                    <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Product Name *</label>
-                                    <input type="text" value={formData.product_name} onChange={e => setFormData({ ...formData, product_name: e.target.value })}
-                                        placeholder="e.g., Sugar 2Kg" required className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-400/10 outline-none font-medium text-sm" />
+                                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">
+                                        Product Name <span className="text-rose-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.product_name}
+                                        onChange={e => setFormData({ ...formData, product_name: e.target.value })}
+                                        placeholder="e.g. Sugar 2Kg Mumias"
+                                        required
+                                        className="w-full px-3 py-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:border-amber-500 outline-none transition-all shadow-2xs"
+                                    />
                                 </div>
-                                {/* PID and Product Code preview — only shown when adding new product */}
-                                {!editingProduct && (
-                                    <div className="md:col-span-2 grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Product ID (PID)</label>
-                                            <div className="flex items-center gap-2 px-4 py-3 bg-blue-50 border-2 border-blue-200 rounded-xl">
-                                                <span className="font-bold text-blue-700 font-mono text-sm">{previewPid ?? '...'}</span>
-                                                <span className="ml-auto text-xs text-blue-400 italic">Auto-assigned</span>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Product Code</label>
-                                            <div className="flex items-center gap-2 px-4 py-3 bg-green-50 border-2 border-green-200 rounded-xl">
-                                                <span className="font-bold text-green-700 font-mono text-sm">{previewCode || '...'}</span>
-                                                <span className="ml-auto text-xs text-green-400 italic">Auto-assigned</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
+
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Alias</label>
-                                    <input type="text" value={formData.alias} onChange={e => setFormData({ ...formData, alias: e.target.value })} placeholder="Short name"
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-500 outline-none text-sm" />
+                                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Alias / Short Name</label>
+                                    <input
+                                        type="text"
+                                        value={formData.alias}
+                                        onChange={e => setFormData({ ...formData, alias: e.target.value })}
+                                        placeholder="e.g. Sug2k"
+                                        className="w-full px-3 py-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:border-amber-500 outline-none"
+                                    />
                                 </div>
+
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Category</label>
-                                    <select value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-500 outline-none text-sm cursor-pointer">
+                                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Category</label>
+                                    <select
+                                        value={formData.category}
+                                        onChange={e => setFormData({ ...formData, category: e.target.value })}
+                                        className="w-full px-3 py-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:border-amber-500 outline-none cursor-pointer"
+                                    >
                                         <option value="">Select Category</option>
                                         {categories.map(c => <option key={c.category_id} value={c.category_name}>{c.category_name}</option>)}
                                     </select>
                                 </div>
+
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Barcode</label>
-                                    <input type="text" value={formData.barcode} onChange={e => setFormData({ ...formData, barcode: e.target.value })} placeholder="Scan or enter"
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-500 outline-none text-sm" />
+                                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Barcode / SKU</label>
+                                    <input
+                                        type="text"
+                                        value={formData.barcode}
+                                        onChange={e => setFormData({ ...formData, barcode: e.target.value })}
+                                        placeholder="Scan or type barcode"
+                                        className="w-full px-3 py-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 font-mono focus:border-amber-500 outline-none"
+                                    />
                                 </div>
+
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">HS Code</label>
-                                    <input type="text" value={formData.hscode} onChange={e => setFormData({ ...formData, hscode: e.target.value })} placeholder="Tax code"
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-500 outline-none text-sm" />
+                                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">HS Code (Taxation)</label>
+                                    <input
+                                        type="text"
+                                        value={formData.hscode}
+                                        onChange={e => setFormData({ ...formData, hscode: e.target.value })}
+                                        placeholder="Optional tax tariff code"
+                                        className="w-full px-3 py-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 font-mono focus:border-amber-500 outline-none"
+                                    />
                                 </div>
+
+                                {/* Dual Stock Opening Fields (Only when adding) */}
                                 {!editingProduct && (
                                     <>
-                                    <div>
-                                        <label className="block text-xs font-bold text-indigo-600 mb-1.5 uppercase tracking-wider">📦 Opening {formData.purchase_unit}s (Big Qty)</label>
-                                        <input type="number" value={openingBags} onChange={e => setOpeningBags(Number(e.target.value))} min="0" placeholder="e.g. 5"
-                                            className="w-full px-4 py-3 bg-indigo-50 border-2 border-indigo-200 rounded-xl focus:border-indigo-500 outline-none text-sm font-bold text-indigo-700" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-emerald-600 mb-1.5 uppercase tracking-wider">🔢 Opening {formData.sales_unit?.toLowerCase() === formData.purchase_unit?.toLowerCase() ? 'Piece' : formData.sales_unit}s (Pieces)</label>
-                                        <input type="number" value={openingPieces} onChange={e => setOpeningPieces(Number(e.target.value))} min="0" placeholder="e.g. 20"
-                                            className="w-full px-4 py-3 bg-emerald-50 border-2 border-emerald-200 rounded-xl focus:border-emerald-500 outline-none text-sm font-bold text-emerald-700" />
-                                    </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black uppercase tracking-wider text-amber-700 mb-1">
+                                                📦 Opening {formData.purchase_unit}s (Bulk Boxes / Bags)
+                                            </label>
+                                            <input
+                                                type="number"
+                                                value={openingBags || ''}
+                                                onChange={e => setOpeningBags(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                                                min="0"
+                                                placeholder="e.g. 5"
+                                                className="w-full px-3 py-2 bg-amber-50/50 border border-amber-200 rounded-xl text-xs font-black text-amber-900 font-mono text-center focus:border-amber-500 outline-none"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black uppercase tracking-wider text-sky-700 mb-1">
+                                                🔢 Opening {formData.sales_unit}s (Loose Pieces)
+                                            </label>
+                                            <input
+                                                type="number"
+                                                value={openingPieces || ''}
+                                                onChange={e => setOpeningPieces(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                                                min="0"
+                                                placeholder="e.g. 20"
+                                                className="w-full px-3 py-2 bg-sky-50/50 border border-sky-200 rounded-xl text-xs font-black text-sky-900 font-mono text-center focus:border-sky-500 outline-none"
+                                            />
+                                        </div>
                                     </>
                                 )}
-                                {editingProduct && (
-                                    <div className="md:col-span-2">
-                                        <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Current Stock</label>
-                                        <div className="flex gap-3">
-                                            <div className="flex-1 px-4 py-3 bg-indigo-50 border-2 border-indigo-200 rounded-xl text-sm font-bold text-indigo-700">
-                                                📦 {bagStockData[editingProduct.pid] || 0} {editingProduct.purchase_unit}(s)
-                                            </div>
-                                            <div className="flex-1 px-4 py-3 bg-emerald-50 border-2 border-emerald-200 rounded-xl text-sm font-bold text-emerald-700">
-                                                🔢 {pieceStockData[editingProduct.pid] || 0} {editingProduct.sales_unit?.toLowerCase() === editingProduct.purchase_unit?.toLowerCase() ? 'Piece' : editingProduct.sales_unit}(s)
-                                            </div>
-                                        </div>
-                                        <p className="text-[10px] text-gray-400 mt-1">Use Stock Adjust button in the products list to modify stock quantities</p>
-                                    </div>
-                                )}
-                                {/* Image */}
-                                <div className="md:col-span-2">
-                                    <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Product Image</label>
-                                    <div className="flex items-start gap-4">
-                                        <label className="flex-1 flex flex-col items-center justify-center h-24 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer bg-gray-50 hover:bg-blue-50 hover:border-blue-300 transition-all">
-                                            <FiUpload className="text-gray-400 mb-1" size={20} />
-                                            <p className="text-xs text-gray-500 font-medium">Click to upload (max 500KB)</p>
-                                            <input type="file" className="hidden" accept="image/*" onChange={async e => {
-                                                const f = e.target.files?.[0]; if (!f) return;
-                                                if (f.size > 500 * 1024) { toast.error('Max 500KB'); return; }
-                                                const r = new FileReader(); r.onloadend = () => { setFormData({ ...formData, photo: r.result as string }); toast.success('Added!'); }; r.readAsDataURL(f);
-                                            }} />
-                                        </label>
-                                        <div className="w-24 h-24 rounded-xl bg-gray-100 border-2 border-gray-200 overflow-hidden flex items-center justify-center flex-shrink-0">
-                                            {formData.photo ? (
-                                                <div className="relative w-full h-full">
-                                                    <img src={formData.photo} alt="Preview" className="w-full h-full object-cover" />
-                                                    <button type="button" onClick={() => setFormData({ ...formData, photo: '' })} className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center"><FiX size={10} /></button>
-                                                </div>
-                                            ) : <FiImage className="text-gray-300" size={24} />}
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
 
-                            {/* Pricing & Units */}
-                            <div className="bg-blue-50/50 rounded-2xl p-5 border border-blue-200">
-                                <h3 className="font-bold text-blue-800 mb-4 flex items-center gap-2 text-sm"><FiDollarSign size={16} /> Pricing, Units & Conversion</h3>
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                            {/* Pricing & Packaging Matrix Card */}
+                            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/90 space-y-3">
+                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                                    <FiDollarSign className="text-amber-500" size={13} />
+                                    Pricing, Packaging Multiplier & Sales Units
+                                </span>
+
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
                                     <div>
-                                        <label className="block text-[10px] font-bold text-gray-600 mb-1 uppercase tracking-wider">Buy Unit</label>
-                                        <select value={formData.purchase_unit} onChange={e => { const pu = e.target.value; const conv = UNIT_CONVERSIONS[pu]; setFormData({ ...formData, purchase_unit: pu, pieces_per_package: conv?.[formData.sales_unit] || formData.pieces_per_package }); }}
-                                            className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none">{units.map(u => <option key={u.unit_id} value={u.unit_name}>{u.unit_name}</option>)}</select>
+                                        <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Buy Unit</label>
+                                        <select
+                                            value={formData.purchase_unit}
+                                            onChange={e => {
+                                                const pu = e.target.value;
+                                                const conv = UNIT_CONVERSIONS[pu];
+                                                setFormData({ ...formData, purchase_unit: pu, pieces_per_package: conv?.[formData.sales_unit] || formData.pieces_per_package });
+                                            }}
+                                            className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none"
+                                        >
+                                            {units.map(u => <option key={u.unit_id} value={u.unit_name}>{u.unit_name}</option>)}
+                                        </select>
                                     </div>
+
                                     <div>
-                                        <label className="block text-[10px] font-bold text-gray-600 mb-1 uppercase tracking-wider">Buy Price / {formData.purchase_unit} (Ksh)</label>
-                                        <input type="number" value={formData.purchase_cost} onChange={e => setFormData({ ...formData, purchase_cost: parseFloat(e.target.value) || 0 })}
-                                            className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none" min="0" step="0.01" />
+                                        <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Buy Price (Ksh)</label>
+                                        <input
+                                            type="number"
+                                            value={formData.purchase_cost}
+                                            onChange={e => setFormData({ ...formData, purchase_cost: parseFloat(e.target.value) || 0 })}
+                                            min="0"
+                                            step="0.01"
+                                            className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 outline-none"
+                                        />
                                     </div>
+
                                     <div>
-                                        <label className="block text-[10px] font-bold text-orange-600 mb-1 uppercase tracking-wider">Pcs/Package</label>
-                                        <input type="number" value={formData.pieces_per_package} onChange={e => setFormData({ ...formData, pieces_per_package: parseInt(e.target.value) || 1 })}
-                                            className="w-full px-3 py-2.5 bg-orange-50 border-2 border-orange-300 rounded-xl text-sm focus:border-orange-500 outline-none font-bold text-orange-700" min="1" />
+                                        <label className="block text-[9px] font-bold text-amber-700 uppercase mb-1">Pcs / Package</label>
+                                        <input
+                                            type="number"
+                                            value={formData.pieces_per_package}
+                                            onChange={e => setFormData({ ...formData, pieces_per_package: parseInt(e.target.value, 10) || 1 })}
+                                            min="1"
+                                            className="w-full px-2.5 py-1.5 bg-amber-50 border border-amber-300 rounded-xl text-xs font-mono font-black text-amber-900 outline-none text-center"
+                                        />
                                     </div>
+
                                     <div>
-                                        <label className="block text-[10px] font-bold text-gray-600 mb-1 uppercase tracking-wider">Sell Unit</label>
-                                        <select value={formData.sales_unit} onChange={e => setFormData({ ...formData, sales_unit: e.target.value })}
-                                            className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none">{units.map(u => <option key={u.unit_id} value={u.unit_name}>{u.unit_name}</option>)}</select>
+                                        <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Sell Unit</label>
+                                        <select
+                                            value={formData.sales_unit}
+                                            onChange={e => setFormData({ ...formData, sales_unit: e.target.value })}
+                                            className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none"
+                                        >
+                                            {units.map(u => <option key={u.unit_id} value={u.unit_name}>{u.unit_name}</option>)}
+                                        </select>
                                     </div>
+
                                     <div>
-                                        <label className="block text-[10px] font-bold text-gray-600 mb-1 uppercase tracking-wider">Sell Price (Ksh)</label>
-                                        <input type="number" value={formData.sales_cost} onChange={e => setFormData({ ...formData, sales_cost: parseFloat(e.target.value) || 0 })}
-                                            className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none" min="0" step="0.01" />
+                                        <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Sell Price (Ksh)</label>
+                                        <input
+                                            type="number"
+                                            value={formData.sales_cost}
+                                            onChange={e => setFormData({ ...formData, sales_cost: parseFloat(e.target.value) || 0 })}
+                                            min="0"
+                                            step="0.01"
+                                            className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-mono font-black text-emerald-600 outline-none"
+                                        />
                                     </div>
+
                                     <div>
-                                        <label className="block text-[10px] font-bold text-purple-600 mb-1 uppercase tracking-wider">Wholesale (Ksh)</label>
-                                        <input type="number" value={formData.wholesale_price} onChange={e => setFormData({ ...formData, wholesale_price: parseFloat(e.target.value) || 0 })}
-                                            className="w-full px-3 py-2.5 bg-purple-50 border-2 border-purple-200 rounded-xl text-sm focus:border-purple-500 outline-none font-semibold text-purple-700" min="0" step="0.01" placeholder="0" />
+                                        <label className="block text-[9px] font-bold text-purple-700 uppercase mb-1">Wholesale (Ksh)</label>
+                                        <input
+                                            type="number"
+                                            value={formData.wholesale_price}
+                                            onChange={e => setFormData({ ...formData, wholesale_price: parseFloat(e.target.value) || 0 })}
+                                            min="0"
+                                            step="0.01"
+                                            className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold text-purple-700 outline-none"
+                                        />
                                     </div>
                                 </div>
-                                {formData.pieces_per_package > 1 && formData.purchase_cost > 0 && (
-                                    <div className="mt-3 p-3 bg-orange-50 rounded-xl border border-orange-200 text-sm">
-                                        <span className="font-bold text-orange-700">📦 Conversion:</span> 1 {formData.purchase_unit} = <span className="font-bold text-orange-800">{formData.pieces_per_package}</span> {formData.sales_unit?.toLowerCase() === formData.purchase_unit?.toLowerCase() ? 'Piece' : formData.sales_unit}(s)
-                                    </div>
-                                )}
-                                {/* ── Pack / Box Selling Price (Big Quantity Price) ── */}
+
+                                {/* Big Quantity Selling Price Input */}
                                 {formData.pieces_per_package > 1 && (
-                                    <div className="mt-3 p-3.5 bg-gradient-to-r from-indigo-50 via-purple-50 to-blue-50 rounded-2xl border-2 border-indigo-200 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm">
-                                        <div className="flex-1">
-                                            <label className="block text-xs font-black text-indigo-950 uppercase tracking-wider flex items-center gap-1.5 mb-1">
-                                                <span>📦 Selling Price / {formData.purchase_unit} (Big Qty Price in Ksh)</span>
-                                            </label>
-                                            <p className="text-[11px] text-indigo-700 font-medium">
-                                                1 {formData.purchase_unit} = {formData.pieces_per_package} {formData.sales_unit}s. POS will charge this price when selling a full {formData.purchase_unit}.
+                                    <div className="p-3 rounded-xl bg-indigo-50/70 border border-indigo-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                        <div>
+                                            <span className="text-[10px] font-black uppercase text-indigo-950 block">
+                                                📦 Selling Price / Full {formData.purchase_unit} (Big Qty Price)
+                                            </span>
+                                            <p className="text-[10px] text-indigo-700">
+                                                Charged when POS cashier selects selling by full {formData.purchase_unit} ({formData.pieces_per_package} {formData.sales_unit}s)
                                             </p>
                                         </div>
-                                        <div className="w-full md:w-64">
-                                            <div className="relative">
-                                                <span className="absolute left-3.5 top-2.5 text-xs font-bold text-indigo-500">Ksh</span>
-                                                <input
-                                                    type="number"
-                                                    step="any"
-                                                    min="0"
-                                                    value={(formData as any).package_sales_cost || ''}
-                                                    onChange={e => setFormData({ ...formData, package_sales_cost: parseFloat(e.target.value) || 0 } as any)}
-                                                    placeholder={String((formData.sales_cost || 0) * (formData.pieces_per_package || 1))}
-                                                    className="w-full pl-12 pr-3 py-2.5 bg-white border-2 border-indigo-300 rounded-xl text-base font-black text-indigo-900 focus:border-indigo-600 outline-none shadow-inner"
-                                                />
-                                            </div>
-                                            <p className="text-[10px] text-gray-500 mt-1 text-right">
-                                                Standard: Ksh {((formData.sales_cost || 0) * (formData.pieces_per_package || 1)).toLocaleString()}
-                                                {(formData as any).package_sales_cost > 0 && (formData as any).package_sales_cost !== ((formData.sales_cost || 0) * (formData.pieces_per_package || 1)) && (
-                                                    <span className="font-bold ml-1 text-emerald-600">
-                                                        (Special: Ksh {Number((formData as any).package_sales_cost).toLocaleString()})
-                                                    </span>
-                                                )}
-                                            </p>
+                                        <div className="w-full sm:w-48">
+                                            <input
+                                                type="number"
+                                                step="any"
+                                                min="0"
+                                                value={(formData as any).package_sales_cost || ''}
+                                                onChange={e => setFormData({ ...formData, package_sales_cost: parseFloat(e.target.value) || 0 } as any)}
+                                                placeholder={String((formData.sales_cost || 0) * (formData.pieces_per_package || 1))}
+                                                className="w-full px-3 py-1.5 bg-white border border-indigo-300 rounded-xl text-xs font-mono font-black text-indigo-900 outline-none focus:border-indigo-500 text-right"
+                                            />
                                         </div>
-                                    </div>
-                                )}
-                                {/* Cost Per Piece + Profit Breakdown */}
-                                {formData.purchase_cost > 0 && (
-                                    <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
-                                        {/* Cost Per Piece - editable input */}
-                                        <div className="bg-blue-50 rounded-xl p-3 border border-blue-200">
-                                            <label className="block text-[10px] font-bold text-blue-600 mb-1 uppercase tracking-wider">Cost / {formData.sales_unit?.toLowerCase() === formData.purchase_unit?.toLowerCase() ? 'Piece' : formData.sales_unit}</label>
-                                            <input type="number" value={Number((formData.purchase_cost / (formData.pieces_per_package || 1)).toFixed(2))}
-                                                onChange={e => { const cpp = parseFloat(e.target.value) || 0; setFormData({ ...formData, purchase_cost: Math.round(cpp * (formData.pieces_per_package || 1) * 100) / 100 }); }}
-                                                className="w-full px-2 py-1.5 bg-white border border-blue-300 rounded-lg text-sm font-bold text-blue-800 focus:border-blue-500 outline-none" min="0" step="0.01" />
-                                        </div>
-                                        {/* ── RETAIL PROFIT — gated by retail_profit feature ── */}
-                                        {hasRetailProfitFeature && formData.sales_cost > 0 && (() => {
-                                            const cpp = formData.purchase_cost / (formData.pieces_per_package || 1);
-                                            const rProfit = formData.sales_cost - cpp;
-                                            return (
-                                                <div className={`rounded-xl p-3 border ${rProfit > 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                                                    <p className="text-[10px] font-bold text-green-700 uppercase tracking-wider">🏷️ Retail Profit / {formData.sales_unit?.toLowerCase() === formData.purchase_unit?.toLowerCase() ? 'Piece' : formData.sales_unit}</p>
-                                                    <p className={`text-lg font-black mt-0.5 ${rProfit > 0 ? 'text-green-700' : 'text-red-700'}`}>Ksh {rProfit.toFixed(2)}</p>
-                                                    <p className="text-[10px] text-gray-400">Retail − Cost/Pc</p>
-                                                </div>
-                                            );
-                                        })()}
-                                        {/* ── WS PROFIT/Pc — gated by wholesale_profit feature ── */}
-                                        {hasWholesaleProfitFeature && formData.wholesale_price > 0 && (
-                                            <div className={`rounded-xl p-3 border ${(formData.wholesale_price - formData.purchase_cost / (formData.pieces_per_package || 1)) > 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
-                                                <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">🤝 WS Profit / {formData.sales_unit?.toLowerCase() === formData.purchase_unit?.toLowerCase() ? 'Piece' : formData.sales_unit}</p>
-                                                <p className={`text-lg font-black mt-0.5 ${(formData.wholesale_price - formData.purchase_cost / (formData.pieces_per_package || 1)) > 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-                                                    Ksh {(formData.wholesale_price - formData.purchase_cost / (formData.pieces_per_package || 1)).toFixed(2)}
-                                                </p>
-                                                <p className="text-[10px] text-gray-400">Wholesale − Cost/Pc</p>
-                                            </div>
-                                        )}
-                                        {/* ── PROFIT/BAG — gated by wholesale_profit feature ── */}
-                                        {hasWholesaleProfitFeature && formData.wholesale_price > 0 && formData.pieces_per_package > 1 && (
-                                            <div className={`rounded-xl p-3 border ${(formData.wholesale_price * formData.pieces_per_package - formData.purchase_cost) > 0 ? 'bg-indigo-50 border-indigo-200' : 'bg-red-50 border-red-200'}`}>
-                                                <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Profit / {formData.purchase_unit}</p>
-                                                <p className={`text-lg font-black mt-0.5 ${(formData.wholesale_price * formData.pieces_per_package - formData.purchase_cost) > 0 ? 'text-indigo-700' : 'text-red-700'}`}>
-                                                    Ksh {(formData.wholesale_price * formData.pieces_per_package - formData.purchase_cost).toLocaleString()}
-                                                </p>
-                                                <p className="text-[10px] text-gray-400">(WS × {formData.pieces_per_package}) − Buy</p>
-                                            </div>
-                                        )}
-
-                                        {/* ── MARGIN/PIECE — gated by wholesale_profit feature ── */}
-                                        {hasWholesaleProfitFeature && (
-
-                                        <div className="bg-white rounded-xl p-3 border border-gray-200">
-                                            <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Profit/Piece</p>
-                                            {(() => {
-                                                const cpp = formData.purchase_cost / (formData.pieces_per_package || 1);
-                                                const sp = formData.wholesale_price || formData.sales_cost;
-                                                const margin = Math.round((sp - cpp) * 100) / 100;
-                                                return (
-                                                    <>
-                                                        <p className={`text-lg font-black mt-0.5 ${margin >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                                                            Ksh {margin.toLocaleString()}
-                                                        </p>
-                                                        <p className="text-[10px] text-gray-400">{formData.wholesale_price > 0 ? 'Wholesale' : 'Sell'} − Cost/piece</p>
-                                                    </>
-                                                );
-                                            })()}
-                                        </div>
-                                        )}
-
                                     </div>
                                 )}
                             </div>
 
-                            {/* Extra */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {/* VAT, Supplier, Reorder */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">VAT Type</label>
-                                    <select value={formData.vat_commodity} onChange={e => setFormData({ ...formData, vat_commodity: e.target.value })}
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none">{vatOptions.map(v => <option key={v} value={v}>{v}</option>)}</select>
+                                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">VAT Type</label>
+                                    <select
+                                        value={formData.vat_commodity}
+                                        onChange={e => setFormData({ ...formData, vat_commodity: e.target.value })}
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none"
+                                    >
+                                        {vatOptions.map(v => <option key={v} value={v}>{v}</option>)}
+                                    </select>
                                 </div>
+
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Reorder Point</label>
-                                    <input type="number" value={formData.reorder_point} onChange={e => setFormData({ ...formData, reorder_point: parseInt(e.target.value) || 10 })}
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none" min="0" />
+                                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Reorder Point</label>
+                                    <input
+                                        type="number"
+                                        value={formData.reorder_point}
+                                        onChange={e => setFormData({ ...formData, reorder_point: parseInt(e.target.value, 10) || 10 })}
+                                        min="0"
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 outline-none"
+                                    />
                                 </div>
+
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Supplier</label>
-                                    <select value={formData.supplier_name} onChange={e => setFormData({ ...formData, supplier_name: e.target.value })}
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none cursor-pointer">
+                                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Supplier</label>
+                                    <select
+                                        value={formData.supplier_name}
+                                        onChange={e => setFormData({ ...formData, supplier_name: e.target.value })}
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none cursor-pointer"
+                                    >
                                         <option value="">Select Supplier</option>
                                         <option value={getKitchenSupplier()}>{getKitchenSupplier()}</option>
                                         {suppliers.filter(s => !s.is_kitchen).map(s => <option key={s.supplier_id} value={s.supplier_name}>{s.supplier_name}</option>)}
                                     </select>
                                 </div>
-                                <div className="md:col-span-3">
-                                    <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">POS Button Color</label>
-                                    <div className="grid grid-cols-7 gap-2">
-                                        {colorPresets.map(c => (
-                                            <button key={c.name} type="button" onClick={() => setFormData({ ...formData, button_ui_color: c.gradient })}
-                                                className={`h-8 rounded-xl bg-gradient-to-br ${c.gradient} transition-all hover:scale-110 ${formData.button_ui_color === c.gradient ? 'ring-2 ring-offset-2 ring-blue-500 scale-110' : ''}`} title={c.name} />
-                                        ))}
-                                    </div>
+                            </div>
+
+                            {/* Color presets & flags */}
+                            <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div className="flex items-center gap-4">
+                                    <label className="flex items-center gap-1.5 cursor-pointer font-bold text-xs text-slate-700">
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.active}
+                                            onChange={e => setFormData({ ...formData, active: e.target.checked })}
+                                            className="rounded border-slate-300 accent-emerald-500"
+                                        />
+                                        <span>Active SKU</span>
+                                    </label>
+                                    <label className="flex items-center gap-1.5 cursor-pointer font-bold text-xs text-slate-700">
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.show_ps}
+                                            onChange={e => setFormData({ ...formData, show_ps: e.target.checked })}
+                                            className="rounded border-slate-300 accent-emerald-500"
+                                        />
+                                        <span>Show in POS</span>
+                                    </label>
                                 </div>
-                                <div className="flex items-center gap-6 pt-4">
-                                    <label className="flex items-center gap-2 cursor-pointer text-sm font-semibold text-gray-700">
-                                        <input type="checkbox" checked={formData.active} onChange={e => setFormData({ ...formData, active: e.target.checked })} className="w-4 h-4 rounded accent-blue-500" /> Active
-                                    </label>
-                                    <label className="flex items-center gap-2 cursor-pointer text-sm font-semibold text-gray-700">
-                                        <input type="checkbox" checked={formData.show_ps} onChange={e => setFormData({ ...formData, show_ps: e.target.checked })} className="w-4 h-4 rounded accent-blue-500" /> Show in POS
-                                    </label>
+
+                                <div className="flex items-center gap-1">
+                                    {colorPresets.slice(0, 8).map(c => (
+                                        <button
+                                            key={c.name}
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, button_ui_color: c.gradient })}
+                                            className={`w-5 h-5 rounded-md bg-gradient-to-br ${c.gradient} transition-transform ${formData.button_ui_color === c.gradient ? 'ring-2 ring-blue-500 scale-110' : ''}`}
+                                            title={c.name}
+                                        />
+                                    ))}
                                 </div>
                             </div>
 
-                            {/* ━━━ EXPIRY BATCH MANAGEMENT (only for expiry-enabled outlets) ━━━ */}
-                            {expiryEnabled && (
-                                <div className="border-2 border-orange-200 rounded-2xl p-4 bg-orange-50/50">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <h3 className="text-sm font-bold text-orange-700 flex items-center gap-2">⏰ Expiry Batches</h3>
-                                        <button type="button" onClick={() => {
-                                            setEditingBatchIdx(null);
-                                            setBatchForm({ batch_number: '', expiry_date: '', qty_received: 0, qty_remaining: 0, cost_price: formData.purchase_cost, selling_price: formData.sales_cost, supplier_name: formData.supplier_name });
-                                            setShowBatchForm(true);
-                                        }} className="px-3 py-1.5 bg-orange-500 text-white rounded-lg text-xs font-bold hover:bg-orange-600 flex items-center gap-1">
-                                            <FiPlus size={12} /> Add Batch
-                                        </button>
-                                    </div>
-
-                                    {/* Batch add/edit form */}
-                                    {showBatchForm && (
-                                        <div className="bg-white rounded-xl p-3 border border-orange-200 mb-3 space-y-2">
-                                            <div className="grid grid-cols-3 gap-2">
-                                                <div>
-                                                    <label className="text-[9px] font-bold text-gray-500 uppercase">Batch #</label>
-                                                    <input type="text" value={batchForm.batch_number} onChange={e => setBatchForm({ ...batchForm, batch_number: e.target.value })}
-                                                        placeholder="Auto" className="w-full px-2 py-1.5 bg-gray-50 border rounded-lg text-xs" />
-                                                </div>
-                                                <div>
-                                                    <label className="text-[9px] font-bold text-red-500 uppercase">Expiry Date *</label>
-                                                    <input type="date" value={batchForm.expiry_date} onChange={e => setBatchForm({ ...batchForm, expiry_date: e.target.value })}
-                                                        className="w-full px-2 py-1.5 bg-gray-50 border border-red-200 rounded-lg text-xs" />
-                                                </div>
-                                                <div>
-                                                    <label className="text-[9px] font-bold text-gray-500 uppercase">Supplier</label>
-                                                    <input type="text" value={batchForm.supplier_name} onChange={e => setBatchForm({ ...batchForm, supplier_name: e.target.value })}
-                                                        placeholder="Optional" className="w-full px-2 py-1.5 bg-gray-50 border rounded-lg text-xs" />
-                                                </div>
-                                            </div>
-                                            <div className="grid grid-cols-4 gap-2">
-                                                <div>
-                                                    <label className="text-[9px] font-bold text-gray-500 uppercase">Qty Received</label>
-                                                    <input type="number" value={batchForm.qty_received} onChange={e => { const v = Number(e.target.value) || 0; setBatchForm({ ...batchForm, qty_received: v, qty_remaining: editingBatchIdx !== null ? batchForm.qty_remaining : v }); }}
-                                                        className="w-full px-2 py-1.5 bg-gray-50 border rounded-lg text-xs" />
-                                                </div>
-                                                <div>
-                                                    <label className="text-[9px] font-bold text-gray-500 uppercase">Qty Remaining</label>
-                                                    <input type="number" value={batchForm.qty_remaining} onChange={e => setBatchForm({ ...batchForm, qty_remaining: Number(e.target.value) || 0 })}
-                                                        className="w-full px-2 py-1.5 bg-gray-50 border rounded-lg text-xs" />
-                                                </div>
-                                                <div>
-                                                    <label className="text-[9px] font-bold text-gray-500 uppercase">Cost Price</label>
-                                                    <input type="number" value={batchForm.cost_price} onChange={e => setBatchForm({ ...batchForm, cost_price: Number(e.target.value) || 0 })}
-                                                        className="w-full px-2 py-1.5 bg-gray-50 border rounded-lg text-xs" />
-                                                </div>
-                                                <div>
-                                                    <label className="text-[9px] font-bold text-gray-500 uppercase">Sell Price</label>
-                                                    <input type="number" value={batchForm.selling_price} onChange={e => setBatchForm({ ...batchForm, selling_price: Number(e.target.value) || 0 })}
-                                                        className="w-full px-2 py-1.5 bg-gray-50 border rounded-lg text-xs" />
-                                                </div>
-                                            </div>
-                                            <div className="flex gap-2 pt-1">
-                                                <button type="button" onClick={() => setShowBatchForm(false)} className="px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-xs font-medium">Cancel</button>
-                                                <button type="button" onClick={async () => {
-                                                    if (!batchForm.expiry_date) { toast.error('Set expiry date!'); return; }
-                                                    const batchData = {
-                                                        batch_number: batchForm.batch_number || `B-${Date.now().toString(36).toUpperCase()}`,
-                                                        expiry_date: batchForm.expiry_date,
-                                                        qty_received: batchForm.qty_received,
-                                                        qty_remaining: batchForm.qty_remaining,
-                                                        cost_price: batchForm.cost_price,
-                                                        selling_price: batchForm.selling_price,
-                                                        supplier_name: batchForm.supplier_name,
-                                                    };
-                                                    if (editingBatchIdx !== null) {
-                                                        // Update existing batch
-                                                        const batch = productBatches[editingBatchIdx];
-                                                        if (batch.batch_id) {
-                                                            await supabase.from('retail_product_batches').update({ ...batchData, product_name: formData.product_name, updated_at: new Date().toISOString() }).eq('batch_id', batch.batch_id);
-                                                            toast.success('Batch updated!');
-                                                        }
-                                                        setProductBatches(prev => prev.map((b, i) => i === editingBatchIdx ? { ...b, ...batchData } : b));
-                                                    } else {
-                                                        // New batch
-                                                        if (editingProduct) {
-                                                            // Product already exists — save to DB immediately
-                                                            const { error } = await supabase.from('retail_product_batches').insert({
-                                                                ...batchData, pid: editingProduct.pid, product_name: formData.product_name,
-                                                                outlet_id: outletId, status: 'Active', received_date: new Date().toISOString().split('T')[0],
-                                                            });
-                                                            if (error) { toast.error('Failed to save batch'); return; }
-                                                            toast.success('Batch added!');
-                                                            // Reload batches
-                                                            const { data } = await supabase.from('retail_product_batches').select('*').eq('pid', editingProduct.pid).eq('outlet_id', outletId).eq('status', 'Active').order('expiry_date');
-                                                            setProductBatches((data || []).map(b => ({ ...b, isNew: false, isEditing: false })));
-                                                        } else {
-                                                            // New product — store locally, will save on product create
-                                                            setProductBatches(prev => [...prev, { ...batchData, isNew: true }]);
-                                                        }
-                                                    }
-                                                    setShowBatchForm(false); setEditingBatchIdx(null);
-                                                }} className="px-3 py-1.5 bg-orange-500 text-white rounded-lg text-xs font-bold hover:bg-orange-600">
-                                                    {editingBatchIdx !== null ? 'Update' : 'Add'} Batch
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Batch list */}
-                                    {productBatches.length === 0 && !showBatchForm ? (
-                                        <p className="text-xs text-orange-500 italic text-center py-3">No batches yet — click &quot;Add Batch&quot; to track expiry dates</p>
-                                    ) : (
-                                        <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                                            {productBatches.map((b, idx) => {
-                                                const today = new Date(); today.setHours(0, 0, 0, 0);
-                                                const exp = new Date(b.expiry_date); exp.setHours(0, 0, 0, 0);
-                                                const daysLeft = Math.ceil((exp.getTime() - today.getTime()) / 86400000);
-                                                const isExpired = daysLeft <= 0;
-                                                const isBlocked = daysLeft <= 1;
-                                                const isWarning = daysLeft <= 2;
-                                                const isSoon = daysLeft <= 7;
-
-                                                let badgeBg = 'bg-emerald-100 text-emerald-700';
-                                                let badgeText = `${daysLeft}d`;
-                                                let rowBg = 'bg-white';
-                                                if (isExpired) { badgeBg = 'bg-red-600 text-white'; badgeText = 'EXPIRED'; rowBg = 'bg-red-50'; }
-                                                else if (isBlocked) { badgeBg = 'bg-red-500 text-white'; badgeText = `${daysLeft}d BLOCKED`; rowBg = 'bg-red-50'; }
-                                                else if (isWarning) { badgeBg = 'bg-orange-500 text-white'; badgeText = `${daysLeft}d ⚠️`; rowBg = 'bg-orange-50'; }
-                                                else if (isSoon) { badgeBg = 'bg-amber-100 text-amber-700'; badgeText = `${daysLeft}d`; rowBg = 'bg-amber-50'; }
-
-                                                return (
-                                                    <div key={b.batch_id || idx} className={`flex items-center gap-2 p-2 rounded-lg border border-gray-200 ${rowBg}`}>
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="text-xs font-bold text-gray-800 truncate">{b.batch_number || `Batch #${idx + 1}`}</p>
-                                                            <p className="text-[10px] text-gray-500">
-                                                                Exp: {new Date(b.expiry_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                                                {' · '} Qty: {b.qty_remaining}{b.supplier_name ? ` · ${b.supplier_name}` : ''}
-                                                            </p>
-                                                        </div>
-                                                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${badgeBg}`}>{badgeText}</span>
-                                                        <button type="button" onClick={() => {
-                                                            setEditingBatchIdx(idx);
-                                                            setBatchForm({ batch_number: b.batch_number, expiry_date: b.expiry_date, qty_received: b.qty_received, qty_remaining: b.qty_remaining, cost_price: b.cost_price, selling_price: b.selling_price, supplier_name: b.supplier_name || '' });
-                                                            setShowBatchForm(true);
-                                                        }} className="p-1 text-blue-500 hover:bg-blue-50 rounded"><FiEdit2 size={12} /></button>
-                                                        <button type="button" onClick={async () => {
-                                                            if (!confirm('Remove this batch?')) return;
-                                                            if (b.batch_id) {
-                                                                await supabase.from('retail_product_batches').update({ status: 'Removed' }).eq('batch_id', b.batch_id);
-                                                                toast.success('Batch removed');
-                                                            }
-                                                            setProductBatches(prev => prev.filter((_, i) => i !== idx));
-                                                        }} className="p-1 text-red-500 hover:bg-red-50 rounded"><FiTrash2 size={12} /></button>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            <div>
-                                <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Description</label>
-                                <textarea value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} placeholder="Optional..." rows={2}
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none resize-none" />
-                            </div>
-                            <div className="flex gap-3 pt-4 border-t border-gray-100">
-                                <button type="button" onClick={() => setShowModal(false)} className="flex-1 px-5 py-3 border-2 border-gray-200 text-gray-600 font-bold rounded-xl hover:bg-gray-50 transition-all text-sm">Cancel</button>
-                                <button type="submit" disabled={isSaving}
-                                    className="flex-1 px-5 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-300/30 hover:shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-60 text-sm">
-                                    {isSaving ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</> : <>{editingProduct ? 'Update Product' : 'Create Product'}</>}
+                            {/* Action Buttons */}
+                            <div className="flex gap-2 pt-4 border-t border-slate-100">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowModal(false)}
+                                    className="flex-1 py-2.5 border border-slate-200 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-50 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isSaving}
+                                    className="flex-1 py-2.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white font-black rounded-xl text-xs shadow-md shadow-amber-500/20 hover:shadow-lg transition-all flex items-center justify-center gap-1.5 disabled:opacity-40"
+                                >
+                                    {isSaving ? 'Processing...' : editingProduct ? 'Save Product Changes' : 'Create Inventory Product'}
                                 </button>
                             </div>
                         </form>
@@ -1808,93 +2339,153 @@ export default function ProductsPage() {
                 </div>
             )}
 
-            {/* ━━━ LABEL GENERATOR MODAL ━━━ */}
+            {/* ══════════════════════════════════════════════════════════════════════════
+               9. LABEL GENERATOR MODAL
+               ══════════════════════════════════════════════════════════════════════════ */}
             {showLabelModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50" onClick={() => setShowLabelModal(false)}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-                        <div className="bg-gradient-to-r from-purple-500 to-purple-600 px-6 py-4 text-white flex items-center justify-between rounded-t-3xl flex-shrink-0">
-                            <div className="flex items-center gap-3"><FiPrinter size={20} /><div><h2 className="text-lg font-bold">Label Generator</h2><p className="text-purple-100 text-xs">{labelProducts.length} selected • {labelProducts.reduce((s, id) => s + (labelQty[id] || 1), 0)} total labels</p></div></div>
-                            <button onClick={() => setShowLabelModal(false)} className="p-2 hover:bg-white/20 rounded-xl"><FiX size={18} /></button>
-                        </div>
-                        <div className="flex flex-1 overflow-hidden">
-                            {/* LEFT: Product Selection */}
-                            <div className="flex-1 p-4 flex flex-col overflow-hidden border-r border-gray-200">
-                                {/* Search */}
-                                <div className="relative mb-3 flex-shrink-0">
-                                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                                    <input type="text" value={labelSearch} onChange={e => setLabelSearch(e.target.value)} placeholder="Search or scan barcode..." autoFocus
-                                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-purple-500 outline-none" />
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={() => setShowLabelModal(false)}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col border border-slate-100" onClick={e => e.stopPropagation()}>
+                        <div className="bg-slate-900 px-6 py-3.5 text-white flex items-center justify-between border-b border-slate-800">
+                            <div className="flex items-center gap-2.5">
+                                <FiPrinter size={18} className="text-purple-400" />
+                                <div>
+                                    <h2 className="text-sm font-black tracking-wide uppercase">Thermal Barcode & Shelf Label Studio</h2>
+                                    <p className="text-[10px] text-slate-400 font-mono">
+                                        {labelProducts.length} products selected • {labelProducts.reduce((s, id) => s + (labelQty[id] || 1), 0)} total labels queued
+                                    </p>
                                 </div>
-                                {/* Size + Select All */}
-                                <div className="flex items-center justify-between mb-3 flex-shrink-0">
-                                    <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
+                            </div>
+                            <button onClick={() => setShowLabelModal(false)} className="p-1.5 rounded-lg text-slate-400 hover:text-white">
+                                <FiX size={16} />
+                            </button>
+                        </div>
+
+                        <div className="flex flex-1 overflow-hidden">
+                            {/* Left: Product Selector */}
+                            <div className="flex-1 p-4 flex flex-col overflow-hidden border-r border-slate-100">
+                                <div className="relative mb-2.5">
+                                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                                    <input
+                                        type="text"
+                                        value={labelSearch}
+                                        onChange={e => setLabelSearch(e.target.value)}
+                                        placeholder="Filter products to label..."
+                                        className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none"
+                                    />
+                                </div>
+
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-xl border border-slate-200">
                                         {(['small', 'medium', 'large'] as const).map(sz => (
-                                            <button key={sz} onClick={() => setLabelSize(sz)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${labelSize === sz ? 'bg-purple-500 text-white shadow' : 'text-gray-500 hover:text-purple-600'}`}>{sz.charAt(0).toUpperCase() + sz.slice(1)}</button>
+                                            <button
+                                                key={sz}
+                                                onClick={() => setLabelSize(sz)}
+                                                className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase transition-all ${labelSize === sz ? 'bg-purple-600 text-white shadow-xs' : 'text-slate-600'}`}
+                                            >
+                                                {sz}
+                                            </button>
                                         ))}
                                     </div>
-                                    <div className="flex gap-2">
-                                        <button onClick={() => { const ids = filteredLabelProducts.map(p => p.pid); setLabelProducts(ids); const q: Record<number, number> = {}; ids.forEach(id => q[id] = labelQty[id] || 1); setLabelQty(q); }} className="px-3 py-1.5 bg-purple-50 text-purple-600 rounded-lg text-xs font-bold">Select All</button>
-                                        <button onClick={() => setLabelProducts([])} className="px-3 py-1.5 bg-gray-100 text-gray-500 rounded-lg text-xs font-bold">Clear</button>
+                                    <div className="flex gap-1.5">
+                                        <button
+                                            onClick={() => {
+                                                const ids = filteredLabelProducts.map(p => p.pid);
+                                                setLabelProducts(ids);
+                                                const q: Record<number, number> = {};
+                                                ids.forEach(id => q[id] = labelQty[id] || 1);
+                                                setLabelQty(q);
+                                            }}
+                                            className="px-2 py-1 bg-purple-50 text-purple-700 rounded-lg text-[10px] font-black"
+                                        >
+                                            Select All
+                                        </button>
+                                        <button
+                                            onClick={() => setLabelProducts([])}
+                                            className="px-2 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black"
+                                        >
+                                            Clear
+                                        </button>
                                     </div>
                                 </div>
-                                {/* Product List */}
-                                <div className="flex-1 overflow-y-auto space-y-1.5">
+
+                                <div className="flex-1 overflow-y-auto space-y-1">
                                     {filteredLabelProducts.map(p => (
-                                        <div key={p.pid} className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all cursor-pointer ${labelProducts.includes(p.pid) ? 'border-purple-400 bg-purple-50' : 'border-gray-100 hover:border-purple-200'}`}
-                                            onClick={() => { if (labelProducts.includes(p.pid)) { setLabelProducts(labelProducts.filter(id => id !== p.pid)); } else { setLabelProducts([...labelProducts, p.pid]); setLabelQty({ ...labelQty, [p.pid]: labelQty[p.pid] || 1 }); } }}>
-                                            <input type="checkbox" checked={labelProducts.includes(p.pid)} readOnly className="w-4 h-4 accent-purple-500 pointer-events-none" />
-                                            <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${p.button_ui_color || 'from-blue-400 to-blue-600'} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>{p.product_name.charAt(0)}</div>
+                                        <div
+                                            key={p.pid}
+                                            onClick={() => {
+                                                if (labelProducts.includes(p.pid)) {
+                                                    setLabelProducts(labelProducts.filter(id => id !== p.pid));
+                                                } else {
+                                                    setLabelProducts([...labelProducts, p.pid]);
+                                                    setLabelQty({ ...labelQty, [p.pid]: labelQty[p.pid] || 1 });
+                                                }
+                                            }}
+                                            className={`flex items-center gap-2 p-2 rounded-xl border transition-all cursor-pointer ${
+                                                labelProducts.includes(p.pid) ? 'border-purple-300 bg-purple-50/50' : 'border-slate-100 hover:bg-slate-50'
+                                            }`}
+                                        >
+                                            <input type="checkbox" checked={labelProducts.includes(p.pid)} readOnly className="rounded accent-purple-600 pointer-events-none" />
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-semibold truncate">{p.product_name}</p>
-                                                <p className="text-[10px] text-gray-400">{p.product_code} • {p.barcode || 'No barcode'} • Ksh {(p.sales_cost || 0).toLocaleString()}</p>
+                                                <div className="text-xs font-bold text-slate-800 truncate">{p.product_name}</div>
+                                                <div className="text-[10px] text-slate-400 font-mono">
+                                                    {p.product_code} • {fmtKES(p.sales_cost || 0)}
+                                                </div>
                                             </div>
                                             {labelProducts.includes(p.pid) && (
-                                                <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
-                                                    <button onClick={() => setLabelQty({ ...labelQty, [p.pid]: Math.max(1, (labelQty[p.pid] || 1) - 1) })} className="w-7 h-7 rounded-lg bg-purple-200 text-purple-700 font-bold flex items-center justify-center">−</button>
-                                                    <input type="number" value={labelQty[p.pid] || 1} onChange={e => setLabelQty({ ...labelQty, [p.pid]: parseInt(e.target.value) || 1 })} min="1" max="200" className="w-12 px-1 py-1 border border-purple-300 rounded-lg text-sm text-center font-bold" />
-                                                    <button onClick={() => setLabelQty({ ...labelQty, [p.pid]: (labelQty[p.pid] || 1) + 1 })} className="w-7 h-7 rounded-lg bg-purple-200 text-purple-700 font-bold flex items-center justify-center">+</button>
+                                                <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                                                    <button
+                                                        onClick={() => setLabelQty({ ...labelQty, [p.pid]: Math.max(1, (labelQty[p.pid] || 1) - 1) })}
+                                                        className="w-5 h-5 rounded bg-purple-200 text-purple-800 font-black text-xs flex items-center justify-center"
+                                                    >
+                                                        -
+                                                    </button>
+                                                    <span className="w-6 text-center text-xs font-bold font-mono">{labelQty[p.pid] || 1}</span>
+                                                    <button
+                                                        onClick={() => setLabelQty({ ...labelQty, [p.pid]: (labelQty[p.pid] || 1) + 1 })}
+                                                        className="w-5 h-5 rounded bg-purple-200 text-purple-800 font-black text-xs flex items-center justify-center"
+                                                    >
+                                                        +
+                                                    </button>
                                                 </div>
                                             )}
                                         </div>
                                     ))}
-                                    {filteredLabelProducts.length === 0 && <p className="text-center text-gray-400 py-8 text-sm">No products match &quot;{labelSearch}&quot;</p>}
                                 </div>
                             </div>
-                            {/* RIGHT: Preview */}
-                            <div className="w-[340px] p-4 bg-gray-50 flex flex-col flex-shrink-0 overflow-hidden">
-                                <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2"><FiEye size={14} /> Live Preview</h3>
-                                <div className="flex-1 overflow-y-auto bg-white rounded-xl border border-gray-200 p-3">
-                                    {labelProducts.length === 0 ? (
-                                        <div className="flex flex-col items-center justify-center h-full text-gray-300">
-                                            <FiPrinter size={40} />
-                                            <p className="mt-2 text-sm">Select products to preview labels</p>
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-wrap gap-2 justify-center">
-                                            {products.filter(p => labelProducts.includes(p.pid)).slice(0, 8).map(p => {
-                                                const s = labelSizes[labelSize];
-                                                return (
-                                                    <div key={p.pid} className="border-2 border-gray-800 rounded-sm flex flex-col justify-between overflow-hidden" style={{ width: '140px', height: labelSize === 'small' ? '80px' : labelSize === 'medium' ? '95px' : '110px', padding: '4px' }}>
-                                                        <p className="text-center text-gray-400" style={{ fontSize: `${s.code - 1}px`, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{companyName || 'Alpha Retail'}</p>
-                                                        <p className="text-center font-bold leading-tight" style={{ fontSize: `${Math.min(s.name, 11)}px`, textTransform: 'uppercase', overflow: 'hidden', maxHeight: '22px' }}>{p.product_name}</p>
-                                                        <p className="text-center font-black font-mono" style={{ fontSize: `${Math.min(s.barcode, 14)}px`, letterSpacing: '2px' }}>{p.barcode || p.product_code}</p>
-                                                        <p className="text-center font-black bg-black text-white text-xs rounded-sm" style={{ fontSize: `${Math.min(s.price, 12)}px`, padding: '1px 0' }}>Ksh {(p.sales_cost || 0).toLocaleString()}</p>
-                                                        <p className="text-center text-gray-500" style={{ fontSize: '7px' }}>{p.product_code} • ×{labelQty[p.pid] || 1}</p>
-                                                    </div>
-                                                );
-                                            })}
-                                            {labelProducts.length > 8 && <p className="text-xs text-gray-400 w-full text-center mt-1">+{labelProducts.length - 8} more...</p>}
-                                        </div>
-                                    )}
+
+                            {/* Right: Preview & Print */}
+                            <div className="w-[320px] p-4 bg-slate-50 flex flex-col justify-between shrink-0">
+                                <div>
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 block mb-2">Live Preview</span>
+                                    <div className="border border-slate-200 rounded-xl bg-white p-3 min-h-[160px] flex items-center justify-center text-center">
+                                        {labelProducts.length === 0 ? (
+                                            <div className="text-slate-400">
+                                                <FiPrinter size={28} className="mx-auto mb-1 text-slate-300" />
+                                                <p className="text-xs font-bold">No products selected</p>
+                                            </div>
+                                        ) : (
+                                            <div className="text-xs font-mono font-bold text-purple-700">
+                                                Ready to print {labelProducts.reduce((s, id) => s + (labelQty[id] || 1), 0)} labels ({labelSize})
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="mt-3 space-y-2 flex-shrink-0">
-                                    <div className="text-xs text-gray-500 flex justify-between"><span>Label size:</span><span className="font-bold text-purple-600">{labelSizes[labelSize].w} × {labelSizes[labelSize].h}</span></div>
-                                    <div className="text-xs text-gray-500 flex justify-between"><span>Total labels:</span><span className="font-bold text-purple-600">{labelProducts.reduce((s, id) => s + (labelQty[id] || 1), 0)}</span></div>
-                                    <button onClick={printLabels} disabled={labelProducts.length === 0}
-                                        className="w-full py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-                                        <FiPrinter size={16} /> Print Labels
+
+                                <div className="space-y-2 pt-3">
+                                    <button
+                                        onClick={printLabels}
+                                        disabled={labelProducts.length === 0}
+                                        className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-black rounded-xl text-xs shadow-md transition-all flex items-center justify-center gap-1.5 disabled:opacity-40"
+                                    >
+                                        <FiPrinter size={14} />
+                                        <span>Print Thermal Labels</span>
                                     </button>
-                                    <button onClick={() => setShowLabelModal(false)} className="w-full py-2.5 border-2 border-gray-200 text-gray-600 font-bold rounded-xl text-sm">Close</button>
+                                    <button
+                                        onClick={() => setShowLabelModal(false)}
+                                        className="w-full py-2 border border-slate-200 text-slate-600 font-bold rounded-xl text-xs hover:bg-white"
+                                    >
+                                        Close
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -1902,44 +2493,65 @@ export default function ProductsPage() {
                 </div>
             )}
 
-            {/* ━━━ ITEM LOOKUP MODAL ━━━ */}
+            {/* ══════════════════════════════════════════════════════════════════════════
+               10. ITEM LOOKUP MODAL
+               ══════════════════════════════════════════════════════════════════════════ */}
             {showLookupModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50" onClick={() => setShowLookupModal(false)}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
-                        <div className="bg-gradient-to-r from-green-500 to-emerald-600 px-6 py-4 text-white flex items-center justify-between rounded-t-3xl">
-                            <div className="flex items-center gap-3"><FiEye size={20} /><h2 className="text-lg font-bold">Item Lookup</h2></div>
-                            <button onClick={() => setShowLookupModal(false)} className="p-2 hover:bg-white/20 rounded-xl"><FiX size={18} /></button>
-                        </div>
-                        <div className="p-5 space-y-4">
-                            <div className="flex gap-2">
-                                <input type="text" value={lookupQuery} onChange={e => setLookupQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && doLookup()} placeholder="Scan barcode or type name/code..."
-                                    className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-green-500 outline-none" autoFocus />
-                                <button onClick={doLookup} className="px-5 py-3 bg-green-500 text-white rounded-xl font-bold text-sm"><FiSearch size={16} /></button>
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={() => setShowLookupModal(false)}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg border border-slate-100 overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <div className="bg-slate-900 px-6 py-3.5 text-white flex items-center justify-between border-b border-slate-800">
+                            <div className="flex items-center gap-2.5">
+                                <FiEye size={18} className="text-emerald-400" />
+                                <h2 className="text-sm font-black tracking-wide uppercase">Quick Item Lookup</h2>
                             </div>
+                            <button onClick={() => setShowLookupModal(false)} className="p-1.5 rounded-lg text-slate-400 hover:text-white">
+                                <FiX size={16} />
+                            </button>
+                        </div>
+                        <div className="p-5 space-y-3.5">
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={lookupQuery}
+                                    onChange={e => setLookupQuery(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && doLookup()}
+                                    placeholder="Scan barcode or type SKU name..."
+                                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-emerald-500"
+                                    autoFocus
+                                />
+                                <button
+                                    onClick={doLookup}
+                                    className="px-4 py-2 bg-emerald-600 text-white font-bold text-xs rounded-xl"
+                                >
+                                    Lookup
+                                </button>
+                            </div>
+
                             {lookupResult && (
-                                <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200">
-                                    <div className="flex items-start gap-4">
-                                        <div className={`w-16 h-16 rounded-xl flex items-center justify-center text-white text-xl font-bold bg-gradient-to-br ${lookupResult.button_ui_color || 'from-blue-400 to-blue-600'} shadow-md`}>
-                                            {lookupResult.photo ? <img src={lookupResult.photo} alt="" className="w-full h-full object-cover rounded-xl" /> : lookupResult.product_name.charAt(0)}
-                                        </div>
-                                        <div className="flex-1">
-                                            <p className="font-bold text-gray-900">{lookupResult.product_name}</p>
-                                            <p className="text-xs text-blue-600 font-medium">{lookupResult.product_code} • Barcode: {lookupResult.barcode || 'N/A'}</p>
+                                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-2.5 text-xs">
+                                    <div>
+                                        <div className="font-extrabold text-slate-900 text-sm">{lookupResult.product_name}</div>
+                                        <div className="text-[10px] text-slate-400 font-mono">
+                                            {lookupResult.product_code} • Barcode: {lookupResult.barcode || 'N/A'}
                                         </div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-3 mt-4">
-                                        <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Category</p><p className="font-bold text-sm">{lookupResult.category || 'N/A'}</p></div>
-                                        <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Stock</p><div className="space-y-0.5">{(bagStockData[lookupResult.pid] || 0) > 0 && <p className="font-bold text-xs text-indigo-700">📦 {bagStockData[lookupResult.pid]} {lookupResult.purchase_unit}(s)</p>}<p className="font-bold text-xs text-emerald-700">🔢 {pieceStockData[lookupResult.pid] || 0} {lookupResult.sales_unit?.toLowerCase() === lookupResult.purchase_unit?.toLowerCase() ? 'Piece' : lookupResult.sales_unit}(s)</p></div></div>
-                                        <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Buy Price</p><p className="font-bold text-sm">Ksh {(lookupResult.purchase_cost || 0).toLocaleString()} / {lookupResult.purchase_unit}</p></div>
-                                        <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Sell Price</p><p className="font-bold text-sm text-green-700">Ksh {(lookupResult.sales_cost || 0).toLocaleString()} / {lookupResult.sales_unit?.toLowerCase() === lookupResult.purchase_unit?.toLowerCase() ? 'Piece' : lookupResult.sales_unit}</p></div>
-                                        <div className="bg-white p-3 rounded-xl border border-purple-100"><p className="text-[10px] text-purple-500 uppercase">Wholesale</p><p className="font-bold text-sm text-purple-700">{(lookupResult as any).wholesale_price ? `Ksh ${((lookupResult as any).wholesale_price || 0).toLocaleString()}` : 'N/A'}</p></div>
-                                        <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Pcs/Package</p><p className="font-bold text-sm">{lookupResult.pieces_per_package || 1}</p></div>
-                                        <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Profit/Piece</p><p className={`font-bold text-sm ${(() => { const cpp = (lookupResult.purchase_cost || 0) / (lookupResult.pieces_per_package || 1); const sp = (lookupResult as any).wholesale_price || lookupResult.sales_cost || 0; return (sp - cpp) >= 0 ? 'text-emerald-700' : 'text-red-600'; })()}`}>Ksh {(() => { const cpp = (lookupResult.purchase_cost || 0) / (lookupResult.pieces_per_package || 1); const sp = (lookupResult as any).wholesale_price || lookupResult.sales_cost || 0; return Math.round((sp - cpp) * 100) / 100; })().toLocaleString()}</p></div>
-                                    </div>
-                                    <div className="flex gap-2 mt-4">
-                                        <button onClick={() => { setShowLookupModal(false); openEditModal(lookupResult); }} className="flex-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold flex items-center justify-center gap-1"><FiEdit2 size={12} /> Edit</button>
-                                        <button onClick={() => { setShowLookupModal(false); openStockHistory(lookupResult); }} className="flex-1 px-3 py-2 bg-cyan-50 text-cyan-600 rounded-xl text-xs font-bold flex items-center justify-center gap-1"><FiClock size={12} /> Stock Hx</button>
-                                        <button onClick={() => { setShowLookupModal(false); openStockAdjust(lookupResult); }} className="flex-1 px-3 py-2 bg-purple-50 text-purple-600 rounded-xl text-xs font-bold flex items-center justify-center gap-1"><FiSliders size={12} /> Adjust</button>
+                                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200">
+                                        <div className="bg-white p-2 rounded-lg border border-slate-100">
+                                            <span className="text-[9px] uppercase font-bold text-slate-400 block">Buy Rate</span>
+                                            <span className="font-mono font-bold text-slate-800">{fmtKES(lookupResult.purchase_cost || 0)}</span>
+                                        </div>
+                                        <div className="bg-white p-2 rounded-lg border border-slate-100">
+                                            <span className="text-[9px] uppercase font-bold text-slate-400 block">Sell Rate</span>
+                                            <span className="font-mono font-bold text-emerald-600">{fmtKES(lookupResult.sales_cost || 0)}</span>
+                                        </div>
+                                        <div className="bg-white p-2 rounded-lg border border-slate-100">
+                                            <span className="text-[9px] uppercase font-bold text-slate-400 block">Bags/Boxes</span>
+                                            <span className="font-mono font-bold text-amber-800">📦 {bagStockData[lookupResult.pid] || 0}</span>
+                                        </div>
+                                        <div className="bg-white p-2 rounded-lg border border-slate-100">
+                                            <span className="text-[9px] uppercase font-bold text-slate-400 block">Loose Pcs</span>
+                                            <span className="font-mono font-bold text-sky-800">🔢 {pieceStockData[lookupResult.pid] || 0}</span>
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -1948,103 +2560,205 @@ export default function ProductsPage() {
                 </div>
             )}
 
-            {/* ━━━ STOCK HISTORY MODAL ━━━ */}
+            {/* ══════════════════════════════════════════════════════════════════════════
+               11. STOCK HISTORY MODAL
+               ══════════════════════════════════════════════════════════════════════════ */}
             {showStockHistoryModal && stockHistoryProduct && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50" onClick={() => setShowStockHistoryModal(false)}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                        <div className="bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-4 text-white sticky top-0 z-10 flex items-center justify-between rounded-t-3xl">
-                            <div><h2 className="text-lg font-bold flex items-center gap-2"><FiClock size={18} /> Stock History</h2><p className="text-cyan-100 text-xs">{stockHistoryProduct.product_name} ({stockHistoryProduct.product_code})</p></div>
-                            <button onClick={() => setShowStockHistoryModal(false)} className="p-2 hover:bg-white/20 rounded-xl"><FiX size={18} /></button>
-                        </div>
-                        <div className="p-5">
-                            {stockHistory.length === 0 ? <p className="text-center text-gray-400 py-10">No stock movements found</p> : (
-                                <table className="w-full text-sm">
-                                    <thead><tr className="bg-gray-100"><th className="px-3 py-2 text-left text-xs font-bold">Date</th><th className="px-3 py-2 text-left text-xs font-bold">Reference</th><th className="px-3 py-2 text-left text-xs font-bold">Type</th><th className="px-3 py-2 text-right text-xs font-bold text-green-600">In</th><th className="px-3 py-2 text-right text-xs font-bold text-red-600">Out</th><th className="px-3 py-2 text-right text-xs font-bold">Balance</th></tr></thead>
-                                    <tbody>{stockHistory.map(r => (
-                                        <tr key={r.id} className="border-b border-gray-50 hover:bg-blue-50/30">
-                                            <td className="px-3 py-2 text-xs">{r.date}</td><td className="px-3 py-2 text-xs font-medium text-blue-600">{r.ref}</td><td className="px-3 py-2 text-xs">{r.type}</td>
-                                            <td className="px-3 py-2 text-right text-xs font-bold text-green-600">{r.qty_in > 0 ? `+${r.qty_in}` : ''}</td>
-                                            <td className="px-3 py-2 text-right text-xs font-bold text-red-600">{r.qty_out > 0 ? `-${r.qty_out}` : ''}</td>
-                                            <td className="px-3 py-2 text-right text-xs font-bold">{r.balance}</td>
-                                        </tr>
-                                    ))}</tbody>
-                                </table>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ━━━ PRICE HISTORY MODAL ━━━ */}
-            {showPriceHistoryModal && priceHistoryProduct && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50" onClick={() => setShowPriceHistoryModal(false)}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                        <div className="bg-gradient-to-r from-amber-500 to-orange-600 px-6 py-4 text-white sticky top-0 z-10 flex items-center justify-between rounded-t-3xl">
-                            <div><h2 className="text-lg font-bold flex items-center gap-2"><FiTrendingUp size={18} /> Price History</h2><p className="text-amber-100 text-xs">{priceHistoryProduct.product_name}</p></div>
-                            <button onClick={() => setShowPriceHistoryModal(false)} className="p-2 hover:bg-white/20 rounded-xl"><FiX size={18} /></button>
-                        </div>
-                        <div className="p-5">
-                            {priceHistory.length === 0 ? <p className="text-center text-gray-400 py-10">No price changes recorded yet</p> : (
-                                <table className="w-full text-sm">
-                                    <thead><tr className="bg-gray-100"><th className="px-3 py-2 text-left text-xs font-bold">Date</th><th className="px-3 py-2 text-right text-xs font-bold">Old Buy</th><th className="px-3 py-2 text-right text-xs font-bold">New Buy</th><th className="px-3 py-2 text-right text-xs font-bold">Old Sell</th><th className="px-3 py-2 text-right text-xs font-bold">New Sell</th></tr></thead>
-                                    <tbody>{priceHistory.map(r => (
-                                        <tr key={r.id} className="border-b border-gray-50 hover:bg-amber-50/30">
-                                            <td className="px-3 py-2 text-xs">{r.date}</td>
-                                            <td className="px-3 py-2 text-right text-xs text-gray-400 line-through">{r.old_buy.toLocaleString()}</td>
-                                            <td className="px-3 py-2 text-right text-xs font-bold text-blue-600">{r.new_buy.toLocaleString()}</td>
-                                            <td className="px-3 py-2 text-right text-xs text-gray-400 line-through">{r.old_sell.toLocaleString()}</td>
-                                            <td className="px-3 py-2 text-right text-xs font-bold text-green-600">{r.new_sell.toLocaleString()}</td>
-                                        </tr>
-                                    ))}</tbody>
-                                </table>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ━━━ STOCK ADJUSTMENT MODAL ━━━ */}
-            {showStockAdjustModal && adjustProduct && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50" onClick={() => setShowStockAdjustModal(false)}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-                        <div className="bg-gradient-to-r from-purple-500 to-indigo-600 px-6 py-4 text-white flex items-center justify-between rounded-t-3xl">
-                            <div><h2 className="text-lg font-bold flex items-center gap-2"><FiSliders size={18} /> Stock Adjustment</h2><p className="text-purple-100 text-xs">{adjustProduct.product_name} — 📦 {bagStockData[adjustProduct.pid] || 0} {adjustProduct.purchase_unit}(s) • 🔢 {pieceStockData[adjustProduct.pid] || 0} {adjustProduct.sales_unit?.toLowerCase() === adjustProduct.purchase_unit?.toLowerCase() ? 'Piece' : adjustProduct.sales_unit}(s)</p></div>
-                            <button onClick={() => setShowStockAdjustModal(false)} className="p-2 hover:bg-white/20 rounded-xl"><FiX size={18} /></button>
-                        </div>
-                        <div className="p-5 space-y-4">
-                            <div className="flex gap-2">
-                                <button onClick={() => setAdjustType('add')} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${adjustType === 'add' ? 'bg-green-500 text-white shadow-lg' : 'bg-gray-100 text-gray-500'}`}>➕ Add Stock</button>
-                                <button onClick={() => setAdjustType('remove')} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${adjustType === 'remove' ? 'bg-red-500 text-white shadow-lg' : 'bg-gray-100 text-gray-500'}`}>➖ Remove Stock</button>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="block text-xs font-bold text-indigo-600 mb-1 uppercase">📦 {adjustProduct.purchase_unit}s (Big Qty)</label>
-                                    <input type="number" value={adjustBags} onChange={e => setAdjustBags(parseFloat(e.target.value) || 0)} min="0" step="1" placeholder="0"
-                                        className="w-full px-4 py-3 bg-indigo-50 border-2 border-indigo-200 rounded-xl text-lg font-bold text-center text-indigo-700 focus:border-indigo-500 outline-none" autoFocus />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-emerald-600 mb-1 uppercase">🔢 {adjustProduct.sales_unit?.toLowerCase() === adjustProduct.purchase_unit?.toLowerCase() ? 'Piece' : adjustProduct.sales_unit}s (Pieces)</label>
-                                    <input type="number" value={adjustPieces} onChange={e => setAdjustPieces(parseFloat(e.target.value) || 0)} min="0" step="1" placeholder="0"
-                                        className="w-full px-4 py-3 bg-emerald-50 border-2 border-emerald-200 rounded-xl text-lg font-bold text-center text-emerald-700 focus:border-emerald-500 outline-none" />
-                                </div>
-                            </div>
-                            {(adjustBags > 0 || adjustPieces > 0) && (
-                                <div className="p-3 bg-purple-50 rounded-xl border border-purple-200 text-sm">
-                                    {adjustType === 'add' ? '➕' : '➖'}{' '}
-                                    {adjustBags > 0 && <><span className="font-bold text-indigo-700">{adjustBags}</span> {adjustProduct.purchase_unit}(s) </>}
-                                    {adjustBags > 0 && adjustPieces > 0 && <span className="text-gray-400">+ </span>}
-                                    {adjustPieces > 0 && <><span className="font-bold text-emerald-700">{adjustPieces}</span> {adjustProduct.sales_unit?.toLowerCase() === adjustProduct.purchase_unit?.toLowerCase() ? 'Piece' : adjustProduct.sales_unit}(s)</>}
-                                </div>
-                            )}
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={() => setShowStockHistoryModal(false)}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto border border-slate-100" onClick={e => e.stopPropagation()}>
+                        <div className="bg-slate-900 px-6 py-3.5 text-white flex items-center justify-between border-b border-slate-800 sticky top-0 z-10">
                             <div>
-                                <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Reason (optional)</label>
-                                <input type="text" value={adjustReason} onChange={e => setAdjustReason(e.target.value)} placeholder="e.g., Damaged goods, Recount..."
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-purple-500 outline-none" />
+                                <h2 className="text-sm font-black tracking-wide uppercase flex items-center gap-2">
+                                    <FiClock size={16} className="text-sky-400" />
+                                    <span>Stock Ledger Movements</span>
+                                </h2>
+                                <p className="text-[10px] text-slate-400 font-mono">
+                                    {stockHistoryProduct.product_name} ({stockHistoryProduct.product_code})
+                                </p>
                             </div>
-                            <div className="flex gap-3 pt-3 border-t">
-                                <button onClick={() => setShowStockAdjustModal(false)} className="flex-1 px-4 py-3 border-2 border-gray-200 text-gray-600 font-bold rounded-xl text-sm">Cancel</button>
-                                <button onClick={submitStockAdjust} className={`flex-1 px-4 py-3 text-white font-bold rounded-xl text-sm ${adjustType === 'add' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'}`}>
-                                    {adjustType === 'add' ? '➕ Add Stock' : '➖ Remove Stock'}
+                            <button onClick={() => setShowStockHistoryModal(false)} className="p-1.5 rounded-lg text-slate-400 hover:text-white">
+                                <FiX size={16} />
+                            </button>
+                        </div>
+                        <div className="p-5">
+                            {stockHistory.length === 0 ? (
+                                <p className="text-center text-slate-400 py-10 text-xs">No recorded ledger movements</p>
+                            ) : (
+                                <table className="w-full text-xs">
+                                    <thead>
+                                        <tr className="bg-slate-100 text-slate-600 font-bold text-[10px] uppercase">
+                                            <th className="px-3 py-2 text-left">Date</th>
+                                            <th className="px-3 py-2 text-left">Reference</th>
+                                            <th className="px-3 py-2 text-left">Type</th>
+                                            <th className="px-3 py-2 text-right text-emerald-600">In</th>
+                                            <th className="px-3 py-2 text-right text-rose-600">Out</th>
+                                            <th className="px-3 py-2 text-right">Balance</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {stockHistory.map(r => (
+                                            <tr key={r.id} className="hover:bg-slate-50">
+                                                <td className="px-3 py-2 font-mono text-[11px] text-slate-500">{r.date}</td>
+                                                <td className="px-3 py-2 font-mono font-bold text-indigo-600 text-[11px]">{r.ref}</td>
+                                                <td className="px-3 py-2 text-[11px] text-slate-600">{r.type}</td>
+                                                <td className="px-3 py-2 text-right font-mono font-bold text-emerald-600">{r.qty_in > 0 ? `+${r.qty_in}` : ''}</td>
+                                                <td className="px-3 py-2 text-right font-mono font-bold text-rose-600">{r.qty_out > 0 ? `-${r.qty_out}` : ''}</td>
+                                                <td className="px-3 py-2 text-right font-mono font-bold text-slate-800">{r.balance}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════════════════════════════
+               12. PRICE HISTORY MODAL
+               ══════════════════════════════════════════════════════════════════════════ */}
+            {showPriceHistoryModal && priceHistoryProduct && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={() => setShowPriceHistoryModal(false)}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl max-h-[85vh] overflow-y-auto border border-slate-100" onClick={e => e.stopPropagation()}>
+                        <div className="bg-slate-900 px-6 py-3.5 text-white flex items-center justify-between border-b border-slate-800 sticky top-0 z-10">
+                            <div>
+                                <h2 className="text-sm font-black tracking-wide uppercase flex items-center gap-2">
+                                    <FiTrendingUp size={16} className="text-amber-400" />
+                                    <span>Price Adjustment Audit Trail</span>
+                                </h2>
+                                <p className="text-[10px] text-slate-400 font-mono">{priceHistoryProduct.product_name}</p>
+                            </div>
+                            <button onClick={() => setShowPriceHistoryModal(false)} className="p-1.5 rounded-lg text-slate-400 hover:text-white">
+                                <FiX size={16} />
+                            </button>
+                        </div>
+                        <div className="p-5">
+                            {priceHistory.length === 0 ? (
+                                <p className="text-center text-slate-400 py-10 text-xs">No price revisions logged</p>
+                            ) : (
+                                <table className="w-full text-xs">
+                                    <thead>
+                                        <tr className="bg-slate-100 text-slate-600 font-bold text-[10px] uppercase">
+                                            <th className="px-3 py-2 text-left">Date</th>
+                                            <th className="px-3 py-2 text-right">Old Buy</th>
+                                            <th className="px-3 py-2 text-right">New Buy</th>
+                                            <th className="px-3 py-2 text-right">Old Sell</th>
+                                            <th className="px-3 py-2 text-right">New Sell</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {priceHistory.map(r => (
+                                            <tr key={r.id} className="hover:bg-slate-50 font-mono text-[11px]">
+                                                <td className="px-3 py-2 text-slate-500">{r.date}</td>
+                                                <td className="px-3 py-2 text-right line-through text-slate-400">{r.old_buy.toLocaleString()}</td>
+                                                <td className="px-3 py-2 text-right font-bold text-blue-600">{r.new_buy.toLocaleString()}</td>
+                                                <td className="px-3 py-2 text-right line-through text-slate-400">{r.old_sell.toLocaleString()}</td>
+                                                <td className="px-3 py-2 text-right font-bold text-emerald-600">{r.new_sell.toLocaleString()}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════════════════════════════
+               13. STOCK ADJUSTMENT MODAL
+               ══════════════════════════════════════════════════════════════════════════ */}
+            {showStockAdjustModal && adjustProduct && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={() => setShowStockAdjustModal(false)}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <div className="bg-slate-900 px-6 py-3.5 text-white flex items-center justify-between border-b border-slate-800">
+                            <div>
+                                <h2 className="text-sm font-black tracking-wide uppercase flex items-center gap-2">
+                                    <FiSliders size={16} className="text-purple-400" />
+                                    <span>Manual Stock Adjustment</span>
+                                </h2>
+                                <p className="text-[10px] text-slate-400 font-mono">
+                                    {adjustProduct.product_name} • 📦 {bagStockData[adjustProduct.pid] || 0} {adjustProduct.purchase_unit} • 🔢 {pieceStockData[adjustProduct.pid] || 0} Pcs
+                                </p>
+                            </div>
+                            <button onClick={() => setShowStockAdjustModal(false)} className="p-1.5 rounded-lg text-slate-400 hover:text-white">
+                                <FiX size={16} />
+                            </button>
+                        </div>
+                        <div className="p-5 space-y-3.5">
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setAdjustType('add')}
+                                    className={`flex-1 py-2 rounded-xl font-black text-xs transition-all ${
+                                        adjustType === 'add' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600'
+                                    }`}
+                                >
+                                    ➕ Add Stock (Increment)
+                                </button>
+                                <button
+                                    onClick={() => setAdjustType('remove')}
+                                    className={`flex-1 py-2 rounded-xl font-black text-xs transition-all ${
+                                        adjustType === 'remove' ? 'bg-rose-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600'
+                                    }`}
+                                >
+                                    ➖ Remove Stock (Deduct)
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2.5">
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase text-amber-700 mb-1">
+                                        📦 Full {adjustProduct.purchase_unit}s
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={adjustBags || ''}
+                                        onChange={e => setAdjustBags(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                                        min="0"
+                                        placeholder="0"
+                                        className="w-full px-3 py-2 bg-amber-50/50 border border-amber-200 rounded-xl text-center font-mono font-black text-amber-900 text-sm outline-none"
+                                        autoFocus
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase text-sky-700 mb-1">
+                                        🔢 Loose {adjustProduct.sales_unit}s
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={adjustPieces || ''}
+                                        onChange={e => setAdjustPieces(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                                        min="0"
+                                        placeholder="0"
+                                        className="w-full px-3 py-2 bg-sky-50/50 border border-sky-200 rounded-xl text-center font-mono font-black text-sky-900 text-sm outline-none"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Audit Reason / Note</label>
+                                <input
+                                    type="text"
+                                    value={adjustReason}
+                                    onChange={e => setAdjustReason(e.target.value)}
+                                    placeholder="e.g. Physical inventory count, damaged goods..."
+                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none"
+                                />
+                            </div>
+
+                            <div className="flex gap-2 pt-2 border-t border-slate-100">
+                                <button
+                                    onClick={() => setShowStockAdjustModal(false)}
+                                    className="flex-1 py-2 border border-slate-200 text-slate-600 font-bold rounded-xl text-xs"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={submitStockAdjust}
+                                    className={`flex-1 py-2 font-black rounded-xl text-xs text-white shadow-xs ${
+                                        adjustType === 'add' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'
+                                    }`}
+                                >
+                                    {adjustType === 'add' ? 'Post Addition' : 'Post Deduction'}
                                 </button>
                             </div>
                         </div>
@@ -2052,141 +2766,86 @@ export default function ProductsPage() {
                 </div>
             )}
 
-            {/* ━━━ IMPORT PRODUCTS MODAL ━━━ */}
+            {/* ══════════════════════════════════════════════════════════════════════════
+               14. IMPORT PRODUCTS MODAL
+               ══════════════════════════════════════════════════════════════════════════ */}
             {showImportModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50" onClick={() => importStatus !== 'importing' && setShowImportModal(false)}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                        <div className={`px-6 py-4 text-white flex items-center justify-between rounded-t-3xl transition-all duration-700 ${importStatus === 'success' ? 'bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 animate-pulse' : importStatus === 'error' ? 'bg-gradient-to-r from-red-500 to-red-600' : 'bg-gradient-to-r from-blue-500 to-indigo-600'}`}>
-                            <div className="flex items-center gap-3"><FiUpload size={20} /><h2 className="text-lg font-bold">{importStatus === 'success' ? '🎉 Import Complete!' : importStatus === 'error' ? '❌ Import Failed' : 'Import Products'}</h2></div>
-                            {importStatus !== 'importing' && <button onClick={() => setShowImportModal(false)} className="p-2 hover:bg-white/20 rounded-xl"><FiX size={18} /></button>}
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={() => importStatus !== 'importing' && setShowImportModal(false)}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl max-h-[85vh] overflow-y-auto border border-slate-100" onClick={e => e.stopPropagation()}>
+                        <div className="bg-slate-900 px-6 py-3.5 text-white flex items-center justify-between border-b border-slate-800">
+                            <div className="flex items-center gap-2.5">
+                                <FiUpload size={18} className="text-amber-400" />
+                                <h2 className="text-sm font-black tracking-wide uppercase">CSV Batch Product Importer</h2>
+                            </div>
+                            {importStatus !== 'importing' && (
+                                <button onClick={() => setShowImportModal(false)} className="p-1.5 rounded-lg text-slate-400 hover:text-white">
+                                    <FiX size={16} />
+                                </button>
+                            )}
                         </div>
-                        <div className="p-6 space-y-5">
-                            {/* Success State */}
+
+                        <div className="p-6 space-y-4 text-xs font-medium text-slate-700">
                             {importStatus === 'success' && (
                                 <div className="text-center py-4">
-                                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-emerald-300/40 animate-bounce">
-                                        <FiCheck className="text-white" size={36} />
+                                    <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center mx-auto mb-3 shadow-lg shadow-emerald-500/30 text-white font-black">
+                                        <FiCheck size={32} />
                                     </div>
-                                    <p className="text-2xl font-black text-gray-800">{importSuccessCount} Products Imported!</p>
-                                    {importErrors.length > 0 && <p className="text-sm text-amber-600 mt-2">{importErrors.length} items had errors</p>}
-                                    <div className="flex gap-3 mt-6">
-                                        <button onClick={() => { setShowImportModal(false); }} className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold rounded-xl text-sm">Done</button>
-                                    </div>
-                                    {importErrors.length > 0 && (
-                                        <div className="mt-4 bg-red-50 border border-red-200 rounded-xl p-3 text-left max-h-32 overflow-y-auto">
-                                            <p className="text-xs font-bold text-red-600 mb-1">Errors:</p>
-                                            {importErrors.map((e, i) => <p key={i} className="text-xs text-red-500">{e}</p>)}
-                                        </div>
-                                    )}
+                                    <h3 className="text-lg font-black text-slate-900">{importSuccessCount} Products Imported!</h3>
+                                    <button
+                                        onClick={() => setShowImportModal(false)}
+                                        className="mt-4 px-6 py-2.5 bg-slate-900 text-white font-black rounded-xl text-xs"
+                                    >
+                                        Close Wizard
+                                    </button>
                                 </div>
                             )}
 
-                            {/* Error State */}
-                            {importStatus === 'error' && importSuccessCount === 0 && (
-                                <div className="text-center py-4">
-                                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-red-300/40">
-                                        <FiX className="text-white" size={36} />
-                                    </div>
-                                    <p className="text-xl font-bold text-gray-800">Import Failed</p>
-                                    <div className="mt-4 bg-red-50 border border-red-200 rounded-xl p-3 text-left max-h-40 overflow-y-auto">
-                                        {importErrors.map((e, i) => <p key={i} className="text-xs text-red-500">{e}</p>)}
-                                    </div>
-                                    <button onClick={() => setImportStatus('idle')} className="mt-4 px-6 py-3 bg-blue-500 text-white font-bold rounded-xl text-sm">Try Again</button>
-                                </div>
-                            )}
-
-                            {/* Importing State */}
-                            {importStatus === 'importing' && (
-                                <div className="py-4">
-                                    <div className="text-center mb-4">
-                                        <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto" />
-                                        <p className="text-lg font-bold text-gray-800 mt-3">Importing Products...</p>
-                                        <p className="text-sm text-gray-500 mt-1">{importProgress} of {importTotal}</p>
-                                    </div>
-                                    <div className="bg-gray-100 rounded-full h-4 overflow-hidden">
-                                        <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-300 relative"
-                                            style={{ width: `${importTotal > 0 ? (importProgress / importTotal) * 100 : 0}%` }}>
-                                            <div className="absolute inset-0 bg-white/30 animate-pulse" />
-                                        </div>
-                                    </div>
-                                    <p className="text-xs text-gray-400 mt-2 text-center">{Math.round(importTotal > 0 ? (importProgress / importTotal) * 100 : 0)}%</p>
-                                    <div className="mt-3 bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-center gap-2">
-                                        <FiPackage className="text-blue-500 flex-shrink-0" size={14} />
-                                        <p className="text-xs text-blue-700 font-medium truncate">Current: <span className="font-bold">{importCurrentItem}</span></p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Idle / Parsing State */}
                             {(importStatus === 'idle' || importStatus === 'parsing') && (
                                 <>
-                                    {/* File Upload */}
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wider">Upload CSV File</label>
-                                        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-blue-300 rounded-2xl bg-blue-50/50 hover:bg-blue-50 cursor-pointer transition-all group">
-                                            <FiFileText className="text-blue-400 group-hover:text-blue-600 transition-colors" size={32} />
-                                            <p className="text-sm font-semibold text-blue-500 mt-2">{importFile ? importFile.name : 'Click to select CSV file'}</p>
-                                            <p className="text-[10px] text-gray-400 mt-1">Supports .csv format</p>
-                                            <input type="file" accept=".csv,.txt" className="hidden" onChange={e => { if (e.target.files?.[0]) setImportFile(e.target.files[0]); }} />
+                                        <label className="block text-[10px] font-black uppercase text-slate-500 mb-1.5">Select CSV File</label>
+                                        <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-300 rounded-2xl bg-slate-50 hover:bg-slate-100/80 cursor-pointer transition-colors">
+                                            <FiFileText size={28} className="text-slate-400 mb-1" />
+                                            <p className="text-xs font-bold text-slate-700">{importFile ? importFile.name : 'Click to select CSV'}</p>
+                                            <input type="file" accept=".csv" className="hidden" onChange={e => { if (e.target.files?.[0]) setImportFile(e.target.files[0]); }} />
                                         </label>
                                     </div>
 
-                                    {/* Import Mode */}
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wider">Import Mode</label>
-                                        <div className="space-y-2">
+                                        <label className="block text-[10px] font-black uppercase text-slate-500 mb-1.5">Import Mode</label>
+                                        <div className="grid grid-cols-3 gap-2">
                                             {([
-                                                { value: 'add_new' as const, label: 'Add New Items Only', desc: 'Imports only new products, skips existing ones', color: 'border-green-300 bg-green-50', icon: '➕' },
-                                                { value: 'update' as const, label: 'Update & Add', desc: 'Updates existing products by name/barcode match, adds new ones', color: 'border-blue-300 bg-blue-50', icon: '🔄' },
-                                                { value: 'overwrite' as const, label: 'Full Overwrite', desc: '⚠️ Deletes ALL existing products and imports fresh', color: 'border-red-300 bg-red-50', icon: '🗑️' },
+                                                { value: 'add_new' as const, label: 'Add New', desc: 'Skip existing' },
+                                                { value: 'update' as const, label: 'Update Existing', desc: 'Sync prices' },
+                                                { value: 'overwrite' as const, label: 'Full Wipe', desc: 'Danger mode' },
                                             ]).map(m => (
-                                                <label key={m.value} className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${importMode === m.value ? m.color + ' shadow-sm' : 'border-gray-200 hover:border-gray-300'}`}>
-                                                    <input type="radio" name="importMode" value={m.value} checked={importMode === m.value} onChange={() => setImportMode(m.value)} className="mt-0.5 accent-blue-500" />
-                                                    <div>
-                                                        <p className="text-sm font-bold text-gray-800">{m.icon} {m.label}</p>
-                                                        <p className="text-[11px] text-gray-500">{m.desc}</p>
-                                                    </div>
+                                                <label
+                                                    key={m.value}
+                                                    className={`p-2.5 rounded-xl border text-center cursor-pointer transition-all ${
+                                                        importMode === m.value ? 'bg-amber-50 border-amber-300 text-amber-900 shadow-2xs font-bold' : 'border-slate-200'
+                                                    }`}
+                                                >
+                                                    <input type="radio" name="importMode" value={m.value} checked={importMode === m.value} onChange={() => setImportMode(m.value)} className="hidden" />
+                                                    <div className="text-xs font-black">{m.label}</div>
+                                                    <div className="text-[10px] text-slate-400 mt-0.5">{m.desc}</div>
                                                 </label>
                                             ))}
                                         </div>
                                     </div>
 
-                                    {/* CSV Template */}
-                                    <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">
-                                        <p className="text-xs font-bold text-gray-600 mb-1">📄 Required CSV Columns:</p>
-                                        <div className="flex flex-wrap gap-1 mt-1 mb-2">
-                                            {['product_name', 'barcode', 'category', 'purchase_cost', 'sales_cost', 'wholesale_price', 'purchase_unit', 'sales_unit', 'quantity', 'reorder_point', 'pieces_per_package', 'supplier_name', 'description'].map(col => (
-                                                <span key={col} className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold ${col === 'wholesale_price' ? 'bg-purple-100 text-purple-700 border border-purple-200' : col === 'product_name' ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-blue-50 text-blue-700 border border-blue-100'}`}>{col}{col === 'product_name' && ' *'}</span>
-                                            ))}
-                                        </div>
-                                        <button onClick={() => {
-                                            const tpl = 'product_name,barcode,category,purchase_cost,sales_cost,wholesale_price,purchase_unit,sales_unit,quantity,reorder_point,pieces_per_package,supplier_name,description\n'
-                                                + '"Coca Cola 500ml",10001,Beverages,35,50,45,Crate,Piece,48,10,24,Coca Cola Distributor,Soft drink 500ml bottle\n'
-                                                + '"Bread - White Sliced",10002,Bakery,40,55,50,Piece,Piece,20,5,1,Alpha Bakery,White sliced bread loaf\n'
-                                                + '"Sugar 2kg Mumias",10003,Groceries,180,220,200,Bale,Piece,30,10,12,Mumias Sugar,2kg sugar pack\n'
-                                                + '"Cooking Oil 5L",10004,Cooking,950,1100,1050,Carton,Piece,15,5,4,Bidco Kenya,5 liter cooking oil\n'
-                                                + '"Maize Flour 2kg",10005,Flour,120,145,135,Bale,Piece,50,15,12,Unga Ltd,2kg maize flour\n';
-                                            const blob = new Blob([tpl], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'alpha_retail_import_template.csv'; a.click(); URL.revokeObjectURL(url);
-                                        }} className="text-xs text-blue-600 font-bold mt-2 hover:underline flex items-center gap-1">⬇️ Download Template CSV (with 5 sample products)</button>
-                                    </div>
-
-                                    {/* Overwrite Warning */}
-                                    {importMode === 'overwrite' && (
-                                        <div className="bg-red-50 border-2 border-red-300 rounded-xl p-3 flex items-start gap-2">
-                                            <FiAlertTriangle className="text-red-500 flex-shrink-0 mt-0.5" size={16} />
-                                            <div>
-                                                <p className="text-xs font-bold text-red-700">⚠️ Full Overwrite Mode</p>
-                                                <p className="text-[11px] text-red-500">This will permanently DELETE all existing products and stock data before importing. This action cannot be undone.</p>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Action Buttons */}
-                                    <div className="flex gap-3 pt-3 border-t">
-                                        <button onClick={() => setShowImportModal(false)} className="flex-1 px-4 py-3 border-2 border-gray-200 text-gray-600 font-bold rounded-xl text-sm">Cancel</button>
-                                        <button onClick={importProducts} disabled={!importFile || importStatus === 'parsing'}
-                                            className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-                                            <FiUpload size={14} /> {importStatus === 'parsing' ? 'Parsing...' : 'Start Import'}
+                                    <div className="flex gap-2 pt-3 border-t border-slate-100">
+                                        <button
+                                            onClick={() => setShowImportModal(false)}
+                                            className="flex-1 py-2.5 border border-slate-200 text-slate-600 font-bold rounded-xl text-xs"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={importProducts}
+                                            disabled={!importFile}
+                                            className="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black rounded-xl text-xs shadow-sm hover:shadow disabled:opacity-40"
+                                        >
+                                            Start Batch Import
                                         </button>
                                     </div>
                                 </>
@@ -2195,6 +2854,7 @@ export default function ProductsPage() {
                     </div>
                 </div>
             )}
+
         </div>
     );
 }
