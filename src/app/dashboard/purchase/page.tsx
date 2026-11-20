@@ -1,65 +1,135 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { useOutlet } from '@/context/OutletContext';
-import toast from 'react-hot-toast';
-import { FiShoppingBag, FiPackage, FiX, FiPlus, FiTrash2, FiDollarSign, FiTruck, FiCalendar, FiHash, FiSave, FiCheckCircle, FiAlertTriangle, FiTrendingUp, FiSearch, FiRefreshCw, FiEdit3, FiArrowRight } from 'react-icons/fi';
+import toast, { Toaster } from 'react-hot-toast';
+import {
+    FiShoppingBag,
+    FiPackage,
+    FiX,
+    FiPlus,
+    FiTrash2,
+    FiDollarSign,
+    FiTruck,
+    FiCalendar,
+    FiHash,
+    FiSave,
+    FiCheckCircle,
+    FiAlertTriangle,
+    FiTrendingUp,
+    FiSearch,
+    FiRefreshCw,
+    FiEdit3,
+    FiArrowRight,
+    FiClock,
+    FiShield,
+    FiZap,
+    FiActivity,
+    FiLayers,
+    FiCheck,
+    FiChevronDown,
+    FiBox,
+    FiFileText,
+    FiTag
+} from 'react-icons/fi';
 
-// â”€â”€â”€ UNIT CONVERSIONS â”€â”€â”€
+/* ══════════════════════════════════════════════════════════════════════════════
+   UNIT CONVERSIONS & CONSTANTS
+   ══════════════════════════════════════════════════════════════════════════════ */
 const UNIT_CONVERSIONS: Record<string, Record<string, number>> = {
-    'Box': { 'Piece': 1, 'Box': 1 }, 'Pack': { 'Piece': 1, 'Pack': 1 },
-    'Dozen': { 'Piece': 12, 'Dozen': 1 }, 'Kilogram': { 'Gram': 1000, 'Kilogram': 1 },
-    'Bag': { 'Kilogram': 1, 'Gram': 1000, 'Bag': 1 }, 'Liter': { 'Milliliter': 1000, 'Liter': 1 },
+    'Box': { 'Piece': 1, 'Box': 1 },
+    'Pack': { 'Piece': 1, 'Pack': 1 },
+    'Dozen': { 'Piece': 12, 'Dozen': 1 },
+    'Kilogram': { 'Gram': 1000, 'Kilogram': 1 },
+    'Bag': { 'Kilogram': 1, 'Gram': 1000, 'Bag': 1 },
+    'Liter': { 'Milliliter': 1000, 'Liter': 1 },
 };
-const ALL_UNITS = ['Piece', 'Box', 'Pack', 'Dozen', 'Kilogram', 'Gram', 'Bag', 'Liter', 'Milliliter', 'Carton', 'Bundle', 'Roll', 'Bottle', 'Sachet', 'Tablet', 'Strip'];
+
+const ALL_UNITS = [
+    'Piece', 'Box', 'Pack', 'Dozen', 'Kilogram', 'Gram', 'Bag', 'Liter',
+    'Milliliter', 'Carton', 'Bundle', 'Roll', 'Bottle', 'Sachet', 'Tablet', 'Strip'
+];
 
 interface Supplier {
-    supplier_id: number; supplier_code: string; supplier_name: string;
-    phone: string; contact_person: string;
+    supplier_id: number;
+    supplier_code: string;
+    supplier_name: string;
+    phone: string;
+    contact_person: string;
 }
+
 interface Product {
-    pid: number; product_code: string; product_name: string;
-    purchase_unit: string; sales_unit: string; purchase_cost: number;
-    sales_cost: number; category: string; pieces_per_package: number;
+    pid: number;
+    product_code: string;
+    product_name: string;
+    purchase_unit: string;
+    sales_unit: string;
+    purchase_cost: number;
+    sales_cost: number;
+    category: string;
+    pieces_per_package: number;
     barcode: string;
 }
+
 interface PurchaseItem {
-    id: number; productId: number; productCode: string; productName: string;
-    purchaseUnit: string; // the unit user is buying in (could be Kg, Piece, Box etc)
-    qty: number; price: number; total: number;
-    // Bags & Pieces (dual stock)
-    bagQty: number; pieceQty: number;
-    // Expiry batch tracking
-    batchNumber: string; expiryDate: string;
-    // Price change tracking
-    oldCost: number; oldSell: number; newCost: number; newSell: number;
-    updatePrices: boolean; // whether to update product prices in DB after saving
-    piecesPerPackage: number; // conversion factor
+    id: number;
+    productId: number;
+    productCode: string;
+    productName: string;
+    purchaseUnit: string;
+    qty: number;
+    price: number;
+    total: number;
+    bagQty: number;
+    pieceQty: number;
+    batchNumber: string;
+    expiryDate: string;
+    oldCost: number;
+    oldSell: number;
+    newCost: number;
+    newSell: number;
+    updatePrices: boolean;
+    piecesPerPackage: number;
 }
+
+const fmtKES = (n: number) => `Ksh ${Math.round(n || 0).toLocaleString('en-KE')}`;
+const fmtK = (n: number) => {
+    if (n >= 1_000_000) return `Ksh ${(n / 1_000_000).toFixed(2)}M`;
+    if (n >= 1_000) return `Ksh ${(n / 1_000).toFixed(1)}K`;
+    return `Ksh ${Math.round(n || 0).toLocaleString('en-KE')}`;
+};
 
 export default function PurchaseEntryPage() {
     const { activeOutlet, expiryEnabled } = useOutlet();
     const outletId = activeOutlet?.outlet_id || 1;
+
+    // Core Data
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+
+    // Search Engine
     const [productSearch, setProductSearch] = useState('');
     const [showProductDropdown, setShowProductDropdown] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
     const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const searchInputRef = useRef<HTMLInputElement>(null);
 
-    // Form
+    // Header & Order Metadata
     const [invoiceNo, setInvoiceNo] = useState('');
     const [selectedSupplier, setSelectedSupplier] = useState<string>('');
     const [supplierInvoiceNo, setSupplierInvoiceNo] = useState('');
     const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
-    const [items, setItems] = useState<PurchaseItem[]>([]);
-    const [paymentStatus, setPaymentStatus] = useState('Paid');
+    const [paymentStatus, setPaymentStatus] = useState<'Paid' | 'Unpaid' | 'Partial'>('Paid');
     const [notes, setNotes] = useState('');
 
-    // Add item form
+    // Active Cart Items
+    const [items, setItems] = useState<PurchaseItem[]>([]);
+
+    // Product Staging & Dual-Stock Inputs
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [qty, setQty] = useState<number>(1);
     const [price, setPrice] = useState<number>(0);
@@ -67,56 +137,22 @@ export default function PurchaseEntryPage() {
     const [availableQty, setAvailableQty] = useState<number>(0);
     const [currentBagQty, setCurrentBagQty] = useState<number>(0);
     const [currentPieceQty, setCurrentPieceQty] = useState<number>(0);
-    // Bags & Pieces qty
     const [itemBagQty, setItemBagQty] = useState<number>(0);
     const [itemPieceQty, setItemPieceQty] = useState<number>(0);
-    // Expiry batch fields
     const [itemBatchNumber, setItemBatchNumber] = useState('');
     const [itemExpiryDate, setItemExpiryDate] = useState('');
-    // Price change fields
     const [newSellPrice, setNewSellPrice] = useState<number>(0);
     const [shouldUpdatePrices, setShouldUpdatePrices] = useState(false);
     const [priceChanged, setPriceChanged] = useState(false);
 
-    // Success state
+    // Modals
     const [showSuccess, setShowSuccess] = useState(false);
     const [savedInvoice, setSavedInvoice] = useState('');
-
-    // Price change confirmation modal
     const [showPriceConfirm, setShowPriceConfirm] = useState(false);
 
-    useEffect(() => {
-        const loadData = async () => {
-            if (!activeOutlet) return; // Wait for outlet context
-            setIsLoading(true);
-            try {
-                // Load ALL products â€” limit 2000 (Supabase default is 1000, you have 1249 products)
-                const { data: prodData } = await supabase
-                    .from('retail_products')
-                    .select('pid, product_code, product_name, purchase_unit, sales_unit, purchase_cost, sales_cost, category, pieces_per_package, barcode')
-                    .neq('active', false)
-                    .order('product_name')
-                    .limit(2000);
-
-                // Load ALL suppliers â€” no active filter (avoids issues if column is null or missing)
-                const { data: suppData, error: suppErr } = await supabase
-                    .from('retail_suppliers')
-                    .select('supplier_id, supplier_code, supplier_name, phone, contact_person')
-                    .order('supplier_name');
-                if (suppErr) toast.error(`Suppliers load error: ${suppErr.message}`);
-                // Store suppliers as-is â€” String() conversion happens at point of use in the select
-                setSuppliers(suppData || []);
-                setProducts(prodData || []);
-                await generateInvoiceNo();
-            } catch { toast.error('Failed to load data'); }
-            setIsLoading(false);
-        };
-        loadData();
-    }, [activeOutlet, outletId]);
-
-    const generateInvoiceNo = async () => {
+    // ─── GENERATE INVOICE NO ───
+    const generateInvoiceNo = useCallback(async () => {
         try {
-            // Fetch ALL INV-* purchase numbers and compute the TRUE max
             const { data } = await supabase
                 .from('retail_purchases')
                 .select('purchase_no')
@@ -126,16 +162,92 @@ export default function PurchaseEntryPage() {
                 for (const row of data) {
                     const m = row.purchase_no?.match(/INV-(\d+)/);
                     if (m) {
-                        const n = parseInt(m[1]);
+                        const n = parseInt(m[1], 10);
                         if (n > maxN) maxN = n;
                     }
                 }
             }
             setInvoiceNo(`INV-${String(maxN + 1).padStart(4, '0')}`);
-        } catch { setInvoiceNo(`INV-${Date.now().toString(36).toUpperCase()}`); }
-    };
+        } catch {
+            setInvoiceNo(`INV-${Date.now().toString(36).toUpperCase()}`);
+        }
+    }, []);
 
-    // â”€â”€â”€ PRODUCT SELECTION â”€â”€â”€
+    // ─── INITIAL LOAD ───
+    useEffect(() => {
+        const loadInitialData = async () => {
+            if (!activeOutlet) return;
+            setIsLoading(true);
+            try {
+                const [suppRes, invRes] = await Promise.all([
+                    supabase
+                        .from('retail_suppliers')
+                        .select('supplier_id, supplier_code, supplier_name, phone, contact_person')
+                        .order('supplier_name'),
+                    generateInvoiceNo()
+                ]);
+
+                if (suppRes.error) {
+                    toast.error(`Suppliers load error: ${suppRes.error.message}`);
+                }
+                setSuppliers(suppRes.data || []);
+            } catch {
+                toast.error('Failed to initialize purchase studio');
+            }
+            setIsLoading(false);
+        };
+        loadInitialData();
+    }, [activeOutlet, outletId, generateInvoiceNo]);
+
+    // ─── LIVE SERVER SEARCH DEBOUNCE ───
+    useEffect(() => {
+        if (productSearch.trim().length < 1) {
+            setProducts([]);
+            setIsSearching(false);
+            return;
+        }
+
+        if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+        searchDebounceRef.current = setTimeout(async () => {
+            setIsSearching(true);
+            const q = productSearch.trim();
+
+            try {
+                // Prefix match (highest ranking)
+                const { data: prefixData } = await supabase
+                    .from('retail_products')
+                    .select('pid, product_code, product_name, purchase_unit, sales_unit, purchase_cost, sales_cost, category, pieces_per_package, barcode')
+                    .eq('outlet_id', outletId)
+                    .neq('active', false)
+                    .or(`product_name.ilike.${q}%,product_code.ilike.${q}%,barcode.ilike.${q}%`)
+                    .order('product_name')
+                    .limit(10);
+
+                // Substring match
+                const { data: containsData } = await supabase
+                    .from('retail_products')
+                    .select('pid, product_code, product_name, purchase_unit, sales_unit, purchase_cost, sales_cost, category, pieces_per_package, barcode')
+                    .eq('outlet_id', outletId)
+                    .neq('active', false)
+                    .or(`product_name.ilike.%${q}%,product_code.ilike.%${q}%,barcode.ilike.%${q}%`)
+                    .order('product_name')
+                    .limit(15);
+
+                const prefixPids = new Set((prefixData || []).map((p: any) => p.pid));
+                const merged = [
+                    ...(prefixData || []),
+                    ...(containsData || []).filter((p: any) => !prefixPids.has(p.pid))
+                ].slice(0, 15);
+
+                setProducts(merged);
+            } catch {
+                // Ignore search error
+            }
+            setIsSearching(false);
+        }, 250);
+    }, [productSearch, outletId]);
+
+    // ─── SELECT PRODUCT & LOAD DUAL-STOCK ───
     const selectProduct = async (product: Product) => {
         setSelectedProduct(product);
         setProductSearch(product.product_name);
@@ -150,74 +262,74 @@ export default function PurchaseEntryPage() {
         setItemPieceQty(0);
         setItemBatchNumber('');
         setItemExpiryDate('');
-        // Load stock for this outlet â€” read Bags and Pieces separately
+
+        // Fetch current dual-stock (Bags & Pieces)
         const loadStock = async (withOutlet: boolean) => {
             let q = supabase.from('retail_stock').select('qty, storage_type').eq('pid', product.pid);
             if (withOutlet) q = (q as any).eq('outlet_id', outletId);
             const { data } = await q;
             return data || [];
         };
+
         let stockRows = await loadStock(true);
-        // Fallback: if no stock found with outlet filter, try without
         if (!stockRows || stockRows.length === 0) stockRows = await loadStock(false);
-        const bags   = stockRows.filter((r: any) => r.storage_type === 'Bags').reduce((s: number, r: any) => s + (Number(r.qty) || 0), 0);
+
+        const bags = stockRows.filter((r: any) => r.storage_type === 'Bags').reduce((s: number, r: any) => s + (Number(r.qty) || 0), 0);
         const pieces = stockRows.filter((r: any) => r.storage_type !== 'Bags').reduce((s: number, r: any) => s + (Number(r.qty) || 0), 0);
+
         setCurrentBagQty(bags);
         setCurrentPieceQty(pieces);
         setAvailableQty(bags + pieces);
     };
 
-    // Detect price change
     const handlePriceChange = (newCost: number) => {
         setPrice(newCost);
-        // We use Weighted Average Cost (WAC) implicitly on save now.
-        // We explicitly DO NOT auto-update or suggest new sales prices to avoid affecting customers.
         setPriceChanged(false);
     };
 
-    // Get actual quantity in base units for stock
-    const getStockQty = (qty: number, unit: string, product: Product): number => {
-        const prodPurchaseUnit = product.purchase_unit || 'Piece';
-        if (unit === prodPurchaseUnit) return qty;
-
-        // Converting from smaller to base
-        // e.g., purchasing 2 Kgs of something that's normally bought in Bags (50kg bags)
-        const conv = UNIT_CONVERSIONS[prodPurchaseUnit];
-        if (conv && conv[unit]) {
-            // unit is a sub-unit of purchase_unit, so: qty / conversion
-            return qty / conv[unit];
-        }
-        // Check reverse
-        const revConv = UNIT_CONVERSIONS[unit];
-        if (revConv && revConv[prodPurchaseUnit]) {
-            return qty * revConv[prodPurchaseUnit];
-        }
-        return qty;
-    };
-
-    // Get available units for a product
     const getAvailableUnits = (product: Product): string[] => {
         const units = new Set<string>();
         units.add(product.purchase_unit || 'Piece');
         units.add(product.sales_unit || 'Piece');
-        // Add related conversion units
         const conv = UNIT_CONVERSIONS[product.purchase_unit];
         if (conv) Object.keys(conv).forEach(u => units.add(u));
         const conv2 = UNIT_CONVERSIONS[product.sales_unit];
         if (conv2) Object.keys(conv2).forEach(u => units.add(u));
-        // Always include these common ones
         ALL_UNITS.forEach(u => units.add(u));
         return Array.from(units);
     };
 
-    // â”€â”€â”€ ADD ITEM â”€â”€â”€
+    const getStockQty = (q: number, unit: string, product: Product): number => {
+        const prodPurchaseUnit = product.purchase_unit || 'Piece';
+        if (unit === prodPurchaseUnit) return q;
+        const conv = UNIT_CONVERSIONS[prodPurchaseUnit];
+        if (conv && conv[unit]) return q / conv[unit];
+        const revConv = UNIT_CONVERSIONS[unit];
+        if (revConv && revConv[prodPurchaseUnit]) return q * revConv[prodPurchaseUnit];
+        return q;
+    };
+
+    // ─── ADD ITEM TO ORDER ───
     const addItem = () => {
-        if (!selectedProduct || price <= 0) { toast.error('Select product & enter price'); return; }
-        if (itemBagQty <= 0 && itemPieceQty <= 0 && qty <= 0) { toast.error('Enter bags qty or pieces qty'); return; }
-        // Use bag+piece if either is set, otherwise fall back to single qty
+        if (!selectedProduct) {
+            toast.error('Select a product to stage');
+            return;
+        }
+        if (price <= 0) {
+            toast.error('Unit rate must be greater than Ksh 0');
+            return;
+        }
+        if (itemBagQty <= 0 && itemPieceQty <= 0 && qty <= 0) {
+            toast.error('Enter full boxes or loose pieces quantity');
+            return;
+        }
+
         const useDualQty = itemBagQty > 0 || itemPieceQty > 0;
         const effectiveQty = useDualQty ? (itemBagQty + itemPieceQty) : qty;
-        const lineTotal = useDualQty ? (itemBagQty * price) + (itemPieceQty * (price / (selectedProduct.pieces_per_package || 1))) : qty * price;
+        const ppp = selectedProduct.pieces_per_package || 1;
+        const lineTotal = useDualQty
+            ? (itemBagQty * price) + (itemPieceQty * (price / ppp))
+            : qty * price;
 
         const newItem: PurchaseItem = {
             id: Date.now(),
@@ -225,83 +337,69 @@ export default function PurchaseEntryPage() {
             productCode: selectedProduct.product_code || '',
             productName: selectedProduct.product_name,
             purchaseUnit: purchaseUnit,
-            qty: effectiveQty, price,
+            qty: effectiveQty,
+            price: price,
             total: Math.round(lineTotal),
             bagQty: itemBagQty,
             pieceQty: itemPieceQty,
             batchNumber: itemBatchNumber || '',
             expiryDate: itemExpiryDate || '',
-            oldCost: selectedProduct.purchase_cost,
-            oldSell: selectedProduct.sales_cost,
+            oldCost: selectedProduct.purchase_cost || 0,
+            oldSell: selectedProduct.sales_cost || 0,
             newCost: price,
             newSell: newSellPrice,
             updatePrices: shouldUpdatePrices,
-            piecesPerPackage: selectedProduct.pieces_per_package || 1,
+            piecesPerPackage: ppp,
         };
-        setItems(prev => [...prev, newItem]);
-        toast.success('Item added');
-        setSelectedProduct(null); setQty(1); setPrice(0); setPurchaseUnit(''); setProductSearch('');
-        setPriceChanged(false); setShouldUpdatePrices(false);
-        setItemBagQty(0); setItemPieceQty(0); setItemBatchNumber(''); setItemExpiryDate('');
+
+        setItems(prev => [newItem, ...prev]);
+        toast.success(`Added ${selectedProduct.product_name} (${fmtKES(lineTotal)})`);
+
+        // Reset Staging fields
+        setSelectedProduct(null);
+        setQty(1);
+        setPrice(0);
+        setPurchaseUnit('');
+        setProductSearch('');
+        setPriceChanged(false);
+        setShouldUpdatePrices(false);
+        setItemBagQty(0);
+        setItemPieceQty(0);
+        setItemBatchNumber('');
+        setItemExpiryDate('');
+        if (searchInputRef.current) searchInputRef.current.focus();
     };
 
-    // â”€â”€â”€ TOGGLE PRICE UPDATE FOR AN ITEM â”€â”€â”€
     const toggleItemPriceUpdate = (itemId: number, update: boolean) => {
         setItems(prev => prev.map(i => i.id === itemId ? { ...i, updatePrices: update } : i));
     };
 
-    // â”€â”€â”€ EDIT ITEM SELL PRICE â”€â”€â”€
     const editItemSellPrice = (itemId: number, newSell: number) => {
         setItems(prev => prev.map(i => i.id === itemId ? { ...i, newSell } : i));
     };
 
+    const removeItem = (id: number) => {
+        setItems(prev => prev.filter(i => i.id !== id));
+        toast.success('Line item removed');
+    };
+
     const subtotal = items.reduce((s, i) => s + i.total, 0);
     const total = subtotal;
+    const totalBags = items.reduce((s, i) => s + (i.bagQty || 0), 0);
+    const totalPieces = items.reduce((s, i) => s + (i.pieceQty || 0), 0);
+    const currentSupplierObj = suppliers.find(s => s.supplier_code === selectedSupplier);
 
-    // â”€â”€ Live server-side product search â€” current outlet only â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    useEffect(() => {
-        if (productSearch.trim().length < 1) { setProducts([]); return; }
-        if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-        searchDebounceRef.current = setTimeout(async () => {
-            setIsSearching(true);
-            const q = productSearch.trim();
-            // Stage 1: products whose name/code STARTS WITH query (highest relevance)
-            const { data: prefixData } = await supabase
-                .from('retail_products')
-                .select('pid, product_code, product_name, purchase_unit, sales_unit, purchase_cost, sales_cost, category, pieces_per_package, barcode')
-                .eq('outlet_id', outletId)
-                .neq('active', false)
-                .or(`product_name.ilike.${q}%,product_code.ilike.${q}%,barcode.ilike.${q}%`)
-                .order('product_name')
-                .limit(10);
-            // Stage 2: products CONTAINING query anywhere (lower relevance)
-            const { data: containsData } = await supabase
-                .from('retail_products')
-                .select('pid, product_code, product_name, purchase_unit, sales_unit, purchase_cost, sales_cost, category, pieces_per_package, barcode')
-                .eq('outlet_id', outletId)
-                .neq('active', false)
-                .or(`product_name.ilike.%${q}%,product_code.ilike.%${q}%,barcode.ilike.%${q}%`)
-                .order('product_name')
-                .limit(15);
-            // Merge: prefix results first, then contains (deduplicate by pid)
-            const prefixPids = new Set((prefixData || []).map((p: any) => p.pid));
-            const merged = [
-                ...(prefixData || []),
-                ...(containsData || []).filter((p: any) => !prefixPids.has(p.pid))
-            ].slice(0, 15);
-            setProducts(merged);
-            setIsSearching(false);
-        }, 300);
-    }, [productSearch, outletId]);
-
-    // Products â€” populated by server search above
-    const filteredProducts = products.slice(0, 15);
-
-    // â”€â”€â”€ SAVE PURCHASE â”€â”€â”€
+    // ─── COMMIT PURCHASE ORDER ───
     const savePurchase = async () => {
-        if (!selectedSupplier) { toast.error('Select a supplier'); return; }
-        if (items.length === 0) { toast.error('Add at least one item'); return; }
-        // Check for price updates
+        if (!selectedSupplier) {
+            toast.error('Select an authorized supplier');
+            return;
+        }
+        if (items.length === 0) {
+            toast.error('Stage at least one line item before saving');
+            return;
+        }
+
         const priceUpdateItems = items.filter(i => i.updatePrices && (i.newCost !== i.oldCost || i.newSell !== i.oldSell));
         if (priceUpdateItems.length > 0 && !showPriceConfirm) {
             setShowPriceConfirm(true);
@@ -309,12 +407,13 @@ export default function PurchaseEntryPage() {
         }
         setShowPriceConfirm(false);
         setIsSaving(true);
+
         try {
-            const userData = localStorage.getItem('user');
+            const userData = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
             const user = userData ? JSON.parse(userData) : null;
             const supplier = suppliers.find(s => s.supplier_code === selectedSupplier);
 
-            // â”€â”€ Generate purchase_id manually â€” filter NULLs first (NULLs sort first in DESC) â”€â”€
+            // Fetch true max purchase_id to avoid serial collisions
             const { data: maxRow } = await supabase
                 .from('retail_purchases')
                 .select('purchase_id')
@@ -322,89 +421,148 @@ export default function PurchaseEntryPage() {
                 .order('purchase_id', { ascending: false })
                 .limit(1)
                 .maybeSingle();
+
             const nextPurchaseId = ((maxRow?.purchase_id as number) || 1000) + 1;
 
-            const { data: purchaseData, error: pErr } = await supabase.from('retail_purchases').insert({
-                purchase_id: nextPurchaseId,
-                purchase_no: invoiceNo, purchase_date: purchaseDate,
-                supplier_id: supplier?.supplier_id || null, supplier_name: supplier?.supplier_name || '',
-                supplier_invoice: supplierInvoiceNo, sub_total: subtotal, discount: 0, vat: 0, grand_total: total,
-                status: 'Completed', payment_status: paymentStatus, created_by: user?.name || 'Unknown',
-                outlet_id: outletId
-            }).select().single();
+            const { data: purchaseData, error: pErr } = await supabase
+                .from('retail_purchases')
+                .insert({
+                    purchase_id: nextPurchaseId,
+                    purchase_no: invoiceNo,
+                    purchase_date: purchaseDate,
+                    supplier_id: supplier?.supplier_id || null,
+                    supplier_name: supplier?.supplier_name || '',
+                    supplier_invoice: supplierInvoiceNo,
+                    sub_total: subtotal,
+                    discount: 0,
+                    vat: 0,
+                    grand_total: total,
+                    status: 'Completed',
+                    payment_status: paymentStatus,
+                    created_by: user?.name || 'Administrator',
+                    outlet_id: outletId
+                })
+                .select()
+                .single();
+
             if (pErr) throw new Error(`Save purchase header: ${pErr.message}`);
             const pid = purchaseData?.purchase_id ?? nextPurchaseId;
 
-
-            // Insert purchase items (try with new columns, fallback to base columns if they don't exist yet)
+            // Insert line items
             const purchaseItemsData = items.map(i => ({
-                purchase_id: pid, product_id: i.productId, product_code: i.productCode,
-                product_name: i.productName, quantity: i.qty, unit: i.purchaseUnit,
-                rate: i.price, total_amount: i.total,
-                bag_qty: i.bagQty || 0, piece_qty: i.pieceQty || 0,
-                batch_number: i.batchNumber || null, expiry_date: i.expiryDate || null,
+                purchase_id: pid,
+                product_id: i.productId,
+                product_code: i.productCode,
+                product_name: i.productName,
+                quantity: i.qty,
+                unit: i.purchaseUnit,
+                rate: i.price,
+                total_amount: i.total,
+                bag_qty: i.bagQty || 0,
+                piece_qty: i.pieceQty || 0,
+                batch_number: i.batchNumber || null,
+                expiry_date: i.expiryDate || null,
             }));
+
             let { error: iErr } = await supabase.from('retail_purchase_products').insert(purchaseItemsData);
             if (iErr && iErr.message?.includes('column')) {
-                // Fallback: insert without new columns if they don't exist in DB yet
+                // Fallback for missing optional columns
                 const fallbackData = items.map(i => ({
-                    purchase_id: pid, product_id: i.productId, product_code: i.productCode,
-                    product_name: i.productName, quantity: i.qty, unit: i.purchaseUnit,
-                    rate: i.price, total_amount: i.total,
+                    purchase_id: pid,
+                    product_id: i.productId,
+                    product_code: i.productCode,
+                    product_name: i.productName,
+                    quantity: i.qty,
+                    unit: i.purchaseUnit,
+                    rate: i.price,
+                    total_amount: i.total,
                 }));
                 const fb = await supabase.from('retail_purchase_products').insert(fallbackData);
                 iErr = fb.error;
             }
             if (iErr) throw iErr;
 
-            // Update stock & prices for each item
+            // Dual Stock Ledger & WAC Updates
             for (const item of items) {
                 const hasDualQty = item.bagQty > 0 || item.pieceQty > 0;
 
                 if (hasDualQty) {
-                    // â”€â”€â”€ DUAL STOCK: Separate Bags + Pieces rows â”€â”€â”€
+                    // Update Bags Ledger
                     if (item.bagQty > 0) {
-                        const { data: bagRow } = await supabase.from('retail_stock').select('st_id, qty')
-                            .eq('pid', item.productId).eq('outlet_id', outletId).eq('storage_type', 'Bags')
-                            .order('qty', { ascending: false }).limit(1).maybeSingle();
+                        const { data: bagRow } = await supabase.from('retail_stock')
+                            .select('st_id, qty')
+                            .eq('pid', item.productId)
+                            .eq('outlet_id', outletId)
+                            .eq('storage_type', 'Bags')
+                            .order('qty', { ascending: false })
+                            .limit(1)
+                            .maybeSingle();
+
                         if (bagRow) {
-                            const { error: e } = await supabase.from('retail_stock').update({ qty: (bagRow.qty || 0) + item.bagQty, invoice_no: invoiceNo }).eq('st_id', bagRow.st_id);
+                            const { error: e } = await supabase.from('retail_stock')
+                                .update({ qty: (bagRow.qty || 0) + item.bagQty, invoice_no: invoiceNo })
+                                .eq('st_id', bagRow.st_id);
                             if (e) throw new Error(`Bags update: ${e.message}`);
                         } else {
-                            const { error: e } = await supabase.from('retail_stock').insert({ pid: item.productId, invoice_no: invoiceNo, qty: item.bagQty, storage_type: 'Bags', outlet_id: outletId });
+                            const { error: e } = await supabase.from('retail_stock')
+                                .insert({ pid: item.productId, invoice_no: invoiceNo, qty: item.bagQty, storage_type: 'Bags', outlet_id: outletId });
                             if (e) throw new Error(`Bags insert: ${e.message}`);
                         }
                     }
+
+                    // Update Pieces Ledger
                     if (item.pieceQty > 0) {
-                        const { data: pcRow } = await supabase.from('retail_stock').select('st_id, qty')
-                            .eq('pid', item.productId).eq('outlet_id', outletId).eq('storage_type', 'Pieces')
-                            .order('qty', { ascending: false }).limit(1).maybeSingle();
+                        const { data: pcRow } = await supabase.from('retail_stock')
+                            .select('st_id, qty')
+                            .eq('pid', item.productId)
+                            .eq('outlet_id', outletId)
+                            .eq('storage_type', 'Pieces')
+                            .order('qty', { ascending: false })
+                            .limit(1)
+                            .maybeSingle();
+
                         if (pcRow) {
-                            const { error: e } = await supabase.from('retail_stock').update({ qty: (pcRow.qty || 0) + item.pieceQty, invoice_no: invoiceNo }).eq('st_id', pcRow.st_id);
+                            const { error: e } = await supabase.from('retail_stock')
+                                .update({ qty: (pcRow.qty || 0) + item.pieceQty, invoice_no: invoiceNo })
+                                .eq('st_id', pcRow.st_id);
                             if (e) throw new Error(`Pieces update: ${e.message}`);
                         } else {
-                            const { error: e } = await supabase.from('retail_stock').insert({ pid: item.productId, invoice_no: invoiceNo, qty: item.pieceQty, storage_type: 'Pieces', outlet_id: outletId });
+                            const { error: e } = await supabase.from('retail_stock')
+                                .insert({ pid: item.productId, invoice_no: invoiceNo, qty: item.pieceQty, storage_type: 'Pieces', outlet_id: outletId });
                             if (e) throw new Error(`Pieces insert: ${e.message}`);
                         }
                     }
                 } else {
-                    // â”€â”€â”€ LEGACY: Single qty stock row â”€â”€â”€
+                    // Single unit legacy ledger
                     const product = products.find(p => p.pid === item.productId);
                     const stockQty = product ? getStockQty(item.qty, item.purchaseUnit, product) : item.qty;
-                    const { data: sData } = await supabase.from('retail_stock').select('st_id, qty').eq('pid', item.productId).eq('outlet_id', outletId).order('qty', { ascending: false }).limit(1).maybeSingle();
+                    const { data: sData } = await supabase.from('retail_stock')
+                        .select('st_id, qty')
+                        .eq('pid', item.productId)
+                        .eq('outlet_id', outletId)
+                        .order('qty', { ascending: false })
+                        .limit(1)
+                        .maybeSingle();
+
                     if (sData) {
-                        const { error: e } = await supabase.from('retail_stock').update({ qty: (sData.qty || 0) + stockQty, invoice_no: invoiceNo }).eq('st_id', sData.st_id);
+                        const { error: e } = await supabase.from('retail_stock')
+                            .update({ qty: (sData.qty || 0) + stockQty, invoice_no: invoiceNo })
+                            .eq('st_id', sData.st_id);
                         if (e) throw new Error(`Stock update: ${e.message}`);
                     } else {
-                        await supabase.from('retail_stock').insert({ pid: item.productId, invoice_no: invoiceNo, qty: stockQty, storage_type: 'Store', outlet_id: outletId });
+                        await supabase.from('retail_stock')
+                            .insert({ pid: item.productId, invoice_no: invoiceNo, qty: stockQty, storage_type: 'Store', outlet_id: outletId });
                     }
                 }
 
-                // â”€â”€â”€ EXPIRY BATCH INSERT â”€â”€â”€
+                // Expiry Batch Tracking
                 if (item.expiryDate && expiryEnabled) {
                     try {
                         const batchNum = item.batchNumber || `B-${Date.now().toString(36).toUpperCase()}`;
-                        const totalBatchQty = item.bagQty > 0 ? item.bagQty * (item.piecesPerPackage || 1) + (item.pieceQty || 0) : item.pieceQty > 0 ? item.pieceQty : item.qty;
+                        const totalBatchQty = item.bagQty > 0
+                            ? item.bagQty * (item.piecesPerPackage || 1) + (item.pieceQty || 0)
+                            : item.pieceQty > 0 ? item.pieceQty : item.qty;
+
                         await supabase.from('retail_product_batches').insert({
                             pid: item.productId,
                             product_name: item.productName,
@@ -419,15 +577,16 @@ export default function PurchaseEntryPage() {
                             status: 'Active',
                             received_date: purchaseDate,
                         });
-                    } catch { /* batch table may not exist */ }
+                    } catch {
+                        // ignore if batches table does not exist
+                    }
                 }
 
-                // ??? WEIGHTED AVERAGE COST (WAC) CALCULATION ???
-                // Calculate WAC for purchase_cost. DO NOT alter sales_cost.
+                // Weighted Average Cost (WAC) Update
                 if (item.newCost > 0) {
                     const { data: currentStockRows } = await supabase.from('retail_stock').select('qty').eq('pid', item.productId).eq('outlet_id', outletId);
                     const currentTotalQty = currentStockRows?.reduce((sum, row) => sum + (row.qty || 0), 0) || 0;
-                    
+
                     let wac = item.newCost;
                     if (currentTotalQty > 0 && item.oldCost > 0) {
                         const currentStockInPurchaseUnits = currentTotalQty / (item.piecesPerPackage || 1);
@@ -437,16 +596,14 @@ export default function PurchaseEntryPage() {
                         wac = (totalValueOld + totalValueNew) / (currentStockInPurchaseUnits + receivedQtyInPurchaseUnits);
                     }
                     const newWac = Math.round(wac * 100) / 100;
-                    
                     const existingSell = item.oldSell || 0;
                     const margin = newWac > 0 ? Math.round(((existingSell - newWac) / newWac) * 10000) / 100 : 0;
-                    
+
                     await supabase.from('retail_products').update({
                         purchase_cost: newWac,
                         margin_per: margin,
                     }).eq('pid', item.productId);
 
-                    // Log cost change in history if different
                     if (newWac !== item.oldCost) {
                         try {
                             await supabase.from('retail_price_history').insert({
@@ -455,526 +612,1038 @@ export default function PurchaseEntryPage() {
                                 new_purchase_cost: newWac,
                                 old_sales_cost: item.oldSell,
                                 new_sales_cost: item.oldSell,
-                                changed_by: user?.name || 'Purchase Entry',
+                                changed_by: user?.name || 'Purchase Studio',
                                 reason: `Purchase ${invoiceNo} - WAC Cost auto-update`,
                             });
-                        } catch { /* price history table may not exist yet */ }
+                        } catch {
+                            // ignore price history errors
+                        }
                     }
                 }
             }
 
-            setSavedInvoice(invoiceNo); setShowSuccess(true);
-            setItems([]); setSelectedSupplier(''); setSupplierInvoiceNo(''); setNotes('');
+            setSavedInvoice(invoiceNo);
+            setShowSuccess(true);
+            setItems([]);
+            setSelectedSupplier('');
+            setSupplierInvoiceNo('');
+            setNotes('');
             await generateInvoiceNo();
-        } catch (err: any) { toast.error(`Failed: ${err.message || 'Unknown error'}`); }
+        } catch (err: any) {
+            toast.error(`Order failed: ${err.message || 'Unknown error'}`);
+        }
         setIsSaving(false);
     };
 
-    if (isLoading) return (
-        <div className="flex flex-col items-center justify-center h-96">
-            <div className="w-14 h-14 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-            <p className="mt-4 text-gray-500 font-medium text-sm">Loading purchase data...</p>
-        </div>
-    );
+    if (isLoading) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-3">
+                <div className="relative">
+                    <div className="w-14 h-14 rounded-2xl border-4 border-slate-200 border-t-amber-500 animate-spin" />
+                    <FiShoppingBag className="absolute inset-0 m-auto text-amber-500" size={20} />
+                </div>
+                <div className="text-center">
+                    <p className="text-sm font-extrabold text-slate-800 tracking-tight">Initializing Purchase Studio</p>
+                    <p className="text-xs text-slate-400 font-medium">Syncing supplier ledger and catalog...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div className="space-y-5" style={{ fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
+        <div className="-mt-2 sm:-mt-3.5 pt-0 space-y-2.5 pb-10" style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+            <Toaster position="top-right" toastOptions={{ style: { background: '#0f172a', color: '#fff', fontSize: '12px', fontWeight: 'bold', borderRadius: '12px' } }} />
 
-            {/* â”€â”€â”€ SUCCESS DIALOG â”€â”€â”€ */}
-            {showSuccess && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50" onClick={() => setShowSuccess(false)}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-8 text-center" onClick={e => e.stopPropagation()}>
-                        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-emerald-300/40 animate-bounce">
-                            <FiCheckCircle className="text-white" size={36} />
-                        </div>
-                        <p className="text-2xl font-black text-gray-800">Purchase Saved!</p>
-                        <p className="text-sm text-gray-500 mt-2">Invoice <span className="font-bold text-indigo-600">{savedInvoice}</span> saved, stock updated.</p>
-                        <div className="flex gap-3 mt-6">
-                            <button onClick={() => setShowSuccess(false)} className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold rounded-xl text-sm">New Purchase</button>
-                            <a href="/dashboard/purchases" className="flex-1 px-4 py-3 border-2 border-gray-200 text-gray-600 font-bold rounded-xl text-sm text-center">View Records</a>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* â”€â”€â”€ PRICE CHANGE CONFIRMATION â”€â”€â”€ */}
-            {showPriceConfirm && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md">
-                        <div className="bg-gradient-to-r from-amber-500 to-orange-600 px-6 py-4 text-white rounded-t-3xl flex items-center gap-3">
-                            <FiAlertTriangle size={20} />
-                            <h2 className="text-lg font-bold">Confirm Price Updates</h2>
-                        </div>
-                        <div className="p-5 space-y-4">
-                            <p className="text-sm text-gray-600">The following product prices will be updated <span className="font-bold text-amber-700">system-wide</span> (affects POS, product list, etc.):</p>
-                            <div className="space-y-2 max-h-48 overflow-y-auto">
-                                {items.filter(i => i.updatePrices && (i.newCost !== i.oldCost || i.newSell !== i.oldSell)).map(i => (
-                                    <div key={i.id} className="bg-amber-50 border border-amber-200 rounded-xl p-3">
-                                        <p className="text-sm font-bold text-gray-800">{i.productName}</p>
-                                        <div className="flex gap-4 mt-1 text-xs">
-                                            <span className="text-gray-500">Cost: <span className="line-through text-red-400">Ksh {i.oldCost}</span> <FiArrowRight className="inline" size={10} /> <span className="font-bold text-emerald-600">Ksh {i.newCost}</span></span>
-                                            <span className="text-gray-500">Sell: <span className="line-through text-red-400">Ksh {i.oldSell}</span> <FiArrowRight className="inline" size={10} /> <span className="font-bold text-emerald-600">Ksh {i.newSell}</span></span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="flex gap-3 pt-3 border-t">
-                                <button onClick={() => setShowPriceConfirm(false)} className="flex-1 px-4 py-3 border-2 border-gray-200 text-gray-600 font-bold rounded-xl text-sm">Cancel</button>
-                                <button onClick={savePurchase} className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold rounded-xl text-sm">Confirm & Save</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* â”â”â” TOP BAR â”â”â” */}
-            <div className="flex items-center justify-between">
+            {/* ══════════════════════════════════════════════════════════════════════════
+               1. EXECUTIVE COMMAND HEADER
+               ══════════════════════════════════════════════════════════════════════════ */}
+            <div className="bg-white rounded-2xl p-3 sm:p-4 border border-slate-200/90 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-300/40">
-                        <FiShoppingBag className="text-white" size={24} />
+                    <div className="relative">
+                        <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 flex items-center justify-center shadow-md shadow-amber-500/20 text-white font-black">
+                            <FiShoppingBag size={22} />
+                        </div>
+                        <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white ring-1 ring-emerald-500/30 animate-pulse" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-800">Purchase Entry</h1>
-                        <p className="text-gray-500 text-sm mt-1">Record purchases with unit conversion & price management</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
+                                Purchase Order Entry Studio
+                            </h1>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-50 text-amber-700 border border-amber-200/80">
+                                <FiHash size={11} className="text-amber-500" />
+                                {invoiceNo}
+                            </span>
+                            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                🏪 {activeOutlet?.outlet_name || 'Main Warehouse'}
+                            </span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-2">
+                            <span>Dual-stock ledger intake (Bags & Pieces)</span>
+                            <span className="text-slate-300">•</span>
+                            <span className="text-emerald-600 font-bold">Weighted Average Cost (WAC) Auto-sync</span>
+                        </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-3">
-                    <div className="px-4 py-2.5 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl flex items-center gap-2">
-                        <FiHash size={14} className="text-indigo-500" />
-                        <span className="text-sm font-bold text-indigo-700">{invoiceNo}</span>
-                        <span className="text-[10px] text-indigo-400">(auto)</span>
-                    </div>
-                    <a href="/dashboard/purchases" className="px-5 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:text-indigo-600 hover:border-indigo-300 transition-all text-sm font-semibold flex items-center gap-2 shadow-sm">
-                        <FiShoppingBag size={14} /> View Records
-                    </a>
+
+                <div className="flex items-center gap-2 self-end md:self-center">
+                    <button
+                        onClick={() => {
+                            setItems([]);
+                            setSelectedProduct(null);
+                            setProductSearch('');
+                            toast.success('Studio workspace cleared');
+                        }}
+                        className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs hover:border-slate-300"
+                        title="Reset all lines"
+                    >
+                        <FiRefreshCw size={13} className="text-slate-400" />
+                        <span>Clear Form</span>
+                    </button>
+
+                    <Link
+                        href="/dashboard/purchases"
+                        className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm hover:shadow"
+                    >
+                        <FiFileText size={13} className="text-amber-400" />
+                        <span>View Purchase History</span>
+                        <FiArrowRight size={13} className="text-slate-400" />
+                    </Link>
                 </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-5">
-                {/* â”â”â” LEFT PANEL â”â”â” */}
-                <div className="col-span-2 space-y-5">
+            {/* ══════════════════════════════════════════════════════════════════════════
+               2. EXECUTIVE FINANCIAL HUD METRICS (6 COMPACT CARDS)
+               ══════════════════════════════════════════════════════════════════════════ */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                {/* 1. Staged Lines */}
+                <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200/90 shadow-2xs hover:shadow-xs transition-shadow">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Cart Lines</span>
+                        <div className="w-5 h-5 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
+                            <FiPackage size={11} />
+                        </div>
+                    </div>
+                    <div className="text-lg font-black text-slate-900 font-mono">{items.length}</div>
+                    <div className="text-[10px] text-slate-400 font-medium">Distinct line items</div>
+                </div>
 
-                    {/* Supplier & Details */}
-                    <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                        <h2 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2 uppercase tracking-wider">
-                            <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center"><FiTruck className="text-blue-600" size={14} /></div>
-                            Supplier & Invoice Details
-                        </h2>
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                            <div>
-                                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Supplier *</label>
-                                <select value={selectedSupplier} onChange={e => setSelectedSupplier(e.target.value)}
-                                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none cursor-pointer">
-                                    <option value="">Select Supplier</option>
-                                    {suppliers.map(s => <option key={s.supplier_code} value={s.supplier_code}>{s.supplier_code} - {s.supplier_name}</option>)}
-                                </select>
-                                {suppliers.length === 0 && <p className="text-[10px] text-amber-600 mt-1 flex items-center gap-1"><FiAlertTriangle size={10} /> <a href="/dashboard/suppliers" className="text-blue-600 underline">Add Supplier</a></p>}
+                {/* 2. Order Gross Total */}
+                <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-emerald-200/90 bg-gradient-to-br from-emerald-50/40 via-white to-white shadow-2xs">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Gross Total</span>
+                        <div className="w-5 h-5 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700">
+                            <FiDollarSign size={11} />
+                        </div>
+                    </div>
+                    <div className="text-lg font-black text-emerald-600 font-mono">{fmtK(total)}</div>
+                    <div className="text-[10px] text-emerald-600 font-bold truncate">{fmtKES(total)}</div>
+                </div>
+
+                {/* 3. Bulk Boxes/Bags */}
+                <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-amber-200/90 bg-gradient-to-br from-amber-50/30 via-white to-white shadow-2xs">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Bags / Boxes</span>
+                        <div className="w-5 h-5 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700">
+                            <FiBox size={11} />
+                        </div>
+                    </div>
+                    <div className="text-lg font-black text-amber-700 font-mono">{totalBags}</div>
+                    <div className="text-[10px] text-amber-600 font-medium">Wholesale containers</div>
+                </div>
+
+                {/* 4. Loose Pieces */}
+                <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-sky-200/90 bg-gradient-to-br from-sky-50/30 via-white to-white shadow-2xs">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-sky-700">Loose Pieces</span>
+                        <div className="w-5 h-5 rounded-lg bg-sky-100 flex items-center justify-center text-sky-700">
+                            <FiLayers size={11} />
+                        </div>
+                    </div>
+                    <div className="text-lg font-black text-sky-700 font-mono">{totalPieces}</div>
+                    <div className="text-[10px] text-sky-600 font-medium">Individual retail pieces</div>
+                </div>
+
+                {/* 5. Assigned Supplier */}
+                <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200/90 shadow-2xs">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Supplier</span>
+                        <div className="w-5 h-5 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600">
+                            <FiTruck size={11} />
+                        </div>
+                    </div>
+                    <div className="text-xs font-black text-slate-800 truncate">
+                        {currentSupplierObj?.supplier_name || 'Not Selected'}
+                    </div>
+                    <div className="text-[10px] text-purple-600 font-bold truncate">
+                        {currentSupplierObj?.supplier_code || 'Select vendor below'}
+                    </div>
+                </div>
+
+                {/* 6. Terms */}
+                <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200/90 shadow-2xs">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Terms</span>
+                        <div className="w-5 h-5 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
+                            <FiShield size={11} />
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className={`w-2 h-2 rounded-full ${paymentStatus === 'Paid' ? 'bg-emerald-500' : paymentStatus === 'Partial' ? 'bg-amber-500' : 'bg-rose-500'}`} />
+                        <span className="text-xs font-extrabold text-slate-800">{paymentStatus}</span>
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-medium">{purchaseDate}</div>
+                </div>
+            </div>
+
+            {/* ══════════════════════════════════════════════════════════════════════════
+               3. TWO-COLUMN STUDIO WORKSPACE
+               ══════════════════════════════════════════════════════════════════════════ */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5">
+                
+                {/* ─────────────────────────────────────────────────────────────────
+                   LEFT WORKSPACE (Cols 1-8): Supplier Cockpit + Product Intake + Datagrid
+                   ───────────────────────────────────────────────────────────────── */}
+                <div className="lg:col-span-8 space-y-2.5">
+
+                    {/* Cockpit: Supplier & Invoice Parameters */}
+                    <div className="bg-white rounded-2xl p-3 sm:p-4 border border-slate-200/90 shadow-xs">
+                        <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-slate-100">
+                            <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                                    <FiTruck size={13} />
+                                </div>
+                                <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+                                    Supplier & Invoice Parameters
+                                </span>
                             </div>
+                            <span className="text-[11px] font-medium text-slate-400">Step 1 of 2</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                            {/* Supplier Selector */}
                             <div>
-                                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Supplier Invoice</label>
-                                <input type="text" value={supplierInvoiceNo} onChange={e => setSupplierInvoiceNo(e.target.value)} placeholder="Supplier's invoice..."
-                                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none" />
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">
+                                    Supplier <span className="text-rose-500">*</span>
+                                </label>
+                                <div className="relative">
+                                    <select
+                                        value={selectedSupplier}
+                                        onChange={e => setSelectedSupplier(e.target.value)}
+                                        className="w-full pl-3 pr-8 py-2 bg-slate-50 hover:bg-slate-100/80 focus:bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:border-amber-500 outline-none transition-all cursor-pointer appearance-none"
+                                    >
+                                        <option value="">Select Registered Supplier</option>
+                                        {suppliers.map(s => (
+                                            <option key={s.supplier_code} value={s.supplier_code}>
+                                                {s.supplier_code} — {s.supplier_name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <FiChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={13} />
+                                </div>
+                                {suppliers.length === 0 && (
+                                    <p className="text-[10px] text-amber-600 mt-1 flex items-center gap-1 font-semibold">
+                                        <FiAlertTriangle size={10} />
+                                        <Link href="/dashboard/suppliers" className="text-blue-600 underline">Add Supplier</Link>
+                                    </p>
+                                )}
                             </div>
+
+                            {/* Supplier Invoice Ref */}
                             <div>
-                                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Date</label>
-                                <input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)}
-                                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none" />
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">
+                                    Supplier Inv Ref #
+                                </label>
+                                <input
+                                    type="text"
+                                    value={supplierInvoiceNo}
+                                    onChange={e => setSupplierInvoiceNo(e.target.value)}
+                                    placeholder="e.g. SUP-90214"
+                                    className="w-full px-3 py-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 placeholder:text-slate-400 focus:border-amber-500 outline-none transition-all font-mono"
+                                />
                             </div>
+
+                            {/* Purchase Date */}
                             <div>
-                                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Payment</label>
-                                <select value={paymentStatus} onChange={e => setPaymentStatus(e.target.value)}
-                                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none cursor-pointer">
-                                    <option value="Paid">Paid</option>
-                                    <option value="Unpaid">Unpaid / Credit</option>
-                                    <option value="Partial">Partial</option>
-                                </select>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">
+                                    Invoice Date
+                                </label>
+                                <div className="relative">
+                                    <input
+                                        type="date"
+                                        value={purchaseDate}
+                                        onChange={e => setPurchaseDate(e.target.value)}
+                                        className="w-full pl-8 pr-3 py-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:border-amber-500 outline-none transition-all cursor-pointer"
+                                    />
+                                    <FiCalendar className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={13} />
+                                </div>
+                            </div>
+
+                            {/* Payment Status */}
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">
+                                    Payment Terms
+                                </label>
+                                <div className="grid grid-cols-3 gap-1 bg-slate-100 p-0.5 rounded-xl border border-slate-200">
+                                    {(['Paid', 'Unpaid', 'Partial'] as const).map(st => (
+                                        <button
+                                            key={st}
+                                            type="button"
+                                            onClick={() => setPaymentStatus(st)}
+                                            className={`py-1.5 text-[10px] font-black rounded-lg transition-all ${
+                                                paymentStatus === st
+                                                    ? st === 'Paid'
+                                                        ? 'bg-emerald-600 text-white shadow-xs'
+                                                        : st === 'Unpaid'
+                                                        ? 'bg-rose-600 text-white shadow-xs'
+                                                        : 'bg-amber-600 text-white shadow-xs'
+                                                    : 'text-slate-600 hover:text-slate-900'
+                                            }`}
+                                        >
+                                            {st}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* â”â”â” ADD PRODUCT SECTION â”â”â” */}
-                    <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                        <h2 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2 uppercase tracking-wider">
-                            <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center"><FiPackage className="text-emerald-600" size={14} /></div>
-                            Add Products
-                        </h2>
+                    {/* Cockpit: Product Intake & Dual-Stock Matrix */}
+                    <div className="bg-white rounded-2xl p-3 sm:p-4 border border-slate-200/90 shadow-xs relative">
+                        <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-slate-100">
+                            <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                                    <FiPackage size={13} />
+                                </div>
+                                <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+                                    Product Intake & Stock Allocation
+                                </span>
+                            </div>
+                            <span className="text-[11px] font-semibold text-slate-400">Step 2 of 2</span>
+                        </div>
 
-                        {/* Product Search (typing only) */}
-                        <div className="relative mb-4">
-                            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 z-10" size={16} />
-                            <input type="text" value={productSearch}
-                                onChange={e => { setProductSearch(e.target.value); setShowProductDropdown(e.target.value.trim().length > 0); setSelectedProduct(null); }}
-                                onFocus={() => { if (productSearch.trim().length > 0) setShowProductDropdown(true); }}
-                                placeholder="Type to search products by name, code or barcode..."
-                                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none" />
-                            {/* Dropdown - only when typing */}
-                            {showProductDropdown && filteredProducts.length > 0 && (
-                                <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                                    {filteredProducts.map(p => (
-                                        <button key={p.pid} onClick={() => selectProduct(p)}
-                                            className="w-full text-left px-4 py-2.5 hover:bg-indigo-50 transition-colors flex items-center justify-between border-b border-gray-50 last:border-b-0">
-                                            <div>
-                                                <span className="text-xs text-indigo-500 font-mono">{p.product_code}</span>
-                                                <span className="ml-2 text-sm font-semibold text-gray-800">{p.product_name}</span>
+                        {/* Instant Search Bar */}
+                        <div className="relative mb-3">
+                            <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 z-10" size={15} />
+                            <input
+                                ref={searchInputRef}
+                                type="text"
+                                value={productSearch}
+                                onChange={e => {
+                                    setProductSearch(e.target.value);
+                                    setShowProductDropdown(e.target.value.trim().length > 0);
+                                    if (!e.target.value.trim()) setSelectedProduct(null);
+                                }}
+                                onFocus={() => {
+                                    if (productSearch.trim().length > 0) setShowProductDropdown(true);
+                                }}
+                                placeholder="Type product name, SKU code or scan barcode (e.g. Sugar, OMO, 0012)..."
+                                className="w-full pl-10 pr-24 py-2.5 bg-slate-50 focus:bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 placeholder:text-slate-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10 outline-none transition-all shadow-2xs"
+                            />
+
+                            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                                {isSearching && (
+                                    <div className="w-3.5 h-3.5 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
+                                )}
+                                {productSearch && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setProductSearch('');
+                                            setShowProductDropdown(false);
+                                            setSelectedProduct(null);
+                                        }}
+                                        className="p-1 text-slate-400 hover:text-slate-600 rounded-md"
+                                    >
+                                        <FiX size={13} />
+                                    </button>
+                                )}
+                                <span className="hidden sm:inline-block text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-200/70 text-slate-500">
+                                    FAST-SEARCH
+                                </span>
+                            </div>
+
+                            {/* Dropdown Results */}
+                            {showProductDropdown && products.length > 0 && (
+                                <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-2xl shadow-xl max-h-64 overflow-y-auto divide-y divide-slate-100">
+                                    {products.map(p => (
+                                        <button
+                                            key={p.pid}
+                                            type="button"
+                                            onClick={() => selectProduct(p)}
+                                            className="w-full text-left px-3.5 py-2 hover:bg-amber-50/60 transition-colors flex items-center justify-between group"
+                                        >
+                                            <div className="flex items-center gap-2.5">
+                                                <div className="w-7 h-7 rounded-lg bg-slate-100 group-hover:bg-amber-100 text-slate-700 group-hover:text-amber-800 flex items-center justify-center font-mono text-[10px] font-bold">
+                                                    {p.product_code?.slice(-3) || 'SKU'}
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs font-black text-slate-900 group-hover:text-amber-900">{p.product_name}</p>
+                                                    <p className="text-[10px] text-slate-400">
+                                                        <span className="font-mono text-indigo-500">{p.product_code}</span>
+                                                        {p.category && ` • ${p.category}`}
+                                                        {p.pieces_per_package > 1 && ` • ${p.pieces_per_package} pcs/pkg`}
+                                                    </p>
+                                                </div>
                                             </div>
                                             <div className="text-right">
-                                                <span className="text-xs text-gray-400">{p.purchase_unit || 'Piece'}</span>
-                                                <span className="ml-2 text-xs font-bold text-emerald-600">Ksh {p.purchase_cost?.toLocaleString()}</span>
+                                                <div className="text-xs font-mono font-black text-emerald-600">
+                                                    {fmtKES(p.purchase_cost || 0)}
+                                                </div>
+                                                <div className="text-[10px] text-slate-400 font-medium">
+                                                    Buy: {p.purchase_unit || 'Piece'}
+                                                </div>
                                             </div>
                                         </button>
                                     ))}
                                 </div>
                             )}
-                            {showProductDropdown && productSearch.trim().length > 0 && filteredProducts.length === 0 && (
-                                <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-4 text-center text-gray-400 text-sm">No products found</div>
+
+                            {showProductDropdown && productSearch.trim().length > 0 && products.length === 0 && !isSearching && (
+                                <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-2xl shadow-xl p-4 text-center">
+                                    <p className="text-xs font-bold text-slate-700">No matching retail products found</p>
+                                    <p className="text-[11px] text-slate-400 mt-0.5">Try searching with a barcode or general keyword</p>
+                                </div>
                             )}
                         </div>
 
-                        {/* Selected Product Details + Add */}
-                        {selectedProduct && (
-                            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-bold text-gray-800">{selectedProduct.product_name}</p>
-                                        <p className="text-xs text-gray-500">{selectedProduct.product_code} â€¢ Buy Unit: {selectedProduct.purchase_unit || 'Piece'} â€¢ Sell Unit: {selectedProduct.sales_unit || 'Piece'} {selectedProduct.pieces_per_package > 1 ? `â€¢ ${selectedProduct.pieces_per_package} pcs/pkg` : ''}</p>
+                        {/* Selected Product Matrix Panel */}
+                        {selectedProduct ? (
+                            <div className="bg-gradient-to-br from-slate-50 to-indigo-50/30 border border-indigo-200/70 rounded-2xl p-3 sm:p-3.5 space-y-3 shadow-inner-xs">
+                                {/* Header Strip of Selected Product */}
+                                <div className="flex items-center justify-between bg-white rounded-xl p-2.5 border border-indigo-100 shadow-2xs">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black text-xs shadow-xs">
+                                            <FiTag size={14} />
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <h3 className="text-xs font-black text-slate-900">{selectedProduct.product_name}</h3>
+                                                <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded text-[10px] font-mono font-bold">
+                                                    {selectedProduct.product_code}
+                                                </span>
+                                            </div>
+                                            <p className="text-[10px] text-slate-500 mt-0.5">
+                                                Default Unit: <span className="font-bold text-slate-700">{selectedProduct.purchase_unit || 'Piece'}</span>
+                                                {' '}• Retail Unit: <span className="font-bold text-slate-700">{selectedProduct.sales_unit || 'Piece'}</span>
+                                                {selectedProduct.pieces_per_package > 1 && (
+                                                    <span className="text-amber-700 font-bold ml-1.5 bg-amber-50 px-1 rounded">
+                                                        ({selectedProduct.pieces_per_package} pcs per {selectedProduct.purchase_unit})
+                                                    </span>
+                                                )}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <button onClick={() => { setSelectedProduct(null); setProductSearch(''); }} className="p-1.5 text-gray-400 hover:text-red-500"><FiX size={14} /></button>
+
+                                    {/* Current Stock Indicators */}
+                                    <div className="flex items-center gap-2">
+                                        <div className="text-right">
+                                            <div className="text-[9px] uppercase font-bold text-slate-400">Current Stock</div>
+                                            <div className="flex items-center gap-1 justify-end">
+                                                {currentBagQty > 0 && (
+                                                    <span className="text-[10px] font-black text-amber-700 bg-amber-100/70 px-1.5 py-0.5 rounded">
+                                                        📦 {currentBagQty} {selectedProduct.purchase_unit || 'Boxes'}
+                                                    </span>
+                                                )}
+                                                <span className="text-[10px] font-black text-sky-700 bg-sky-100/70 px-1.5 py-0.5 rounded">
+                                                    🔢 {currentPieceQty} Pcs
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedProduct(null);
+                                                setProductSearch('');
+                                            }}
+                                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors"
+                                            title="Unselect product"
+                                        >
+                                            <FiX size={15} />
+                                        </button>
+                                    </div>
                                 </div>
 
-                                {/* â”€â”€â”€ ROW 1: Unit, Cost, Stock â”€â”€â”€ */}
-                                <div className="grid grid-cols-12 gap-3 items-end">
-                                    {/* Purchase Unit */}
-                                    <div className="col-span-3">
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Buy In (Unit)</label>
-                                        <select value={purchaseUnit} onChange={e => {
-                                            const unit = e.target.value;
-                                            setPurchaseUnit(unit);
-                                            if (selectedProduct) {
-                                                const basePrice = selectedProduct.purchase_cost;
-                                                const basePU = selectedProduct.purchase_unit || 'Piece';
-                                                if (unit === basePU) { setPrice(basePrice); }
-                                                else {
-                                                    const conv = UNIT_CONVERSIONS[basePU];
-                                                    if (conv && conv[unit]) { setPrice(Math.round(basePrice / conv[unit] * 100) / 100); }
+                                {/* Matrix Row 1: Unit, Cost Rate, Total Display */}
+                                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
+                                    {/* Unit Picker */}
+                                    <div className="sm:col-span-4">
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">
+                                            Inflow Unit (Buying In)
+                                        </label>
+                                        <select
+                                            value={purchaseUnit}
+                                            onChange={e => {
+                                                const unit = e.target.value;
+                                                setPurchaseUnit(unit);
+                                                if (selectedProduct) {
+                                                    const basePrice = selectedProduct.purchase_cost;
+                                                    const basePU = selectedProduct.purchase_unit || 'Piece';
+                                                    if (unit === basePU) {
+                                                        setPrice(basePrice);
+                                                    } else {
+                                                        const conv = UNIT_CONVERSIONS[basePU];
+                                                        if (conv && conv[unit]) {
+                                                            setPrice(Math.round(basePrice / conv[unit] * 100) / 100);
+                                                        }
+                                                    }
                                                 }
-                                            }
-                                        }}
-                                            className="w-full px-2 py-2.5 bg-white border border-gray-200 rounded-xl text-xs focus:border-indigo-500 outline-none font-bold">
-                                            {getAvailableUnits(selectedProduct).map(u => <option key={u} value={u}>{u}</option>)}
+                                            }}
+                                            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:border-amber-500 outline-none cursor-pointer"
+                                        >
+                                            {getAvailableUnits(selectedProduct).map(u => (
+                                                <option key={u} value={u}>{u}</option>
+                                            ))}
                                         </select>
                                     </div>
 
-                                    {/* Cost Price */}
-                                    <div className="col-span-3">
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">
-                                            Cost/{purchaseUnit || 'Unit'} <span className="text-gray-300">(was {selectedProduct.purchase_cost})</span>
+                                    {/* Purchase Rate */}
+                                    <div className="sm:col-span-4">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                                                Unit Rate (Ksh)
+                                            </label>
+                                            <span className="text-[9px] font-bold text-slate-400">
+                                                Catalog: {fmtKES(selectedProduct.purchase_cost)}
+                                            </span>
+                                        </div>
+                                        <input
+                                            type="number"
+                                            value={price || ''}
+                                            onChange={e => handlePriceChange(Number(e.target.value))}
+                                            min={0}
+                                            step={0.01}
+                                            placeholder="0.00"
+                                            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-900 focus:border-amber-500 outline-none font-mono"
+                                        />
+                                    </div>
+
+                                    {/* Calculated Line Value */}
+                                    <div className="sm:col-span-4">
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">
+                                            Calculated Line Value
                                         </label>
-                                        <input type="number" value={price} onChange={e => handlePriceChange(Number(e.target.value))} min={0} step={0.01}
-                                            className={`w-full px-3 py-2.5 border rounded-xl text-sm font-bold outline-none text-center ${priceChanged ? 'bg-amber-50 border-amber-400 text-amber-800' : 'bg-white border-gray-200'}`} />
-                                    </div>
-
-                                    {/* Stock Info */}
-                                    <div className="col-span-2 text-center">
-                                        <p className="text-[9px] text-gray-400 uppercase mb-1">Current Stock</p>
-                                        {(currentBagQty > 0 || currentPieceQty > 0) ? (
-                                            <div className="flex flex-col gap-0.5">
-                                                {currentBagQty > 0 && (
-                                                    <span className="text-xs font-bold text-orange-600 bg-orange-50 rounded px-1">ðŸ“¦ {currentBagQty} {selectedProduct?.purchase_unit || 'Box'}</span>
-                                                )}
-                                                {currentPieceQty > 0 && (
-                                                    <span className="text-xs font-bold text-blue-600 bg-blue-50 rounded px-1">ðŸ”µ {currentPieceQty} Pcs</span>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <p className={`text-sm font-bold ${availableQty > 0 ? 'text-blue-600' : 'text-gray-400'}`}>
-                                                {availableQty > 0 ? availableQty : '0'}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    {/* Line Total */}
-                                    <div className="col-span-4">
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Line Total</label>
-                                        <div className="w-full px-3 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-sm font-black text-emerald-700 text-center">
-                                            Ksh {(() => {
-                                                const useDual = itemBagQty > 0 || itemPieceQty > 0;
-                                                if (useDual) {
-                                                    const bagTotal = itemBagQty * price;
-                                                    const pcTotal = itemPieceQty * (price / (selectedProduct.pieces_per_package || 1));
-                                                    return Math.round(bagTotal + pcTotal).toLocaleString();
-                                                }
-                                                return (qty * price).toLocaleString();
-                                            })()}
+                                        <div className="w-full px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-black text-emerald-700 font-mono flex items-center justify-between">
+                                            <span>Payable:</span>
+                                            <span>
+                                                {(() => {
+                                                    const useDual = itemBagQty > 0 || itemPieceQty > 0;
+                                                    const ppp = selectedProduct.pieces_per_package || 1;
+                                                    if (useDual) {
+                                                        const bagTotal = itemBagQty * price;
+                                                        const pcTotal = itemPieceQty * (price / ppp);
+                                                        return fmtKES(bagTotal + pcTotal);
+                                                    }
+                                                    return fmtKES(qty * price);
+                                                })()}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* â”€â”€â”€ ROW 2: Bags Qty + Pieces Qty (like Add Product) â”€â”€â”€ */}
-                                <div className="bg-white border border-blue-200 rounded-xl p-3">
-                                    <p className="text-[10px] font-bold text-blue-700 uppercase mb-2 flex items-center gap-1">ðŸ“¦ Purchase Quantities</p>
-                                    <div className="grid grid-cols-12 gap-3 items-end">
-                                        <div className="col-span-4">
-                                            <label className="text-[10px] font-bold text-indigo-500 uppercase mb-1 block">
-                                                ðŸ“¦ {selectedProduct.purchase_unit || 'Bags'} Qty
+                                {/* Matrix Row 2: Dual Stock Quantities (Bags & Pieces) */}
+                                <div className="bg-white border border-slate-200 rounded-xl p-3">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                                            <FiLayers className="text-amber-500" size={13} />
+                                            Dual-Stock Intake Allocation
+                                        </span>
+                                        <span className="text-[10px] text-slate-400 font-medium">
+                                            Specify full boxes/bags and/or loose pieces
+                                        </span>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
+                                        {/* Full Bags / Boxes */}
+                                        <div className="sm:col-span-4">
+                                            <label className="text-[10px] font-bold text-amber-700 uppercase mb-1 block">
+                                                📦 Full {selectedProduct.purchase_unit || 'Box'} Qty
                                             </label>
-                                            <input type="number" value={itemBagQty || ''} onChange={e => setItemBagQty(Number(e.target.value))} min={0} step={1}
+                                            <input
+                                                type="number"
+                                                value={itemBagQty || ''}
+                                                onChange={e => setItemBagQty(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                                                min={0}
+                                                step={1}
                                                 placeholder="e.g. 5"
-                                                className="w-full px-3 py-2.5 bg-indigo-50 border border-indigo-200 rounded-xl text-sm font-bold focus:border-indigo-500 outline-none text-center" />
+                                                className="w-full px-3 py-2 bg-amber-50/50 border border-amber-200 focus:border-amber-500 rounded-xl text-xs font-black text-amber-900 outline-none text-center font-mono"
+                                            />
                                         </div>
-                                        <div className="col-span-4">
-                                            <label className="text-[10px] font-bold text-emerald-500 uppercase mb-1 block">
-                                                ðŸ”¢ {selectedProduct.sales_unit || 'Pieces'} Qty
+
+                                        {/* Loose Pieces */}
+                                        <div className="sm:col-span-4">
+                                            <label className="text-[10px] font-bold text-sky-700 uppercase mb-1 block">
+                                                🔢 Loose Pieces Qty
                                             </label>
-                                            <input type="number" value={itemPieceQty || ''} onChange={e => setItemPieceQty(Number(e.target.value))} min={0} step={1}
+                                            <input
+                                                type="number"
+                                                value={itemPieceQty || ''}
+                                                onChange={e => setItemPieceQty(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                                                min={0}
+                                                step={1}
                                                 placeholder="e.g. 10"
-                                                className="w-full px-3 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-sm font-bold focus:border-emerald-500 outline-none text-center" />
+                                                className="w-full px-3 py-2 bg-sky-50/50 border border-sky-200 focus:border-sky-500 rounded-xl text-xs font-black text-sky-900 outline-none text-center font-mono"
+                                            />
                                         </div>
-                                        {/* Add Button */}
-                                        <div className="col-span-4">
-                                            <button onClick={addItem} className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2" title="Add Item">
-                                                <FiPlus size={16} /> Add Item
+
+                                        {/* Action Button: Add Item */}
+                                        <div className="sm:col-span-4">
+                                            <button
+                                                type="button"
+                                                onClick={addItem}
+                                                className="w-full py-2 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-sm hover:shadow active:scale-98"
+                                            >
+                                                <FiPlus size={15} />
+                                                <span>Add To Order</span>
                                             </button>
                                         </div>
                                     </div>
+
+                                    {/* Conversion Math Preview */}
                                     {selectedProduct.pieces_per_package > 1 && (itemBagQty > 0 || itemPieceQty > 0) && (
-                                        <p className="text-[10px] text-blue-600 mt-2 bg-blue-50 px-2 py-1 rounded-lg">
-                                            ðŸ“Š Total: {itemBagQty > 0 ? `${itemBagQty} ${selectedProduct.purchase_unit}(s) Ã— ${selectedProduct.pieces_per_package} = ${itemBagQty * selectedProduct.pieces_per_package} pcs` : ''}
-                                            {itemBagQty > 0 && itemPieceQty > 0 ? ' + ' : ''}
-                                            {itemPieceQty > 0 ? `${itemPieceQty} ${selectedProduct.sales_unit}(s)` : ''}
-                                            {' = '}<span className="font-bold">{(itemBagQty * selectedProduct.pieces_per_package) + itemPieceQty} total {selectedProduct.sales_unit}(s)</span>
-                                        </p>
+                                        <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
+                                            <span>
+                                                Packaging breakdown: {itemBagQty > 0 ? `${itemBagQty} × ${selectedProduct.pieces_per_package} pcs` : '0 pcs'}
+                                                {itemPieceQty > 0 ? ` + ${itemPieceQty} loose pcs` : ''}
+                                            </span>
+                                            <span className="font-black text-slate-800 bg-slate-100 px-2 py-0.5 rounded">
+                                                Total {(itemBagQty * selectedProduct.pieces_per_package) + itemPieceQty} {selectedProduct.sales_unit || 'Piece(s)'}
+                                            </span>
+                                        </div>
                                     )}
                                 </div>
 
-                                {/* â”€â”€â”€ ROW 3: Batch & Expiry (only if expiry tracking enabled) â”€â”€â”€ */}
+                                {/* Matrix Row 3: Expiry & Batch Tracking (Conditional) */}
                                 {expiryEnabled && (
-                                    <div className="bg-white border border-amber-200 rounded-xl p-3">
-                                        <p className="text-[10px] font-bold text-amber-700 uppercase mb-2 flex items-center gap-1">â° Batch & Expiry Tracking</p>
-                                        <div className="grid grid-cols-2 gap-3">
+                                    <div className="bg-white border border-slate-200 rounded-xl p-3">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                                                <FiClock className="text-amber-500" size={13} />
+                                                Batch & Expiry Date Protocol
+                                            </span>
+                                            <span className="text-[10px] text-emerald-600 font-bold">Enabled for this outlet</span>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                                             <div>
-                                                <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Batch Number</label>
-                                                <input type="text" value={itemBatchNumber} onChange={e => setItemBatchNumber(e.target.value)}
-                                                    placeholder="e.g. B-2024-001 (auto if empty)"
-                                                    className="w-full px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm focus:border-amber-500 outline-none font-mono" />
+                                                <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Batch Number</label>
+                                                <input
+                                                    type="text"
+                                                    value={itemBatchNumber}
+                                                    onChange={e => setItemBatchNumber(e.target.value)}
+                                                    placeholder="Auto-generated if blank (e.g. B-092)"
+                                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 font-mono outline-none focus:border-amber-500"
+                                                />
                                             </div>
                                             <div>
-                                                <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Expiry Date *</label>
-                                                <input type="date" value={itemExpiryDate} onChange={e => setItemExpiryDate(e.target.value)}
-                                                    className="w-full px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm focus:border-amber-500 outline-none font-bold" />
+                                                <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Expiry Date</label>
+                                                <input
+                                                    type="date"
+                                                    value={itemExpiryDate}
+                                                    onChange={e => setItemExpiryDate(e.target.value)}
+                                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-amber-500 cursor-pointer"
+                                                />
                                             </div>
                                         </div>
-                                        {itemExpiryDate && (
-                                            <p className="text-[10px] text-amber-600 mt-2">
-                                                âœ… Batch {itemBatchNumber || '(auto-generated)'} expires on <span className="font-bold">{new Date(itemExpiryDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                                                {' â€¢ '}{Math.ceil((new Date(itemExpiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} days from now
-                                            </p>
-                                        )}
                                     </div>
                                 )}
-
-                                {/* â”€â”€â”€ PRICE CHANGE WARNING â”€â”€â”€ */}
-                                {priceChanged && (
-                                    <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-3 mt-2">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <FiAlertTriangle className="text-amber-600 flex-shrink-0" size={14} />
-                                            <p className="text-xs font-bold text-amber-700">Price differs from current product price!</p>
-                                        </div>
-                                        <p className="text-[11px] text-gray-600 mb-2">Current: Cost <span className="font-bold">Ksh {selectedProduct.purchase_cost}</span>, Sell <span className="font-bold">Ksh {selectedProduct.sales_cost}</span></p>
-                                        <div className="flex items-center gap-3">
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <input type="checkbox" checked={shouldUpdatePrices} onChange={e => setShouldUpdatePrices(e.target.checked)} className="accent-amber-600" />
-                                                <span className="text-xs font-semibold text-amber-800">Update system prices</span>
-                                            </label>
-                                            {shouldUpdatePrices && (
-                                                <div className="flex items-center gap-2">
-                                                    <label className="text-[10px] text-gray-500 font-bold">New Sell Price:</label>
-                                                    <input type="number" value={newSellPrice} onChange={e => setNewSellPrice(Number(e.target.value))} min={0} step={0.01}
-                                                        className="w-24 px-2 py-1 bg-white border border-amber-300 rounded-lg text-xs font-bold text-amber-700 focus:border-amber-500 outline-none text-center" />
-                                                </div>
-                                            )}
-                                        </div>
-                                        {shouldUpdatePrices && (
-                                            <p className="text-[10px] text-amber-600 mt-1">
-                                                âœ… Cost: Ksh {selectedProduct.purchase_cost} â†’ <span className="font-bold">Ksh {price}</span> | Sell: Ksh {selectedProduct.sales_cost} â†’ <span className="font-bold">Ksh {newSellPrice}</span>
-                                                {price > 0 && ` | Margin: ${((newSellPrice - price) / price * 100).toFixed(1)}%`}
-                                            </p>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* â”â”â” ITEMS LIST â”â”â” */}
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                        <div className="px-5 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 flex items-center justify-between">
-                            <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                                <FiPackage size={14} /> Purchase Items
-                                <span className="ml-2 px-2 py-0.5 bg-white/20 text-white text-xs rounded-full">{items.length}</span>
-                            </h2>
-                            {items.length > 0 && <button onClick={() => setItems([])} className="text-xs text-white/80 hover:text-white flex items-center gap-1"><FiTrash2 size={11} /> Clear</button>}
-                        </div>
-                        {items.length === 0 ? (
-                            <div className="text-center py-12 text-gray-400">
-                                <FiPackage size={40} className="mx-auto mb-3 opacity-30" />
-                                <p className="font-medium text-sm">No items added yet</p>
-                                <p className="text-xs">Search for products above to add</p>
                             </div>
                         ) : (
-                            <table className="w-full">
-                                <thead><tr className="bg-gray-50">
-                                    <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">#</th>
-                                    <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Product</th>
-                                    <th className="px-2 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">ðŸ“¦ Bags</th>
-                                    <th className="px-2 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">ðŸ”¢ Pcs</th>
-                                    <th className="px-2 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Cost</th>
-                                    <th className="px-2 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Total</th>
-                                    {expiryEnabled && <th className="px-2 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">Batch/Expiry</th>}
-                                    <th className="px-2 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">Price</th>
-                                    <th className="px-2 py-2 text-center text-[10px] font-bold text-gray-500 uppercase w-8"></th>
-                                </tr></thead>
-                                <tbody>
-                                    {items.map((item, idx) => (
-                                        <tr key={item.id} className={`border-b border-gray-50 hover:bg-emerald-50/40 transition-colors ${idx % 2 ? 'bg-gray-50/30' : ''}`}>
-                                            <td className="px-2 py-2 text-xs text-gray-400">{idx + 1}</td>
-                                            <td className="px-2 py-2">
-                                                <p className="text-xs font-semibold text-gray-800">{item.productName}</p>
-                                                <p className="text-[10px] text-indigo-500 font-mono">{item.productCode} â€¢ {item.purchaseUnit}</p>
-                                            </td>
-                                            <td className="px-2 py-2 text-center">
-                                                {item.bagQty > 0 ? (
-                                                    <span className="inline-flex items-center px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs font-bold">{item.bagQty}</span>
-                                                ) : <span className="text-[10px] text-gray-300">â€”</span>}
-                                            </td>
-                                            <td className="px-2 py-2 text-center">
-                                                {item.pieceQty > 0 ? (
-                                                    <span className="inline-flex items-center px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded text-xs font-bold">{item.pieceQty}</span>
-                                                ) : <span className="text-[10px] text-gray-300">â€”</span>}
-                                            </td>
-                                            <td className="px-2 py-2 text-right text-xs text-gray-500">Ksh {item.price.toLocaleString()}</td>
-                                            <td className="px-2 py-2 text-right text-sm font-bold text-emerald-600">Ksh {item.total.toLocaleString()}</td>
-                                            {expiryEnabled && (
-                                                <td className="px-2 py-2 text-center">
-                                                    {item.expiryDate ? (
-                                                        <div>
-                                                            <span className="text-[10px] font-mono text-amber-700 bg-amber-50 px-1 rounded">{item.batchNumber || 'Auto'}</span>
-                                                            <p className="text-[9px] text-gray-400 mt-0.5">{new Date(item.expiryDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}</p>
-                                                        </div>
-                                                    ) : <span className="text-[10px] text-gray-300">â€”</span>}
-                                                </td>
-                                            )}
-                                            <td className="px-2 py-2 text-center">
-                                                {item.newCost !== item.oldCost || item.newSell !== item.oldSell ? (
-                                                    <div className="flex items-center justify-center gap-1">
-                                                        <label className="flex items-center gap-1 cursor-pointer">
-                                                            <input type="checkbox" checked={item.updatePrices} onChange={e => toggleItemPriceUpdate(item.id, e.target.checked)} className="accent-amber-600" />
-                                                            <span className="text-[10px] text-amber-700 font-bold">Upd</span>
-                                                        </label>
-                                                        {item.updatePrices && (
-                                                            <input type="number" value={item.newSell} onChange={e => editItemSellPrice(item.id, Number(e.target.value))}
-                                                                className="w-14 px-1 py-0.5 text-[10px] border border-amber-300 rounded text-center bg-amber-50 font-bold" title="New sell price" />
-                                                        )}
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-[10px] text-gray-300">â€”</span>
-                                                )}
-                                            </td>
-                                            <td className="px-2 py-2 text-center">
-                                                <button onClick={() => setItems(prev => prev.filter(i => i.id !== item.id))} className="p-1 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 transition-all"><FiTrash2 size={12} /></button>
-                                            </td>
+                            <div className="border border-dashed border-slate-200 rounded-2xl p-6 text-center bg-slate-50/50">
+                                <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto text-slate-400 mb-2">
+                                    <FiSearch size={18} />
+                                </div>
+                                <p className="text-xs font-bold text-slate-700">No product staged yet</p>
+                                <p className="text-[11px] text-slate-400 mt-0.5">
+                                    Search above to select a product and assign dual-stock inventory quantities.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* ══════════════════════════════════════════════════════════════════
+                       DATAGRID: STAGED PURCHASE LINE ITEMS
+                       ══════════════════════════════════════════════════════════════════ */}
+                    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+                        {/* Table Header Bar */}
+                        <div className="px-3.5 py-2.5 bg-slate-900 text-white flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                                <h2 className="text-xs font-black uppercase tracking-wider text-slate-100">
+                                    Purchase Order Schedule
+                                </h2>
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-800 text-amber-300 border border-slate-700">
+                                    {items.length} {items.length === 1 ? 'Line Item' : 'Line Items'}
+                                </span>
+                            </div>
+
+                            {items.length > 0 && (
+                                <button
+                                    onClick={() => setItems([])}
+                                    className="text-xs text-rose-300 hover:text-rose-100 font-bold flex items-center gap-1 transition-colors"
+                                >
+                                    <FiTrash2 size={12} />
+                                    <span>Clear Cart</span>
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Table or Empty State */}
+                        {items.length === 0 ? (
+                            <div className="p-8 text-center text-slate-400">
+                                <FiBox size={36} className="mx-auto mb-2 text-slate-300" />
+                                <p className="text-xs font-extrabold text-slate-700">No items staged in this purchase order</p>
+                                <p className="text-[11px] text-slate-400 mt-0.5">
+                                    Search and add products above to build your order schedule.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-slate-100/80 border-b border-slate-200 text-[10px] font-black text-slate-600 uppercase tracking-wider">
+                                            <th className="py-2.5 px-3 w-8 text-center">#</th>
+                                            <th className="py-2.5 px-3">Product Particulars</th>
+                                            <th className="py-2.5 px-3 text-center">Bags/Boxes</th>
+                                            <th className="py-2.5 px-3 text-center">Loose Pcs</th>
+                                            <th className="py-2.5 px-3 text-right">Unit Rate</th>
+                                            <th className="py-2.5 px-3 text-right">Line Total</th>
+                                            {expiryEnabled && <th className="py-2.5 px-3 text-center">Batch / Expiry</th>}
+                                            <th className="py-2.5 px-3 text-center w-10">Action</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
+                                        {items.map((item, idx) => (
+                                            <tr key={item.id} className="hover:bg-amber-50/30 transition-colors">
+                                                <td className="py-2 px-3 text-center text-[11px] font-bold text-slate-400 font-mono">
+                                                    {idx + 1}
+                                                </td>
+
+                                                <td className="py-2 px-3">
+                                                    <div className="font-extrabold text-slate-900">{item.productName}</div>
+                                                    <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1.5">
+                                                        <span className="text-indigo-600 font-bold">{item.productCode}</span>
+                                                        <span>•</span>
+                                                        <span>Unit: {item.purchaseUnit}</span>
+                                                    </div>
+                                                </td>
+
+                                                <td className="py-2 px-3 text-center">
+                                                    {item.bagQty > 0 ? (
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-black bg-amber-50 text-amber-800 border border-amber-200/80 font-mono">
+                                                            📦 {item.bagQty}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-slate-300 font-mono">—</span>
+                                                    )}
+                                                </td>
+
+                                                <td className="py-2 px-3 text-center">
+                                                    {item.pieceQty > 0 ? (
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-black bg-sky-50 text-sky-800 border border-sky-200/80 font-mono">
+                                                            🔢 {item.pieceQty}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-slate-300 font-mono">—</span>
+                                                    )}
+                                                </td>
+
+                                                <td className="py-2 px-3 text-right font-mono font-bold text-slate-800">
+                                                    {fmtKES(item.price)}
+                                                </td>
+
+                                                <td className="py-2 px-3 text-right font-mono font-black text-emerald-600">
+                                                    {fmtKES(item.total)}
+                                                </td>
+
+                                                {expiryEnabled && (
+                                                    <td className="py-2 px-3 text-center">
+                                                        {item.expiryDate ? (
+                                                            <div className="text-[10px]">
+                                                                <span className="font-mono font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                                                                    {item.batchNumber || 'AUTO'}
+                                                                </span>
+                                                                <div className="text-[9px] text-slate-400 mt-0.5">
+                                                                    {new Date(item.expiryDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-slate-300 text-[10px]">—</span>
+                                                        )}
+                                                    </td>
+                                                )}
+
+                                                <td className="py-2 px-3 text-center">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeItem(item.id)}
+                                                        className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                                        title="Remove item"
+                                                    >
+                                                        <FiTrash2 size={13} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                    {items.length > 0 && (
+                                        <tfoot>
+                                            <tr className="bg-slate-50 font-black text-slate-900 border-t border-slate-200 text-xs">
+                                                <td colSpan={2} className="py-2.5 px-3 uppercase tracking-wider text-[10px] text-slate-500">
+                                                    Cart Schedule Total
+                                                </td>
+                                                <td className="py-2.5 px-3 text-center font-mono text-amber-700">
+                                                    {totalBags > 0 ? `${totalBags} pkgs` : '—'}
+                                                </td>
+                                                <td className="py-2.5 px-3 text-center font-mono text-sky-700">
+                                                    {totalPieces > 0 ? `${totalPieces} pcs` : '—'}
+                                                </td>
+                                                <td className="py-2.5 px-3 text-right text-[10px] text-slate-400 uppercase">
+                                                    Payable:
+                                                </td>
+                                                <td className="py-2.5 px-3 text-right font-mono text-emerald-600 text-sm">
+                                                    {fmtKES(total)}
+                                                </td>
+                                                {expiryEnabled && <td></td>}
+                                                <td></td>
+                                            </tr>
+                                        </tfoot>
+                                    )}
+                                </table>
+                            </div>
                         )}
                     </div>
                 </div>
 
-                {/* â”â”â” RIGHT PANEL â”â”â” */}
-                <div className="space-y-5">
-                    {/* Summary */}
-                    <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm sticky top-24">
-                        <h2 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2 uppercase tracking-wider">
-                            <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center"><FiDollarSign className="text-purple-600" size={14} /></div>
-                            Purchase Summary
-                        </h2>
-                        <div className="space-y-3 mb-5">
-                            <div className="flex justify-between"><span className="text-sm text-gray-500">Subtotal</span><span className="text-sm font-medium">Ksh {subtotal.toLocaleString()}</span></div>
-                            <div className="border-t border-gray-100" />
-                            <div className="flex justify-between"><span className="text-lg font-bold text-gray-700">Grand Total</span><span className="text-xl font-black text-emerald-600">Ksh {total.toLocaleString()}</span></div>
-                        </div>
-
-                        {/* Supplier info */}
-                        {selectedSupplier && (() => {
-                            const sup = suppliers.find(s => s.supplier_code === selectedSupplier);
-                            return sup ? (
-                                <div className="p-3 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl mb-5">
-                                    <p className="text-[10px] font-bold text-indigo-500 uppercase">Supplier</p>
-                                    <p className="text-sm font-bold text-gray-800 mt-0.5">{sup.supplier_name}</p>
-                                    {sup.phone && <p className="text-xs text-gray-500">{sup.phone}</p>}
+                {/* ─────────────────────────────────────────────────────────────────
+                   RIGHT WORKSPACE (Cols 9-12): Order Settlement Summary (Sticky)
+                   ───────────────────────────────────────────────────────────────── */}
+                <div className="lg:col-span-4 space-y-2.5">
+                    
+                    {/* Primary Order Settlement Card */}
+                    <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-xs sticky top-4">
+                        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                            <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                                    <FiDollarSign size={15} />
                                 </div>
-                            ) : null;
-                        })()}
-
-                        {/* Notes */}
-                        <div className="mb-5">
-                            <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Notes</label>
-                            <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional notes..."
-                                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none resize-none" rows={2} />
+                                <div>
+                                    <h3 className="text-xs font-black uppercase tracking-wider text-slate-800">
+                                        Order Settlement
+                                    </h3>
+                                    <p className="text-[10px] text-slate-400 font-medium">Financial breakdown</p>
+                                </div>
+                            </div>
+                            <span className="text-[11px] font-mono font-black text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                                {invoiceNo}
+                            </span>
                         </div>
 
-                        {/* Price updates summary */}
-                        {items.some(i => i.updatePrices) && (
-                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-5">
-                                <p className="text-[10px] font-bold text-amber-700 uppercase flex items-center gap-1"><FiEdit3 size={10} /> Price Updates Queued</p>
-                                <p className="text-xs text-amber-600 mt-1">{items.filter(i => i.updatePrices).length} product(s) will have prices updated system-wide</p>
+                        {/* Breakdown Numbers */}
+                        <div className="py-3.5 space-y-2.5 text-xs">
+                            <div className="flex items-center justify-between text-slate-600">
+                                <span className="font-medium">Subtotal ({items.length} lines)</span>
+                                <span className="font-mono font-bold text-slate-900">{fmtKES(subtotal)}</span>
+                            </div>
+
+                            <div className="flex items-center justify-between text-slate-600">
+                                <span className="font-medium">Tax / VAT (0%)</span>
+                                <span className="font-mono font-semibold text-slate-500">Ksh 0.00</span>
+                            </div>
+
+                            <div className="flex items-center justify-between text-slate-600">
+                                <span className="font-medium">Invoice Discount</span>
+                                <span className="font-mono font-semibold text-slate-500">Ksh 0.00</span>
+                            </div>
+
+                            <div className="pt-2 border-t border-slate-100 flex items-baseline justify-between">
+                                <span className="text-xs font-black uppercase tracking-wider text-slate-800">Grand Total</span>
+                                <div className="text-right">
+                                    <div className="text-xl font-black text-emerald-600 font-mono tracking-tight">
+                                        {fmtKES(total)}
+                                    </div>
+                                    <div className="text-[10px] text-emerald-700 font-bold">
+                                        Net Payable to Supplier
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Vendor Snapshot Pill */}
+                        {currentSupplierObj && (
+                            <div className="mb-3 p-2.5 rounded-xl bg-purple-50/70 border border-purple-200/80">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[9px] font-black uppercase text-purple-700 tracking-wider">Target Vendor</span>
+                                    <span className="text-[10px] font-mono font-bold text-purple-600">{currentSupplierObj.supplier_code}</span>
+                                </div>
+                                <div className="text-xs font-black text-slate-900 mt-0.5">{currentSupplierObj.supplier_name}</div>
+                                {currentSupplierObj.phone && (
+                                    <div className="text-[10px] text-slate-500 mt-0.5">{currentSupplierObj.phone}</div>
+                                )}
                             </div>
                         )}
 
-                        {/* Action Buttons */}
-                        <div className="space-y-3">
-                            <button onClick={savePurchase} disabled={items.length === 0 || isSaving}
-                                className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-300/30 hover:shadow-xl disabled:opacity-40 disabled:cursor-not-allowed">
-                                {isSaving ? (<><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</>) : (<><FiSave size={16} /> Save Purchase</>)}
-                            </button>
-                            <button onClick={() => setItems([])} className="w-full py-3 border-2 border-gray-200 text-gray-500 rounded-xl font-semibold hover:bg-gray-50 transition-all text-sm flex items-center justify-center gap-2">
-                                <FiTrash2 size={14} /> Clear All
-                            </button>
+                        {/* Optional Notes */}
+                        <div className="mb-3.5">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">
+                                Internal Notes / Remarks
+                            </label>
+                            <textarea
+                                value={notes}
+                                onChange={e => setNotes(e.target.value)}
+                                rows={2}
+                                placeholder="Special instructions, delivery note #..."
+                                className="w-full px-3 py-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:border-amber-500 outline-none resize-none transition-all"
+                            />
                         </div>
-                    </div>
 
-                    {/* Quick Stats */}
-                    <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                        <h3 className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-wider flex items-center gap-2"><FiTrendingUp size={12} /> Quick Stats</h3>
+                        {/* Action Commit Button */}
                         <div className="space-y-2">
-                            {[
-                                { label: 'Line Items', value: String(items.length), color: 'text-indigo-600' },
-                                { label: 'Total Qty', value: items.reduce((s, i) => s + i.qty, 0).toLocaleString(), color: 'text-blue-600' },
-                                { label: 'Avg. Unit Price', value: `Ksh ${items.length > 0 ? Math.round(total / items.reduce((s, i) => s + i.qty, 0) || 0).toLocaleString() : '0'}`, color: 'text-emerald-600' },
-                                { label: 'Price Updates', value: String(items.filter(i => i.updatePrices).length), color: 'text-amber-600' },
-                            ].map((s, i) => (
-                                <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                                    <span className="text-xs text-gray-500">{s.label}</span>
-                                    <span className={`text-sm font-bold ${s.color}`}>{s.value}</span>
-                                </div>
-                            ))}
+                            <button
+                                type="button"
+                                onClick={savePurchase}
+                                disabled={items.length === 0 || isSaving}
+                                className="w-full py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl text-xs font-black tracking-wide transition-all flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed active:scale-98"
+                            >
+                                {isSaving ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        <span>Posting to Stock Ledger...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <FiSave size={16} />
+                                        <span>Save & Post Purchase Order</span>
+                                    </>
+                                )}
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setItems([])}
+                                disabled={items.length === 0 || isSaving}
+                                className="w-full py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-40"
+                            >
+                                <FiTrash2 size={13} className="text-slate-400" />
+                                <span>Discard Staged Items</span>
+                            </button>
                         </div>
                     </div>
 
-                    {/* Unit Conversion Help */}
-                    <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
-                        <h3 className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">Unit Conversion Guide</h3>
-                        <div className="space-y-1 text-[10px] text-gray-400">
-                            <p>ðŸ“¦ <span className="text-gray-600 font-medium">Box â†’ Pieces</span>: Uses pcs/package setting</p>
-                            <p>âš–ï¸ <span className="text-gray-600 font-medium">Bag/Kg â†’ Grams</span>: 1 Kg = 1000 Grams</p>
-                            <p>ðŸ§´ <span className="text-gray-600 font-medium">Liter â†’ ML</span>: 1 Liter = 1000 ML</p>
-                            <p>ðŸ“ <span className="text-gray-600 font-medium">Dozen â†’ Pieces</span>: 1 Dozen = 12 Pcs</p>
-                            <p className="text-amber-500 mt-2">ðŸ’¡ Price auto-adjusts when you change the buy unit</p>
+                    {/* Operational Protocols & WAC Reference */}
+                    <div className="bg-white rounded-2xl p-3.5 border border-slate-200/90 shadow-2xs space-y-2 text-[11px] text-slate-500">
+                        <div className="flex items-center gap-1.5 font-black uppercase tracking-wider text-slate-700 text-[10px]">
+                            <FiShield size={12} className="text-amber-500" />
+                            Inventory Protocol Verification
+                        </div>
+                        <ul className="space-y-1 text-slate-600">
+                            <li className="flex items-start gap-1.5">
+                                <FiCheck size={12} className="text-emerald-500 mt-0.5 flex-shrink-0" />
+                                <span>Dual stock ledger tracks wholesale boxes & retail pieces separately.</span>
+                            </li>
+                            <li className="flex items-start gap-1.5">
+                                <FiCheck size={12} className="text-emerald-500 mt-0.5 flex-shrink-0" />
+                                <span>Catalog cost automatically updates with Weighted Average Cost (WAC).</span>
+                            </li>
+                            <li className="flex items-start gap-1.5">
+                                <FiCheck size={12} className="text-emerald-500 mt-0.5 flex-shrink-0" />
+                                <span>Historical audit trail saved to <code className="font-mono text-slate-700 font-bold">retail_price_history</code>.</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                </div>
+
+            </div>
+
+            {/* ══════════════════════════════════════════════════════════════════════════
+               4. SUCCESS CONFIRMATION MODAL
+               ══════════════════════════════════════════════════════════════════════════ */}
+            {showSuccess && (
+                <div
+                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+                    onClick={() => setShowSuccess(false)}
+                >
+                    <div
+                        className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6 text-center border border-slate-100 animate-in fade-in zoom-in-95 duration-150"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center mx-auto mb-3 shadow-lg shadow-emerald-500/30 text-white font-black">
+                            <FiCheckCircle size={32} />
+                        </div>
+                        <h2 className="text-lg font-black text-slate-900">Purchase Order Posted!</h2>
+                        <p className="text-xs text-slate-500 mt-1">
+                            Invoice <span className="font-mono font-black text-indigo-600">{savedInvoice}</span> has been written to the ledger, and stock has been incremented.
+                        </p>
+
+                        <div className="flex gap-2 mt-5">
+                            <button
+                                onClick={() => setShowSuccess(false)}
+                                className="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black rounded-xl text-xs shadow-sm hover:shadow"
+                            >
+                                New Purchase
+                            </button>
+                            <Link
+                                href="/dashboard/purchases"
+                                className="flex-1 py-2.5 border border-slate-200 text-slate-700 font-bold rounded-xl text-xs text-center hover:bg-slate-50 transition-colors"
+                            >
+                                View Records
+                            </Link>
                         </div>
                     </div>
                 </div>
-            </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════════════════════════════
+               5. SYSTEM-WIDE PRICE UPDATE CONFIRMATION MODAL
+               ══════════════════════════════════════════════════════════════════════════ */}
+            {showPriceConfirm && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100">
+                        <div className="bg-gradient-to-r from-amber-500 to-orange-600 px-5 py-3.5 text-white flex items-center gap-2.5">
+                            <FiAlertTriangle size={18} />
+                            <h2 className="text-sm font-black tracking-wide uppercase">Confirm System Price Adjustments</h2>
+                        </div>
+                        <div className="p-5 space-y-3.5">
+                            <p className="text-xs text-slate-600">
+                                The following items have altered cost rates and will affect system-wide inventory valuation:
+                            </p>
+                            <div className="space-y-2 max-h-48 overflow-y-auto">
+                                {items
+                                    .filter(i => i.updatePrices && (i.newCost !== i.oldCost || i.newSell !== i.oldSell))
+                                    .map(i => (
+                                        <div key={i.id} className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-xs">
+                                            <p className="font-extrabold text-slate-800">{i.productName}</p>
+                                            <div className="flex gap-4 mt-1 text-[11px]">
+                                                <span className="text-slate-500">
+                                                    Cost: <span className="line-through text-rose-400 font-mono">Ksh {i.oldCost}</span>{' '}
+                                                    <FiArrowRight className="inline" size={10} />{' '}
+                                                    <span className="font-black text-emerald-600 font-mono">Ksh {i.newCost}</span>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                            </div>
+                            <div className="flex gap-2 pt-2 border-t border-slate-100">
+                                <button
+                                    onClick={() => setShowPriceConfirm(false)}
+                                    className="flex-1 py-2.5 border border-slate-200 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={savePurchase}
+                                    className="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black rounded-xl text-xs shadow-sm hover:shadow"
+                                >
+                                    Confirm & Save
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 }
-
