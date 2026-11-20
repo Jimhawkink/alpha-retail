@@ -166,8 +166,8 @@ function PledgeNotificationBell() {
         const handler = (e: MouseEvent) => {
             if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
         };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
+        document.addEventListener('click', handler);
+        return () => document.removeEventListener('click', handler);
     }, []);
 
     const markPaid = async (pledgeId: number) => {
@@ -186,15 +186,15 @@ function PledgeNotificationBell() {
 
     return (
         <div ref={ref} className="relative">
-            {/* Circular White Bell Button matching Image 2 */}
+            {/* Circular Bell Button in Midnight Navy */}
             <button
                 type="button"
                 onClick={() => setOpen(o => !o)}
                 title="Notifications"
-                className="w-10 h-10 lg:w-11 lg:h-11 rounded-full bg-white border border-slate-200 shadow-xs flex items-center justify-center relative cursor-pointer hover:bg-slate-50 hover:border-slate-300 transition-all shrink-0"
+                className="w-10 h-10 lg:w-11 lg:h-11 rounded-full bg-[#021b3f] border border-sky-400/40 shadow-xs flex items-center justify-center relative cursor-pointer hover:bg-sky-500/20 hover:border-sky-300 transition-all shrink-0"
             >
-                <Bell size={18} className="text-slate-800" />
-                <span className="absolute -top-1 -right-0.5 min-w-[18px] h-[18px] px-1 bg-red-600 text-white text-[10px] font-black rounded-full flex items-center justify-center ring-2 ring-white shadow-xs">
+                <Bell size={18} className="text-sky-200" />
+                <span className="absolute -top-1 -right-0.5 min-w-[18px] h-[18px] px-1 bg-red-600 text-white text-[10px] font-black rounded-full flex items-center justify-center ring-2 ring-[#02132b] shadow-xs">
                     {displayBadge}
                 </span>
             </button>
@@ -365,8 +365,8 @@ function HeaderOutletBadge() {
                 setDropdownOpen(false);
             }
         };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
+        document.addEventListener('click', handler);
+        return () => document.removeEventListener('click', handler);
     }, []);
 
     if (!activeOutlet) return null;
@@ -377,12 +377,17 @@ function HeaderOutletBadge() {
         <div ref={dropdownRef} className="relative">
             <button
                 type="button"
-                onClick={() => isSuperAdmin && outlets.length > 1 && setDropdownOpen(!dropdownOpen)}
-                className={`flex items-center gap-2.5 px-4 py-1.5 rounded-full text-white shadow-md border border-emerald-400/35 transition-all select-none ${
-                    isSuperAdmin && outlets.length > 1 ? 'cursor-pointer hover:border-emerald-300 hover:shadow-lg' : 'cursor-default'
+                onClick={(e) => {
+                    e.stopPropagation();
+                    if (outlets.length > 1) {
+                        setDropdownOpen(prev => !prev);
+                    }
+                }}
+                className={`flex items-center gap-2.5 px-4 py-1.5 rounded-full text-white shadow-md border border-sky-400/40 transition-all select-none ${
+                    outlets.length > 1 ? 'cursor-pointer hover:border-emerald-300 hover:shadow-lg' : 'cursor-default'
                 }`}
                 style={{
-                    background: 'linear-gradient(90deg, #013518 0%, #024a23 55%, #013016 100%)',
+                    background: 'linear-gradient(90deg, #02132b 0%, #031e44 55%, #02132b 100%)',
                 }}
             >
                 {/* 3D Yellow Retail Awning Storefront SVG matching Image 2 */}
@@ -397,35 +402,40 @@ function HeaderOutletBadge() {
                         {/* Building Base */}
                         <rect x="4.5" y="11" width="15" height="9" rx="1.5" fill="#f8fafc" stroke="#94a3b8" strokeWidth="0.8" />
                         {/* Store Door */}
-                        <rect x="9.8" y="13" width="4.4" height="7" rx="0.8" fill="#013518" />
+                        <rect x="9.8" y="13" width="4.4" height="7" rx="0.8" fill="#02132b" />
                         {/* Store Glass Windows */}
                         <rect x="6" y="13.2" width="2.4" height="3.2" rx="0.4" fill="#38bdf8" />
                         <rect x="15.6" y="13.2" width="2.4" height="3.2" rx="0.4" fill="#38bdf8" />
                     </svg>
                 </div>
 
-                {/* 2-line text: Pure white bold outlet name + soft mint subtitle */}
+                {/* 2-line text: Pure white bold outlet name + soft sky subtitle */}
                 <div className="text-left leading-none min-w-0">
                     <p className="text-[13px] lg:text-[13.5px] font-black text-white tracking-tight leading-tight whitespace-nowrap">
                         {cleanOutletName}
                     </p>
-                    <p className="text-[10px] font-bold text-emerald-200/90 leading-tight mt-0.5 whitespace-nowrap">
+                    <p className="text-[10px] font-bold text-sky-200/90 leading-tight mt-0.5 whitespace-nowrap">
                         {activeOutlet.outlet_code ? activeOutlet.outlet_code : 'Head Office'}
                     </p>
                 </div>
 
-                {/* Emerald Chevron Down */}
-                <ChevronDown size={14} className="text-emerald-300 ml-0.5 shrink-0" />
+                {/* Chevron Down */}
+                <ChevronDown size={14} className="text-sky-300 ml-0.5 shrink-0" />
             </button>
 
-            {/* Dropdown Menu for SuperAdmin switching (Light-Dark Slate Theme) */}
-            {dropdownOpen && isSuperAdmin && (
-                <div className="absolute right-0 top-12 w-64 z-50 rounded-2xl bg-[#1e293b] border border-slate-700 shadow-2xl overflow-hidden py-1.5 backdrop-blur-md">
-                    <div className="px-3.5 py-2 border-b border-slate-700/80 text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center justify-between">
+            {/* Dropdown Menu for Store Outlet switching (100% Solid Dark Slate Theme) */}
+            {dropdownOpen && outlets.length > 1 && (
+                <div
+                    style={{ backgroundColor: '#02132b', opacity: 1 }}
+                    className="absolute right-0 top-12 w-72 z-[9999] rounded-2xl border-2 border-emerald-400 shadow-[0_25px_60px_rgba(0,0,0,0.95)] overflow-hidden py-1.5 text-white"
+                >
+                    <div className="px-3.5 py-2.5 bg-[#010c1c] border-b border-emerald-500/30 text-[11px] font-black text-emerald-300 uppercase tracking-wider flex items-center justify-between">
                         <span>Switch Store Outlet</span>
-                        <span className="text-[9px] text-slate-400 font-normal">Super Admin</span>
+                        <span className="text-[9px] font-mono bg-emerald-500/30 text-emerald-200 font-bold px-2 py-0.5 rounded border border-emerald-500/40">
+                            {outlets.length} Outlets
+                        </span>
                     </div>
-                    <div className="max-h-60 overflow-y-auto">
+                    <div className="max-h-60 overflow-y-auto py-1">
                         {outlets.map(o => (
                             <button
                                 key={o.outlet_id}
@@ -433,14 +443,14 @@ function HeaderOutletBadge() {
                                     switchOutlet(o.outlet_id);
                                     setDropdownOpen(false);
                                 }}
-                                className={`w-full text-left px-3.5 py-2.5 text-xs font-bold flex items-center justify-between transition-colors ${
+                                className={`w-full text-left px-3.5 py-2.5 text-xs font-bold flex items-center justify-between transition-colors cursor-pointer ${
                                     o.outlet_id === activeOutlet.outlet_id
-                                        ? 'bg-emerald-600/30 text-white border-l-4 border-emerald-400 font-extrabold'
-                                        : 'text-slate-200 hover:bg-slate-800/80 hover:text-white'
+                                        ? 'bg-emerald-600 text-white border-l-4 border-emerald-300 shadow-md font-black'
+                                        : 'text-white hover:bg-sky-500/25 hover:text-white'
                                 }`}
                             >
-                                <span className="truncate pr-2">{o.outlet_name}</span>
-                                <span className="text-[10px] text-emerald-300/80 font-mono shrink-0">{o.outlet_code || 'Outlet'}</span>
+                                <span className="truncate pr-2 text-white">{o.outlet_name}</span>
+                                <span className="text-[10px] text-emerald-300 font-mono shrink-0 font-bold">{o.outlet_code || 'Outlet'}</span>
                             </button>
                         ))}
                     </div>
@@ -1101,7 +1111,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
 
     const isCashier = ['cashier', 'waiter'].includes((user.userType || '').toLowerCase());
-    const isPos = pathname === '/dashboard/pos';
+    const isPosOrDashboard = pathname === '/dashboard/pos' || pathname === '/dashboard';
     const filtered  = menuGroups.map(g => ({ ...g, items: g.items.filter(i => canSee(i.roles ?? 'all', user.userType)) })).filter(g => g.items.length > 0);
 
     // ── Cashier access restriction ────────────────────────────────────────────
@@ -1308,7 +1318,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                     {/* ═══════════ MAIN ═══════════ */}
                     <main className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${isCashier ? '' : collapsed ? 'lg:ml-[64px]' : 'lg:ml-[210px]'}`}>
-                        {isPos ? (
+                        {isPosOrDashboard ? (
                             <POSHeaderBanner
                                 user={user}
                                 currentTime={currentTime}
@@ -1317,11 +1327,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 setMobileOpen={setMobileOpen}
                             />
                         ) : (
-                            /* Header matching Image 2 Reference EXACTLY */
-                            <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/90 h-[70px] flex items-center px-4 lg:px-6 gap-2.5 lg:gap-3.5 shadow-xs">
+                            /* Subpage Executive Header matching Midnight Navy Theme */
+                            <header className="sticky top-0 z-30 bg-gradient-to-r from-[#02132b] via-[#041e44] to-[#02132b] border-b border-sky-900/60 h-[70px] flex items-center px-4 lg:px-6 gap-2.5 lg:gap-3.5 shadow-lg select-none relative overflow-visible text-white">
+                                {/* Ambient glow */}
+                                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                                    <div className="absolute top-0 left-1/4 w-96 h-full bg-emerald-500/10 blur-3xl pointer-events-none" />
+                                    <div className="absolute top-0 right-1/4 w-96 h-full bg-sky-500/10 blur-3xl pointer-events-none" />
+                                </div>
+
                                 {/* Mobile drawer toggle */}
                                 {!isCashier && (
-                                    <button onClick={() => setMobileOpen(true)} className="lg:hidden w-10 h-10 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center shadow-xs shrink-0">
+                                    <button onClick={() => setMobileOpen(true)} className="lg:hidden w-10 h-10 rounded-2xl bg-[#031d40] border border-sky-400/40 hover:bg-sky-500/20 text-white flex items-center justify-center shadow-xs shrink-0 z-10 cursor-pointer">
                                         <Menu size={18} />
                                     </button>
                                 )}
@@ -1331,14 +1347,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     type="button"
                                     title="Quick Products / Inventory"
                                     onClick={() => router.push('/dashboard/products')}
-                                    className="hidden sm:flex w-10 h-10 lg:w-11 lg:h-11 rounded-2xl bg-white border border-slate-200/90 shadow-xs items-center justify-center shrink-0 text-slate-800 hover:bg-slate-50 hover:border-slate-300 transition-all cursor-pointer"
+                                    className="hidden sm:flex w-10 h-10 lg:w-11 lg:h-11 rounded-2xl bg-[#011838] border border-sky-400/40 shadow-xs items-center justify-center shrink-0 text-sky-200 hover:text-white hover:bg-sky-500/20 transition-all cursor-pointer z-10"
                                 >
-                                    <svg className="w-5 h-5 text-slate-800" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <svg className="w-5 h-5 text-sky-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                         <path d="M4 8V4h4" />
                                         <path d="M20 8V4h-4" />
                                         <path d="M4 16v4h4" />
                                         <path d="M20 16v4h-4" />
-                                        <path d="M12 7l4 2.5v5l-4 2.5-4-2.5v-5z" fill="#f8fafc" stroke="currentColor" strokeWidth="1.8" />
+                                        <path d="M12 7l4 2.5v5l-4 2.5-4-2.5v-5z" fill="#02132b" stroke="currentColor" strokeWidth="1.8" />
                                         <path d="M12 7v10" strokeWidth="1.6" />
                                         <path d="M12 12l4-2.5" strokeWidth="1.6" />
                                         <path d="M12 12l-4-2.5" strokeWidth="1.6" />
@@ -1346,14 +1362,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 </button>
 
                                 {/* 2. Full Pill Search Bar with Barcode Icon */}
-                                <div className="flex-1 min-w-[220px] max-w-xl xl:max-w-2xl flex items-center gap-2.5 bg-white border border-slate-200/90 rounded-full px-4 py-2 shadow-xs hover:border-slate-300 focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500 transition-all">
-                                    <Search className="text-slate-700 shrink-0" size={16} />
+                                <div className="flex-1 min-w-[220px] max-w-xl xl:max-w-2xl flex items-center gap-2.5 bg-[#011838] border border-sky-400/40 rounded-full px-4 py-2 shadow-xs hover:border-sky-300 focus-within:ring-2 focus-within:ring-sky-400/30 transition-all z-10">
+                                    <Search className="text-sky-300 shrink-0" size={16} />
                                     <input
                                         type="text"
                                         placeholder="Search for products (e.g. Hammer, Cement, Paint...) or scan barcode..."
-                                        className="bg-transparent text-[13px] text-slate-800 outline-none w-full placeholder:text-slate-400 font-medium"
+                                        className="bg-transparent text-[13px] text-white outline-none w-full placeholder:text-sky-200/50 font-medium"
                                     />
-                                    <div className="shrink-0 text-slate-700 hover:text-emerald-600 transition-colors cursor-pointer" title="Scan Barcode">
+                                    <div className="shrink-0 text-sky-300 hover:text-emerald-400 transition-colors cursor-pointer" title="Scan Barcode">
                                         <svg className="w-6 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                                             <path d="M3 7V5a2 2 0 0 1 2-2h2" />
                                             <path d="M17 3h2a2 2 0 0 1 2 2v2" />
@@ -1372,7 +1388,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     type="button"
                                     title="Open Barcode Scanner / POS"
                                     onClick={() => router.push('/dashboard/pos')}
-                                    className="w-10 h-10 lg:w-11 lg:h-11 rounded-2xl bg-gradient-to-br from-emerald-500 via-emerald-600 to-green-700 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-600/30 hover:scale-[1.03] active:scale-[0.98] transition-all cursor-pointer border border-emerald-400/40"
+                                    className="w-10 h-10 lg:w-11 lg:h-11 rounded-2xl bg-gradient-to-br from-emerald-500 via-emerald-600 to-green-700 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-600/30 hover:scale-[1.03] active:scale-[0.98] transition-all cursor-pointer border border-emerald-400/40 z-10"
                                 >
                                     <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                                         <path d="M4 8V5a1 1 0 0 1 1-1h3" />
@@ -1384,8 +1400,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     </svg>
                                 </button>
 
-                                {/* Right Section: Outlet Pill, Bell, Date/Time, Online (matching Image 2 exactly) */}
-                                <div className="flex items-center gap-2 lg:gap-3 ml-auto">
+                                {/* Right Section: Outlet Pill, Bell, Date/Time, Online */}
+                                <div className="flex items-center gap-2 lg:gap-3 ml-auto z-20">
                                     {/* 4. Active Outlet Capsule Pill */}
                                     <HeaderOutletBadge />
 
@@ -1393,8 +1409,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     <PledgeNotificationBell />
 
                                     {/* 6. Date & Time Capsule Pill */}
-                                    <div className="hidden lg:flex items-center gap-2.5 px-3.5 py-1.5 bg-white border border-slate-200 rounded-full text-slate-800 shadow-xs select-none shrink-0">
-                                        <svg className="w-5 h-5 text-slate-800 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <div className="hidden lg:flex items-center gap-2.5 px-3.5 py-1.5 bg-[#021b3f] border border-sky-400/40 rounded-full text-white shadow-xs select-none shrink-0">
+                                        <svg className="w-5 h-5 text-sky-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                             <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                                             <line x1="16" y1="2" x2="16" y2="6" />
                                             <line x1="8" y1="2" x2="8" y2="6" />
@@ -1404,20 +1420,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                             <rect x="15" y="14" width="2" height="2" fill="currentColor" />
                                         </svg>
                                         <div className="text-left leading-none">
-                                            <p className="text-[12px] font-black text-slate-900 leading-tight">
+                                            <p className="text-[12px] font-black text-white leading-tight">
                                                 {currentTime.dateStr}
                                             </p>
-                                            <p className="text-[10px] font-semibold text-slate-500 font-mono leading-tight mt-0.5">
+                                            <p className="text-[10px] font-bold text-sky-200 font-mono leading-tight mt-0.5">
                                                 {currentTime.timeStr}
                                             </p>
                                         </div>
-                                        <ChevronDown size={14} className="text-slate-600 shrink-0 ml-0.5" />
+                                        <ChevronDown size={14} className="text-sky-300 shrink-0 ml-0.5" />
                                     </div>
 
-                                    {/* 7. Online Status Capsule Pill (Light Theme - not dark) */}
-                                    <div className="flex items-center gap-2 px-3.5 py-1.5 bg-white border border-slate-200/90 rounded-full text-slate-800 shadow-xs select-none shrink-0 hover:border-emerald-300 transition-colors">
-                                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
-                                        <span className="text-[12px] font-bold text-slate-800 tracking-wide">Online</span>
+                                    {/* 7. Online Status Capsule Pill */}
+                                    <div className="flex items-center gap-2 px-3.5 py-1.5 bg-[#021b3f] border border-sky-400/40 rounded-full text-white shadow-xs select-none shrink-0 hover:border-emerald-300 transition-colors">
+                                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse" />
+                                        <span className="text-[12px] font-bold text-emerald-300 tracking-wide">Online</span>
                                     </div>
                                 </div>
                             </header>
