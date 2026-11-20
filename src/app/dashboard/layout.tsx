@@ -336,8 +336,8 @@ function OutletSwitcher() {
 function CompanyBrand() {
     return (
         <div className="min-w-0">
-            <p className="text-[13px] font-black text-white truncate leading-tight tracking-wide">Alpha Retail System</p>
-            <p className="text-[10px] text-emerald-300 font-bold truncate">Build Better. Live Better.</p>
+            <p className="text-[12px] font-black text-white truncate leading-tight tracking-wide">Alpha Retail System</p>
+            <p className="text-[9.5px] text-white/80 font-bold truncate">Build Better. Live Better.</p>
         </div>
     );
 }
@@ -478,8 +478,8 @@ function POSHeaderBanner({
                 setOutletMenuOpen(false);
             }
         };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
+        document.addEventListener('click', handler);
+        return () => document.removeEventListener('click', handler);
     }, []);
 
     const isSuperAdmin = ['superadmin', 'superuser'].includes(
@@ -500,7 +500,7 @@ function POSHeaderBanner({
             {!isCashier && (
                 <button
                     onClick={() => setMobileOpen(true)}
-                    className="lg:hidden w-9 h-9 rounded-xl bg-[#031d40]/90 border border-sky-400/40 text-white flex items-center justify-center shadow-xs shrink-0 mr-3 z-20"
+                    className="lg:hidden w-9 h-9 rounded-xl bg-[#031d40]/90 border border-sky-400/40 text-white flex items-center justify-center shadow-xs shrink-0 mr-3 z-20 cursor-pointer"
                     title="Menu"
                 >
                     <Menu size={18} />
@@ -533,15 +533,17 @@ function POSHeaderBanner({
 
             {/* Right-Side Capsule: Outlets Selector + User Dropdown + Online */}
             <div className="ml-auto relative z-30 flex items-center">
-                <div className="flex items-center gap-2 sm:gap-3 px-3.5 sm:px-4 py-2 rounded-full bg-[#021b3f]/95 border border-sky-400/50 shadow-[0_0_15px_rgba(56,189,248,0.25)] backdrop-blur-md text-white">
+                <div className="flex items-center gap-2 sm:gap-3 px-3.5 sm:px-4 py-2 rounded-full bg-[#021b3f] border border-sky-400/50 shadow-[0_0_15px_rgba(56,189,248,0.25)] text-white">
                     {/* 1. Branch / Outlet Selector Dropdown */}
                     <div className="relative" ref={outletMenuRef}>
                         <button
                             type="button"
-                            onClick={() => outlets.length > 1 && setOutletMenuOpen(!outletMenuOpen)}
-                            className={`flex items-center gap-1.5 sm:gap-2 text-white hover:text-emerald-300 transition-colors select-none ${
-                                outlets.length > 1 ? 'cursor-pointer group' : 'cursor-default'
-                            }`}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setOutletMenuOpen(prev => !prev);
+                                setUserMenuOpen(false);
+                            }}
+                            className={`flex items-center gap-1.5 sm:gap-2 text-white hover:text-emerald-300 transition-colors select-none cursor-pointer group`}
                             title="Active Store Branch / Outlet"
                         >
                             <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-emerald-500/20 border border-emerald-400/50 flex items-center justify-center text-emerald-300 group-hover:scale-105 transition-transform shrink-0">
@@ -551,7 +553,7 @@ function POSHeaderBanner({
                                 <span className="text-[12px] sm:text-[13px] font-bold tracking-tight text-white group-hover:text-emerald-200 transition-colors max-w-[110px] sm:max-w-[150px] truncate">
                                     {activeOutlet?.outlet_name || 'Main Store'}
                                 </span>
-                                <span className="text-[9px] font-mono text-emerald-300/90 font-bold uppercase tracking-wider mt-0.5">
+                                <span className="text-[9px] font-mono text-emerald-300 font-bold uppercase tracking-wider mt-0.5">
                                     {activeOutlet?.outlet_code || 'OUTLET'}
                                 </span>
                             </div>
@@ -563,37 +565,42 @@ function POSHeaderBanner({
                             )}
                         </button>
 
-                        {/* Outlet Dropdown Menu */}
+                        {/* Outlet Dropdown Menu - 100% Solid Opaque Theme */}
                         {outletMenuOpen && (
-                            <div className="absolute right-0 top-12 w-64 rounded-2xl bg-[#031d40]/98 border border-emerald-400/40 shadow-2xl backdrop-blur-md py-2 z-50 animate-in fade-in zoom-in-95 duration-150 text-slate-200">
-                                <div className="px-4 py-2 border-b border-emerald-500/20 flex items-center justify-between">
-                                    <span className="text-[10px] uppercase font-bold text-emerald-300 tracking-wider">Switch Branch</span>
-                                    <span className="text-[9px] font-mono bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                            <div
+                                style={{ backgroundColor: '#02132b', opacity: 1 }}
+                                className="absolute right-0 top-12 w-72 rounded-2xl border-2 border-emerald-400 shadow-[0_25px_60px_rgba(0,0,0,0.95)] py-2 z-[9999] text-white animate-in fade-in zoom-in-95 duration-150 overflow-hidden"
+                            >
+                                <div className="px-4 py-2.5 bg-[#010c1c] border-b border-emerald-500/30 flex items-center justify-between">
+                                    <span className="text-[11px] uppercase font-black text-emerald-300 tracking-wider">Switch Store Branch</span>
+                                    <span className="text-[9px] font-mono bg-emerald-500/30 text-emerald-200 font-bold px-2 py-0.5 rounded border border-emerald-500/40">
                                         {outlets.length} Outlets
                                     </span>
                                 </div>
-                                <div className="max-h-56 overflow-y-auto py-1">
+                                <div className="max-h-64 overflow-y-auto py-1">
                                     {outlets.map(o => {
                                         const isActive = o.outlet_id === activeOutlet?.outlet_id;
                                         return (
                                             <button
                                                 key={o.outlet_id}
-                                                onClick={() => {
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
                                                     switchOutlet(o.outlet_id);
                                                     setOutletMenuOpen(false);
                                                 }}
-                                                className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center justify-between transition-colors ${
+                                                className={`w-full text-left px-4 py-2.5 text-xs font-bold flex items-center justify-between transition-colors cursor-pointer ${
                                                     isActive
-                                                        ? 'bg-emerald-500/25 text-white font-bold border-l-4 border-emerald-400'
-                                                        : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                                                        ? 'bg-emerald-600 text-white border-l-4 border-emerald-300 shadow-md'
+                                                        : 'text-white hover:bg-sky-500/25 hover:text-white'
                                                 }`}
                                             >
-                                                <div className="flex items-center gap-2 truncate pr-2">
-                                                    <Store size={13} className={isActive ? 'text-emerald-300' : 'text-slate-400'} />
+                                                <div className="flex items-center gap-2.5 truncate pr-2">
+                                                    <Store size={14} className={isActive ? 'text-white' : 'text-emerald-400'} />
                                                     <span className="truncate">{o.outlet_name}</span>
                                                 </div>
-                                                <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0 ${
-                                                    isActive ? 'bg-emerald-400/20 text-emerald-200 font-bold' : 'text-slate-400 bg-white/5'
+                                                <span className={`text-[10px] font-mono px-2 py-0.5 rounded shrink-0 font-bold ${
+                                                    isActive ? 'bg-white/20 text-white' : 'text-emerald-300 bg-white/10'
                                                 }`}>
                                                     {o.outlet_code || 'OUTLET'}
                                                 </span>
@@ -612,7 +619,11 @@ function POSHeaderBanner({
                     <div className="relative" ref={userMenuRef}>
                         <button
                             type="button"
-                            onClick={() => setUserMenuOpen(!userMenuOpen)}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setUserMenuOpen(prev => !prev);
+                                setOutletMenuOpen(false);
+                            }}
                             className="flex items-center gap-1.5 sm:gap-2 text-white hover:text-sky-200 transition-colors cursor-pointer group"
                             title="User Profile & Settings"
                         >
@@ -628,14 +639,17 @@ function POSHeaderBanner({
                             />
                         </button>
 
-                        {/* User Dropdown */}
+                        {/* User Dropdown Menu - 100% Solid Opaque Theme */}
                         {userMenuOpen && (
-                            <div className="absolute right-0 top-12 w-64 rounded-2xl bg-[#031d40]/98 border border-sky-400/40 shadow-2xl backdrop-blur-md py-2 z-50 animate-in fade-in zoom-in-95 duration-150 text-slate-200">
-                                <div className="px-4 py-2.5 border-b border-sky-500/20">
-                                    <p className="text-[13px] font-extrabold text-white truncate">{user?.name || 'Super Admin'}</p>
-                                    <p className="text-[11px] font-semibold text-sky-300 capitalize mt-0.5">{user?.userType || 'Administrator'}</p>
+                            <div
+                                style={{ backgroundColor: '#02132b', opacity: 1 }}
+                                className="absolute right-0 top-12 w-64 rounded-2xl border-2 border-sky-400 shadow-[0_25px_60px_rgba(0,0,0,0.95)] py-2 z-[9999] text-white animate-in fade-in zoom-in-95 duration-150 overflow-hidden"
+                            >
+                                <div className="px-4 py-2.5 bg-[#010c1c] border-b border-sky-500/30">
+                                    <p className="text-[13px] font-black text-white truncate">{user?.name || 'Super Admin'}</p>
+                                    <p className="text-[11px] font-bold text-sky-300 capitalize mt-0.5">{user?.userType || 'Administrator'}</p>
                                     {activeOutlet && (
-                                        <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-emerald-300 font-medium">
+                                        <div className="flex items-center gap-1.5 mt-1 text-[11px] text-emerald-300 font-semibold">
                                             <Store size={12} className="text-emerald-400 shrink-0" />
                                             <span className="truncate">{activeOutlet.outlet_name}</span>
                                         </div>
@@ -646,30 +660,31 @@ function POSHeaderBanner({
                                     <Link
                                         href="/dashboard"
                                         onClick={() => setUserMenuOpen(false)}
-                                        className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-200 hover:text-white hover:bg-sky-500/20 transition-colors"
+                                        className="flex items-center gap-2.5 px-4 py-2 text-xs font-bold text-white hover:bg-sky-500/25 hover:text-white transition-colors"
                                     >
-                                        <Home size={14} className="text-sky-300" />
+                                        <Home size={14} className="text-sky-300 shrink-0" />
                                         <span>Main Dashboard</span>
                                     </Link>
                                     <Link
                                         href="/dashboard/settings"
                                         onClick={() => setUserMenuOpen(false)}
-                                        className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-200 hover:text-white hover:bg-sky-500/20 transition-colors"
+                                        className="flex items-center gap-2.5 px-4 py-2 text-xs font-bold text-white hover:bg-sky-500/25 hover:text-white transition-colors"
                                     >
-                                        <Settings size={14} className="text-sky-300" />
+                                        <Settings size={14} className="text-sky-300 shrink-0" />
                                         <span>Settings</span>
                                     </Link>
                                 </div>
 
-                                <div className="pt-1 border-t border-sky-500/20">
+                                <div className="pt-1 border-t border-sky-500/30">
                                     <button
+                                        type="button"
                                         onClick={() => {
                                             setUserMenuOpen(false);
                                             handleLogout();
                                         }}
-                                        className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-bold text-rose-300 hover:text-rose-100 hover:bg-rose-500/20 transition-colors cursor-pointer"
+                                        className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-bold text-rose-300 hover:text-white hover:bg-rose-500/30 transition-colors cursor-pointer"
                                     >
-                                        <LogOut size={14} className="text-rose-400" />
+                                        <LogOut size={14} className="text-rose-400 shrink-0" />
                                         <span>Sign Out</span>
                                     </button>
                                 </div>
@@ -1131,19 +1146,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             onClick={() => setMobileOpen(false)} />
                     )}
 
-                    {/* ═══════════ SIDEBAR (Emerald Forest Hardware Theme matching Mockup) ═══════════ */}
+                    {/* ═══════════ SIDEBAR (POS Theme: Rich Midnight Navy & Pure White Typography) ═══════════ */}
                     {!isCashier && (
-                        <aside className={`fixed top-0 left-0 h-full z-50 shadow-2xl flex flex-col transition-all duration-300 ease-in-out border-r border-emerald-900/60 text-white
-                            ${collapsed ? 'w-[72px]' : 'w-[265px]'}
+                        <aside className={`fixed top-0 left-0 h-full z-50 shadow-2xl flex flex-col transition-all duration-300 ease-in-out border-r border-sky-900/60 text-white
+                            ${collapsed ? 'w-[64px]' : 'w-[210px]'}
                             ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
                             style={{
-                                background: 'linear-gradient(180deg, #011d0e 0%, #022a15 45%, #01160a 100%)',
+                                background: 'linear-gradient(180deg, #02132b 0%, #031e44 50%, #02132b 100%)',
                             }}>
 
-                            {/* Logo matching mockup */}
-                            <div className={`flex items-center h-[65px] border-b border-emerald-500/20 px-3.5 gap-2.5 shrink-0 ${collapsed ? 'justify-center !px-2' : ''}`}>
-                                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-transparent">
-                                    <svg className="w-9 h-9" viewBox="0 0 100 80" fill="none">
+                            {/* Logo matching POS theme */}
+                            <div className={`flex items-center h-[62px] border-b border-sky-900/60 px-3 gap-2 shrink-0 ${collapsed ? 'justify-center !px-1.5' : ''}`}>
+                                <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-transparent">
+                                    <svg className="w-8 h-8" viewBox="0 0 100 80" fill="none">
                                         <path d="M10 45 L50 15 L70 30" stroke="#ffffff" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
                                         <polygon points="50,22 68,35 60,45 42,32" fill="#facc15" />
                                         <polygon points="56,28 74,41 68,49 50,36" fill="#eab308" />
@@ -1158,23 +1173,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 {!collapsed && <CompanyBrand />}
                                 {!collapsed && (
                                     <button onClick={() => setCollapsed(true)}
-                                        className="hidden lg:flex w-6 h-6 items-center justify-center rounded-lg border border-emerald-500/20 text-emerald-200 hover:text-white hover:border-emerald-400 transition-colors ml-auto shrink-0 bg-white/5">
+                                        className="hidden lg:flex w-6 h-6 items-center justify-center rounded-lg border border-white/20 text-white hover:text-white hover:bg-white/10 transition-colors ml-auto shrink-0 cursor-pointer">
                                         <ChevronLeft size={12} />
                                     </button>
                                 )}
                                 {collapsed && (
                                     <button onClick={() => setCollapsed(false)}
-                                        className="hidden lg:flex w-6 h-6 items-center justify-center rounded-lg border border-emerald-500/20 text-emerald-200 hover:text-white hover:border-emerald-400 transition-colors bg-white/5">
+                                        className="hidden lg:flex w-6 h-6 items-center justify-center rounded-lg border border-white/20 text-white hover:text-white hover:bg-white/10 transition-colors cursor-pointer">
                                         <ChevronRight size={12} />
                                     </button>
                                 )}
-                                <button onClick={() => setMobileOpen(false)} className="lg:hidden ml-auto text-emerald-200 hover:text-white">
+                                <button onClick={() => setMobileOpen(false)} className="lg:hidden ml-auto text-white hover:text-white cursor-pointer">
                                     <X size={18} />
                                 </button>
                             </div>
 
-                            {/* Nav */}
-                            <nav className="flex-1 overflow-y-auto sb-scroll py-3 px-2.5 space-y-1">
+                            {/* Nav with Pure White Fonts and Icons */}
+                            <nav className="flex-1 overflow-y-auto sb-scroll py-2.5 px-2 space-y-1">
                                 {filtered.map(group => {
                                     const isExp   = expanded[group.name];
                                     const GIcon   = group.icon as React.ElementType | undefined;
@@ -1187,19 +1202,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                             return (
                                                 <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)}
                                                     title={collapsed ? item.label : undefined}
-                                                    className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-full text-[13px] font-bold transition-all mb-1.5
+                                                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-bold transition-all mb-1
                                                         ${active
-                                                            ? 'bg-gradient-to-r from-emerald-500 via-emerald-500 to-green-500 text-white shadow-lg shadow-emerald-500/40 ring-1 ring-emerald-300/40 font-black'
-                                                            : 'text-emerald-100/85 hover:text-white hover:bg-white/10'}
-                                                        ${collapsed ? 'justify-center !px-2.5' : ''}`}>
-                                                    <IIcon size={17} className={active ? 'text-white' : 'text-emerald-300'} />
-                                                    {!collapsed && <span className="flex-1 tracking-tight">{item.label}</span>}
+                                                            ? 'bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-500 text-white shadow-md shadow-emerald-500/30 ring-1 ring-emerald-300/40 font-black'
+                                                            : 'text-white hover:text-white hover:bg-white/10'}
+                                                        ${collapsed ? 'justify-center !px-2' : ''}`}>
+                                                    <IIcon size={16} className="text-white shrink-0" />
+                                                    {!collapsed && <span className="flex-1 tracking-tight truncate text-white">{item.label}</span>}
                                                     {!collapsed && item.badge && (
-                                                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${active ? 'bg-slate-950 text-emerald-300' : 'bg-emerald-400 text-slate-950 shadow-sm'}`}>
+                                                        <span className={`text-[8.5px] font-black px-1.5 py-0.2 rounded-full ${active ? 'bg-slate-950 text-white' : 'bg-white/20 text-white'}`}>
                                                             {item.badge}
                                                         </span>
                                                     )}
-                                                    {active && !collapsed && <div className="w-2 h-2 rounded-full bg-white shrink-0 shadow-sm" />}
+                                                    {active && !collapsed && <div className="w-1.5 h-1.5 rounded-full bg-white shrink-0 shadow-sm" />}
                                                 </Link>
                                             );
                                         });
@@ -1209,30 +1224,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                         <div key={group.name} className="mb-0.5">
                                             <button onClick={() => toggle(group.name)}
                                                 title={collapsed ? group.label : undefined}
-                                                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[12.5px] font-bold transition-all
-                                                    ${gActive ? 'text-emerald-300 bg-white/10 shadow-sm' : 'text-emerald-100/80 hover:bg-white/10 hover:text-white'}
+                                                className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-[12px] font-bold transition-all cursor-pointer
+                                                    ${gActive ? 'text-white bg-white/15 font-black shadow-sm' : 'text-white hover:bg-white/10 hover:text-white'}
                                                     ${collapsed ? 'justify-center' : ''}`}>
-                                                {GIcon && <GIcon size={16} className={gActive ? 'text-emerald-400' : 'text-emerald-300'} />}
+                                                {GIcon && <GIcon size={15} className="text-white shrink-0" />}
                                                 {!collapsed && (
                                                     <>
-                                                        <span className="flex-1 text-left">{group.label}</span>
-                                                        <ChevronDown size={13} className={`text-emerald-300 transition-transform duration-200 ${isExp ? 'rotate-180 text-emerald-400' : ''}`} />
+                                                        <span className="flex-1 text-left truncate text-white">{group.label}</span>
+                                                        <ChevronDown size={12} className={`text-white/80 transition-transform duration-200 shrink-0 ${isExp ? 'rotate-180 text-white' : ''}`} />
                                                     </>
                                                 )}
                                             </button>
 
                                             <div className={`overflow-hidden transition-all duration-200 ease-in-out ${isExp && !collapsed ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                                                <div className="ml-[18px] pl-3 mt-1 pb-1 space-y-1 border-l-2 border-emerald-500/40">
+                                                <div className="ml-3 pl-2 mt-0.5 pb-0.5 space-y-0.5 border-l-2 border-white/20">
                                                     {group.items.map(item => {
                                                         const IIcon  = item.icon as React.ElementType;
                                                         const active = isActive(item.href);
                                                         return (
                                                             <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)}
-                                                                className={`flex items-center gap-2 px-2.5 py-[7px] rounded-lg text-[12px] transition-all
-                                                                    ${active ? 'text-white bg-gradient-to-r from-emerald-500 to-green-500 font-extrabold shadow-sm' : 'text-emerald-100/80 hover:text-white hover:bg-white/10'}`}>
-                                                                <IIcon size={13} className={active ? 'text-white' : 'text-emerald-300/80'} />
-                                                                <span className="flex-1">{item.label}</span>
-                                                                {item.badge && <span className="text-[8px] font-black px-1 py-0.5 rounded-full bg-emerald-400 text-slate-950">{item.badge}</span>}
+                                                                className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] font-semibold transition-all
+                                                                    ${active ? 'text-white bg-gradient-to-r from-emerald-500 to-teal-500 font-black shadow-sm' : 'text-white hover:text-white hover:bg-white/10'}`}>
+                                                                <IIcon size={13} className="text-white shrink-0" />
+                                                                <span className="flex-1 truncate text-white">{item.label}</span>
+                                                                {item.badge && <span className="text-[8px] font-black px-1 py-0.5 rounded-full bg-white/20 text-white">{item.badge}</span>}
                                                                 {active && <div className="w-1.5 h-1.5 rounded-full bg-white shrink-0" />}
                                                             </Link>
                                                         );
@@ -1244,46 +1259,46 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 })}
                             </nav>
 
-                            {/* Secure & Compliant Badge matching mockup */}
+                            {/* Secure & Compliant Badge matching POS theme */}
                             {!collapsed && (
-                                <div className="mx-2.5 my-2 p-2 rounded-xl bg-amber-400/10 border border-amber-400/30 flex items-center gap-2">
-                                    <Shield size={16} className="text-amber-400 shrink-0" />
+                                <div className="mx-2 my-1.5 p-2 rounded-xl bg-white/5 border border-white/15 flex items-center gap-2">
+                                    <Shield size={15} className="text-white shrink-0" />
                                     <div>
-                                        <p className="text-[10px] font-black text-amber-300 leading-tight">Secure & Compliant</p>
-                                        <p className="text-[8.5px] text-amber-200/70 leading-tight">Your Data, Our Priority.</p>
+                                        <p className="text-[9.5px] font-black text-white leading-tight">Secure & Compliant</p>
+                                        <p className="text-[8px] text-white/80 leading-tight">Your Data, Our Priority.</p>
                                     </div>
                                 </div>
                             )}
 
-                            {/* User footer matching mockup */}
-                            <div className={`border-t border-emerald-500/20 shrink-0 ${collapsed ? 'p-2' : 'p-2.5'}`}>
+                            {/* User footer matching POS theme */}
+                            <div className={`border-t border-sky-900/60 shrink-0 ${collapsed ? 'p-1.5' : 'p-2'}`}>
                                 {!collapsed ? (
-                                    <div className="flex items-center gap-2 p-2 rounded-2xl bg-[#012814]/90 border border-emerald-500/30 backdrop-blur-md shadow-lg">
-                                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-slate-950 text-xs font-black shrink-0 bg-gradient-to-tr from-amber-400 to-yellow-300 ring-2 ring-amber-300/60 shadow">
+                                    <div className="flex items-center gap-2 p-1.5 rounded-xl bg-[#011838] border border-sky-500/30 shadow-md">
+                                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-slate-950 text-xs font-black shrink-0 bg-gradient-to-tr from-amber-400 to-yellow-300 ring-1 ring-amber-300/60 shadow">
                                             {user.name?.charAt(0)?.toUpperCase() || 'U'}
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-[12px] font-black text-white truncate leading-tight">{user.name}</p>
-                                            <p className="text-[10px] text-emerald-300 font-bold capitalize truncate">{user.userType || 'Administrator'}</p>
+                                            <p className="text-[11.5px] font-black text-white truncate leading-tight">{user.name}</p>
+                                            <p className="text-[9.5px] text-white/80 font-bold capitalize truncate">{user.userType || 'Administrator'}</p>
                                         </div>
-                                        <div className="h-4 w-px bg-emerald-500/20 mx-0.5" />
+                                        <div className="h-4 w-px bg-white/20 mx-0.5" />
                                         <button onClick={() => router.push('/dashboard/company')} title="Settings"
-                                            className="p-1.5 text-emerald-200 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
-                                            <Settings size={14} />
+                                            className="p-1 text-white hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer">
+                                            <Settings size={13} />
                                         </button>
                                         <button onClick={handleLogout} title="Logout"
-                                            className="p-1.5 text-rose-300 hover:text-white hover:bg-rose-500/30 rounded-lg transition-colors">
-                                            <LogOut size={14} />
+                                            className="p-1 text-rose-300 hover:text-white hover:bg-rose-500/30 rounded-lg transition-colors cursor-pointer">
+                                            <LogOut size={13} />
                                         </button>
                                     </div>
                                 ) : (
                                     <div className="flex flex-col items-center gap-2">
-                                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-slate-950 text-xs font-black bg-gradient-to-tr from-amber-400 to-yellow-300 ring-2 ring-amber-300/60 shadow">
+                                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-slate-950 text-xs font-black bg-gradient-to-tr from-amber-400 to-yellow-300 ring-1 ring-amber-300/60 shadow">
                                             {user.name?.charAt(0)?.toUpperCase() || 'U'}
                                         </div>
                                         <button onClick={handleLogout} title="Logout"
-                                            className="p-1.5 text-rose-300 hover:text-white hover:bg-rose-500/30 rounded-lg transition-colors">
-                                            <LogOut size={14} />
+                                            className="p-1 text-rose-300 hover:text-white hover:bg-rose-500/30 rounded-lg transition-colors cursor-pointer">
+                                            <LogOut size={13} />
                                         </button>
                                     </div>
                                 )}
@@ -1292,7 +1307,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     )}
 
                     {/* ═══════════ MAIN ═══════════ */}
-                    <main className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${isCashier ? '' : collapsed ? 'lg:ml-[72px]' : 'lg:ml-[265px]'}`}>
+                    <main className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${isCashier ? '' : collapsed ? 'lg:ml-[64px]' : 'lg:ml-[210px]'}`}>
                         {isPos ? (
                             <POSHeaderBanner
                                 user={user}
