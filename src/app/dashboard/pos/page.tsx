@@ -869,52 +869,50 @@ const PaymentModal = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-3xl w-full max-w-xl shadow-2xl max-h-[92vh] overflow-hidden flex flex-col border border-slate-200">
-                {/* ═══ Super Executive Modal Header ═══ */}
-                <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 px-5 py-4 text-white flex items-center justify-between border-b border-slate-800 shrink-0">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md shadow-emerald-500/25 border border-emerald-400/30 shrink-0">
-                            <FiCreditCard size={18} />
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-150">
+            <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+                {/* ═══ Super Fine Clean Header ═══ */}
+                <div className="px-5 py-3.5 bg-slate-50/90 border-b border-slate-200 flex items-center justify-between shrink-0">
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600 shadow-2xs">
+                            <FiCreditCard size={16} />
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
-                                <h2 className="text-sm sm:text-base font-black tracking-wider uppercase text-white">
+                                <h2 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-800">
                                     Payment Settlement
                                 </h2>
-                                <span className="text-[10px] font-mono font-black text-indigo-300 bg-indigo-500/20 border border-indigo-400/30 px-2 py-0.5 rounded">
+                                <span className="text-[10px] font-mono font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.2 rounded">
                                     {receiptNo}
                                 </span>
                             </div>
                             <p className="text-[10px] text-slate-400 font-medium">Alpha Retail Checkout Terminal</p>
                         </div>
                     </div>
-
                     <div className="flex items-center gap-3">
                         <div className="text-right">
                             <p className="text-[9px] uppercase font-bold tracking-wider text-slate-400">Total Due</p>
-                            <p className="text-lg sm:text-xl font-black font-mono text-emerald-400 leading-tight">
+                            <p className="text-base sm:text-lg font-black font-mono text-emerald-600 leading-tight">
                                 Ksh {total.toLocaleString()}
                             </p>
                         </div>
                         <button
                             onClick={handleClose}
-                            className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-all ml-1"
-                            title="Close"
+                            className="w-7 h-7 rounded-lg bg-slate-200/70 hover:bg-slate-300 text-slate-600 flex items-center justify-center transition-colors"
                         >
-                            <FiX size={16} />
+                            <FiX size={15} />
                         </button>
                     </div>
                 </div>
 
-                {/* ═══ Payment Method Tabs ═══ */}
-                <div className={`grid gap-2 p-3.5 bg-slate-50/90 border-b border-slate-200 shrink-0 ${kcbEnabled ? 'grid-cols-5' : 'grid-cols-4'}`}>
+                {/* ═══ Colorful, Beautiful Payment Cards ═══ */}
+                <div className={`grid gap-2 p-3 bg-slate-50 border-b border-slate-200 shrink-0 ${kcbEnabled ? 'grid-cols-5' : 'grid-cols-4'}`}>
                     {[
-                        { id: 'cash',   icon: FiDollarSign,  label: 'Cash' },
-                        { id: 'mpesa',  icon: FiSmartphone,  label: 'M-Pesa' },
-                        { id: 'card',   icon: FiCreditCard,  label: 'Card' },
-                        { id: 'credit', icon: FiUser,        label: 'Credit' },
-                        ...(kcbEnabled ? [{ id: 'kcb', icon: FiArchive, label: 'KCB Buni' }] : []),
+                        { id: 'cash',   icon: FiDollarSign,  label: 'Cash',    activeBg: 'bg-emerald-600 text-white border-emerald-600 shadow-emerald-500/25', idleBg: 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100', iconBg: 'bg-emerald-100 text-emerald-700' },
+                        { id: 'mpesa',  icon: FiSmartphone,  label: 'M-Pesa',  activeBg: 'bg-green-600 text-white border-green-600 shadow-green-500/25',     idleBg: 'bg-green-50 text-green-800 border-green-200 hover:bg-green-100',     iconBg: 'bg-green-100 text-green-700' },
+                        { id: 'card',   icon: FiCreditCard,  label: 'Card',    activeBg: 'bg-sky-600 text-white border-sky-600 shadow-sky-500/25',         idleBg: 'bg-sky-50 text-sky-800 border-sky-200 hover:bg-sky-100',         iconBg: 'bg-sky-100 text-sky-700' },
+                        { id: 'credit', icon: FiUser,        label: 'Credit',  activeBg: 'bg-purple-600 text-white border-purple-600 shadow-purple-500/25',   idleBg: 'bg-purple-50 text-purple-800 border-purple-200 hover:bg-purple-100',   iconBg: 'bg-purple-100 text-purple-700' },
+                        ...(kcbEnabled ? [{ id: 'kcb', icon: FiArchive, label: 'KCB Buni', activeBg: 'bg-blue-600 text-white border-blue-600 shadow-blue-500/25', idleBg: 'bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100', iconBg: 'bg-blue-100 text-blue-700' }] : []),
                     ].map(method => {
                         const Icon = method.icon;
                         const isMpesa = method.id === 'mpesa';
@@ -925,28 +923,22 @@ const PaymentModal = ({
                                 key={method.id}
                                 disabled={isDisabled}
                                 onClick={() => { if (!isDisabled) { setPaymentMethod(method.id); resetMpesaState(); resetKcbState(); } }}
-                                title={isDisabled ? 'M-Pesa not configured for this outlet. Contact Super Admin.' : method.label}
-                                className={`p-2.5 rounded-xl border-2 transition-all duration-150 flex flex-col items-center gap-1 relative ${
+                                className={`p-2 rounded-xl border transition-all duration-150 flex flex-col items-center gap-1 relative shadow-2xs ${
                                     isDisabled
-                                        ? 'border-slate-200 bg-slate-100 opacity-40 cursor-not-allowed text-slate-400'
+                                        ? 'border-slate-200 bg-slate-50 opacity-40 cursor-not-allowed text-slate-400'
                                         : isSelected
-                                            ? 'border-indigo-600 bg-white text-indigo-950 shadow-sm scale-[1.02]'
-                                            : 'border-slate-200 hover:border-slate-300 bg-white/90 text-slate-600 hover:bg-white'
+                                            ? `${method.activeBg} shadow-md scale-[1.03]`
+                                            : `${method.idleBg}`
                                 }`}
                             >
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm ${
-                                    isSelected
-                                        ? 'bg-indigo-600 text-white shadow-xs'
-                                        : 'bg-slate-100 text-slate-600'
+                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm ${
+                                    isSelected ? 'bg-white/20 text-white' : method.iconBg
                                 }`}>
-                                    <Icon size={16} />
+                                    <Icon size={14} />
                                 </div>
                                 <span className="text-[11px] font-bold">{method.label}</span>
-                                {isDisabled && (
-                                    <span className="absolute -top-1.5 -right-1.5 text-[8px] bg-slate-400 text-white px-1 py-0.2 rounded-full font-bold">OFF</span>
-                                )}
                                 {isSelected && (
-                                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-indigo-600 text-white rounded-full flex items-center justify-center text-[8px] font-bold shadow-xs">✓</span>
+                                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-white text-slate-900 rounded-full flex items-center justify-center text-[8px] font-black shadow-xs">✓</span>
                                 )}
                             </button>
                         );
@@ -954,81 +946,126 @@ const PaymentModal = ({
                 </div>
 
                 {/* ═══ Scrollable Body Area ═══ */}
-                <div className="p-5 flex-1 overflow-y-auto space-y-4">
-                {/* Cash Input */}
-                {paymentMethod === 'cash' && (
-                    <div className="space-y-3.5">
+                <div className="p-4 sm:p-5 flex-1 overflow-y-auto space-y-3.5">
+                    {/* Cash Input */}
+                    {paymentMethod === 'cash' && (
+                        <div className="space-y-3">
+                            <div>
+                                <label className="text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
+                                    <FiDollarSign size={13} className="text-emerald-600" />
+                                    <span>Amount Received (Cash Tendered)</span>
+                                </label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold font-mono text-xs">KSH</span>
+                                    <input
+                                        type="number"
+                                        value={amountPaid}
+                                        onChange={(e) => setAmountPaid(e.target.value)}
+                                        placeholder={total.toString()}
+                                        className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border-2 border-slate-200 rounded-xl focus:border-indigo-500 focus:bg-white focus:outline-none text-xl font-black font-mono text-slate-900 transition-all"
+                                        autoFocus
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Colorful Quick Cash Tender Chips */}
+                            <div className="grid grid-cols-6 gap-1.5">
+                                {[
+                                    { amt: 100, color: 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100' },
+                                    { amt: 200, color: 'bg-cyan-50 text-cyan-700 border-cyan-200 hover:bg-cyan-100' },
+                                    { amt: 500, color: 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' },
+                                    { amt: 1000, color: 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' },
+                                    { amt: 2000, color: 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100' },
+                                    { amt: 5000, color: 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100' },
+                                ].map(item => (
+                                    <button
+                                        key={item.amt}
+                                        onClick={() => setAmountPaid(item.amt.toString())}
+                                        className={`py-1.5 px-1 rounded-lg border text-xs font-mono font-bold transition-all active:scale-95 shadow-2xs ${
+                                            Number(amountPaid) === item.amt
+                                                ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                                                : item.color
+                                        }`}
+                                    >
+                                        {item.amt.toLocaleString()}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Exact Amount Button */}
+                            <button
+                                onClick={() => setAmountPaid(total.toString())}
+                                className="w-full py-2 bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 border border-emerald-300 text-emerald-800 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-2xs active:scale-[0.99]"
+                            >
+                                <FiZap size={13} className="text-emerald-600" />
+                                <span>Exact Tender (Ksh {total.toLocaleString()})</span>
+                            </button>
+
+                            {/* Change Due Display */}
+                            <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
+                                change > 0 
+                                    ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/20 border-emerald-400' 
+                                    : 'bg-slate-50 border-slate-200 text-slate-700'
+                            }`}>
+                                <div className="flex items-center gap-2">
+                                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+                                        change > 0 ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
+                                    }`}>
+                                        <FiDollarSign size={15} />
+                                    </div>
+                                    <div>
+                                        <p className={`text-[9px] uppercase font-black tracking-wider ${change > 0 ? 'text-emerald-100' : 'text-slate-400'}`}>
+                                            Change Due
+                                        </p>
+                                        <p className={`text-xs font-bold ${change > 0 ? 'text-white' : 'text-slate-700'}`}>
+                                            Cash Return
+                                        </p>
+                                    </div>
+                                </div>
+                                <span className={`text-xl font-black font-mono ${change > 0 ? 'text-white' : 'text-slate-600'}`}>
+                                    Ksh {change.toLocaleString()}
+                                </span>
+                            </div>
+
+                            {/* Customer Name */}
+                            <div>
+                                <label className="text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
+                                    <FiUser size={13} className="text-slate-400" />
+                                    <span>Customer Name (Optional)</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={customerName}
+                                    onChange={(e) => setCustomerName(e.target.value)}
+                                    placeholder="Walk-in customer..."
+                                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-indigo-500 focus:bg-white focus:outline-none text-xs font-medium text-slate-800"
+                                />
+                            </div>
+                        </div>
+                    )}
+{/* M-Pesa STK Push Section */}
+                {paymentMethod === 'mpesa' && (
+                    <div className="space-y-3">
                         <div>
-                            <label className="text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                                <FiDollarSign size={13} className="text-emerald-600" />
-                                <span>Amount Received (Cash Tendered)</span>
+                            <label className="text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
+                                <FiSmartphone size={13} className="text-green-600" />
+                                <span>Customer M-Pesa Phone</span>
                             </label>
                             <div className="relative">
-                                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold font-mono text-sm">KSH</span>
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold font-mono text-xs">+254</span>
                                 <input
-                                    type="number"
-                                    value={amountPaid}
-                                    onChange={(e) => setAmountPaid(e.target.value)}
-                                    placeholder={total.toString()}
-                                    className="w-full pl-14 pr-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl focus:border-indigo-500 focus:bg-white focus:outline-none text-2xl font-black font-mono text-slate-900 transition-all"
-                                    autoFocus
+                                    type="tel"
+                                    value={mpesaPhone}
+                                    onChange={(e) => setMpesaPhone(e.target.value)}
+                                    placeholder="07XX XXX XXX"
+                                    className="w-full pl-14 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-green-500 focus:bg-white focus:outline-none text-base font-black font-mono text-slate-900 transition-all"
+                                    disabled={mpesaStatus === 'sending' || mpesaStatus === 'waiting'}
                                 />
                             </div>
                         </div>
 
-                        {/* Quick Cash Tender Pills */}
-                        <div className="grid grid-cols-6 gap-1.5">
-                            {quickAmounts.map(amt => (
-                                <button
-                                    key={amt}
-                                    onClick={() => setAmountPaid(amt.toString())}
-                                    className={`py-2 px-1 rounded-lg border text-xs font-mono font-bold transition-all active:scale-95 ${
-                                        Number(amountPaid) === amt
-                                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                                            : 'bg-slate-50 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border-slate-200 hover:border-indigo-300'
-                                    }`}
-                                >
-                                    {amt.toLocaleString()}
-                                </button>
-                            ))}
-                        </div>
-
-                        {/* Exact Amount Button */}
-                        <button
-                            onClick={() => setAmountPaid(total.toString())}
-                            className="w-full py-2.5 bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 border border-emerald-200 text-emerald-800 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-2xs active:scale-[0.99]"
-                        >
-                            <FiZap size={14} className="text-emerald-600" />
-                            <span>Exact Amount (Ksh {total.toLocaleString()})</span>
-                        </button>
-
-                        {/* Change Due Display */}
-                        <div className={`flex items-center justify-between p-3.5 rounded-xl border transition-all ${
-                            change > 0 
-                                ? 'bg-emerald-50/90 border-emerald-300 shadow-xs' 
-                                : 'bg-slate-50 border-slate-200'
-                        }`}>
-                            <div className="flex items-center gap-2.5">
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                                    change > 0 ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-600'
-                                }`}>
-                                    <FiDollarSign size={16} />
-                                </div>
-                                <div>
-                                    <p className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Change Due</p>
-                                    <p className="text-xs font-bold text-slate-700">Cash Return</p>
-                                </div>
-                            </div>
-                            <span className={`text-2xl font-black font-mono ${
-                                change > 0 ? 'text-emerald-600' : 'text-slate-500'
-                            }`}>
-                                Ksh {change.toLocaleString()}
-                            </span>
-                        </div>
-
-                        {/* Customer Name */}
                         <div>
-                            <label className="text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                            <label className="text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
                                 <FiUser size={13} className="text-slate-400" />
                                 <span>Customer Name (Optional)</span>
                             </label>
@@ -1036,58 +1073,28 @@ const PaymentModal = ({
                                 type="text"
                                 value={customerName}
                                 onChange={(e) => setCustomerName(e.target.value)}
-                                placeholder="Walk-in customer..."
-                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-indigo-500 focus:bg-white focus:outline-none text-xs font-medium text-slate-800"
-                            />
-                        </div>
-                    </div>
-                )}
-
-                {/* M-Pesa STK Push Section */}
-                {paymentMethod === 'mpesa' && (
-                    <div className="space-y-4 mb-6">
-                        <div>
-                            <label className="text-sm font-medium text-gray-600 mb-2 block">📱 Customer Phone Number</label>
-                            <input
-                                type="tel"
-                                value={mpesaPhone}
-                                onChange={(e) => setMpesaPhone(e.target.value)}
-                                placeholder="07XX XXX XXX or 01XX XXX XXX"
-                                className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none text-lg"
-                                disabled={mpesaStatus === 'sending' || mpesaStatus === 'waiting'}
-                            />
-                        </div>
-                        <div>
-                            <label className="text-sm font-medium text-gray-600 mb-2 block">👤 Customer Name (Optional)</label>
-                            <input
-                                type="text"
-                                value={customerName}
-                                onChange={(e) => setCustomerName(e.target.value)}
                                 placeholder="Enter customer name"
-                                className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none text-lg"
+                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-green-500 focus:bg-white focus:outline-none text-xs font-medium text-slate-800"
                                 disabled={mpesaStatus === 'sending' || mpesaStatus === 'waiting'}
                             />
                         </div>
 
-                        {/* M-Pesa Status Display */}
+                        {/* M-Pesa Live Status */}
                         {mpesaStatus !== 'idle' && (
-                            <div className={`p-4 rounded-xl flex items-center gap-3 ${mpesaStatus === 'sending' ? 'bg-amber-50 border border-amber-300' :
-                                mpesaStatus === 'waiting' ? 'bg-blue-50 border border-blue-300' :
-                                    mpesaStatus === 'success' ? 'bg-green-50 border border-green-300' :
-                                        'bg-red-50 border border-red-300'
-                                }`}>
+                            <div className={`p-3 rounded-xl flex items-center gap-2.5 text-xs font-bold border ${
+                                mpesaStatus === 'sending' ? 'bg-amber-50 border-amber-300 text-amber-800' :
+                                mpesaStatus === 'waiting' ? 'bg-blue-50 border-blue-300 text-blue-800' :
+                                mpesaStatus === 'success' ? 'bg-emerald-50 border-emerald-300 text-emerald-800' :
+                                'bg-rose-50 border-rose-300 text-rose-800'
+                            }`}>
                                 {(mpesaStatus === 'sending' || mpesaStatus === 'waiting') && (
-                                    <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin shrink-0"></div>
                                 )}
-                                <span className={`font-medium flex-1 ${mpesaStatus === 'sending' ? 'text-amber-700' :
-                                    mpesaStatus === 'waiting' ? 'text-blue-700' :
-                                        mpesaStatus === 'success' ? 'text-green-700' :
-                                            'text-red-700'
-                                    }`}>{mpesaStatusMessage}</span>
+                                <span className="flex-1">${mpesaStatusMessage}</span>
                             </div>
                         )}
 
-                        {/* Cancel & Resend STK during waiting (customer cancelled/didn't respond) */}
+                        {/* Cancel & Resend */}
                         {mpesaStatus === 'waiting' && (
                             <button
                                 onClick={() => {
@@ -1095,31 +1102,33 @@ const PaymentModal = ({
                                     resetMpesaState();
                                     toast('STK cancelled — ready to resend', { icon: '🔄' });
                                 }}
-                                className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl font-bold text-base transition-all flex items-center justify-center gap-2 shadow-md"
+                                className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-xs active:scale-95"
                             >
-                                <span>🔄</span> Cancel & Resend STK Push
+                                <FiRotateCcw size={13} />
+                                <span>Cancel &amp; Resend STK Push</span>
                             </button>
                         )}
 
-                        {/* Send / Resend STK Push Button */}
+                        {/* Send STK Push Button */}
                         {(mpesaStatus === 'idle' || mpesaStatus === 'failed') && (
                             <button
                                 onClick={handleMpesaSTKPush}
-                                className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
+                                className="w-full py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md shadow-green-600/20 active:scale-95"
                             >
-                                <span>📲</span> {mpesaStatus === 'failed' ? 'Resend STK Push' : 'Send STK Push'}
+                                <FiSmartphone size={14} />
+                                <span>{mpesaStatus === 'failed' ? 'Resend STK Push' : 'Send STK Push Prompt'}</span>
                             </button>
                         )}
 
                         {/* Manual Receipt Entry */}
-                        <div className="pt-4 border-t border-gray-200">
-                            <p className="text-xs text-gray-500 mb-2 text-center">- OR enter receipt manually if customer has already paid -</p>
+                        <div className="pt-2 border-t border-slate-200">
+                            <p className="text-[10px] text-slate-400 mb-1 text-center font-medium">Or enter M-Pesa receipt code manually</p>
                             <input
                                 type="text"
                                 value={mpesaReceipt}
                                 onChange={(e) => setMpesaReceipt(e.target.value.toUpperCase())}
-                                placeholder="M-Pesa Receipt e.g. RLJ5XXXXXX"
-                                className="w-full p-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none"
+                                placeholder="e.g. QAB12CD34E"
+                                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl focus:border-green-500 focus:bg-white focus:outline-none uppercase font-mono text-center tracking-widest font-bold text-xs"
                             />
                         </div>
                     </div>
@@ -1127,77 +1136,55 @@ const PaymentModal = ({
 
                 {/* KCB Buni STK Section */}
                 {paymentMethod === 'kcb' && (
-                    <div className="space-y-4 mb-6">
+                    <div className="space-y-3">
                         <div>
-                            <label className="text-sm font-medium text-gray-600 mb-2 block">🏦 Customer Phone Number (M-Pesa)</label>
+                            <label className="text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
+                                <FiArchive size={13} className="text-blue-600" />
+                                <span>Customer Phone Number (KCB Buni)</span>
+                            </label>
                             <input
                                 type="tel"
                                 value={kcbPhone}
                                 onChange={(e) => setKcbPhone(e.target.value)}
                                 placeholder="07XX XXX XXX"
-                                className="w-full p-4 bg-gray-50 border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:outline-none text-lg"
+                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 focus:bg-white focus:outline-none text-base font-black font-mono text-slate-900 transition-all"
                                 disabled={kcbStatus === 'sending' || kcbStatus === 'waiting'}
                             />
                         </div>
                         <div>
-                            <label className="text-sm font-medium text-gray-600 mb-2 block">👤 Customer Name (Optional)</label>
+                            <label className="text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
+                                <FiUser size={13} className="text-slate-400" />
+                                <span>Customer Name (Optional)</span>
+                            </label>
                             <input
                                 type="text"
                                 value={customerName}
                                 onChange={(e) => setCustomerName(e.target.value)}
                                 placeholder="Enter customer name"
-                                className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
-                                disabled={kcbStatus === 'sending' || kcbStatus === 'waiting'}
+                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 focus:bg-white focus:outline-none text-xs font-medium text-slate-800"
                             />
                         </div>
 
-                        {/* KCB Status Display */}
-                        {kcbStatus !== 'idle' && (
-                            <div className={`p-4 rounded-xl flex items-center gap-3 ${kcbStatus === 'sending' ? 'bg-amber-50 border border-amber-300' :
-                                kcbStatus === 'waiting' ? 'bg-blue-50 border border-blue-300' :
-                                    kcbStatus === 'success' ? 'bg-green-50 border border-green-300' :
-                                        'bg-red-50 border border-red-300'
-                            }`}>
-                                {(kcbStatus === 'sending' || kcbStatus === 'waiting') && (
-                                    <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                                )}
-                                <span className={`font-medium flex-1 ${kcbStatus === 'sending' ? 'text-amber-700' :
-                                    kcbStatus === 'waiting' ? 'text-blue-700' :
-                                        kcbStatus === 'success' ? 'text-green-700' :
-                                            'text-red-700'
-                                }`}>{kcbStatusMsg}</span>
-                            </div>
-                        )}
-
-                        {/* Cancel & Resend during waiting */}
-                        {kcbStatus === 'waiting' && (
-                            <button
-                                onClick={() => { resetKcbState(); toast('KCB STK cancelled — ready to resend', { icon: '🔄' }); }}
-                                className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2"
-                            >
-                                <span>🔄</span> Cancel & Resend KCB STK Push
-                            </button>
-                        )}
-
-                        {/* Send STK Button */}
+                        {/* Send KCB STK Push */}
                         {(kcbStatus === 'idle' || kcbStatus === 'failed') && (
                             <button
                                 onClick={handleKcbSTKPush}
-                                className="w-full py-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 shadow-lg"
+                                className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md shadow-blue-600/20 active:scale-95"
                             >
-                                <span>📲</span> {kcbStatus === 'failed' ? 'Resend KCB STK Push' : 'Send KCB STK Push'}
+                                <FiSmartphone size={14} />
+                                <span>{kcbStatus === 'failed' ? 'Resend KCB Push' : 'Send KCB STK Push'}</span>
                             </button>
                         )}
 
-                        {/* Manual Receipt Entry */}
-                        <div className="pt-4 border-t border-gray-200">
-                            <p className="text-xs text-gray-500 mb-2 text-center">- OR enter KCB receipt manually if customer has already paid -</p>
+                        {/* Manual Receipt */}
+                        <div className="pt-2 border-t border-slate-200">
+                            <p className="text-[10px] text-slate-400 mb-1 text-center font-medium">Or enter KCB reference manually</p>
                             <input
                                 type="text"
                                 value={kcbReceipt}
                                 onChange={(e) => setKcbReceipt(e.target.value.toUpperCase())}
-                                placeholder="KCB Receipt number"
-                                className="w-full p-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
+                                placeholder="KCB Reference Code"
+                                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 focus:bg-white focus:outline-none uppercase font-mono text-center tracking-widest font-bold text-xs"
                             />
                         </div>
                     </div>
@@ -1428,11 +1415,13 @@ const PaymentModal = ({
                 {/* Actions */}
                 </div>
 
-                {/* Actions Footer */}
-                <div className="flex gap-2.5 p-4 border-t border-slate-200 bg-slate-50/70 shrink-0">
+                </div>
+
+                {/* ═══ Super Fine Action Footer ═══ */}
+                <div className="flex gap-2.5 p-3.5 border-t border-slate-200 bg-slate-50 shrink-0">
                     <button
                         onClick={handleClose}
-                        className="py-3 px-5 border border-slate-300 text-slate-700 rounded-xl font-bold text-xs hover:bg-slate-100 transition-all shadow-2xs active:scale-95"
+                        className="py-2.5 px-5 border border-slate-300 text-slate-700 rounded-xl font-bold text-xs hover:bg-slate-100 transition-all shadow-2xs active:scale-95"
                         disabled={mpesaStatus === 'sending' || mpesaStatus === 'waiting' || kcbStatus === 'sending' || kcbStatus === 'waiting'}
                     >
                         Cancel
@@ -1450,7 +1439,7 @@ const PaymentModal = ({
                                     await onComplete(
                                         paymentMethod === 'mpesa' ? 'MPESA' : paymentMethod === 'kcb' ? 'KCB' : paymentMethod.toUpperCase(),
                                         paymentMethod === 'credit'
-                                            ? (Number(partialCashPaid) || 0)  // partial amount paid now
+                                            ? (Number(partialCashPaid) || 0)
                                             : paymentMethod === 'kcb'
                                                 ? total
                                                 : (Number(amountPaid) || total),
@@ -1460,7 +1449,6 @@ const PaymentModal = ({
                                         selectedCustomer ? (selectedCustomer.phone || undefined) : undefined,
                                         paymentMethod === 'credit' ? partialPayMethod : undefined
                                     );
-                                    // ── Save pledge if date was set ──
                                     if (paymentMethod === 'credit' && selectedCustomer && pledgeDate) {
                                         const creditAmt = total - (Number(partialCashPaid) || 0);
                                         await supabase.from('retail_credit_pledges').insert({
@@ -1481,19 +1469,19 @@ const PaymentModal = ({
                                 }
                             }}
                             disabled={isSaving || (paymentMethod === 'mpesa' && !mpesaReceipt && mpesaStatus !== 'success') || (paymentMethod === 'kcb' && !kcbReceipt && kcbStatus !== 'success') || (paymentMethod === 'credit' && !selectedCustomer)}
-                            className={`flex-1 py-3.5 px-6 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md ${
+                            className={`flex-1 py-3 px-5 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md active:scale-95 ${
                                 isSaving || (paymentMethod === 'mpesa' && !mpesaReceipt && mpesaStatus !== 'success') || (paymentMethod === 'kcb' && !kcbReceipt && kcbStatus !== 'success') || (paymentMethod === 'credit' && !selectedCustomer)
                                 ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed shadow-none'
-                                : 'bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 hover:from-slate-800 hover:to-indigo-900 text-white border border-slate-700 shadow-indigo-950/20 active:scale-[0.98]'
-                                }`}
+                                : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-emerald-500/25'
+                            }`}
                         >
-                            <FiCheckCircle size={15} className="text-emerald-400" />
+                            <FiCheckCircle size={15} className="text-white" />
                             <span>{isSaving ? 'Processing...' : (paymentMethod === 'credit' && !selectedCustomer ? 'Select Customer' : 'Complete Sale')}</span>
+                            <span className="ml-auto text-[9px] bg-white/20 px-1.5 py-0.5 rounded font-mono font-bold text-white">Enter</span>
                         </button>
                     )}
                 </div>
             </div>
-        </div>
     );
 };
 
@@ -3018,74 +3006,62 @@ export default function RetailPOSPage() {
 
     return (
         <div className="-mt-4 lg:-mt-6 -mx-4 lg:-mx-6 -mb-4 lg:-mb-6 h-[calc(100vh)] lg:h-[calc(100vh-64px)] flex flex-col bg-slate-100 overflow-hidden select-none">
-            {/* ═══ Super Executive Alpha Retail Top Banner (Zero blank headroom) ═══ */}
-            <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 text-white px-4 py-2 flex items-center justify-between shrink-0 shadow-lg border-b border-slate-800 z-20">
-                {/* Left: Alpha Retail Brand Identity */}
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md shadow-emerald-500/25 border border-emerald-400/30 shrink-0">
-                        <FiShoppingCart size={16} />
-                    </div>
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <h1 className="text-xs sm:text-sm font-black tracking-wide text-white uppercase flex items-center gap-1.5 leading-none">
-                                <span>ALPHA RETAIL</span>
-                                <span className="text-emerald-400 font-extrabold text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 border border-emerald-500/30">POS</span>
-                            </h1>
-                            <span className="text-slate-600">|</span>
-                            <span className="text-xs font-bold text-slate-200 bg-white/10 px-2 py-0.5 rounded-lg border border-white/10 flex items-center gap-1">
-                                <FiShoppingBag size={11} className="text-emerald-400" />
-                                {storeName}
-                            </span>
-                            <span className="text-[10px] font-mono font-black text-indigo-300 bg-indigo-500/20 border border-indigo-400/30 px-1.5 py-0.5 rounded">
-                                {outletCode}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Right: Live Terminal Metrics & Profile */}
-                <div className="flex items-center gap-2">
-                    {/* Live Online Badge */}
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/15 border border-emerald-500/30 rounded-lg text-emerald-400">
+            {/* ═══ Executive Session HUD — Clean Light Studio Bar ═══ */}
+            <div className="bg-white border-b border-slate-200 px-3.5 py-2 flex items-center justify-between shrink-0 shadow-xs z-20">
+                {/* Left: Terminal status & Brand */}
+                <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 rounded-lg border border-emerald-200/80">
                         <span className="relative flex h-2 w-2">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                         </span>
-                        <span className="text-[10px] font-black uppercase tracking-wider">Live Online</span>
+                        <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Terminal Live</span>
                     </div>
 
-                    {/* Date */}
-                    <div className="hidden lg:flex items-center gap-1.5 text-slate-300 text-xs font-semibold px-2 py-1 bg-white/5 rounded-lg border border-white/10">
+                    <div className="h-4 w-px bg-slate-200" />
+
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-black uppercase tracking-wide text-slate-800">ALPHA RETAIL POS</span>
+                        <span className="text-slate-300">/</span>
+                        <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 flex items-center gap-1">
+                            <FiShoppingBag size={11} className="text-slate-500" />
+                            {storeName}
+                        </span>
+                        <span className="text-[10px] font-mono font-black text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded">
+                            {outletCode}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Right: Date, Live Clock, Receipt #, Cashier, Fullscreen */}
+                <div className="flex items-center gap-2">
+                    <div className="hidden md:flex items-center gap-1 text-slate-500 text-xs font-semibold px-2 py-1 bg-slate-50 rounded-lg border border-slate-200">
                         <FiCalendar size={12} className="text-slate-400" />
                         <span>{new Date().toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}</span>
                     </div>
 
-                    {/* Live Digital Clock */}
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-black/40 text-emerald-400 rounded-lg border border-emerald-500/30 text-xs font-mono font-black shadow-inner">
-                        <FiClock size={12} />
+                    <div className="flex items-center gap-1 px-2.5 py-1 bg-slate-900 text-emerald-400 rounded-lg border border-slate-800 text-xs font-mono font-bold shadow-xs">
+                        <FiClock size={12} className="text-emerald-400" />
                         <span>{currentTime || '00:00:00'}</span>
                     </div>
 
-                    {/* Receipt Sequence Chip */}
-                    <div className="flex items-center gap-1 px-2.5 py-1 bg-blue-500/15 text-blue-300 rounded-lg border border-blue-400/30 text-xs font-mono font-black" title="Current Receipt Sequence">
-                        <FiTag size={12} className="text-blue-400" />
+                    <div className="flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg border border-blue-200 text-xs font-mono font-black shadow-2xs" title="Current Receipt Sequence">
+                        <FiTag size={12} className="text-blue-500" />
                         <span>{receiptNo}</span>
                     </div>
 
-                    {/* Cashier Badge */}
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-purple-500/15 rounded-lg border border-purple-400/30 text-purple-200 text-xs font-bold">
-                        <FiUser size={12} className="text-purple-400" />
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 rounded-lg border border-purple-200 text-purple-800 text-xs font-bold shadow-2xs">
+                        <FiUser size={12} className="text-purple-600" />
                         <span className="max-w-[100px] truncate">{loggedInUserName || 'Cashier'}</span>
-                        <span className="text-[9px] font-black uppercase tracking-wider bg-purple-400/20 text-purple-200 px-1 py-0.2 rounded">
+                        <span className="text-[9px] font-black uppercase tracking-wider bg-purple-200/70 text-purple-800 px-1 py-0.2 rounded">
                             {isWaiterUser ? 'Cashier' : 'Admin'}
                         </span>
                     </div>
 
-                    {/* Waiter Logout */}
                     {isWaiterUser && (
                         <button
                             onClick={() => { localStorage.removeItem('user'); window.location.href = '/'; }}
-                            className="h-7 px-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-xs font-bold transition-all shadow-md flex items-center gap-1 active:scale-95"
+                            className="h-7 px-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1 active:scale-95"
                             title="Sign out of cashier terminal"
                         >
                             <FiLogOut size={12} />
@@ -3093,10 +3069,9 @@ export default function RetailPOSPage() {
                         </button>
                     )}
 
-                    {/* Fullscreen Toggle */}
                     <button
                         onClick={toggleFullscreen}
-                        className="w-7 h-7 flex items-center justify-center bg-white/10 hover:bg-white/20 text-slate-200 hover:text-white rounded-lg border border-white/15 transition-all hover:scale-105 active:scale-95"
+                        className="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-200 transition-all hover:scale-105 active:scale-95 shadow-2xs"
                         title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
                     >
                         {isFullscreen ? <FiMinimize size={13} /> : <FiMaximize size={13} />}
@@ -3556,18 +3531,31 @@ export default function RetailPOSPage() {
                         )}
                     </div>
 
-                    {/* Pay Button — Matches Shopping Cart Header Exactly */}
-                    <div className="p-3 border-t border-slate-200 shrink-0 bg-white">
+                    {/* Pay Panel — Exact same panel as Shopping Cart Header, NO curved border, exact sharp fonts */}
+                    <div className="shrink-0 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-t border-slate-800">
                         <button
                             onClick={() => setShowPayment(true)}
                             disabled={cart.length === 0}
-                            className="w-full py-3.5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 hover:from-slate-800 hover:via-indigo-900 hover:to-slate-800 text-white rounded-xl font-black text-xs uppercase tracking-wider hover:shadow-xl hover:shadow-indigo-950/30 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2.5 active:scale-[0.98] border border-slate-700/60 shadow-lg"
+                            className="w-full px-4 py-3.5 flex items-center justify-between text-white hover:bg-white/5 active:bg-white/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed group cursor-pointer"
                         >
-                            <div className="w-6 h-6 rounded-lg bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400 shrink-0">
-                                <FiCreditCard size={13} />
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center shrink-0 text-emerald-400 group-hover:scale-105 transition-transform">
+                                    <FiCreditCard size={16} />
+                                </div>
+                                <div className="text-left">
+                                    <p className="font-black text-xs uppercase tracking-wider text-white leading-tight">
+                                        PAY Ksh {grandTotal.toLocaleString()}
+                                    </p>
+                                    <p className="text-emerald-400 text-[10px] font-bold leading-tight whitespace-nowrap">
+                                        Click to Tender &amp; Checkout
+                                    </p>
+                                </div>
                             </div>
-                            <span className="tracking-wider">PAY Ksh {grandTotal.toLocaleString()}</span>
-                            <span className="ml-auto text-[10px] bg-white/10 border border-white/10 px-2 py-0.5 rounded font-mono font-bold text-slate-300">F12</span>
+                            <div className="flex items-center gap-2">
+                                <span className="px-2.5 py-1 bg-white/10 border border-white/15 rounded text-[10px] font-mono font-black text-emerald-300">
+                                    F12
+                                </span>
+                            </div>
                         </button>
                     </div>
                 </div>

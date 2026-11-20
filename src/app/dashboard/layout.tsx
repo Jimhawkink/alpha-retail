@@ -483,32 +483,46 @@ function POSHeaderBanner({
 
     return (
         <header
-            className="sticky top-0 z-30 h-[72px] flex items-center px-4 lg:px-6 shadow-md border-b border-sky-950 select-none relative overflow-hidden"
-            style={{
-                backgroundColor: '#00173a',
-                backgroundImage: "url('/pos-header-banner.png')",
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'left center',
-                backgroundSize: 'auto 100%',
-            }}
+            className="sticky top-0 z-30 h-[72px] flex items-center px-4 lg:px-6 shadow-lg border-b border-sky-900/60 select-none relative overflow-hidden bg-gradient-to-r from-[#02132b] via-[#041e44] to-[#02132b]"
         >
+            {/* Ambient neon radial glows */}
+            <div className="absolute top-0 left-1/4 w-96 h-full bg-emerald-500/10 blur-3xl pointer-events-none" />
+            <div className="absolute top-0 right-1/4 w-96 h-full bg-sky-500/10 blur-3xl pointer-events-none" />
+
             {/* Mobile drawer toggle */}
             {!isCashier && (
                 <button
                     onClick={() => setMobileOpen(true)}
-                    className="lg:hidden w-9 h-9 rounded-xl bg-[#031d40]/90 border border-sky-400/40 text-white flex items-center justify-center shadow-xs shrink-0 mr-2 z-20"
+                    className="lg:hidden w-9 h-9 rounded-xl bg-[#031d40]/90 border border-sky-400/40 text-white flex items-center justify-center shadow-xs shrink-0 mr-3 z-20"
                     title="Menu"
                 >
                     <Menu size={18} />
                 </button>
             )}
 
-            {/* Clickable Overlay Link over VINROSE HARDWARE brand logo on left */}
+            {/* Dynamic Super Executive Brand Logo & Title on left */}
             <Link
                 href="/dashboard"
-                className="w-[280px] sm:w-[420px] h-full z-10 shrink-0 cursor-pointer"
+                className="flex items-center gap-3 z-10 shrink-0 cursor-pointer group no-underline"
                 title="Go to Dashboard"
-            />
+            >
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 flex items-center justify-center text-white shadow-lg shadow-emerald-500/30 border border-emerald-300/40 shrink-0 group-hover:scale-105 transition-transform duration-200">
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                </div>
+                <div className="flex flex-col justify-center">
+                    <div className="flex items-center gap-1.5 leading-none">
+                        <span className="text-white font-black text-base sm:text-lg tracking-wider uppercase font-sans">VINROSE</span>
+                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-lime-300 font-black text-base sm:text-lg tracking-wider uppercase font-sans">HARDWARE</span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] sm:text-[11px] font-bold text-sky-200 uppercase tracking-widest leading-none">ALPHA RETAIL POS</span>
+                        <span className="text-sky-500 font-light text-[10px] leading-none">•</span>
+                        <span className="text-[10px] sm:text-[11px] italic text-slate-300 font-medium leading-none">Build · Equip · Grow</span>
+                    </div>
+                </div>
+            </Link>
 
             {/* Right-Side Capsule Pill: User + Date/Time (LIVE) + Online */}
             <div className="ml-auto relative z-20 flex items-center">
