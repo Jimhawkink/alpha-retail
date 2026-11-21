@@ -390,26 +390,34 @@ export default function FullSalesReportPage() {
       .reduce((s, [, items]) => s + items.reduce((q, it) => q + (it.quantity || 0), 0), 0);
 
     if (isCashier) {
+      // Cashiers see their own sales totals — only profit/cost/margin hidden
+      const revenue = filtered.reduce((s, r) => s + (r.total_amount || 0), 0);
+      const discount = filtered.reduce((s, r) => s + (r.discount || 0), 0);
+      const avg = txns > 0 ? revenue / txns : 0;
+      const cashRows = filtered.filter((r) => (r.payment_method || '').toLowerCase() === 'cash');
+      const mpesaRows = filtered.filter((r) => ['m-pesa', 'mpesa'].includes((r.payment_method || '').toLowerCase()));
+      const cardRows = filtered.filter((r) => (r.payment_method || '').toLowerCase() === 'card');
+      const creditRows = filtered.filter((r) => (r.payment_method || '').toLowerCase() === 'credit');
       return {
         txns,
         totalQty,
-        revenue: 0,
-        discount: 0,
-        avg: 0,
-        cash: 0,
-        mpesa: 0,
-        card: 0,
-        credit: 0,
-        profit: 0,
-        cost: 0,
-        cashTxns: 0,
-        mpesaTxns: 0,
-        cardTxns: 0,
-        creditTxns: 0,
-        discountTxns: 0,
+        revenue,
+        discount,
+        avg,
+        cash: cashRows.reduce((s, r) => s + (r.total_amount || 0), 0),
+        mpesa: mpesaRows.reduce((s, r) => s + (r.total_amount || 0), 0),
+        card: cardRows.reduce((s, r) => s + (r.total_amount || 0), 0),
+        credit: creditRows.reduce((s, r) => s + (r.total_amount || 0), 0),
+        profit: 0,   // hidden
+        cost: 0,     // hidden
+        margin: 0,   // hidden
+        cashTxns: cashRows.length,
+        mpesaTxns: mpesaRows.length,
+        cardTxns: cardRows.length,
+        creditTxns: creditRows.length,
+        discountTxns: filtered.filter((r) => (r.discount || 0) > 0).length,
         minSale: 0,
         maxSale: 0,
-        margin: 0,
       };
     }
 
@@ -1060,7 +1068,7 @@ export default function FullSalesReportPage() {
           {[
             {
               label: 'Gross Sales',
-              value: isCashier ? 'Ksh 0.00' : fmt(stats.revenue),
+              value: fmt(stats.revenue),
               sub: `${fmtN(stats.txns)} orders · Disc -${fmt(stats.discount)}`,
               color: 'text-indigo-700',
               bg: 'bg-indigo-50 text-indigo-600 border border-indigo-200',
@@ -1068,8 +1076,8 @@ export default function FullSalesReportPage() {
             },
             {
               label: 'Net Profit',
-              value: isCashier ? 'Ksh 0.00' : fmt(stats.profit),
-              sub: `${(stats.margin || 0).toFixed(1)}% margin · Cost ${fmtK(stats.cost)}`,
+              value: isCashier ? '—' : fmt(stats.profit),
+              sub: isCashier ? 'Manager access only' : `${(stats.margin || 0).toFixed(1)}% margin · Cost ${fmtK(stats.cost)}`,
               color: stats.profit >= 0 ? 'text-emerald-700' : 'text-rose-700',
               bg:
                 stats.profit >= 0
@@ -1080,14 +1088,14 @@ export default function FullSalesReportPage() {
             {
               label: 'Units Sold',
               value: `${fmtN(stats.totalQty)} Pcs`,
-              sub: `Avg order ${isCashier ? '0' : fmtK(stats.avg)}`,
+              sub: `Avg order ${fmtK(stats.avg)}`,
               color: 'text-sky-700',
               bg: 'bg-sky-50 text-sky-600 border border-sky-200',
               icon: <FiShoppingBag size={13} />,
             },
             {
               label: 'Cash in Hand',
-              value: isCashier ? 'Ksh 0.00' : fmt(stats.cash + creditPaidData.total),
+              value: fmt(stats.cash + creditPaidData.total),
               sub: `Sales: ${fmtK(stats.cash)} + Cr: ${fmtK(creditPaidData.total)}`,
               color: 'text-cyan-700',
               bg: 'bg-cyan-50 text-cyan-600 border border-cyan-200',
@@ -1095,7 +1103,7 @@ export default function FullSalesReportPage() {
             },
             {
               label: 'M-Pesa Volume',
-              value: isCashier ? 'Ksh 0.00' : fmt(stats.mpesa),
+              value: fmt(stats.mpesa),
               sub: `${fmtN(stats.mpesaTxns)} txns · ${
                 stats.revenue > 0 ? ((stats.mpesa / stats.revenue) * 100).toFixed(1) : 0
               }% share`,
@@ -1105,7 +1113,7 @@ export default function FullSalesReportPage() {
             },
             {
               label: 'Credit Collected',
-              value: isCashier ? 'Ksh 0.00' : fmt(creditPaidData.total),
+              value: fmt(creditPaidData.total),
               sub: `${fmtN(creditPaidData.txns)} debt settlements`,
               color: 'text-amber-700',
               bg: 'bg-amber-50 text-amber-600 border border-amber-200',
@@ -1607,25 +1615,25 @@ export default function FullSalesReportPage() {
                             {sale.total_items ?? sale.total_qty ?? '—'}
                           </td>
 
-                          {/* 10. Cost Price */}
+                          {/* 10. Cost Price — hidden from cashiers */}
                           <td className="py-2 px-3 whitespace-nowrap text-right font-mono text-xs text-slate-600 border-r border-slate-100">
-                            {isCashier ? '—' : fmt(sale.total_cost || 0)}
+                            {isCashier ? <span className="text-slate-300 text-[10px]">—</span> : fmt(sale.total_cost || 0)}
                           </td>
 
-                          {/* 11. Subtotal */}
+                          {/* 11. Subtotal — cashiers CAN see this */}
                           <td className="py-2 px-3 whitespace-nowrap text-right font-mono text-xs text-slate-600 border-r border-slate-100">
-                            {isCashier ? '—' : fmt(sale.subtotal || sale.total_amount || 0)}
+                            {fmt(sale.subtotal || sale.total_amount || 0)}
                           </td>
 
-                          {/* 12. Total Amount */}
+                          {/* 12. Total Amount — cashiers CAN see this */}
                           <td className="py-2 px-3 whitespace-nowrap text-right font-mono text-xs font-semibold text-slate-900 border-r border-slate-100">
-                            {isCashier ? '—' : fmt(sale.total_amount || 0)}
+                            {fmt(sale.total_amount || 0)}
                           </td>
 
-                          {/* 13. Profit (Highlighted) */}
+                          {/* 13. Profit — hidden from cashiers */}
                           <td className="py-2 px-3 whitespace-nowrap text-right font-mono text-xs font-semibold border-r border-slate-100">
                             {isCashier ? (
-                              '—'
+                              <span className="text-slate-300 text-[10px]">—</span>
                             ) : (
                               <span
                                 className={`px-1.5 py-0.5 rounded border ${
