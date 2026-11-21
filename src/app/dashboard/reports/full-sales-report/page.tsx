@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useOutlet } from '@/context/OutletContext';
 import toast, { Toaster } from 'react-hot-toast';
@@ -84,9 +84,51 @@ const firstOfMonth = () => {
   return d.toISOString().split('T')[0];
 };
 
+const safeDate = (val: any): Date | null => {
+  if (!val) return null;
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? null : d;
+};
+
 const PAY_METHODS = ['All', 'Cash', 'M-Pesa', 'Card', 'Credit', 'Split'];
 const PAGE_SIZES = [25, 50, 100, 200];
 const PIE_COLORS = ['#10B981', '#0284C7', '#8B5CF6', '#F59E0B', '#EC4899', '#64748B'];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stat Chip Component (Restored exactly as loved)
+// ─────────────────────────────────────────────────────────────────────────────
+function Chip({
+  icon,
+  label,
+  value,
+  bg,
+  sub,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  bg: string;
+  sub?: { label: string; value: string }[];
+}) {
+  return (
+    <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs flex-shrink-0 shadow-2xs ${bg}`}>
+      <span className="text-base leading-none">{icon}</span>
+      <div>
+        <p className="font-bold uppercase tracking-wide opacity-60 text-[9px] leading-none mb-0.5">{label}</p>
+        <p className="font-black text-sm leading-none font-mono">{value}</p>
+        {sub && sub.length > 0 && (
+          <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
+            {sub.map((s, i) => (
+              <span key={i} className="text-[8px] opacity-75 font-semibold whitespace-nowrap leading-none">
+                {s.label}: <span className="font-black opacity-95">{s.value}</span>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Badge Component
@@ -119,7 +161,7 @@ export default function FullSalesReportPage() {
     setMounted(true);
   }, []);
 
-  // User state & permissions
+  // User info & Cashier permissions
   const [user, setUser] = useState<any>(null);
   const [isCashier, setIsCashier] = useState(false);
   useEffect(() => {
@@ -257,6 +299,19 @@ export default function FullSalesReportPage() {
     [sales]
   );
 
+  // Set default salesperson to logged in user if match found
+  useEffect(() => {
+    if (user && salesPersons.length && !spFilter) {
+      const myName = user.name || user.full_name || user.username || '';
+      const match = salesPersons.find(
+        (sp) =>
+          sp?.toLowerCase() === myName?.toLowerCase() ||
+          sp?.toLowerCase().includes(myName?.toLowerCase())
+      );
+      if (match) setSpFilter(match);
+    }
+  }, [user, salesPersons, spFilter]);
+
   // ─────────────────────────────────────────────────────────────────────────
   // Filter & Sort Pipeline
   // ─────────────────────────────────────────────────────────────────────────
@@ -283,9 +338,17 @@ export default function FullSalesReportPage() {
     });
 
     if (sortBy === 'newest') {
-      res.sort((a, b) => new Date(b.sale_datetime || b.sale_date).getTime() - new Date(a.sale_datetime || a.sale_date).getTime());
+      res.sort((a, b) => {
+        const tA = safeDate(a.sale_datetime || a.sale_date)?.getTime() || 0;
+        const tB = safeDate(b.sale_datetime || b.sale_date)?.getTime() || 0;
+        return tB - tA;
+      });
     } else if (sortBy === 'oldest') {
-      res.sort((a, b) => new Date(a.sale_datetime || a.sale_date).getTime() - new Date(b.sale_datetime || b.sale_date).getTime());
+      res.sort((a, b) => {
+        const tA = safeDate(a.sale_datetime || a.sale_date)?.getTime() || 0;
+        const tB = safeDate(b.sale_datetime || b.sale_date)?.getTime() || 0;
+        return tA - tB;
+      });
     } else if (sortBy === 'highest_amount') {
       res.sort((a, b) => (b.total_amount || 0) - (a.total_amount || 0));
     } else if (sortBy === 'highest_profit') {
@@ -380,24 +443,31 @@ export default function FullSalesReportPage() {
   }, [filtered, itemsMap, isCashier]);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Linear Trend / Chart Analytics Aggregators
+  // Linear Trend / Chart Analytics Aggregators (Safe Against Invalid Dates)
   // ─────────────────────────────────────────────────────────────────────────
   const trendData = useMemo(() => {
     const isSingleDay = dateFrom === dateTo;
     const grouped: Record<string, { label: string; revenue: number; profit: number; count: number; cost: number }> = {};
 
     filtered.forEach((sale) => {
-      let key = '';
-      let displayLabel = '';
-      const dt = new Date(sale.sale_datetime || sale.sale_date);
+      let key = sale.sale_date || 'Unknown';
+      let displayLabel = sale.sale_date || 'Unknown';
+      const dt = safeDate(sale.sale_datetime || sale.sale_date);
 
       if (isSingleDay) {
-        const hour = isNaN(dt.getHours()) ? '12:00' : `${String(dt.getHours()).padStart(2, '0')}:00`;
-        key = hour;
-        displayLabel = hour;
+        if (dt) {
+          const hour = `${String(dt.getHours()).padStart(2, '0')}:00`;
+          key = hour;
+          displayLabel = hour;
+        } else {
+          key = '12:00';
+          displayLabel = '12:00';
+        }
       } else {
-        key = sale.sale_date || dt.toISOString().split('T')[0];
-        displayLabel = new Date(key).toLocaleDateString('en-KE', { month: 'short', day: 'numeric' });
+        if (dt) {
+          key = dt.toISOString().split('T')[0];
+          displayLabel = dt.toLocaleDateString('en-KE', { month: 'short', day: 'numeric' });
+        }
       }
 
       if (!grouped[key]) {
@@ -476,7 +546,6 @@ export default function FullSalesReportPage() {
   const expandAll = async () => {
     const allIds = paginated.map((s) => Number(s.sale_id));
     setExpandedRows(new Set(allIds));
-    // Fetch any missing
     for (const sid of allIds) {
       if (!itemsMap[sid]) {
         try {
@@ -494,8 +563,8 @@ export default function FullSalesReportPage() {
   // ─────────────────────────────────────────────────────────────────────────
   // Reprint Receipt Handler
   // ─────────────────────────────────────────────────────────────────────────
-  const reprintSale = async (sale: any, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const reprintSale = async (sale: any, e: any) => {
+    if (e && e.stopPropagation) e.stopPropagation();
     const sid = Number(sale.sale_id);
     let saleItems = itemsMap[sid];
     if (!saleItems) {
@@ -505,11 +574,11 @@ export default function FullSalesReportPage() {
     }
     try {
       const company = await loadCompanyInfo();
-      const d = new Date(sale.sale_datetime || sale.sale_date);
+      const dt = safeDate(sale.sale_datetime || sale.sale_date) || new Date();
       const receiptData = {
         invoiceNo: sale.receipt_no || '—',
-        date: d.toLocaleDateString('en-GB'),
-        time: d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+        date: dt.toLocaleDateString('en-GB'),
+        time: dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
         cashier: sale.created_by || sale.salesperson_name || 'Cashier',
         items:
           saleItems.length > 0
@@ -545,22 +614,25 @@ export default function FullSalesReportPage() {
   // ─────────────────────────────────────────────────────────────────────────
   const exportExcel = () => {
     try {
-      const rows = filtered.map((s) => ({
-        'Receipt No': s.receipt_no || '—',
-        Date: s.sale_date,
-        Time: s.sale_datetime ? new Date(s.sale_datetime).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' }) : s.sale_time || '',
-        'Customer Name': s.customer_name || 'Walk-in',
-        'Customer Phone': s.customer_phone || '',
-        'Salesperson / Cashier': getSP(s),
-        'Payment Method': s.payment_method || 'CASH',
-        'M-Pesa Reference': s.mpesa_code || '',
-        'Subtotal (KES)': s.subtotal || 0,
-        'Discount (KES)': s.discount || 0,
-        'Cost Amount (KES)': s.total_cost || 0,
-        'Total Amount (KES)': s.total_amount || 0,
-        'Gross Profit (KES)': s.profit || 0,
-        Status: s.status || 'Completed',
-      }));
+      const rows = filtered.map((s) => {
+        const dt = safeDate(s.sale_datetime || s.sale_date);
+        return {
+          'Receipt No': s.receipt_no || '—',
+          Date: s.sale_date,
+          Time: dt ? dt.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' }) : s.sale_time || '',
+          'Customer Name': s.customer_name || 'Walk-in',
+          'Customer Phone': s.customer_phone || '',
+          'Salesperson / Cashier': getSP(s),
+          'Payment Method': s.payment_method || 'CASH',
+          'M-Pesa Reference': s.mpesa_code || '',
+          'Subtotal (KES)': s.subtotal || 0,
+          'Discount (KES)': s.discount || 0,
+          'Cost Amount (KES)': s.total_cost || 0,
+          'Total Amount (KES)': s.total_amount || 0,
+          'Gross Profit (KES)': s.profit || 0,
+          Status: s.status || 'Completed',
+        };
+      });
 
       const ws = XLSX.utils.json_to_sheet(rows);
       const wb = XLSX.utils.book_new();
@@ -590,22 +662,25 @@ export default function FullSalesReportPage() {
       'Profit',
       'Status',
     ];
-    const rows = filtered.map((s) => [
-      s.receipt_no,
-      s.sale_date,
-      s.sale_datetime ? new Date(s.sale_datetime).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' }) : '',
-      s.customer_name || 'Walk-in',
-      s.customer_phone || '',
-      getSP(s),
-      s.payment_method || '',
-      s.mpesa_code || '',
-      s.subtotal,
-      s.discount,
-      s.total_cost,
-      s.total_amount,
-      s.profit,
-      s.status || '',
-    ]);
+    const rows = filtered.map((s) => {
+      const dt = safeDate(s.sale_datetime || s.sale_date);
+      return [
+        s.receipt_no,
+        s.sale_date,
+        dt ? dt.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' }) : '',
+        s.customer_name || 'Walk-in',
+        s.customer_phone || '',
+        getSP(s),
+        s.payment_method || '',
+        s.mpesa_code || '',
+        s.subtotal,
+        s.discount,
+        s.total_cost,
+        s.total_amount,
+        s.profit,
+        s.status || '',
+      ];
+    });
     const csv = [h, ...rows].map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
@@ -619,7 +694,7 @@ export default function FullSalesReportPage() {
   // UI RENDER
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-3.5 pb-10 max-w-[1600px] mx-auto text-slate-800 p-3 sm:p-4 font-sans">
+    <div className="space-y-3 pb-10 max-w-[1600px] mx-auto text-slate-800 p-3 sm:p-4 font-sans">
       <Toaster position="top-right" />
 
       {/* ═══ 1. COMPACT EXECUTIVE COMMAND HEADER (MATCHING VOTE HEADS) ═══ */}
@@ -642,7 +717,7 @@ export default function FullSalesReportPage() {
                 </span>
               </div>
               <p className="text-xs text-slate-500 font-medium mt-0.5">
-                Executive revenue analytics, cashier settlement breakdown, itemized invoice registry, and linear trends.
+                Multi-dimensional sales ledger, profit analytics, cashier breakdown, and itemized invoice registry.
               </p>
             </div>
           </div>
@@ -764,87 +839,164 @@ export default function FullSalesReportPage() {
               }`}
             >
               <FiFilter size={12} />
-              <span>{showFilters ? 'Hide Controls' : 'Show Controls'}</span>
+              <span>{showFilters ? 'Hide Filters' : 'Show Filters'}</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* ═══ 3. EXECUTIVE FINANCIAL COMMAND HUD (6 LOW-PROFILE CARDS) ═══ */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-        {[
-          {
-            label: 'Gross Revenue',
-            value: isCashier ? 'Ksh 0.00' : fmtK(stats.revenue),
-            sub: `${fmtN(stats.txns)} total transactions`,
-            color: 'text-emerald-700',
-            bg: 'bg-emerald-50/70',
-            border: 'border-emerald-100',
-            icon: <FiDollarSign size={14} className="text-emerald-600" />,
-          },
-          {
-            label: 'Net Profit',
-            value: isCashier ? 'Ksh 0.00' : fmtK(stats.profit),
-            sub: `${(stats.margin || 0).toFixed(1)}% profit margin`,
-            color: stats.profit >= 0 ? 'text-teal-700' : 'text-rose-700',
-            bg: 'bg-teal-50/70',
-            border: 'border-teal-100',
-            icon: <FiTrendingUp size={14} className="text-teal-600" />,
-          },
-          {
-            label: 'Quantity Sold',
-            value: `${fmtN(stats.totalQty)} Units`,
-            sub: `Avg sale ${isCashier ? '0' : fmtK(stats.avg)}`,
-            color: 'text-indigo-700',
-            bg: 'bg-indigo-50/70',
-            border: 'border-indigo-100',
-            icon: <FiShoppingBag size={14} className="text-indigo-600" />,
-          },
-          {
-            label: 'Cash in Hand',
-            value: isCashier ? 'Ksh 0.00' : fmtK(stats.cash + creditPaidData.total),
-            sub: `Sales cash + credit recvd`,
-            color: 'text-cyan-700',
-            bg: 'bg-cyan-50/70',
-            border: 'border-cyan-100',
-            icon: <FiLayers size={14} className="text-cyan-600" />,
-          },
-          {
-            label: 'M-Pesa Volume',
-            value: isCashier ? 'Ksh 0.00' : fmtK(stats.mpesa),
-            sub: `${fmtN(stats.mpesaTxns)} mobile payments`,
-            color: 'text-purple-700',
-            bg: 'bg-purple-50/70',
-            border: 'border-purple-100',
-            icon: <FiActivity size={14} className="text-purple-600" />,
-          },
-          {
-            label: 'Credit Payments',
-            value: isCashier ? 'Ksh 0.00' : fmtK(creditPaidData.total),
-            sub: `${fmtN(creditPaidData.txns)} payments recorded`,
-            color: 'text-amber-700',
-            bg: 'bg-amber-50/70',
-            border: 'border-amber-100',
-            icon: <FiCheckCircle size={14} className="text-amber-600" />,
-          },
-        ].map((k, i) => (
-          <div
-            key={i}
-            className={`bg-white border ${k.border} rounded-xl p-2.5 shadow-2xs flex flex-col justify-between`}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{k.label}</span>
-              <div className={`w-6 h-6 rounded-lg ${k.bg} flex items-center justify-center shrink-0`}>{k.icon}</div>
-            </div>
-            <div className="mt-1">
-              <p className={`text-sm font-extrabold font-mono ${k.color} tracking-tight`}>{k.value}</p>
-              <p className="text-[9.5px] text-slate-400 font-medium truncate">{k.sub}</p>
-            </div>
-          </div>
-        ))}
+      {/* ═══ 3. ALL 12 ESSENTIAL FUNCTIONAL STAT CHIPS (RESTORED) ═══ */}
+      <div className="flex flex-wrap gap-2 shrink-0">
+        <Chip
+          icon="🛒"
+          label="Transactions"
+          value={fmtN(stats.txns)}
+          bg="bg-indigo-50 text-indigo-800 border-indigo-100"
+        />
+        <Chip
+          icon="📦"
+          label="Qty Sold"
+          value={fmtN(stats.totalQty)}
+          bg="bg-sky-50 text-sky-800 border-sky-100"
+        />
+        <Chip
+          icon="💰"
+          label="Total Sales"
+          value={isCashier ? 'Ksh 0.00' : fmt(stats.revenue)}
+          bg="bg-emerald-50 text-emerald-800 border-emerald-100"
+        />
+        <Chip
+          icon="🏷️"
+          label="Discounts"
+          value={isCashier ? 'Ksh 0.00' : fmt(stats.discount)}
+          bg="bg-amber-50 text-amber-800 border-amber-100"
+        />
+        <Chip
+          icon="📊"
+          label="Avg Sale"
+          value={isCashier ? 'Ksh 0.00' : fmt(stats.avg)}
+          bg="bg-blue-50 text-blue-800 border-blue-100"
+        />
+        <Chip
+          icon="💵"
+          label="Cash"
+          value={isCashier ? 'Ksh 0.00' : fmt(stats.cash)}
+          bg="bg-green-50 text-green-800 border-green-100"
+        />
+        <Chip
+          icon="📱"
+          label="M-Pesa"
+          value={isCashier ? 'Ksh 0.00' : fmt(stats.mpesa)}
+          bg="bg-rose-50 text-rose-800 border-rose-100"
+        />
+        <Chip
+          icon="💳"
+          label="Card"
+          value={isCashier ? 'Ksh 0.00' : fmt(stats.card)}
+          bg="bg-purple-50 text-purple-800 border-purple-100"
+        />
+        <Chip
+          icon="🧾"
+          label="Credit (Sales)"
+          value={isCashier ? 'Ksh 0.00' : fmt(stats.credit)}
+          bg="bg-orange-50 text-orange-800 border-orange-100"
+        />
+        <Chip
+          icon="✅"
+          label="Credit Paid"
+          value={isCashier ? 'Ksh 0.00' : fmt(creditPaidData.total)}
+          bg="bg-lime-50 text-lime-800 border-lime-200"
+        />
+        <Chip
+          icon="🏦"
+          label="Cash + Credit Pd"
+          value={isCashier ? 'Ksh 0.00' : fmt(stats.cash + creditPaidData.total)}
+          bg="bg-cyan-50 text-cyan-800 border-cyan-200"
+        />
+        <Chip
+          icon="📈"
+          label="Profit"
+          value={isCashier ? 'Ksh 0.00' : fmt(stats.profit)}
+          bg={
+            isCashier
+              ? 'bg-gray-50 text-gray-500 border-gray-100'
+              : stats.profit >= 0
+              ? 'bg-teal-50 text-teal-800 border-teal-100'
+              : 'bg-red-50 text-red-800 border-red-100'
+          }
+        />
       </div>
 
-      {/* ═══ 4. SIDE-TO-SIDE COCKPIT / ULTRA-LATEST FILTERS ═══ */}
+      {/* ═══ 4. ALL 6 DETAILED GRADIENT METRICS CARDS (RESTORED) ═══ */}
+      {!isCashier && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 shrink-0">
+          {[
+            {
+              label: 'Margin',
+              icon: '📐',
+              main: `${(stats.margin || 0).toFixed(1)}%`,
+              sub: `Profit ${fmt(stats.profit)}`,
+              color: 'from-teal-400 to-emerald-500',
+              positive: stats.profit >= 0,
+            },
+            {
+              label: 'Avg · Min · Max',
+              icon: '📊',
+              main: fmt(stats.avg),
+              sub: `Min ${fmt(stats.minSale)}  ·  Max ${fmt(stats.maxSale)}`,
+              color: 'from-blue-400 to-indigo-500',
+              positive: true,
+            },
+            {
+              label: 'Cash Breakdown',
+              icon: '💵',
+              main: `${stats.revenue > 0 ? ((stats.cash / stats.revenue) * 100).toFixed(1) : 0}% Cash`,
+              sub: `${fmtN(stats.cashTxns)} txns · ${fmt(stats.cash)}`,
+              color: 'from-green-400 to-emerald-600',
+              positive: true,
+            },
+            {
+              label: 'M-Pesa Breakdown',
+              icon: '📱',
+              main: `${stats.revenue > 0 ? ((stats.mpesa / stats.revenue) * 100).toFixed(1) : 0}% MPesa`,
+              sub: `${fmtN(stats.mpesaTxns)} txns · ${fmt(stats.mpesa)}`,
+              color: 'from-rose-400 to-pink-600',
+              positive: true,
+            },
+            {
+              label: 'Credit Paid Today',
+              icon: '✅',
+              main: fmt(creditPaidData.total),
+              sub: `${fmtN(creditPaidData.txns)} pmts · Cash ${fmt(creditPaidData.cashPaid)}`,
+              color: 'from-lime-400 to-green-500',
+              positive: true,
+            },
+            {
+              label: 'Cash In Hand',
+              icon: '🏦',
+              main: fmt(stats.cash + creditPaidData.total),
+              sub: `Sales cash ${fmt(stats.cash)} + cr.paid ${fmt(creditPaidData.total)}`,
+              color: 'from-cyan-400 to-sky-600',
+              positive: true,
+            },
+          ].map((m, i) => (
+            <div key={i} className="rounded-xl overflow-hidden shadow-2xs border border-slate-200/80 bg-white">
+              <div className={`bg-gradient-to-r ${m.color} px-3 py-1 flex items-center gap-1.5`}>
+                <span className="text-xs">{m.icon}</span>
+                <p className="text-[9px] font-black uppercase tracking-widest text-white leading-none">
+                  {m.label}
+                </p>
+              </div>
+              <div className="bg-white px-3 py-2">
+                <p className="text-sm font-black text-slate-900 leading-tight font-mono">{m.main}</p>
+                <p className="text-[9px] text-slate-400 font-medium mt-0.5 leading-none truncate">{m.sub}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ═══ 5. SIDE-TO-SIDE COCKPIT / ULTRA-LATEST FILTERS ═══ */}
       {showFilters && (
         <div className="bg-white border border-slate-200/90 rounded-2xl p-3 shadow-xs space-y-2.5">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
@@ -870,7 +1022,7 @@ export default function FullSalesReportPage() {
                       setSearch('');
                       setPage(1);
                     }}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer"
                   >
                     ×
                   </button>
@@ -1098,6 +1250,7 @@ export default function FullSalesReportPage() {
                     const items: any[] = itemsMap[sid] || [];
                     const rowQty = items.reduce((s, it) => s + (it.quantity || 0), 0);
                     const rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40';
+                    const dt = safeDate(sale.sale_datetime || sale.sale_date);
 
                     return (
                       <React.Fragment key={sid}>
@@ -1129,11 +1282,8 @@ export default function FullSalesReportPage() {
 
                           {/* Time */}
                           <td className="py-2.5 px-3 whitespace-nowrap font-mono text-[11px] text-slate-500">
-                            {sale.sale_datetime
-                              ? new Date(sale.sale_datetime).toLocaleTimeString('en-KE', {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })
+                            {dt
+                              ? dt.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })
                               : sale.sale_time || '—'}
                           </td>
 
