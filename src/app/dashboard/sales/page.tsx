@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { useOutlet } from '@/context/OutletContext';
 import { printCustomerReceipt, loadCompanyInfo } from '@/lib/receiptPrinter';
 import toast, { Toaster } from 'react-hot-toast';
-import * as XLSX from 'xlsx';
+import XLSX from 'xlsx-js-style';
 import {
   FiDollarSign,
   FiShoppingBag,
@@ -443,54 +443,427 @@ ${(sale.discount || 0) > 0 ? `<div style="font-size:10px;">Discount: -Ksh ${(sal
   };
 
   /* ─────────────────────────────────────────────────────────────────────────
-     Super-Premium Excel Export (.xlsx)
+     Ultra Super-Premium Styled Excel Export (.xlsx)
      ───────────────────────────────────────────────────────────────────────── */
   const exportExcel = () => {
     try {
-      const rows = filteredSales.map((s, idx) => {
+      const wb = XLSX.utils.book_new();
+
+      // 1. Data Matrix (AOA)
+      const data: any[][] = [];
+
+      // Row 0: Business Title Header (Centered, Colorful, Large)
+      const titleText = `${(companyName || 'ALPHA RETAIL').toUpperCase()} — ${(activeOutlet?.outlet_name || 'MAIN OUTLET').toUpperCase()}`;
+      data.push([titleText]);
+
+      // Row 1: Subtitle
+      data.push(['OFFICIAL SALES REGISTER & REVENUE AUDIT LEDGER']);
+
+      // Row 2: Metadata Strip
+      const metaText = `Period: ${dateFrom} to ${dateTo}  |  Generated: ${new Date().toLocaleString('en-KE')}  |  Transactions: ${filteredSales.length}  |  Gross Sales: Ksh ${totalRevenue.toLocaleString()}  |  Cash: Ksh ${cashTotal.toLocaleString()}  |  M-Pesa: Ksh ${mpesaTotal.toLocaleString()}`;
+      data.push([metaText]);
+
+      // Row 3: Spacer
+      data.push([]);
+
+      // Row 4: Column Headers
+      const headers = [
+        '#',
+        'RECEIPT NO',
+        'DATE',
+        'TIME',
+        'CUSTOMER NAME',
+        'CUSTOMER PHONE',
+        'STAFF / CASHIER',
+        'PAYMENT METHOD',
+        'M-PESA CODE',
+        'SUBTOTAL (KSH)',
+        'DISCOUNT (KSH)',
+        'TOTAL AMOUNT (KSH)',
+        'STATUS',
+      ];
+      data.push(headers);
+
+      // Rows 5..5+N-1: Data Rows
+      filteredSales.forEach((s, idx) => {
         const dt = safeDate(s.sale_datetime || s.sale_date);
-        return {
-          '#': idx + 1,
-          'Receipt No': s.receipt_no || '',
-          Date: dt ? dt.toLocaleDateString('en-GB') : s.sale_date || '',
-          Time: dt ? dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '',
-          'Customer Name': s.customer_name || 'Walk-in Customer',
-          'Customer Phone': s.customer_phone || '',
-          'Payment Method': s.payment_method || 'Cash',
-          'M-Pesa Code': s.mpesa_code || '',
-          'Subtotal (Ksh)': Number(s.subtotal || s.total_amount || 0),
-          'Discount (Ksh)': Number(s.discount || 0),
-          'Total Amount (Ksh)': Number(s.total_amount || 0),
-          Status: s.status || 'Completed',
-          Cashier: s.created_by || s.cashier_name || 'Staff',
-        };
+        data.push([
+          idx + 1,
+          s.receipt_no || '',
+          dt ? dt.toLocaleDateString('en-GB') : s.sale_date || '',
+          formatTime(s.sale_datetime),
+          s.customer_name || 'Walk-in Customer',
+          s.customer_phone || '',
+          s.created_by || s.cashier_name || 'Staff',
+          s.payment_method || 'Cash',
+          s.mpesa_code || '—',
+          Number(s.subtotal || s.total_amount || 0),
+          Number(s.discount || 0),
+          Number(s.total_amount || 0),
+          s.status || 'Completed',
+        ]);
       });
 
-      const ws = XLSX.utils.json_to_sheet(rows);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Sales Register');
+      // Spacer
+      data.push([]);
 
-      // Add Executive Summary Sheet
-      const summaryRows = [
-        { Parameter: 'Company Name', Value: companyName },
-        { Parameter: 'Outlet Name', Value: activeOutlet?.outlet_name || 'All Outlets' },
-        { Parameter: 'Date Range Window', Value: `${dateFrom} to ${dateTo}` },
-        { Parameter: 'Total Transactions', Value: filteredSales.length },
-        { Parameter: 'Gross Sales Revenue (Ksh)', Value: totalRevenue },
-        { Parameter: 'Cash Volume (Ksh)', Value: cashTotal },
-        { Parameter: 'M-Pesa Volume (Ksh)', Value: mpesaTotal },
-        { Parameter: 'Credit Sales (Ksh)', Value: creditTotal },
-        {
-          Parameter: 'Average Order Value (AOV)',
-          Value: filteredSales.length > 0 ? Number((totalRevenue / filteredSales.length).toFixed(2)) : 0,
-        },
-        { Parameter: 'Generated At', Value: new Date().toLocaleString('en-KE') },
+      // Grand Total Row
+      data.push([
+        'GRAND TOTAL REGISTER',
+        '',
+        '',
+        '',
+        `${filteredSales.length} Audited Orders`,
+        '',
+        'ALL CASHIERS',
+        filterPayment === 'All' ? 'ALL TENDERS' : filterPayment.toUpperCase(),
+        '—',
+        totalRevenue + totalDiscount,
+        totalDiscount,
+        totalRevenue,
+        'VERIFIED',
+      ]);
+
+      const ws = XLSX.utils.aoa_to_sheet(data);
+
+      // Merges
+      ws['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 12 } }, // Business Title
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 12 } }, // Subtitle
+        { s: { r: 2, c: 0 }, e: { r: 2, c: 12 } }, // Metadata Strip
+        { s: { r: data.length - 1, c: 0 }, e: { r: data.length - 1, c: 3 } }, // Grand Total Label
       ];
-      const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
-      XLSX.utils.book_append_sheet(wb, wsSummary, 'Executive Summary');
 
-      XLSX.writeFile(wb, `Sales_Register_${dateFrom}_to_${dateTo}.xlsx`);
-      toast.success('Super-premium Excel workbook exported successfully!');
+      // Row Heights
+      const rowsConfig: any[] = [
+        { hpt: 38 }, // Row 0: Business Title
+        { hpt: 24 }, // Row 1: Subtitle
+        { hpt: 20 }, // Row 2: Metadata
+        { hpt: 12 }, // Row 3: Spacer
+        { hpt: 26 }, // Row 4: Column Headers
+      ];
+      for (let i = 0; i < filteredSales.length; i++) {
+        rowsConfig.push({ hpt: 20 });
+      }
+      rowsConfig.push({ hpt: 12 }); // Spacer
+      rowsConfig.push({ hpt: 28 }); // Grand Total
+      ws['!rows'] = rowsConfig;
+
+      // Auto-fitting Column Widths
+      ws['!cols'] = [
+        { wch: 6 },  // #
+        { wch: 18 }, // Receipt No
+        { wch: 14 }, // Date
+        { wch: 11 }, // Time
+        { wch: 26 }, // Customer Name
+        { wch: 16 }, // Customer Phone
+        { wch: 18 }, // Staff / Cashier
+        { wch: 18 }, // Payment Method
+        { wch: 18 }, // M-Pesa Code
+        { wch: 18 }, // Subtotal
+        { wch: 16 }, // Discount
+        { wch: 22 }, // Total Amount
+        { wch: 14 }, // Status
+      ];
+
+      // Styling: Row 0 (Business Title)
+      if (ws['A1']) {
+        ws['A1'].s = {
+          font: { name: 'Calibri', sz: 16, bold: true, color: { rgb: 'FFFFFF' } },
+          fill: { fgColor: { rgb: '0F172A' } }, // Slate 900
+          alignment: { horizontal: 'center', vertical: 'center' },
+        };
+      }
+      // Styling: Row 1 (Subtitle)
+      if (ws['A2']) {
+        ws['A2'].s = {
+          font: { name: 'Calibri', sz: 11, bold: true, color: { rgb: 'FFFFFF' } },
+          fill: { fgColor: { rgb: '4338CA' } }, // Indigo 700
+          alignment: { horizontal: 'center', vertical: 'center' },
+        };
+      }
+      // Styling: Row 2 (Metadata)
+      if (ws['A3']) {
+        ws['A3'].s = {
+          font: { name: 'Calibri', sz: 9.5, bold: true, color: { rgb: '312E81' } },
+          fill: { fgColor: { rgb: 'EEF2FF' } }, // Indigo 50
+          alignment: { horizontal: 'center', vertical: 'center' },
+        };
+      }
+
+      // Styling: Row 4 (Table Headers)
+      const headerFills = [
+        '1E1B4B', // # (Navy)
+        '4338CA', // Receipt No (Indigo)
+        '1E293B', // Date (Slate)
+        '1E293B', // Time
+        '0F172A', // Customer
+        '334155', // Phone
+        '4F46E5', // Staff
+        '0284C7', // Payment
+        '059669', // M-Pesa
+        '1E293B', // Subtotal
+        'B91C1C', // Discount
+        '1E1B4B', // Total Amount
+        '0F172A', // Status
+      ];
+
+      for (let c = 0; c < 13; c++) {
+        const cellRef = XLSX.utils.encode_cell({ r: 4, c });
+        if (ws[cellRef]) {
+          ws[cellRef].s = {
+            font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: 'FFFFFF' } },
+            fill: { fgColor: { rgb: headerFills[c] || '1E1B4B' } },
+            alignment: {
+              horizontal: c === 4 ? 'left' : c >= 9 && c <= 11 ? 'right' : 'center',
+              vertical: 'center',
+            },
+            border: {
+              top: { style: 'medium', color: { rgb: '0F172A' } },
+              bottom: { style: 'medium', color: { rgb: '0F172A' } },
+              left: { style: 'thin', color: { rgb: 'FFFFFF' } },
+              right: { style: 'thin', color: { rgb: 'FFFFFF' } },
+            },
+          };
+        }
+      }
+
+      // Styling: Data Rows
+      const borderThin = {
+        top: { style: 'thin', color: { rgb: 'E2E8F0' } },
+        bottom: { style: 'thin', color: { rgb: 'E2E8F0' } },
+        left: { style: 'thin', color: { rgb: 'E2E8F0' } },
+        right: { style: 'thin', color: { rgb: 'E2E8F0' } },
+      };
+
+      for (let r = 0; r < filteredSales.length; r++) {
+        const rowIdx = 5 + r;
+        const isOdd = r % 2 === 1;
+        const rowBg = isOdd ? 'F8FAFC' : 'FFFFFF'; // Alternating soft slate & white
+
+        for (let c = 0; c < 13; c++) {
+          const cellRef = XLSX.utils.encode_cell({ r: rowIdx, c });
+          if (!ws[cellRef]) continue;
+
+          let fontColor = '1E293B';
+          let isBold = false;
+          let cellBg = rowBg;
+          let horiz: 'center' | 'left' | 'right' = 'center';
+
+          if (c === 0) {
+            fontColor = '64748B';
+          } else if (c === 1) {
+            fontColor = '4338CA'; // Indigo
+            isBold = true;
+          } else if (c === 4) {
+            fontColor = '0F172A';
+            isBold = true;
+            horiz = 'left';
+          } else if (c === 7) {
+            // Payment method
+            isBold = true;
+            const pm = String(ws[cellRef].v || '').toUpperCase();
+            if (pm === 'CASH') fontColor = '059669';
+            else if (pm.includes('MPESA') || pm.includes('M-PESA')) fontColor = '0284C7';
+            else if (pm === 'CREDIT') fontColor = 'D97706';
+          } else if (c === 8) {
+            fontColor = '047857';
+          } else if (c === 9) {
+            horiz = 'right';
+            ws[cellRef].z = '#,##0.00';
+          } else if (c === 10) {
+            horiz = 'right';
+            if (Number(ws[cellRef].v) > 0) fontColor = 'B91C1C';
+            ws[cellRef].z = '#,##0.00';
+          } else if (c === 11) {
+            horiz = 'right';
+            isBold = true;
+            fontColor = '312E81';
+            cellBg = isOdd ? 'EEF2FF' : 'F5F3FF'; // Highlighted total amount
+            ws[cellRef].z = '#,##0.00';
+          } else if (c === 12) {
+            fontColor = '047857';
+            isBold = true;
+          }
+
+          ws[cellRef].s = {
+            font: { name: 'Calibri', sz: 9.5, bold: isBold, color: { rgb: fontColor } },
+            fill: { fgColor: { rgb: cellBg } },
+            alignment: { horizontal: horiz, vertical: 'center' },
+            border: borderThin,
+          };
+        }
+      }
+
+      // Styling: Grand Total Row
+      const totalRowIdx = data.length - 1;
+      for (let c = 0; c < 13; c++) {
+        const cellRef = XLSX.utils.encode_cell({ r: totalRowIdx, c });
+        if (!ws[cellRef]) continue;
+
+        let totalBg = '1E1B4B'; // Rich Indigo
+        let horiz: 'center' | 'left' | 'right' = 'center';
+        let fSize = 10.5;
+
+        if (c <= 3) {
+          totalBg = '1E1B4B';
+          horiz = 'right';
+          fSize = 11;
+        } else if (c >= 9 && c <= 11) {
+          totalBg = c === 11 ? '312E81' : '1E1B4B';
+          horiz = 'right';
+          fSize = c === 11 ? 12 : 10.5;
+          ws[cellRef].z = '#,##0.00';
+        } else if (c === 12) {
+          totalBg = '065F46'; // Emerald
+          fSize = 10;
+        }
+
+        ws[cellRef].s = {
+          font: { name: 'Calibri', sz: fSize, bold: true, color: { rgb: 'FFFFFF' } },
+          fill: { fgColor: { rgb: totalBg } },
+          alignment: { horizontal: horiz, vertical: 'center' },
+          border: {
+            top: { style: 'medium', color: { rgb: '0F172A' } },
+            bottom: { style: 'double', color: { rgb: '0F172A' } },
+          },
+        };
+      }
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Sales Register Master');
+
+      // ─── SHEET 2: Tender Mix & Cashier Performance Analytics ───
+      const payMap: Record<string, { count: number; total: number }> = {};
+      filteredSales.forEach((s) => {
+        const pm = s.payment_method || 'Cash';
+        if (!payMap[pm]) payMap[pm] = { count: 0, total: 0 };
+        payMap[pm].count += 1;
+        payMap[pm].total += Number(s.total_amount || 0);
+      });
+
+      const analyticsData: any[][] = [
+        [`${(companyName || 'ALPHA RETAIL').toUpperCase()} — EXECUTIVE TENDER & REVENUE MIX`],
+        ['TENDER CHANNEL BREAKDOWN & SETTLEMENT SHARE'],
+        [`Period: ${dateFrom} to ${dateTo}  |  Generated: ${new Date().toLocaleString('en-KE')}  |  Total Sales: Ksh ${totalRevenue.toLocaleString()}`],
+        [],
+        ['PAYMENT CHANNEL', 'ORDERS COUNT', 'COLLECTED VOLUME (KSH)', 'AVG PER TICKET (KSH)', '% SHARE OF SALES'],
+      ];
+
+      Object.entries(payMap).forEach(([pmName, stats]) => {
+        const share = totalRevenue > 0 ? (stats.total / totalRevenue) * 100 : 0;
+        const aov = stats.count > 0 ? stats.total / stats.count : 0;
+        analyticsData.push([
+          pmName.toUpperCase(),
+          stats.count,
+          stats.total,
+          aov,
+          `${share.toFixed(1)}%`,
+        ]);
+      });
+
+      analyticsData.push([]);
+      analyticsData.push([
+        'TOTAL ALL CHANNELS',
+        filteredSales.length,
+        totalRevenue,
+        filteredSales.length > 0 ? totalRevenue / filteredSales.length : 0,
+        '100.0%',
+      ]);
+
+      const wsAnalytics = XLSX.utils.aoa_to_sheet(analyticsData);
+      wsAnalytics['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 4 } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: 4 } },
+      ];
+      wsAnalytics['!cols'] = [
+        { wch: 24 }, // Channel
+        { wch: 16 }, // Orders
+        { wch: 26 }, // Volume
+        { wch: 22 }, // AOV
+        { wch: 18 }, // % Share
+      ];
+      wsAnalytics['!rows'] = [
+        { hpt: 34 },
+        { hpt: 22 },
+        { hpt: 18 },
+        { hpt: 10 },
+        { hpt: 26 },
+      ];
+
+      // Sheet 2 Header Styling
+      if (wsAnalytics['A1']) {
+        wsAnalytics['A1'].s = {
+          font: { name: 'Calibri', sz: 15, bold: true, color: { rgb: 'FFFFFF' } },
+          fill: { fgColor: { rgb: '0F172A' } },
+          alignment: { horizontal: 'center', vertical: 'center' },
+        };
+      }
+      if (wsAnalytics['A2']) {
+        wsAnalytics['A2'].s = {
+          font: { name: 'Calibri', sz: 11, bold: true, color: { rgb: 'FFFFFF' } },
+          fill: { fgColor: { rgb: '0284C7' } }, // Sky 600
+          alignment: { horizontal: 'center', vertical: 'center' },
+        };
+      }
+      if (wsAnalytics['A3']) {
+        wsAnalytics['A3'].s = {
+          font: { name: 'Calibri', sz: 9, bold: true, color: { rgb: '475569' } },
+          fill: { fgColor: { rgb: 'F1F5F9' } },
+          alignment: { horizontal: 'center', vertical: 'center' },
+        };
+      }
+
+      // Sheet 2 Table Header (Row 4)
+      for (let c = 0; c < 5; c++) {
+        const cellRef = XLSX.utils.encode_cell({ r: 4, c });
+        if (wsAnalytics[cellRef]) {
+          wsAnalytics[cellRef].s = {
+            font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: 'FFFFFF' } },
+            fill: { fgColor: { rgb: '1E1B4B' } },
+            alignment: { horizontal: c === 0 ? 'left' : 'center', vertical: 'center' },
+            border: { top: { style: 'medium' }, bottom: { style: 'medium' } },
+          };
+        }
+      }
+
+      // Sheet 2 Data Rows
+      const payList = Object.entries(payMap);
+      for (let i = 0; i < payList.length; i++) {
+        const rIdx = 5 + i;
+        const isOdd = i % 2 === 1;
+        const bg = isOdd ? 'F8FAFC' : 'FFFFFF';
+        for (let c = 0; c < 5; c++) {
+          const cellRef = XLSX.utils.encode_cell({ r: rIdx, c });
+          if (!wsAnalytics[cellRef]) continue;
+          wsAnalytics[cellRef].s = {
+            font: { name: 'Calibri', sz: 9.5, bold: c === 0 || c === 2, color: { rgb: c === 2 ? '0284C7' : '1E293B' } },
+            fill: { fgColor: { rgb: c === 2 ? 'F0F9FF' : bg } },
+            alignment: { horizontal: c === 0 ? 'left' : c === 2 || c === 3 ? 'right' : 'center', vertical: 'center' },
+            border: borderThin,
+          };
+          if (c === 2 || c === 3) wsAnalytics[cellRef].z = '#,##0.00';
+        }
+      }
+
+      // Sheet 2 Total Row
+      const s2TotalIdx = analyticsData.length - 1;
+      for (let c = 0; c < 5; c++) {
+        const cellRef = XLSX.utils.encode_cell({ r: s2TotalIdx, c });
+        if (!wsAnalytics[cellRef]) continue;
+        wsAnalytics[cellRef].s = {
+          font: { name: 'Calibri', sz: 11, bold: true, color: { rgb: 'FFFFFF' } },
+          fill: { fgColor: { rgb: '1E1B4B' } },
+          alignment: { horizontal: c === 0 ? 'left' : c === 2 || c === 3 ? 'right' : 'center', vertical: 'center' },
+          border: { top: { style: 'medium' }, bottom: { style: 'double' } },
+        };
+        if (c === 2 || c === 3) wsAnalytics[cellRef].z = '#,##0.00';
+      }
+
+      XLSX.utils.book_append_sheet(wb, wsAnalytics, 'Tender Analytics');
+
+      XLSX.writeFile(wb, `Sales_Register_Master_${dateFrom}_to_${dateTo}.xlsx`);
+      toast.success('Ultra Super-Premium Excel workbook exported successfully!');
     } catch (err) {
       console.error(err);
       toast.error('Failed to export Excel workbook');
