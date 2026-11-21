@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useOutlet } from '@/context/OutletContext';
 import toast, { Toaster } from 'react-hot-toast';
 import { printCustomerReceipt, loadCompanyInfo } from '@/lib/receiptPrinter';
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -130,11 +130,18 @@ export default function FullSalesReportPage() {
   // User state & permissions
   const [user, setUser] = useState<any>(null);
   const [isCashier, setIsCashier] = useState(false);
+  const [cashierName, setCashierName] = useState('');
   useEffect(() => {
     try {
       const u = JSON.parse(localStorage.getItem('user') || '{}');
       setUser(u);
-      setIsCashier(['cashier', 'waiter'].includes((u.userType || u.user_type || '').toLowerCase()));
+      const isC = ['cashier', 'waiter'].includes((u.userType || u.user_type || '').toLowerCase());
+      setIsCashier(isC);
+      if (isC) {
+        // Grab every possible name field the POS might store
+        const rawName = u.name || u.full_name || u.username || u.email || '';
+        setCashierName(rawName.trim());
+      }
     } catch {}
   }, []);
 
@@ -195,27 +202,51 @@ export default function FullSalesReportPage() {
     try {
       const outletId = activeOutlet?.outlet_id;
       let salesData: any[] = [];
-      if (outletId) {
-        const r = await supabase
+
+      // Build a reusable base query builder
+      const buildQuery = (withOutlet: boolean) => {
+        let q = supabase
           .from('retail_sales')
           .select('*')
-          .eq('outlet_id', outletId)
           .gte('sale_date', dateFrom)
           .lte('sale_date', dateTo)
           .order('sale_datetime', { ascending: false })
           .limit(3000);
+        if (withOutlet && outletId) q = q.eq('outlet_id', outletId);
+        // For cashier users: filter by their own name in created_by (case-insensitive)
+        if (isCashier && cashierName) {
+          q = q.ilike('created_by', `%${cashierName}%`);
+        }
+        return q;
+      };
+
+      // Try outlet-scoped first; fall back to unscoped if empty
+      if (outletId) {
+        const r = await buildQuery(true);
         if (!r.error) salesData = r.data || [];
       }
       if (!salesData.length) {
-        const r2 = await supabase
-          .from('retail_sales')
-          .select('*')
-          .gte('sale_date', dateFrom)
-          .lte('sale_date', dateTo)
-          .order('sale_datetime', { ascending: false })
-          .limit(3000);
+        const r2 = await buildQuery(false);
         salesData = r2.data || [];
       }
+
+      // For cashier: if still empty, try broader name variations
+      if (isCashier && cashierName && !salesData.length) {
+        // Try first name only
+        const firstName = cashierName.split(/[\s_]+/)[0];
+        if (firstName && firstName !== cashierName) {
+          const r3 = await supabase
+            .from('retail_sales')
+            .select('*')
+            .gte('sale_date', dateFrom)
+            .lte('sale_date', dateTo)
+            .ilike('created_by', `%${firstName}%`)
+            .order('sale_datetime', { ascending: false })
+            .limit(3000);
+          if (!r3.error) salesData = r3.data || [];
+        }
+      }
+
       setSales(salesData);
 
       // Returns cross-check
@@ -258,7 +289,7 @@ export default function FullSalesReportPage() {
       setSales([]);
     }
     setLoading(false);
-  }, [activeOutlet?.outlet_id, dateFrom, dateTo]);
+  }, [activeOutlet?.outlet_id, dateFrom, dateTo, isCashier, cashierName]);
 
   useEffect(() => {
     loadAll();
@@ -282,18 +313,20 @@ export default function FullSalesReportPage() {
     [sales]
   );
 
-  // Default salesperson to logged-in user if match exists
+  // For non-cashier admins only: auto-select salesperson filter if name matches
   useEffect(() => {
-    if (user && salesPersons.length && !spFilter) {
+    if (!isCashier && user && salesPersons.length && !spFilter) {
       const myName = user.name || user.full_name || user.username || '';
       const match = salesPersons.find(
         (sp) =>
           sp?.toLowerCase() === myName?.toLowerCase() ||
           sp?.toLowerCase().includes(myName?.toLowerCase())
       );
+      // Only auto-set for non-cashier (admins/managers who want to filter by their name)
+      // Cashiers get their data filtered at the DB query level already
       if (match) setSpFilter(match);
     }
-  }, [user, salesPersons, spFilter]);
+  }, [isCashier, user, salesPersons, spFilter]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Filter & Sort Pipeline
