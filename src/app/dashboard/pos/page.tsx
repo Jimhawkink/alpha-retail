@@ -518,16 +518,17 @@ const PaymentModal = ({
     const [partialMpesaCode, setPartialMpesaCode] = useState('');
     const [partialPayMethod, setPartialPayMethod] = useState<'cash' | 'mpesa'>('cash');
 
-    // ── Credit customer search — re-runs on every keystroke ─────────────────
+    // ── Credit customer search — re-runs on every keystroke (instant multi-token filtering) ──
     const filteredSortedCustomers = useMemo(() => {
         const q = (creditSearch || '').trim().toLowerCase();
         if (!q) return creditCustomers; // keep original DB order by default
+        const tokens = q.split(/\s+/).filter(Boolean);
         return creditCustomers
             .filter(c => {
                 const name  = (c.customer_name  || '').toLowerCase();
-                const phone = (c.phone          || '').toLowerCase();
+                const phone = (c.phone          || '').replace(/[\s-]/g, '').toLowerCase();
                 const code  = (c.customer_code  || '').toLowerCase();
-                return name.includes(q) || phone.includes(q) || code.includes(q);
+                return tokens.every(token => name.includes(token) || phone.includes(token) || code.includes(token));
             })
             .sort((a, b) => {
                 const aName = (a.customer_name || '').toLowerCase();
@@ -1202,52 +1203,78 @@ const PaymentModal = ({
                         <div className="p-3 bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl border border-orange-200">
                             <p className="text-orange-700 text-sm font-semibold">📋 Credit Sale — Select customer &amp; optionally collect partial payment now</p>
                         </div>
-                        {/* Search */}
-                        <input
-                            type="text"
-                            value={creditSearch}
-                            onChange={(e) => {
-                                console.log('[CreditSearch] typing:', e.target.value, '| customers loaded:', creditCustomers.length);
-                                setCreditSearch(e.target.value);
-                            }}
-                            placeholder="Search customer name or phone..."
-                            className="w-full p-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-orange-400 focus:outline-none text-sm"
-                        />
-                        {/* 🔍 DEBUG BAR — shows live search state */}
-                        <div className="flex gap-2 text-[10px] font-mono px-1">
-                            <span className="text-blue-600">query: &quot;{creditSearch}&quot;</span>
-                            <span className="text-gray-400">|</span>
-                            <span className="text-green-600">loaded: {creditCustomers.length}</span>
-                            <span className="text-gray-400">|</span>
-                            <span className={filteredSortedCustomers.length === 0 && creditSearch ? 'text-red-600 font-bold' : 'text-purple-600'}>
-                                showing: {filteredSortedCustomers.length}
-                            </span>
-                        </div>
-                        {/* Customer List */}
-                        <div className="max-h-40 overflow-y-auto rounded-xl border border-gray-200 bg-white">
-                            {filteredSortedCustomers.length === 0 ? (
-                                <p className="p-4 text-center text-gray-400 text-sm">No customers found</p>
-                            ) : filteredSortedCustomers.map(c => (
+                        {/* Instant Character-by-Character Search Input */}
+                        <div className="relative">
+                            <input
+                                type="text"
+                                value={creditSearch}
+                                onChange={(e) => setCreditSearch(e.target.value)}
+                                placeholder="Search customer name, phone, or code (e.g. Jimhawkins, 0720...)..."
+                                className="w-full pl-10 pr-9 py-2.5 bg-slate-50 border-2 border-slate-200 rounded-xl focus:border-emerald-500 focus:bg-white focus:outline-none text-sm font-semibold text-slate-800 transition-all placeholder:text-slate-400 placeholder:font-normal"
+                                autoFocus
+                            />
+                            <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                <FiSearch size={15} />
+                            </div>
+                            {creditSearch && (
                                 <button
-                                    key={c.customer_id}
+                                    type="button"
+                                    onClick={() => setCreditSearch('')}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                                    title="Clear search"
+                                >
+                                    <FiX size={14} />
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Search Status / Count Badge */}
+                        <div className="flex items-center justify-between text-[11px] px-1 font-medium">
+                            {creditSearch ? (
+                                <span className={filteredSortedCustomers.length === 0 ? 'text-rose-600 font-bold' : 'text-emerald-700 font-bold'}>
+                                    {filteredSortedCustomers.length === 0
+                                        ? `No customers found matching "${creditSearch}"`
+                                        : `Found ${filteredSortedCustomers.length} customer${filteredSortedCustomers.length !== 1 ? 's' : ''} matching "${creditSearch}"`
+                                    }
+                                </span>
+                            ) : (
+                                <span className="text-slate-500">
+                                    Loaded {creditCustomers.length} credit customers
+                                </span>
+                            )}
+                            <span className="text-emerald-600 font-mono text-[10px] font-bold">● Live Filter</span>
+                        </div>
+
+                        {/* Customer List — Guaranteed Unique Keys to prevent DOM reconciliation freezing */}
+                        <div className="max-h-48 overflow-y-auto rounded-xl border border-gray-200 bg-white divide-y divide-gray-100">
+                            {filteredSortedCustomers.length === 0 ? (
+                                <div className="p-6 text-center text-slate-400 text-xs">
+                                    <p className="font-bold text-slate-600">No customers found</p>
+                                    <p className="text-[11px] mt-0.5 text-slate-400">Try a different name or phone number, or add a new customer below</p>
+                                </div>
+                            ) : filteredSortedCustomers.map((c, idx) => (
+                                <button
+                                    key={`${c.customer_id || 'c'}-${c.phone || ''}-${idx}`}
                                     onClick={() => { setSelectedCustomer(c); setCustomerName(c.customer_name); setCreditSearch(''); setPartialCashPaid(''); }}
-                                    className={`w-full text-left px-4 py-3 border-b border-gray-100 last:border-0 transition-colors ${
+                                    className={`w-full text-left px-4 py-2.5 transition-colors cursor-pointer ${
                                         selectedCustomer?.customer_id === c.customer_id
-                                        ? 'bg-orange-50 border-l-4 border-l-orange-500'
-                                        : 'hover:bg-gray-50'
+                                        ? 'bg-emerald-50 border-l-4 border-l-emerald-500 font-bold'
+                                        : 'hover:bg-slate-50'
                                     }`}
                                 >
                                     <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="font-semibold text-gray-800 text-sm">{c.customer_name}</p>
-                                            <p className="text-xs text-gray-500">{c.phone || 'No phone'} · {c.customer_code}</p>
+                                        <div className="min-w-0 pr-2">
+                                            <p className="font-bold text-slate-900 text-sm truncate">{c.customer_name}</p>
+                                            <p className="text-xs text-slate-500 font-mono mt-0.5">
+                                                {c.phone || 'No phone'}{c.customer_code ? ` · ${c.customer_code}` : ''}
+                                            </p>
                                         </div>
-                                        <div className="text-right">
-                                            <p className={`text-sm font-bold ${(c.current_balance || 0) > 0 ? 'text-red-500' : c.current_balance < 0 ? 'text-purple-600' : 'text-green-600'}`}>
+                                        <div className="text-right shrink-0">
+                                            <p className={`text-sm font-black font-mono ${(c.current_balance || 0) > 0 ? 'text-rose-600' : c.current_balance < 0 ? 'text-purple-600' : 'text-emerald-600'}`}>
                                                 Ksh {Math.abs(c.current_balance || 0).toLocaleString()}
                                             </p>
-                                            <p className="text-[10px] text-gray-400">{c.current_balance < 0 ? 'Prepaid' : c.current_balance > 0 ? 'Owes' : 'Clear'}</p>
-                                            {c.credit_limit > 0 && <p className="text-[9px] text-blue-400">Limit: Ksh {c.credit_limit.toLocaleString()}</p>}
+                                            <p className="text-[10px] text-slate-400 font-semibold">{c.current_balance < 0 ? 'Prepaid' : c.current_balance > 0 ? 'Owes' : 'Clear'}</p>
+                                            {c.credit_limit > 0 && <p className="text-[9px] text-indigo-500 font-bold">Limit: Ksh {c.credit_limit.toLocaleString()}</p>}
                                         </div>
                                     </div>
                                 </button>
@@ -3271,9 +3298,9 @@ export default function RetailPOSPage() {
                                         .filter(c =>
                                             c.customer_name?.toLowerCase().includes(customerSearch.toLowerCase()) ||
                                             c.phone?.includes(customerSearch)
-                                        ).slice(0, 8).map(c => (
+                                        ).slice(0, 8).map((c, idx) => (
                                             <button
-                                                key={c.customer_id}
+                                                key={`${c.customer_id || 'c'}-${c.phone || ''}-${idx}`}
                                                 onMouseDown={() => { setSelectedCustomer(c); setCustomerSearch(c.customer_name); setShowCustomerDropdown(false); }}
                                                 className="w-full text-left px-3 py-2 hover:bg-indigo-50 transition-colors border-b border-slate-50 last:border-0"
                                             >
