@@ -830,8 +830,16 @@ export default function FullSalesReportPage() {
   // ─────────────────────────────────────────────────────────────────────────
   // UI RENDER (Zero Top Blank Space, Screen-Fitting, High-Contrast Headers)
   // ─────────────────────────────────────────────────────────────────────────
+  if (!mounted) {
+    return (
+      <div className="w-full flex items-center justify-center py-20">
+        <div className="w-7 h-7 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
-    <div className="w-full max-w-full space-y-2 text-slate-800 font-sans">
+    <div className="w-full max-w-full min-w-0 space-y-2 text-slate-800 font-sans">
       <Toaster position="top-right" />
 
       {/* ═══ 1. COMPACT UNIFIED COMMAND HEADER & WORKSPACE TABS (MATCHING VOTE HEADS) ═══ */}
