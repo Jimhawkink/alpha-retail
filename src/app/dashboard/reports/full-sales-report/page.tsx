@@ -95,57 +95,21 @@ const PAGE_SIZES = [25, 50, 100, 200];
 const PIE_COLORS = ['#10B981', '#0284C7', '#8B5CF6', '#F59E0B', '#EC4899', '#64748B'];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Stat Chip Component (Restored exactly as loved)
-// ─────────────────────────────────────────────────────────────────────────────
-function Chip({
-  icon,
-  label,
-  value,
-  bg,
-  sub,
-}: {
-  icon: string;
-  label: string;
-  value: string;
-  bg: string;
-  sub?: { label: string; value: string }[];
-}) {
-  return (
-    <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs flex-shrink-0 shadow-2xs ${bg}`}>
-      <span className="text-base leading-none">{icon}</span>
-      <div>
-        <p className="font-bold uppercase tracking-wide opacity-60 text-[9px] leading-none mb-0.5">{label}</p>
-        <p className="font-black text-sm leading-none font-mono">{value}</p>
-        {sub && sub.length > 0 && (
-          <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
-            {sub.map((s, i) => (
-              <span key={i} className="text-[8px] opacity-75 font-semibold whitespace-nowrap leading-none">
-                {s.label}: <span className="font-black opacity-95">{s.value}</span>
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Badge Component
 // ─────────────────────────────────────────────────────────────────────────────
 function Bdg({ txt, color }: { txt: string; color: string }) {
   const c: Record<string, string> = {
-    green: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    blue: 'bg-sky-50 text-sky-700 border-sky-200',
-    indigo: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-    amber: 'bg-amber-50 text-amber-700 border-amber-200',
-    purple: 'bg-purple-50 text-purple-700 border-purple-200',
-    rose: 'bg-rose-50 text-rose-700 border-rose-200',
-    gray: 'bg-slate-100 text-slate-600 border-slate-200',
+    green: 'bg-emerald-50 text-emerald-800 border-emerald-300',
+    blue: 'bg-sky-50 text-sky-800 border-sky-300',
+    indigo: 'bg-indigo-50 text-indigo-800 border-indigo-300',
+    amber: 'bg-amber-50 text-amber-800 border-amber-300',
+    purple: 'bg-purple-50 text-purple-800 border-purple-300',
+    rose: 'bg-rose-50 text-rose-800 border-rose-300',
+    gray: 'bg-slate-100 text-slate-700 border-slate-300',
   };
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold border whitespace-nowrap ${
+      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black border whitespace-nowrap ${
         c[color] || c.gray
       }`}
     >
@@ -174,6 +138,9 @@ export default function FullSalesReportPage() {
 
   // Workspace Navigation Tabs
   const [activeTab, setActiveTab] = useState<'ledger' | 'trends' | 'channels' | 'staff'>('ledger');
+
+  // Toggle for extra stat chips drawer
+  const [showStatDrawer, setShowStatDrawer] = useState(false);
 
   // Filters
   const [dateFrom, setDateFrom] = useState(toDay());
@@ -443,7 +410,7 @@ export default function FullSalesReportPage() {
   }, [filtered, itemsMap, isCashier]);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Linear Trend / Chart Analytics Aggregators (Safe Against Invalid Dates)
+  // Linear Trend / Chart Analytics Aggregators
   // ─────────────────────────────────────────────────────────────────────────
   const trendData = useMemo(() => {
     const isSingleDay = dateFrom === dateTo;
@@ -694,48 +661,48 @@ export default function FullSalesReportPage() {
   // UI RENDER
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-3 pb-10 max-w-[1600px] mx-auto text-slate-800 p-3 sm:p-4 font-sans">
+    <div className="space-y-2.5 pb-6 w-full max-w-full text-slate-800 font-sans">
       <Toaster position="top-right" />
 
       {/* ═══ 1. COMPACT EXECUTIVE COMMAND HEADER (MATCHING VOTE HEADS) ═══ */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-3 sm:p-3.5 shadow-xs">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-xs shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-700 to-violet-700 flex items-center justify-center text-white shadow-xs shrink-0">
               <FiBarChart2 size={20} />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight leading-tight">
                   Full Sales &amp; Revenue Master Report
                 </h1>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200">
                   {activeOutlet?.outlet_name || 'All Outlets'}
                 </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  ● Live Ledger
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live Ledger
                 </span>
               </div>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">
-                Multi-dimensional sales ledger, profit analytics, cashier breakdown, and itemized invoice registry.
+              <p className="text-[11px] text-slate-500 font-medium leading-normal">
+                Multi-dimensional sales audit, cashier reconciliation, profit margin intelligence, and itemized invoice registry.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
             <button
               onClick={loadAll}
               disabled={loading}
               title="Refresh Sales Ledger"
-              className="p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              className="px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
             >
               <FiRefreshCw size={13} className={loading ? 'animate-spin text-indigo-600' : ''} />
-              <span className="hidden sm:inline">Refresh</span>
+              <span>Refresh</span>
             </button>
 
             <button
               onClick={exportExcel}
-              className="px-3 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-extrabold flex items-center gap-1.5 shadow-2xs transition cursor-pointer"
+              className="px-3 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-black flex items-center gap-1.5 shadow-xs transition cursor-pointer"
               title="Download official Microsoft Excel (.xlsx) workbook"
             >
               <FiDownload size={13} className="text-emerald-700" />
@@ -744,7 +711,7 @@ export default function FullSalesReportPage() {
 
             <button
               onClick={exportCSV}
-              className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 shadow-2xs transition cursor-pointer"
+              className="px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
             >
               <FiFileText size={13} />
               <span>CSV</span>
@@ -752,7 +719,7 @@ export default function FullSalesReportPage() {
 
             <button
               onClick={() => window.print()}
-              className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 shadow-2xs transition cursor-pointer"
+              className="px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
             >
               <FiPrinter size={13} />
               <span>Print</span>
@@ -761,8 +728,8 @@ export default function FullSalesReportPage() {
         </div>
       </div>
 
-      {/* ═══ 2. STANDALONE ULTRA-PREMIUM WORKSPACE TAB BAR ═══ */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-2 print:hidden">
+      {/* ═══ 2. STANDALONE ULTRA-PREMIUM WORKSPACE TAB BAR (MATCHING VOTE HEADS) ═══ */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-1.5 print:hidden">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex gap-1.5 flex-wrap items-center">
             {[
@@ -780,7 +747,7 @@ export default function FullSalesReportPage() {
                 label: 'Payment Channels & Mix',
                 icon: '💳',
                 count: 0,
-                badge: 'Cash / MPesa',
+                badge: 'Tender Mix',
                 badgeBg: 'bg-sky-100 text-sky-800',
               },
               {
@@ -798,7 +765,7 @@ export default function FullSalesReportPage() {
                   key={t.id}
                   type="button"
                   onClick={() => setActiveTab(t.id as any)}
-                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all cursor-pointer ${
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black whitespace-nowrap transition-all cursor-pointer ${
                     active
                       ? 'bg-amber-600 text-white shadow-md shadow-amber-200'
                       : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-bold'
@@ -809,7 +776,7 @@ export default function FullSalesReportPage() {
                   {t.count > 0 && (
                     <span
                       className={`px-1.5 py-0.5 rounded-full text-[9.5px] font-mono font-black min-w-[18px] text-center ${
-                        active ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-600'
+                        active ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-700'
                       }`}
                     >
                       {t.count}
@@ -831,190 +798,194 @@ export default function FullSalesReportPage() {
 
           <div className="flex items-center gap-2">
             <button
+              onClick={() => setShowStatDrawer((prev) => !prev)}
+              className={`px-2.5 py-1.5 rounded-xl border text-[11px] font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                showStatDrawer
+                  ? 'border-indigo-300 bg-indigo-50 text-indigo-700 font-extrabold'
+                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+              }`}
+              title="Expand all 12 stat chips & detailed gradient metrics"
+            >
+              <span>{showStatDrawer ? '▲ Hide Stat Chips' : '▼ 12 Mini Chips & Breakdown'}</span>
+            </button>
+
+            <button
               onClick={() => setShowFilters((prev) => !prev)}
-              className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+              className={`px-2.5 py-1.5 rounded-xl border text-[11px] font-bold flex items-center gap-1.5 transition cursor-pointer ${
                 showFilters
-                  ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
+                  ? 'border-indigo-300 bg-indigo-50 text-indigo-700 font-extrabold'
                   : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
               }`}
             >
               <FiFilter size={12} />
-              <span>{showFilters ? 'Hide Filters' : 'Show Filters'}</span>
+              <span>{showFilters ? 'Hide Filters' : 'Filters'}</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* ═══ 3. ALL 12 ESSENTIAL FUNCTIONAL STAT CHIPS (RESTORED) ═══ */}
-      <div className="flex flex-wrap gap-2 shrink-0">
-        <Chip
-          icon="🛒"
-          label="Transactions"
-          value={fmtN(stats.txns)}
-          bg="bg-indigo-50 text-indigo-800 border-indigo-100"
-        />
-        <Chip
-          icon="📦"
-          label="Qty Sold"
-          value={fmtN(stats.totalQty)}
-          bg="bg-sky-50 text-sky-800 border-sky-100"
-        />
-        <Chip
-          icon="💰"
-          label="Total Sales"
-          value={isCashier ? 'Ksh 0.00' : fmt(stats.revenue)}
-          bg="bg-emerald-50 text-emerald-800 border-emerald-100"
-        />
-        <Chip
-          icon="🏷️"
-          label="Discounts"
-          value={isCashier ? 'Ksh 0.00' : fmt(stats.discount)}
-          bg="bg-amber-50 text-amber-800 border-amber-100"
-        />
-        <Chip
-          icon="📊"
-          label="Avg Sale"
-          value={isCashier ? 'Ksh 0.00' : fmt(stats.avg)}
-          bg="bg-blue-50 text-blue-800 border-blue-100"
-        />
-        <Chip
-          icon="💵"
-          label="Cash"
-          value={isCashier ? 'Ksh 0.00' : fmt(stats.cash)}
-          bg="bg-green-50 text-green-800 border-green-100"
-        />
-        <Chip
-          icon="📱"
-          label="M-Pesa"
-          value={isCashier ? 'Ksh 0.00' : fmt(stats.mpesa)}
-          bg="bg-rose-50 text-rose-800 border-rose-100"
-        />
-        <Chip
-          icon="💳"
-          label="Card"
-          value={isCashier ? 'Ksh 0.00' : fmt(stats.card)}
-          bg="bg-purple-50 text-purple-800 border-purple-100"
-        />
-        <Chip
-          icon="🧾"
-          label="Credit (Sales)"
-          value={isCashier ? 'Ksh 0.00' : fmt(stats.credit)}
-          bg="bg-orange-50 text-orange-800 border-orange-100"
-        />
-        <Chip
-          icon="✅"
-          label="Credit Paid"
-          value={isCashier ? 'Ksh 0.00' : fmt(creditPaidData.total)}
-          bg="bg-lime-50 text-lime-800 border-lime-200"
-        />
-        <Chip
-          icon="🏦"
-          label="Cash + Credit Pd"
-          value={isCashier ? 'Ksh 0.00' : fmt(stats.cash + creditPaidData.total)}
-          bg="bg-cyan-50 text-cyan-800 border-cyan-200"
-        />
-        <Chip
-          icon="📈"
-          label="Profit"
-          value={isCashier ? 'Ksh 0.00' : fmt(stats.profit)}
-          bg={
-            isCashier
-              ? 'bg-gray-50 text-gray-500 border-gray-100'
-              : stats.profit >= 0
-              ? 'bg-teal-50 text-teal-800 border-teal-100'
-              : 'bg-red-50 text-red-800 border-red-100'
-          }
-        />
-      </div>
-
-      {/* ═══ 4. ALL 6 DETAILED GRADIENT METRICS CARDS (RESTORED) ═══ */}
-      {!isCashier && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 shrink-0">
-          {[
-            {
-              label: 'Margin',
-              icon: '📐',
-              main: `${(stats.margin || 0).toFixed(1)}%`,
-              sub: `Profit ${fmt(stats.profit)}`,
-              color: 'from-teal-400 to-emerald-500',
-              positive: stats.profit >= 0,
-            },
-            {
-              label: 'Avg · Min · Max',
-              icon: '📊',
-              main: fmt(stats.avg),
-              sub: `Min ${fmt(stats.minSale)}  ·  Max ${fmt(stats.maxSale)}`,
-              color: 'from-blue-400 to-indigo-500',
-              positive: true,
-            },
-            {
-              label: 'Cash Breakdown',
-              icon: '💵',
-              main: `${stats.revenue > 0 ? ((stats.cash / stats.revenue) * 100).toFixed(1) : 0}% Cash`,
-              sub: `${fmtN(stats.cashTxns)} txns · ${fmt(stats.cash)}`,
-              color: 'from-green-400 to-emerald-600',
-              positive: true,
-            },
-            {
-              label: 'M-Pesa Breakdown',
-              icon: '📱',
-              main: `${stats.revenue > 0 ? ((stats.mpesa / stats.revenue) * 100).toFixed(1) : 0}% MPesa`,
-              sub: `${fmtN(stats.mpesaTxns)} txns · ${fmt(stats.mpesa)}`,
-              color: 'from-rose-400 to-pink-600',
-              positive: true,
-            },
-            {
-              label: 'Credit Paid Today',
-              icon: '✅',
-              main: fmt(creditPaidData.total),
-              sub: `${fmtN(creditPaidData.txns)} pmts · Cash ${fmt(creditPaidData.cashPaid)}`,
-              color: 'from-lime-400 to-green-500',
-              positive: true,
-            },
-            {
-              label: 'Cash In Hand',
-              icon: '🏦',
-              main: fmt(stats.cash + creditPaidData.total),
-              sub: `Sales cash ${fmt(stats.cash)} + cr.paid ${fmt(creditPaidData.total)}`,
-              color: 'from-cyan-400 to-sky-600',
-              positive: true,
-            },
-          ].map((m, i) => (
-            <div key={i} className="rounded-xl overflow-hidden shadow-2xs border border-slate-200/80 bg-white">
-              <div className={`bg-gradient-to-r ${m.color} px-3 py-1 flex items-center gap-1.5`}>
-                <span className="text-xs">{m.icon}</span>
-                <p className="text-[9px] font-black uppercase tracking-widest text-white leading-none">
-                  {m.label}
-                </p>
-              </div>
-              <div className="bg-white px-3 py-2">
-                <p className="text-sm font-black text-slate-900 leading-tight font-mono">{m.main}</p>
-                <p className="text-[9px] text-slate-400 font-medium mt-0.5 leading-none truncate">{m.sub}</p>
+      {/* ═══ 3. EXECUTIVE FINANCIAL COMMAND HUD (6 LOW-PROFILE CARDS) ═══ */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+        {[
+          {
+            label: 'Gross Sales',
+            value: isCashier ? 'Ksh 0.00' : fmtK(stats.revenue),
+            sub: `${fmtN(stats.txns)} orders · Disc -${fmtK(stats.discount)}`,
+            color: 'text-indigo-700',
+            bg: 'bg-indigo-50 text-indigo-600 border border-indigo-200',
+            icon: <FiDollarSign size={14} />,
+          },
+          {
+            label: 'Net Profit',
+            value: isCashier ? 'Ksh 0.00' : fmtK(stats.profit),
+            sub: `${(stats.margin || 0).toFixed(1)}% margin · Cost ${fmtK(stats.cost)}`,
+            color: stats.profit >= 0 ? 'text-emerald-700' : 'text-rose-700',
+            bg: stats.profit >= 0 ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-rose-50 text-rose-600 border border-rose-200',
+            icon: <FiTrendingUp size={14} />,
+          },
+          {
+            label: 'Units Sold',
+            value: `${fmtN(stats.totalQty)} Pcs`,
+            sub: `Avg order ${isCashier ? '0' : fmtK(stats.avg)}`,
+            color: 'text-sky-700',
+            bg: 'bg-sky-50 text-sky-600 border border-sky-200',
+            icon: <FiShoppingBag size={14} />,
+          },
+          {
+            label: 'Cash in Hand',
+            value: isCashier ? 'Ksh 0.00' : fmtK(stats.cash + creditPaidData.total),
+            sub: `Sales: ${fmtK(stats.cash)} + Cr: ${fmtK(creditPaidData.total)}`,
+            color: 'text-cyan-700',
+            bg: 'bg-cyan-50 text-cyan-600 border border-cyan-200',
+            icon: <FiLayers size={14} />,
+          },
+          {
+            label: 'M-Pesa Volume',
+            value: isCashier ? 'Ksh 0.00' : fmtK(stats.mpesa),
+            sub: `${fmtN(stats.mpesaTxns)} mobile payments`,
+            color: 'text-purple-700',
+            bg: 'bg-purple-50 text-purple-600 border border-purple-200',
+            icon: <FiActivity size={14} />,
+          },
+          {
+            label: 'Credit Collected',
+            value: isCashier ? 'Ksh 0.00' : fmtK(creditPaidData.total),
+            sub: `${fmtN(creditPaidData.txns)} debt settlements`,
+            color: 'text-amber-700',
+            bg: 'bg-amber-50 text-amber-600 border border-amber-200',
+            icon: <FiCheckCircle size={14} />,
+          },
+        ].map((k, i) => (
+          <div
+            key={i}
+            className="bg-white border border-slate-200/90 rounded-xl p-2.5 shadow-xs flex flex-col justify-between hover:border-indigo-300 transition-colors"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">{k.label}</span>
+              <div className={`w-6 h-6 rounded-lg ${k.bg} flex items-center justify-center shrink-0`}>
+                {k.icon}
               </div>
             </div>
-          ))}
+            <div className="mt-1">
+              <p className={`text-base font-black font-mono ${k.color} tracking-tight leading-tight`}>{k.value}</p>
+              <p className="text-[9.5px] text-slate-500 font-bold truncate mt-0.5">{k.sub}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ═══ EXPANDABLE STAT DRAWER: ALL 12 CHIPS & 6 DETAILED GRADIENT CARDS ═══ */}
+      {showStatDrawer && (
+        <div className="space-y-2.5 p-3 rounded-2xl bg-slate-100/70 border border-slate-200">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-black uppercase tracking-wider text-slate-700">
+              Complete 12-Point Stat Registry &amp; Liquidity Breakdown
+            </span>
+            <button
+              onClick={() => setShowStatDrawer(false)}
+              className="text-xs text-slate-400 hover:text-slate-600 font-bold"
+            >
+              ✕ Close
+            </button>
+          </div>
+
+          {/* 12 Chips */}
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              { icon: '🛒', label: 'Transactions', value: fmtN(stats.txns), bg: 'bg-indigo-50 text-indigo-800 border-indigo-200' },
+              { icon: '📦', label: 'Qty Sold', value: fmtN(stats.totalQty), bg: 'bg-sky-50 text-sky-800 border-sky-200' },
+              { icon: '💰', label: 'Total Sales', value: isCashier ? 'Ksh 0.00' : fmt(stats.revenue), bg: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
+              { icon: '🏷️', label: 'Discounts', value: isCashier ? 'Ksh 0.00' : fmt(stats.discount), bg: 'bg-amber-50 text-amber-800 border-amber-200' },
+              { icon: '📊', label: 'Avg Sale', value: isCashier ? 'Ksh 0.00' : fmt(stats.avg), bg: 'bg-blue-50 text-blue-800 border-blue-200' },
+              { icon: '💵', label: 'Cash', value: isCashier ? 'Ksh 0.00' : fmt(stats.cash), bg: 'bg-green-50 text-green-800 border-green-200' },
+              { icon: '📱', label: 'M-Pesa', value: isCashier ? 'Ksh 0.00' : fmt(stats.mpesa), bg: 'bg-rose-50 text-rose-800 border-rose-200' },
+              { icon: '💳', label: 'Card', value: isCashier ? 'Ksh 0.00' : fmt(stats.card), bg: 'bg-purple-50 text-purple-800 border-purple-200' },
+              { icon: '🧾', label: 'Credit (Sales)', value: isCashier ? 'Ksh 0.00' : fmt(stats.credit), bg: 'bg-orange-50 text-orange-800 border-orange-200' },
+              { icon: '✅', label: 'Credit Paid', value: isCashier ? 'Ksh 0.00' : fmt(creditPaidData.total), bg: 'bg-lime-50 text-lime-800 border-lime-200' },
+              { icon: '🏦', label: 'Cash + Credit Pd', value: isCashier ? 'Ksh 0.00' : fmt(stats.cash + creditPaidData.total), bg: 'bg-cyan-50 text-cyan-800 border-cyan-200' },
+              {
+                icon: '📈',
+                label: 'Profit',
+                value: isCashier ? 'Ksh 0.00' : fmt(stats.profit),
+                bg: isCashier ? 'bg-gray-50 text-gray-500 border-gray-200' : stats.profit >= 0 ? 'bg-teal-50 text-teal-800 border-teal-200' : 'bg-red-50 text-red-800 border-red-200',
+              },
+            ].map((c, i) => (
+              <div key={i} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs shadow-xs ${c.bg}`}>
+                <span className="text-sm">{c.icon}</span>
+                <div>
+                  <p className="font-bold uppercase tracking-wide opacity-60 text-[8.5px] leading-none">{c.label}</p>
+                  <p className="font-black text-xs leading-none font-mono mt-0.5">{c.value}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 6 Gradient Cards */}
+          {!isCashier && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+              {[
+                { label: 'Margin', icon: '📐', main: `${(stats.margin || 0).toFixed(1)}%`, sub: `Profit ${fmt(stats.profit)}`, color: 'from-teal-500 to-emerald-600' },
+                { label: 'Avg · Min · Max', icon: '📊', main: fmt(stats.avg), sub: `Min ${fmt(stats.minSale)} · Max ${fmt(stats.maxSale)}`, color: 'from-blue-500 to-indigo-600' },
+                { label: 'Cash Breakdown', icon: '💵', main: `${stats.revenue > 0 ? ((stats.cash / stats.revenue) * 100).toFixed(1) : 0}% Cash`, sub: `${fmtN(stats.cashTxns)} txns · ${fmt(stats.cash)}`, color: 'from-green-500 to-emerald-600' },
+                { label: 'M-Pesa Breakdown', icon: '📱', main: `${stats.revenue > 0 ? ((stats.mpesa / stats.revenue) * 100).toFixed(1) : 0}% MPesa`, sub: `${fmtN(stats.mpesaTxns)} txns · ${fmt(stats.mpesa)}`, color: 'from-rose-500 to-pink-600' },
+                { label: 'Credit Paid Today', icon: '✅', main: fmt(creditPaidData.total), sub: `${fmtN(creditPaidData.txns)} pmts · Cash ${fmt(creditPaidData.cashPaid)}`, color: 'from-lime-500 to-green-600' },
+                { label: 'Cash In Hand', icon: '🏦', main: fmt(stats.cash + creditPaidData.total), sub: `Sales cash + cr.paid`, color: 'from-cyan-500 to-sky-600' },
+              ].map((m, i) => (
+                <div key={i} className="rounded-xl overflow-hidden shadow-xs border border-slate-200/90 bg-white">
+                  <div className={`bg-gradient-to-r ${m.color} px-2.5 py-1 flex items-center gap-1.5 text-white`}>
+                    <span className="text-xs">{m.icon}</span>
+                    <p className="text-[9px] font-black uppercase tracking-wider leading-none">{m.label}</p>
+                  </div>
+                  <div className="p-2">
+                    <p className="text-xs font-black text-slate-900 leading-tight font-mono">{m.main}</p>
+                    <p className="text-[9px] text-slate-400 font-semibold mt-0.5 truncate">{m.sub}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {/* ═══ 5. SIDE-TO-SIDE COCKPIT / ULTRA-LATEST FILTERS ═══ */}
+      {/* ═══ 4. SIDE-TO-SIDE COCKPIT / ULTRA-LATEST FILTERS ═══ */}
       {showFilters && (
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-3 shadow-xs space-y-2.5">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-2.5 sm:p-3 shadow-xs space-y-2">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2">
             {/* Left Side: Search + Date Presets */}
             <div className="flex items-center gap-2 flex-wrap flex-1">
               {/* Search Bar */}
-              <div className="relative flex-1 min-w-[220px]">
+              <div className="relative flex-1 min-w-[200px]">
                 <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs" />
                 <input
                   ref={searchInputRef}
                   type="text"
-                  placeholder="Search receipt, customer, phone, M-Pesa, salesperson..."
+                  placeholder="Search receipt, customer, phone, M-Pesa, salesperson... (Ctrl+F)"
                   value={search}
                   onChange={(e) => {
                     setSearch(e.target.value);
                     setPage(1);
                   }}
-                  className="w-full pl-8 pr-7 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-slate-50/70 focus:bg-white outline-none transition"
+                  className="w-full pl-8 pr-7 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-slate-50/70 focus:bg-white outline-none transition"
                 />
                 {search && (
                   <button
@@ -1047,9 +1018,9 @@ export default function FullSalesReportPage() {
                         setDateTo(p.to);
                         setPage(1);
                       }}
-                      className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold transition cursor-pointer ${
+                      className={`px-2 py-1 rounded-lg text-[10.5px] font-bold transition cursor-pointer ${
                         isSel
-                          ? 'bg-white text-indigo-700 shadow-2xs font-extrabold'
+                          ? 'bg-white text-indigo-700 shadow-xs font-black'
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
@@ -1060,7 +1031,7 @@ export default function FullSalesReportPage() {
               </div>
 
               {/* Exact Dates */}
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1">
                 <input
                   type="date"
                   value={dateFrom}
@@ -1068,7 +1039,7 @@ export default function FullSalesReportPage() {
                     setDateFrom(e.target.value);
                     setPage(1);
                   }}
-                  className="px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-slate-50 focus:bg-white outline-none cursor-pointer"
+                  className="px-2 py-1 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-slate-50 focus:bg-white outline-none cursor-pointer"
                 />
                 <span className="text-slate-400 text-xs font-bold">to</span>
                 <input
@@ -1078,7 +1049,7 @@ export default function FullSalesReportPage() {
                     setDateTo(e.target.value);
                     setPage(1);
                   }}
-                  className="px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-slate-50 focus:bg-white outline-none cursor-pointer"
+                  className="px-2 py-1 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-slate-50 focus:bg-white outline-none cursor-pointer"
                 />
               </div>
             </div>
@@ -1091,7 +1062,7 @@ export default function FullSalesReportPage() {
                   setPayFilter(e.target.value);
                   setPage(1);
                 }}
-                className="px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-slate-50 focus:bg-white outline-none cursor-pointer"
+                className="px-2 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-slate-50 focus:bg-white outline-none cursor-pointer"
               >
                 {PAY_METHODS.map((m) => (
                   <option key={m} value={m}>
@@ -1106,7 +1077,7 @@ export default function FullSalesReportPage() {
                   setSpFilter(e.target.value);
                   setPage(1);
                 }}
-                className="px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-slate-50 focus:bg-white outline-none cursor-pointer"
+                className="px-2 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-slate-50 focus:bg-white outline-none cursor-pointer"
               >
                 <option value="">👤 All Sales Staff</option>
                 {salesPersons.map((p) => (
@@ -1119,7 +1090,7 @@ export default function FullSalesReportPage() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as any)}
-                className="px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-slate-50 focus:bg-white outline-none cursor-pointer"
+                className="px-2 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-slate-50 focus:bg-white outline-none cursor-pointer"
               >
                 <option value="newest">⚡ Sort: Newest First</option>
                 <option value="oldest">⏳ Sort: Oldest First</option>
@@ -1147,18 +1118,18 @@ export default function FullSalesReportPage() {
         </div>
       )}
 
-      {/* ═══ TAB 1: DETAILED DATAGRID (LIGHT THEME — NOT BLACK!) ═══ */}
+      {/* ═══ TAB 1: DETAILED DATAGRID (LIGHT THEME — VISIBLE HEADERS, PINNED SCROLL) ═══ */}
       {activeTab === 'ledger' && (
         <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden">
           {/* Datagrid Toolbar */}
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200 bg-slate-50/50 shrink-0">
+          <div className="flex items-center justify-between px-3.5 py-2 border-b border-slate-200 bg-slate-50/80 shrink-0">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-slate-700">
                 {loading ? (
                   <span className="text-indigo-600 animate-pulse font-extrabold">Loading sales records...</span>
                 ) : (
                   <>
-                    <strong className="text-indigo-700">{fmtN(filtered.length)}</strong> records found
+                    <strong className="text-indigo-700">{fmtN(filtered.length)}</strong> transactions
                     {filtered.length !== sales.length && (
                       <span className="text-slate-400 font-normal"> (filtered from {fmtN(sales.length)})</span>
                     )}
@@ -1171,7 +1142,7 @@ export default function FullSalesReportPage() {
                   onClick={expandAll}
                   className="text-[11px] font-bold text-slate-500 hover:text-indigo-600 transition cursor-pointer"
                 >
-                  Expand Page
+                  Expand All Rows
                 </button>
                 <span className="text-slate-300">·</span>
                 <button
@@ -1184,7 +1155,7 @@ export default function FullSalesReportPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-[11px] text-slate-400 font-bold">Rows per page:</span>
+              <span className="text-[10.5px] text-slate-400 font-bold uppercase tracking-wider">Per Page:</span>
               <select
                 value={pageSize}
                 onChange={(e) => {
@@ -1195,32 +1166,33 @@ export default function FullSalesReportPage() {
               >
                 {PAGE_SIZES.map((s) => (
                   <option key={s} value={s}>
-                    {s}
+                    {s} rows
                   </option>
                 ))}
               </select>
             </div>
           </div>
 
-          {/* Table Container */}
-          <div className="overflow-x-auto">
+          {/* Table Container with Internal Scroll & Pinned Header */}
+          <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)] border-b border-slate-200">
             <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-slate-50/90 border-b border-slate-200 text-[10px] font-black uppercase text-slate-500 tracking-wider sticky top-0 z-10 backdrop-blur-xs">
-                  <th className="py-2.5 px-3 w-8 text-center" />
-                  <th className="py-2.5 px-3 whitespace-nowrap">Receipt No</th>
-                  <th className="py-2.5 px-3 whitespace-nowrap">Date</th>
-                  <th className="py-2.5 px-3 whitespace-nowrap">Time</th>
-                  <th className="py-2.5 px-3 whitespace-nowrap">Customer &amp; Phone</th>
-                  <th className="py-2.5 px-3 whitespace-nowrap">Sales Person</th>
-                  <th className="py-2.5 px-3 whitespace-nowrap text-center">Payment</th>
-                  <th className="py-2.5 px-3 whitespace-nowrap">M-Pesa Code</th>
-                  <th className="py-2.5 px-3 whitespace-nowrap text-center">Units</th>
-                  <th className="py-2.5 px-3 whitespace-nowrap text-right">Cost Price</th>
-                  <th className="py-2.5 px-3 whitespace-nowrap text-right">Subtotal</th>
-                  <th className="py-2.5 px-3 whitespace-nowrap text-right">Total Amount</th>
-                  <th className="py-2.5 px-3 whitespace-nowrap text-right">Profit</th>
-                  <th className="py-2.5 px-3 whitespace-nowrap text-center">Status &amp; Action</th>
+              {/* High-Contrast Pinned Light Table Header */}
+              <thead className="sticky top-0 z-20 bg-slate-100 shadow-xs">
+                <tr className="bg-slate-100 border-b-2 border-slate-300 text-[10.5px] font-black uppercase text-slate-800 tracking-wider">
+                  <th className="py-2.5 px-3 w-8 text-center bg-slate-100" />
+                  <th className="py-2.5 px-3 whitespace-nowrap bg-slate-100 border-r border-slate-200/60">Receipt No</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap bg-slate-100 border-r border-slate-200/60">Date</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap bg-slate-100 border-r border-slate-200/60">Time</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap bg-slate-100 border-r border-slate-200/60">Customer &amp; Phone</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap bg-slate-100 border-r border-slate-200/60">Sales Person</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap text-center bg-slate-100 border-r border-slate-200/60">Payment</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap bg-slate-100 border-r border-slate-200/60">M-Pesa Code</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap text-center bg-slate-100 border-r border-slate-200/60">Units</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap text-right bg-slate-100 border-r border-slate-200/60">Cost Price</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap text-right bg-slate-100 border-r border-slate-200/60">Subtotal</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap text-right bg-slate-100 border-r border-slate-200/60">Total Amount</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap text-right bg-slate-100 border-r border-slate-200/60">Profit</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap text-center bg-slate-100">Status &amp; Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -1228,7 +1200,7 @@ export default function FullSalesReportPage() {
                   <tr>
                     <td colSpan={14} className="py-20 text-center">
                       <div className="w-8 h-8 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-2" />
-                      <p className="text-slate-400 text-xs font-medium">Synchronizing live sales records...</p>
+                      <p className="text-slate-400 text-xs font-bold">Synchronizing live sales records...</p>
                     </td>
                   </tr>
                 ) : paginated.length === 0 ? (
@@ -1249,17 +1221,17 @@ export default function FullSalesReportPage() {
                     const isExp = expandedRows.has(sid);
                     const items: any[] = itemsMap[sid] || [];
                     const rowQty = items.reduce((s, it) => s + (it.quantity || 0), 0);
-                    const rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40';
+                    const rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50';
                     const dt = safeDate(sale.sale_datetime || sale.sale_date);
 
                     return (
                       <React.Fragment key={sid}>
                         <tr
                           onClick={() => toggleRow(sid)}
-                          className={`${rowBg} hover:bg-indigo-50/40 transition-colors cursor-pointer group`}
+                          className={`${rowBg} hover:bg-indigo-50/60 transition-colors cursor-pointer group`}
                         >
                           {/* Expand chevron */}
-                          <td className="py-2.5 px-3 text-center">
+                          <td className="py-2 px-3 text-center">
                             <FiChevronDown
                               size={13}
                               className={`transition-transform duration-200 ${
@@ -1269,26 +1241,24 @@ export default function FullSalesReportPage() {
                           </td>
 
                           {/* Receipt */}
-                          <td className="py-2.5 px-3 whitespace-nowrap">
-                            <span className="font-mono font-extrabold text-indigo-600 hover:underline">
-                              {sale.receipt_no || '—'}
-                            </span>
+                          <td className="py-2 px-3 whitespace-nowrap font-mono font-black text-indigo-600 hover:underline">
+                            {sale.receipt_no || '—'}
                           </td>
 
                           {/* Date */}
-                          <td className="py-2.5 px-3 whitespace-nowrap font-medium text-slate-700">
+                          <td className="py-2 px-3 whitespace-nowrap font-medium text-slate-700">
                             {sale.sale_date}
                           </td>
 
                           {/* Time */}
-                          <td className="py-2.5 px-3 whitespace-nowrap font-mono text-[11px] text-slate-500">
+                          <td className="py-2 px-3 whitespace-nowrap font-mono text-[11px] text-slate-500">
                             {dt
                               ? dt.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })
                               : sale.sale_time || '—'}
                           </td>
 
                           {/* Customer */}
-                          <td className="py-2.5 px-3 max-w-[150px]">
+                          <td className="py-2 px-3 max-w-[150px]">
                             <div className="font-bold text-slate-900 truncate">
                               {sale.customer_name || 'Walk-in Customer'}
                             </div>
@@ -1298,24 +1268,24 @@ export default function FullSalesReportPage() {
                           </td>
 
                           {/* Sales Person */}
-                          <td className="py-2.5 px-3 whitespace-nowrap">
+                          <td className="py-2 px-3 whitespace-nowrap">
                             <div className="flex items-center gap-1.5">
-                              <span className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 shrink-0">
+                              <span className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 shrink-0 font-bold text-[10px]">
                                 <FiUser size={10} />
                               </span>
-                              <span className="text-slate-700 font-medium truncate max-w-[100px]">
+                              <span className="text-slate-700 font-medium truncate max-w-[110px]">
                                 {getSP(sale)}
                               </span>
                             </div>
                           </td>
 
                           {/* Payment Method */}
-                          <td className="py-2.5 px-3 whitespace-nowrap text-center">
+                          <td className="py-2 px-3 whitespace-nowrap text-center">
                             <Bdg txt={sale.payment_method} color={payColor(sale.payment_method)} />
                           </td>
 
                           {/* M-Pesa Code */}
-                          <td className="py-2.5 px-3 whitespace-nowrap">
+                          <td className="py-2 px-3 whitespace-nowrap">
                             {sale.mpesa_code ? (
                               <span className="font-mono text-[10px] bg-emerald-50 text-emerald-800 font-bold px-1.5 py-0.5 rounded border border-emerald-200">
                                 {sale.mpesa_code}
@@ -1326,7 +1296,7 @@ export default function FullSalesReportPage() {
                           </td>
 
                           {/* Units */}
-                          <td className="py-2.5 px-3 whitespace-nowrap text-center">
+                          <td className="py-2 px-3 whitespace-nowrap text-center">
                             {rowQty > 0 ? (
                               <span className="font-mono font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full text-[10px] border border-sky-200">
                                 {fmtN(rowQty)}
@@ -1337,22 +1307,22 @@ export default function FullSalesReportPage() {
                           </td>
 
                           {/* Cost */}
-                          <td className="py-2.5 px-3 whitespace-nowrap text-right font-mono text-slate-500">
+                          <td className="py-2 px-3 whitespace-nowrap text-right font-mono text-slate-500">
                             {fmt(sale.total_cost)}
                           </td>
 
                           {/* Subtotal */}
-                          <td className="py-2.5 px-3 whitespace-nowrap text-right font-mono text-slate-700">
+                          <td className="py-2 px-3 whitespace-nowrap text-right font-mono text-slate-700">
                             {fmt(sale.subtotal)}
                           </td>
 
                           {/* Total */}
-                          <td className="py-2.5 px-3 whitespace-nowrap text-right font-mono font-black text-slate-900">
+                          <td className="py-2 px-3 whitespace-nowrap text-right font-mono font-black text-slate-900">
                             {fmt(sale.total_amount)}
                           </td>
 
                           {/* Profit */}
-                          <td className="py-2.5 px-3 whitespace-nowrap text-right font-mono font-extrabold">
+                          <td className="py-2 px-3 whitespace-nowrap text-right font-mono font-extrabold">
                             {isCashier ? (
                               <span className="text-slate-400">0.00</span>
                             ) : sale.profit !== null && sale.profit !== undefined ? (
@@ -1366,7 +1336,7 @@ export default function FullSalesReportPage() {
                           </td>
 
                           {/* Status & Action */}
-                          <td className="py-2.5 px-3 whitespace-nowrap text-center">
+                          <td className="py-2 px-3 whitespace-nowrap text-center">
                             <div className="flex items-center justify-center gap-1.5">
                               <Bdg
                                 txt={sale.status || 'Completed'}
@@ -1380,7 +1350,7 @@ export default function FullSalesReportPage() {
                               <button
                                 onClick={(e) => reprintSale(sale, e)}
                                 title="Reprint Official Customer Receipt"
-                                className="p-1.5 rounded-lg border border-slate-200 hover:border-indigo-300 bg-white hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 transition cursor-pointer shadow-2xs"
+                                className="p-1 rounded-lg border border-slate-200 hover:border-indigo-300 bg-white hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 transition cursor-pointer shadow-xs"
                               >
                                 <FiPrinter size={12} />
                               </button>
@@ -1391,7 +1361,7 @@ export default function FullSalesReportPage() {
                         {/* ── EXPANDED INVOICE ITEMS SUB-TABLE (LIGHT THEME) ── */}
                         {isExp && (
                           <tr key={`items-${sid}`}>
-                            <td colSpan={14} className="px-6 py-3.5 bg-slate-50/80 border-y border-slate-200">
+                            <td colSpan={14} className="px-5 py-3 bg-slate-50/90 border-y border-slate-200">
                               {loadingItems.has(sid) ? (
                                 <div className="flex items-center gap-2 py-3 text-indigo-600 text-xs font-bold">
                                   <div className="w-4 h-4 border-2 border-indigo-300 border-t-indigo-600 rounded-full animate-spin" />
@@ -1402,9 +1372,9 @@ export default function FullSalesReportPage() {
                                   <span>📦</span> No detailed line items recorded for this invoice.
                                 </p>
                               ) : (
-                                <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
-                                  <div className="px-3.5 py-2 bg-slate-100/80 border-b border-slate-200 flex items-center justify-between">
-                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-600">
+                                <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+                                  <div className="px-3.5 py-1.5 bg-slate-100/90 border-b border-slate-200 flex items-center justify-between">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-700">
                                       Invoice Line Items ({items.length})
                                     </span>
                                     <span className="text-[10px] font-mono text-slate-500 font-bold">
@@ -1413,14 +1383,14 @@ export default function FullSalesReportPage() {
                                   </div>
                                   <table className="w-full text-xs">
                                     <thead>
-                                      <tr className="bg-slate-50 text-slate-500 text-[10px] font-black uppercase tracking-wider border-b border-slate-200">
-                                        <th className="px-3 py-2 text-left w-10">#</th>
-                                        <th className="px-3 py-2 text-left">Product Name</th>
-                                        <th className="px-3 py-2 text-center">Qty</th>
-                                        <th className="px-3 py-2 text-right">Cost Price</th>
-                                        <th className="px-3 py-2 text-right">Unit Price</th>
-                                        <th className="px-3 py-2 text-right">Line Total</th>
-                                        <th className="px-3 py-2 text-right">Profit</th>
+                                      <tr className="bg-slate-50 text-slate-700 text-[10px] font-black uppercase tracking-wider border-b border-slate-200">
+                                        <th className="px-3 py-1.5 text-left w-10">#</th>
+                                        <th className="px-3 py-1.5 text-left">Product Name</th>
+                                        <th className="px-3 py-1.5 text-center">Qty</th>
+                                        <th className="px-3 py-1.5 text-right">Cost Price</th>
+                                        <th className="px-3 py-1.5 text-right">Unit Price</th>
+                                        <th className="px-3 py-1.5 text-right">Line Total</th>
+                                        <th className="px-3 py-1.5 text-right">Profit</th>
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
@@ -1429,21 +1399,21 @@ export default function FullSalesReportPage() {
                                         const lineProfit = it.profit || 0;
                                         return (
                                           <tr key={it.item_id || i} className="hover:bg-slate-50/50">
-                                            <td className="px-3 py-2 text-slate-400 font-mono text-[10px]">{i + 1}</td>
-                                            <td className="px-3 py-2 font-bold text-slate-800">{it.product_name}</td>
-                                            <td className="px-3 py-2 text-center font-mono font-bold text-indigo-600">
+                                            <td className="px-3 py-1.5 text-slate-400 font-mono text-[10px]">{i + 1}</td>
+                                            <td className="px-3 py-1.5 font-bold text-slate-800">{it.product_name}</td>
+                                            <td className="px-3 py-1.5 text-center font-mono font-bold text-indigo-600">
                                               {qty}
                                             </td>
-                                            <td className="px-3 py-2 text-right font-mono text-slate-500">
+                                            <td className="px-3 py-1.5 text-right font-mono text-slate-500">
                                               {(it.cost_price || 0) > 0 ? fmt(it.cost_price) : '—'}
                                             </td>
-                                            <td className="px-3 py-2 text-right font-mono text-slate-700">
+                                            <td className="px-3 py-1.5 text-right font-mono text-slate-700">
                                               {fmt(it.unit_price)}
                                             </td>
-                                            <td className="px-3 py-2 text-right font-mono font-bold text-slate-900">
+                                            <td className="px-3 py-1.5 text-right font-mono font-bold text-slate-900">
                                               {fmt(it.subtotal || it.unit_price * qty)}
                                             </td>
-                                            <td className="px-3 py-2 text-right font-mono font-bold">
+                                            <td className="px-3 py-1.5 text-right font-mono font-bold">
                                               <span
                                                 className={
                                                   isCashier
@@ -1461,21 +1431,21 @@ export default function FullSalesReportPage() {
                                       })}
                                     </tbody>
                                     <tfoot>
-                                      <tr className="bg-slate-50/90 border-t border-slate-200 font-extrabold text-xs">
-                                        <td colSpan={2} className="px-3 py-2 text-slate-700 uppercase tracking-wider text-[10px]">
+                                      <tr className="bg-slate-50 border-t border-slate-200 font-black text-xs">
+                                        <td colSpan={2} className="px-3 py-1.5 text-slate-700 uppercase tracking-wider text-[10px]">
                                           Items Total
                                         </td>
-                                        <td className="px-3 py-2 text-center font-mono text-indigo-700">
+                                        <td className="px-3 py-1.5 text-center font-mono text-indigo-700">
                                           {items.reduce((s, it) => s + (it.quantity || 0), 0)}
                                         </td>
-                                        <td className="px-3 py-2 text-right font-mono text-slate-500">
+                                        <td className="px-3 py-1.5 text-right font-mono text-slate-500">
                                           {fmt(items.reduce((s, it) => s + (it.cost_price || 0) * (it.quantity || 0), 0))}
                                         </td>
                                         <td />
-                                        <td className="px-3 py-2 text-right font-mono text-slate-900 font-black">
+                                        <td className="px-3 py-1.5 text-right font-mono text-slate-900 font-black">
                                           {fmt(sale.total_amount)}
                                         </td>
-                                        <td className="px-3 py-2 text-right font-mono text-emerald-600 font-black">
+                                        <td className="px-3 py-1.5 text-right font-mono text-emerald-600 font-black">
                                           {!isCashier && (
                                             <span>{(sale.profit || 0) >= 0 ? '+' : ''}{fmt(sale.profit)}</span>
                                           )}
@@ -1493,39 +1463,37 @@ export default function FullSalesReportPage() {
                   })
                 )}
               </tbody>
-
-              {/* Summary Totals Footer */}
-              <tfoot>
-                <tr className="bg-slate-900 text-white font-extrabold border-t-2 border-slate-700">
-                  <td colSpan={5} className="py-3 px-3 uppercase tracking-wider text-[11px] text-slate-300">
-                    Grand Total ({fmtN(filtered.length)} Records)
-                  </td>
-                  <td colSpan={3} className="py-3 px-3 text-right text-[11px] text-slate-400 font-mono">
-                    Discounts: -{fmt(stats.discount)}
-                  </td>
-                  <td className="py-3 px-3 text-center font-mono text-xs text-sky-400 font-black">
-                    {fmtN(stats.totalQty)}
-                  </td>
-                  <td className="py-3 px-3 text-right font-mono text-xs text-slate-300">
-                    {isCashier ? '—' : fmt(stats.cost)}
-                  </td>
-                  <td className="py-3 px-3 text-right font-mono text-xs text-slate-300">
-                    {isCashier ? '—' : fmt(stats.revenue + stats.discount)}
-                  </td>
-                  <td className="py-3 px-3 text-right font-mono text-sm text-emerald-400 font-black">
-                    {isCashier ? 'Ksh 0.00' : fmt(stats.revenue)}
-                  </td>
-                  <td className="py-3 px-3 text-right font-mono text-sm text-teal-400 font-black">
-                    {isCashier ? 'Ksh 0.00' : fmt(stats.profit)}
-                  </td>
-                  <td />
-                </tr>
-              </tfoot>
             </table>
           </div>
 
+          {/* Sticky Summary Totals Footer */}
+          <div className="bg-slate-900 text-white px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs font-black">
+            <div className="flex items-center gap-2">
+              <span className="uppercase tracking-wider text-[11px] text-slate-300">Grand Total:</span>
+              <span className="font-mono text-white text-sm">{fmtN(filtered.length)} Records</span>
+            </div>
+
+            <div className="flex items-center gap-4 flex-wrap font-mono">
+              <span className="text-slate-400 text-[11px]">
+                Discounts: <strong className="text-amber-400">-{fmt(stats.discount)}</strong>
+              </span>
+              <span className="text-slate-400 text-[11px]">
+                Total Units: <strong className="text-sky-400">{fmtN(stats.totalQty)}</strong>
+              </span>
+              <span className="text-slate-400 text-[11px]">
+                Total Cost: <strong className="text-slate-200">{isCashier ? '—' : fmt(stats.cost)}</strong>
+              </span>
+              <span className="text-slate-400 text-[11px]">
+                Revenue: <strong className="text-emerald-400 text-sm">{isCashier ? 'Ksh 0.00' : fmt(stats.revenue)}</strong>
+              </span>
+              <span className="text-slate-400 text-[11px]">
+                Net Profit: <strong className="text-teal-300 text-sm">{isCashier ? 'Ksh 0.00' : fmt(stats.profit)}</strong>
+              </span>
+            </div>
+          </div>
+
           {/* Pagination Controls */}
-          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-slate-200 bg-slate-50/50 shrink-0 text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 border-t border-slate-200 bg-slate-50/70 shrink-0 text-xs">
             <span className="text-slate-500 font-medium">
               Showing <b>{Math.min((page - 1) * pageSize + 1, Math.max(1, filtered.length))}</b> to{' '}
               <b>{Math.min(page * pageSize, filtered.length)}</b> of <b>{fmtN(filtered.length)}</b> entries
@@ -1535,14 +1503,14 @@ export default function FullSalesReportPage() {
               <button
                 onClick={() => setPage(1)}
                 disabled={page === 1}
-                className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-30 font-bold text-xs cursor-pointer"
+                className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-30 font-bold text-xs cursor-pointer"
               >
                 « First
               </button>
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-30 font-bold text-xs flex items-center gap-1 cursor-pointer"
+                className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-30 font-bold text-xs flex items-center gap-1 cursor-pointer"
               >
                 <FiChevronLeft size={12} /> Prev
               </button>
@@ -1560,9 +1528,9 @@ export default function FullSalesReportPage() {
                   <button
                     key={p}
                     onClick={() => setPage(p)}
-                    className={`px-3 py-1.5 rounded-lg border text-xs font-black transition-all cursor-pointer ${
+                    className={`px-3 py-1 rounded-lg border text-xs font-black transition-all cursor-pointer ${
                       p === page
-                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
                         : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-300'
                     }`}
                   >
@@ -1574,14 +1542,14 @@ export default function FullSalesReportPage() {
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-30 font-bold text-xs flex items-center gap-1 cursor-pointer"
+                className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-30 font-bold text-xs flex items-center gap-1 cursor-pointer"
               >
                 Next <FiArrowRight size={12} />
               </button>
               <button
                 onClick={() => setPage(totalPages)}
                 disabled={page === totalPages}
-                className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-30 font-bold text-xs cursor-pointer"
+                className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-30 font-bold text-xs cursor-pointer"
               >
                 Last »
               </button>
@@ -1592,7 +1560,7 @@ export default function FullSalesReportPage() {
 
       {/* ═══ TAB 2: LINEAR CHARTS & TRENDS (RECHARTS) ═══ */}
       {activeTab === 'trends' && (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {/* Main Linear Trend Area Chart */}
           <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs space-y-3">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 flex-wrap gap-2">
@@ -1704,7 +1672,7 @@ export default function FullSalesReportPage() {
           </div>
 
           {/* Secondary Velocity & Transaction Count Bar Chart */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs space-y-2">
               <h3 className="text-sm font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
                 <FiBarChart2 className="text-indigo-600" />
@@ -1737,31 +1705,31 @@ export default function FullSalesReportPage() {
                 <p className="text-[10px] text-slate-400 font-medium mb-3">Key financial efficiency indicators</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-2.5 text-xs">
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
                   <span className="text-[10px] text-slate-400 uppercase font-black">Average Ticket Size</span>
-                  <p className="text-base font-mono font-extrabold text-slate-900 mt-1">{fmt(stats.avg)}</p>
-                  <span className="text-[9.5px] text-slate-500 font-medium">Per checkout receipt</span>
+                  <p className="text-sm font-mono font-extrabold text-slate-900 mt-0.5">{fmt(stats.avg)}</p>
+                  <span className="text-[9px] text-slate-500 font-medium">Per checkout receipt</span>
                 </div>
 
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
                   <span className="text-[10px] text-slate-400 uppercase font-black">Overall Profit Margin</span>
-                  <p className="text-base font-mono font-extrabold text-emerald-600 mt-1">
+                  <p className="text-sm font-mono font-extrabold text-emerald-600 mt-0.5">
                     {(stats.margin || 0).toFixed(1)}%
                   </p>
-                  <span className="text-[9.5px] text-slate-500 font-medium">Cost vs Selling price</span>
+                  <span className="text-[9px] text-slate-500 font-medium">Cost vs Selling price</span>
                 </div>
 
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
                   <span className="text-[10px] text-slate-400 uppercase font-black">Peak Transaction</span>
-                  <p className="text-base font-mono font-extrabold text-indigo-600 mt-1">{fmt(stats.maxSale)}</p>
-                  <span className="text-[9.5px] text-slate-500 font-medium">Largest single order</span>
+                  <p className="text-sm font-mono font-extrabold text-indigo-600 mt-0.5">{fmt(stats.maxSale)}</p>
+                  <span className="text-[9px] text-slate-500 font-medium">Largest single order</span>
                 </div>
 
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
                   <span className="text-[10px] text-slate-400 uppercase font-black">Discounts Incurred</span>
-                  <p className="text-base font-mono font-extrabold text-amber-600 mt-1">{fmt(stats.discount)}</p>
-                  <span className="text-[9.5px] text-slate-500 font-medium">Across {stats.discountTxns} orders</span>
+                  <p className="text-sm font-mono font-extrabold text-amber-600 mt-0.5">{fmt(stats.discount)}</p>
+                  <span className="text-[9px] text-slate-500 font-medium">Across {stats.discountTxns} orders</span>
                 </div>
               </div>
             </div>
@@ -1771,8 +1739,8 @@ export default function FullSalesReportPage() {
 
       {/* ═══ TAB 3: PAYMENT CHANNELS & MIX ═══ */}
       {activeTab === 'channels' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {/* Donut Chart */}
             <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs md:col-span-1 flex flex-col items-center justify-between">
               <div className="w-full text-left">
@@ -1831,13 +1799,13 @@ export default function FullSalesReportPage() {
                 Real-time breakdown of transactions by payment gateway
               </p>
 
-              <div className="space-y-2.5">
+              <div className="space-y-2">
                 {paymentBreakdownData.map((p, idx) => {
                   const pct = stats.revenue > 0 ? (p.value / stats.revenue) * 100 : 0;
                   return (
                     <div
                       key={p.name}
-                      className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/60 flex flex-col justify-between"
+                      className="p-2.5 rounded-xl border border-slate-200/80 bg-slate-50/60 flex flex-col justify-between"
                     >
                       <div className="flex items-center justify-between text-xs font-extrabold text-slate-800 mb-1">
                         <div className="flex items-center gap-2">
@@ -1851,7 +1819,7 @@ export default function FullSalesReportPage() {
                         <span className="font-mono text-indigo-700">{fmt(p.value)}</span>
                       </div>
 
-                      <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden my-1.5">
+                      <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden my-1">
                         <div
                           className="h-full rounded-full transition-all duration-500"
                           style={{
@@ -1877,7 +1845,7 @@ export default function FullSalesReportPage() {
       {/* ═══ TAB 4: SALESPERSON PERFORMANCE MATRIX ═══ */}
       {activeTab === 'staff' && (
         <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-200 bg-slate-50/60">
+          <div className="px-4 py-2.5 border-b border-slate-200 bg-slate-50/70">
             <h3 className="text-sm font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
               <FiUser className="text-indigo-600" />
               <span>Sales Staff &amp; Cashier Performance Leaderboard</span>
@@ -1890,7 +1858,7 @@ export default function FullSalesReportPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50/90 border-b border-slate-200 text-[10px] font-black uppercase text-slate-500 tracking-wider">
+                <tr className="bg-slate-100 border-b-2 border-slate-300 text-[10.5px] font-black uppercase text-slate-800 tracking-wider">
                   <th className="py-2.5 px-3.5 text-center w-16">Rank</th>
                   <th className="py-2.5 px-3">Sales Person</th>
                   <th className="py-2.5 px-3 text-center">Invoices Handled</th>
@@ -1905,9 +1873,9 @@ export default function FullSalesReportPage() {
                   const sharePct = stats.revenue > 0 ? (st.revenue / stats.revenue) * 100 : 0;
                   return (
                     <tr key={st.name} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-2.5 px-3.5 text-center">
+                      <td className="py-2 px-3.5 text-center">
                         <span
-                          className={`inline-flex items-center justify-center w-7 h-7 rounded-xl font-black text-xs font-mono shadow-2xs ${
+                          className={`inline-flex items-center justify-center w-7 h-7 rounded-xl font-black text-xs font-mono shadow-xs ${
                             idx === 0
                               ? 'bg-amber-500 text-white'
                               : idx === 1
@@ -1920,7 +1888,7 @@ export default function FullSalesReportPage() {
                           #{idx + 1}
                         </span>
                       </td>
-                      <td className="py-2.5 px-3">
+                      <td className="py-2 px-3">
                         <div className="font-extrabold text-slate-900 text-xs flex items-center gap-2">
                           <span className="w-6 h-6 rounded-full bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600 font-bold text-[10px]">
                             {st.name.charAt(0).toUpperCase()}
@@ -1928,19 +1896,19 @@ export default function FullSalesReportPage() {
                           <span>{st.name}</span>
                         </div>
                       </td>
-                      <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-700">
+                      <td className="py-2 px-3 text-center font-mono font-bold text-slate-700">
                         {fmtN(st.count)}
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono font-black text-slate-900">
+                      <td className="py-2 px-3 text-right font-mono font-black text-slate-900">
                         {fmt(st.revenue)}
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono text-slate-600">
+                      <td className="py-2 px-3 text-right font-mono text-slate-600">
                         {fmt(st.avgSale)}
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono font-extrabold text-emerald-600">
+                      <td className="py-2 px-3 text-right font-mono font-extrabold text-emerald-600">
                         {fmt(st.profit)}
                       </td>
-                      <td className="py-2.5 px-3 text-center">
+                      <td className="py-2 px-3 text-center">
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 font-mono">
                           {sharePct.toFixed(1)}%
                         </span>
