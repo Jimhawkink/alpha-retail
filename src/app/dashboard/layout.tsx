@@ -1159,10 +1159,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             onClick={() => setMobileOpen(false)} />
                     )}
 
-                    {/* ═══════════ SIDEBAR (Login Theme: Deep Obsidian Canvas #041226, Executive Midnight Navy #091D3E, Electric Green Accents) ═══════════ */}
+                    {/* ═══════════ SIDEBAR (Exact Typography & Sizing matching reference image) ═══════════ */}
                     {!isCashier && (
                         <aside className={`fixed top-0 left-0 h-full z-50 shadow-2xl flex flex-col transition-all duration-300 ease-in-out border-r border-[#12356B]/60 text-white
-                            ${collapsed ? 'w-[64px]' : 'w-[210px]'}
+                            ${collapsed ? 'w-[64px]' : 'w-[220px]'}
                             ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
                             style={{
                                 background: 'linear-gradient(180deg, #041226 0%, #091D3E 50%, #041226 100%)',
@@ -1201,7 +1201,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 </button>
                             </div>
 
-                            {/* Nav with Pure White Fonts and Icons */}
+                            {/* Nav with Exact Fonts and Font Sizes from Image (13.5px Groups, 13px Sub-items) */}
                             <nav className="flex-1 overflow-y-auto sb-scroll py-2.5 px-2 space-y-1">
                                 {filtered.map(group => {
                                     const isExp   = expanded[group.name];
@@ -1215,12 +1215,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                             return (
                                                 <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)}
                                                     title={collapsed ? item.label : undefined}
-                                                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-bold transition-all mb-1
+                                                    className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13.5px] font-semibold transition-all mb-1 select-none
                                                         ${active
-                                                            ? 'bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-500 text-white shadow-md shadow-emerald-500/30 ring-1 ring-emerald-300/40 font-black'
+                                                            ? 'bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-500 text-white shadow-md shadow-emerald-500/30 ring-1 ring-emerald-300/40 font-bold'
                                                             : 'text-white hover:text-white hover:bg-white/10'}
                                                         ${collapsed ? 'justify-center !px-2' : ''}`}>
-                                                    <IIcon size={16} className="text-white shrink-0" />
+                                                    <IIcon size={18} className="text-white shrink-0" />
                                                     {!collapsed && <span className="flex-1 tracking-tight truncate text-white">{item.label}</span>}
                                                     {!collapsed && item.badge && (
                                                         <span className={`text-[8.5px] font-black px-1.5 py-0.2 rounded-full ${active ? 'bg-slate-950 text-white' : 'bg-white/20 text-white'}`}>
@@ -1237,30 +1237,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                         <div key={group.name} className="mb-0.5">
                                             <button onClick={() => toggle(group.name)}
                                                 title={collapsed ? group.label : undefined}
-                                                className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-[12px] font-bold transition-all cursor-pointer
-                                                    ${gActive ? 'text-white bg-white/15 font-black shadow-sm' : 'text-white hover:bg-white/10 hover:text-white'}
-                                                    ${collapsed ? 'justify-center' : ''}`}>
-                                                {GIcon && <GIcon size={15} className="text-white shrink-0" />}
+                                                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13.5px] font-semibold transition-all cursor-pointer select-none
+                                                    ${gActive ? 'text-white bg-white/15 font-bold shadow-sm' : 'text-slate-100 hover:bg-white/10 hover:text-white'}
+                                                    ${collapsed ? 'justify-center !px-2' : ''}`}>
+                                                {GIcon && <GIcon size={18} className="text-white shrink-0" />}
                                                 {!collapsed && (
                                                     <>
                                                         <span className="flex-1 text-left truncate text-white">{group.label}</span>
-                                                        <ChevronDown size={12} className={`text-white/80 transition-transform duration-200 shrink-0 ${isExp ? 'rotate-180 text-white' : ''}`} />
+                                                        <ChevronDown size={14} className={`text-slate-300 transition-transform duration-200 shrink-0 ${isExp ? 'rotate-180 text-white' : ''}`} />
                                                     </>
                                                 )}
                                             </button>
 
                                             <div className={`overflow-hidden transition-all duration-200 ease-in-out ${isExp && !collapsed ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                                                <div className="ml-3 pl-2 mt-0.5 pb-0.5 space-y-0.5 border-l-2 border-white/20">
+                                                <div className="ml-4 pl-3.5 my-1 space-y-0.5 border-l border-white/20">
                                                     {group.items.map(item => {
                                                         const IIcon  = item.icon as React.ElementType;
                                                         const active = isActive(item.href);
                                                         return (
                                                             <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)}
-                                                                className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] font-semibold transition-all
-                                                                    ${active ? 'text-white bg-gradient-to-r from-emerald-500 to-teal-500 font-black shadow-sm' : 'text-white hover:text-white hover:bg-white/10'}`}>
-                                                                <IIcon size={13} className="text-white shrink-0" />
+                                                                className={`flex items-center gap-3 px-2.5 py-1.5 rounded-lg text-[13px] font-medium transition-all
+                                                                    ${active ? 'text-white bg-gradient-to-r from-emerald-500 to-teal-500 font-semibold shadow-sm' : 'text-slate-200 hover:text-white hover:bg-white/10'}`}>
+                                                                <IIcon size={16} className="text-white shrink-0" />
                                                                 <span className="flex-1 truncate text-white">{item.label}</span>
-                                                                {item.badge && <span className="text-[8px] font-black px-1 py-0.5 rounded-full bg-white/20 text-white">{item.badge}</span>}
+                                                                {item.badge && <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-white/20 text-white">{item.badge}</span>}
                                                                 {active && <div className="w-1.5 h-1.5 rounded-full bg-white shrink-0" />}
                                                             </Link>
                                                         );
@@ -1283,35 +1283,41 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 </div>
                             )}
 
-                            {/* User footer matching Login Theme */}
-                            <div className={`border-t border-[#12356B]/60 shrink-0 ${collapsed ? 'p-1.5' : 'p-2'}`}>
+                            {/* User footer matching reference image (Crown Avatar + Name + Super Admin Pill + Exit icon) */}
+                            <div className={`border-t border-[#12356B]/60 shrink-0 ${collapsed ? 'p-1.5' : 'p-2.5'}`}>
                                 {!collapsed ? (
-                                    <div className="flex items-center gap-2 p-1.5 rounded-xl bg-[#041226] border border-emerald-400/40 shadow-md">
-                                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-slate-950 text-xs font-black shrink-0 bg-gradient-to-tr from-amber-400 to-yellow-300 ring-1 ring-amber-300/60 shadow">
-                                            {user.name?.charAt(0)?.toUpperCase() || 'U'}
+                                    <div className="flex items-center gap-2.5 p-1">
+                                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-lg shadow-md shrink-0">
+                                            👑
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-[11.5px] font-black text-white truncate leading-tight">{user.name}</p>
-                                            <p className="text-[9.5px] text-emerald-300 font-bold capitalize truncate">{user.userType || 'Administrator'}</p>
+                                            <p className="text-[13.5px] font-bold text-white truncate leading-tight">
+                                                {user.name || 'Jimhawkins Korir'}
+                                            </p>
+                                            <div className="mt-1 inline-flex items-center gap-1 px-3 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black text-[9.5px] tracking-wider uppercase shadow-sm">
+                                                <span>👑</span>
+                                                <span>{user.userType || 'SUPER ADMIN'}</span>
+                                            </div>
                                         </div>
-                                        <div className="h-4 w-px bg-white/20 mx-0.5" />
-                                        <button onClick={() => router.push('/dashboard/company')} title="Settings"
-                                            className="p-1 text-white hover:text-emerald-300 hover:bg-white/10 rounded-lg transition-colors cursor-pointer">
-                                            <Settings size={13} />
-                                        </button>
-                                        <button onClick={handleLogout} title="Logout"
-                                            className="p-1 text-rose-300 hover:text-white hover:bg-rose-500/30 rounded-lg transition-colors cursor-pointer">
-                                            <LogOut size={13} />
+                                        <button
+                                            onClick={handleLogout}
+                                            title="Logout"
+                                            className="p-1.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer shrink-0 ml-auto"
+                                        >
+                                            <LogOut size={18} />
                                         </button>
                                     </div>
                                 ) : (
                                     <div className="flex flex-col items-center gap-2">
-                                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-slate-950 text-xs font-black bg-gradient-to-tr from-amber-400 to-yellow-300 ring-1 ring-amber-300/60 shadow">
-                                            {user.name?.charAt(0)?.toUpperCase() || 'U'}
+                                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-sm shadow-md">
+                                            👑
                                         </div>
-                                        <button onClick={handleLogout} title="Logout"
-                                            className="p-1 text-rose-300 hover:text-white hover:bg-rose-500/30 rounded-lg transition-colors cursor-pointer">
-                                            <LogOut size={13} />
+                                        <button
+                                            onClick={handleLogout}
+                                            title="Logout"
+                                            className="p-1 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+                                        >
+                                            <LogOut size={16} />
                                         </button>
                                     </div>
                                 )}
@@ -1320,7 +1326,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     )}
 
                     {/* ═══════════ MAIN ═══════════ */}
-                    <main className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${isCashier ? '' : collapsed ? 'lg:ml-[64px]' : 'lg:ml-[210px]'}`}>
+                    <main className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${isCashier ? '' : collapsed ? 'lg:ml-[64px]' : 'lg:ml-[220px]'}`}>
                         {isPosOrDashboard ? (
                             <POSHeaderBanner
                                 user={user}
