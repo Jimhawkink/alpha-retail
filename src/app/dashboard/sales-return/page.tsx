@@ -267,15 +267,38 @@ export default function SalesReturnPage() {
       try {
         let q = supabase
           .from('retail_sales')
-          .select('sale_id,receipt_no,sale_date,sale_datetime,customer_name,total_amount,payment_method,outlet_id,created_by,cashier_name')
-          .order('sale_id', { ascending: false })
-          .limit(40);
+          .select('sale_id,receipt_no,sale_date,sale_time,sale_datetime,customer_name,customer_phone,total_amount,payment_method,outlet_id,created_by')
+          .order('sale_datetime', { ascending: false })
+          .limit(50);
 
         if (currentOutletId) q = q.eq('outlet_id', currentOutletId);
-        if (query.trim()) q = q.or(`receipt_no.ilike.%${query.trim()}%,customer_name.ilike.%${query.trim()}%`);
+        if (query.trim()) {
+          q = q.or(`receipt_no.ilike.%${query.trim()}%,customer_name.ilike.%${query.trim()}%,customer_phone.ilike.%${query.trim()}%`);
+        }
         if (date) q = q.eq('sale_date', date);
 
-        const { data, error } = await q;
+        let { data, error } = await q;
+
+        // Fallback without outlet constraint if 0 records returned
+        if ((!data || data.length === 0) && currentOutletId) {
+          let fallbackQ = supabase
+            .from('retail_sales')
+            .select('sale_id,receipt_no,sale_date,sale_time,sale_datetime,customer_name,customer_phone,total_amount,payment_method,outlet_id,created_by')
+            .order('sale_datetime', { ascending: false })
+            .limit(50);
+
+          if (query.trim()) {
+            fallbackQ = fallbackQ.or(`receipt_no.ilike.%${query.trim()}%,customer_name.ilike.%${query.trim()}%,customer_phone.ilike.%${query.trim()}%`);
+          }
+          if (date) fallbackQ = fallbackQ.eq('sale_date', date);
+
+          const fallbackRes = await fallbackQ;
+          if (!fallbackRes.error && fallbackRes.data) {
+            data = fallbackRes.data;
+            error = null;
+          }
+        }
+
         if (!error && data) {
           setSalesList(data);
         } else {
@@ -283,6 +306,7 @@ export default function SalesReturnPage() {
         }
       } catch (err) {
         console.error('Error fetching sales:', err);
+        setSalesList([]);
       } finally {
         setIsSearching(false);
       }
@@ -330,23 +354,33 @@ export default function SalesReturnPage() {
     setStep(2);
     try {
       const sid = Number(sale.sale_id);
+      let itemsData: any[] = [];
       const { data, error } = await supabase
         .from('retail_sales_items')
-        .select('item_id,sale_id,product_id,product_name,quantity,unit_price,subtotal,selling_unit')
+        .select('item_id,sale_id,product_id,product_name,barcode,quantity,unit_price,cost_price,discount,subtotal')
         .eq('sale_id', sid);
 
-      if (!error && data) {
-        setSaleItems(
-          data.map((i: any, idx: number) => ({
-            ...i,
-            _idx: idx,
-            returnQty: 0,
-            selected: false,
-          }))
-        );
-      } else {
-        setSaleItems([]);
+      if (!error && data && data.length > 0) {
+        itemsData = data;
+      } else if (sale.receipt_no) {
+        // Fallback by matching receipt number if sale_id was null
+        const { data: byReceipt } = await supabase
+          .from('retail_sales_items')
+          .select('item_id,sale_id,product_id,product_name,barcode,quantity,unit_price,cost_price,discount,subtotal')
+          .eq('sale_id', sid);
+        itemsData = byReceipt || [];
       }
+
+      setSaleItems(
+        itemsData.map((i: any, idx: number) => ({
+          ...i,
+          _idx: idx,
+          unit_price: Number(i.unit_price || 0),
+          subtotal: Number(i.subtotal || (i.unit_price || 0) * (i.quantity || 1)),
+          returnQty: 0,
+          selected: false,
+        }))
+      );
     } catch (err) {
       console.error('Error loading sale items:', err);
       toast.error('Failed to load invoice items');
@@ -1695,25 +1729,75 @@ export default function SalesReturnPage() {
             {/* STEP 1: Search Sales */}
             {step === 1 && (
               <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                {/* Search Bar */}
-                <div className="p-3 border-b border-slate-100 bg-white flex gap-2">
-                  <div className="relative flex-1">
-                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
-                    <input
-                      autoFocus
-                      value={saleSearch}
-                      onChange={(e) => setSaleSearch(e.target.value)}
-                      placeholder="Type receipt number or customer name..."
-                      className="w-full pl-8 pr-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-rose-400 bg-slate-50 focus:bg-white"
-                    />
+                {/* Search Bar & Date Controls */}
+                <div className="p-3 border-b border-slate-100 bg-white space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
+                      <input
+                        autoFocus
+                        value={saleSearch}
+                        onChange={(e) => setSaleSearch(e.target.value)}
+                        placeholder="Search receipt number, customer name, or phone..."
+                        className="w-full pl-8 pr-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-rose-400 bg-slate-50 focus:bg-white"
+                      />
+                      {saleSearch && (
+                        <button
+                          onClick={() => setSaleSearch('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                        >
+                          <FiX size={12} />
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="date"
+                        value={saleDateFilter}
+                        onChange={(e) => setSaleDateFilter(e.target.value)}
+                        className="px-2.5 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-rose-400 bg-slate-50 cursor-pointer"
+                        title="Filter by sale date"
+                      />
+                      {saleDateFilter && (
+                        <button
+                          onClick={() => setSaleDateFilter('')}
+                          className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold cursor-pointer"
+                          title="Clear date filter"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <input
-                    type="date"
-                    value={saleDateFilter}
-                    onChange={(e) => setSaleDateFilter(e.target.value)}
-                    className="px-2.5 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-rose-400 bg-slate-50 cursor-pointer"
-                    title="Filter by sale date"
-                  />
+
+                  {/* Quick Preset Buttons */}
+                  <div className="flex items-center gap-1 text-[10.5px]">
+                    <span className="text-slate-400 font-bold uppercase text-[9.5px] mr-1">Quick Scope:</span>
+                    <button
+                      onClick={() => setSaleDateFilter('')}
+                      className={`px-2 py-0.5 rounded-lg font-bold transition cursor-pointer ${
+                        !saleDateFilter ? 'bg-rose-600 text-white shadow-2xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      All Recent
+                    </button>
+                    <button
+                      onClick={() => setSaleDateFilter(toDay())}
+                      className={`px-2 py-0.5 rounded-lg font-bold transition cursor-pointer ${
+                        saleDateFilter === toDay() ? 'bg-rose-600 text-white shadow-2xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      Today
+                    </button>
+                    <button
+                      onClick={() => setSaleDateFilter(getYesterday())}
+                      className={`px-2 py-0.5 rounded-lg font-bold transition cursor-pointer ${
+                        saleDateFilter === getYesterday() ? 'bg-rose-600 text-white shadow-2xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      Yesterday
+                    </button>
+                  </div>
                 </div>
 
                 {/* Sales List */}
@@ -1727,7 +1811,17 @@ export default function SalesReturnPage() {
                     <div className="text-center py-16 text-slate-400">
                       <FiSearch size={32} className="mx-auto mb-2 text-slate-300" />
                       <p className="font-bold text-xs text-slate-600">No sales transactions found</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">Try a different receipt number or pick a date</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        {saleDateFilter ? `No sales recorded on ${formatDate(saleDateFilter)}. Try clearing date or search.` : 'Try typing a receipt number or picking a date.'}
+                      </p>
+                      {saleDateFilter && (
+                        <button
+                          onClick={() => setSaleDateFilter('')}
+                          className="mt-2 px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition cursor-pointer"
+                        >
+                          Clear Date Filter (Show All)
+                        </button>
+                      )}
                     </div>
                   ) : (
                     salesList.map((sale) => (
@@ -1748,8 +1842,9 @@ export default function SalesReturnPage() {
                               </span>
                             </div>
                             <p className="text-[11px] text-slate-400 mt-0.5">
-                              {sale.customer_name || 'Walk-in'} &bull; {formatDate(sale.sale_date)}{' '}
-                              {sale.created_by || sale.cashier_name ? `• ${sale.created_by || sale.cashier_name}` : ''}
+                              {sale.customer_name || 'Walk-in Customer'}
+                              {sale.customer_phone ? ` (${sale.customer_phone})` : ''} &bull; {formatDate(sale.sale_date)}
+                              {sale.created_by ? ` • ${sale.created_by}` : ''}
                             </p>
                           </div>
                         </div>
