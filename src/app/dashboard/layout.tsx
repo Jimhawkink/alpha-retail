@@ -1139,7 +1139,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <SettingsProvider>
             <OutletProvider>
                 <FeatureProvider>
-                <div className="min-h-screen bg-[#f4f6f9] flex font-sans">
+                <div className="min-h-screen bg-[#f4f6f9] flex font-sans w-full overflow-x-hidden">
 
                     {/* Top loading bar */}
                     {loading && (
@@ -1326,7 +1326,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     )}
 
                     {/* ═══════════ MAIN ═══════════ */}
-                    <main className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${isCashier ? '' : collapsed ? 'lg:ml-[64px]' : 'lg:ml-[220px]'}`}>
+                    <main className={`flex-1 flex flex-col min-h-screen min-w-0 transition-all duration-300 ${isCashier ? '' : collapsed ? 'lg:ml-[64px]' : 'lg:ml-[220px]'}`}>
                         {isPosOrDashboard ? (
                             <POSHeaderBanner
                                 user={user}
