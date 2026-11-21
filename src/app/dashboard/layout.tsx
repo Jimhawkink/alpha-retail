@@ -336,8 +336,10 @@ function OutletSwitcher() {
 function CompanyBrand() {
     return (
         <div className="min-w-0">
-            <p className="text-[12px] font-black text-white truncate leading-tight tracking-wide">Alpha Retail System</p>
-            <p className="text-[9.5px] text-white/80 font-bold truncate">Build Better. Live Better.</p>
+            <p className="text-[12px] font-black text-white truncate leading-tight tracking-wide">
+                Alpha<span className="text-[#00E676]">Retail</span>
+            </p>
+            <p className="text-[9.5px] text-emerald-300/80 font-bold truncate">Enterprise Cloud POS</p>
         </div>
     );
 }
@@ -383,11 +385,11 @@ function HeaderOutletBadge() {
                         setDropdownOpen(prev => !prev);
                     }
                 }}
-                className={`flex items-center gap-2.5 px-4 py-1.5 rounded-full text-white shadow-md border border-sky-400/40 transition-all select-none ${
+                className={`flex items-center gap-2.5 px-4 py-1.5 rounded-full text-white shadow-md border border-emerald-400/50 transition-all select-none ${
                     outlets.length > 1 ? 'cursor-pointer hover:border-emerald-300 hover:shadow-lg' : 'cursor-default'
                 }`}
                 style={{
-                    background: 'linear-gradient(90deg, #02132b 0%, #031e44 55%, #02132b 100%)',
+                    background: 'linear-gradient(90deg, #041226 0%, #091D3E 55%, #041226 100%)',
                 }}
             >
                 {/* 3D Yellow Retail Awning Storefront SVG matching Image 2 */}
@@ -402,34 +404,34 @@ function HeaderOutletBadge() {
                         {/* Building Base */}
                         <rect x="4.5" y="11" width="15" height="9" rx="1.5" fill="#f8fafc" stroke="#94a3b8" strokeWidth="0.8" />
                         {/* Store Door */}
-                        <rect x="9.8" y="13" width="4.4" height="7" rx="0.8" fill="#02132b" />
+                        <rect x="9.8" y="13" width="4.4" height="7" rx="0.8" fill="#041226" />
                         {/* Store Glass Windows */}
                         <rect x="6" y="13.2" width="2.4" height="3.2" rx="0.4" fill="#38bdf8" />
                         <rect x="15.6" y="13.2" width="2.4" height="3.2" rx="0.4" fill="#38bdf8" />
                     </svg>
                 </div>
 
-                {/* 2-line text: Pure white bold outlet name + soft sky subtitle */}
+                {/* 2-line text: Pure white bold outlet name + soft emerald subtitle */}
                 <div className="text-left leading-none min-w-0">
                     <p className="text-[13px] lg:text-[13.5px] font-black text-white tracking-tight leading-tight whitespace-nowrap">
                         {cleanOutletName}
                     </p>
-                    <p className="text-[10px] font-bold text-sky-200/90 leading-tight mt-0.5 whitespace-nowrap">
+                    <p className="text-[10px] font-bold text-emerald-300 leading-tight mt-0.5 whitespace-nowrap">
                         {activeOutlet.outlet_code ? activeOutlet.outlet_code : 'Head Office'}
                     </p>
                 </div>
 
                 {/* Chevron Down */}
-                <ChevronDown size={14} className="text-sky-300 ml-0.5 shrink-0" />
+                <ChevronDown size={14} className="text-emerald-300 ml-0.5 shrink-0" />
             </button>
 
-            {/* Dropdown Menu for Store Outlet switching (100% Solid Dark Slate Theme) */}
+            {/* Dropdown Menu for Store Outlet switching (100% Solid Login Deep Navy Theme) */}
             {dropdownOpen && outlets.length > 1 && (
                 <div
-                    style={{ backgroundColor: '#02132b', opacity: 1 }}
-                    className="absolute right-0 top-12 w-72 z-[9999] rounded-2xl border-2 border-emerald-400 shadow-[0_25px_60px_rgba(0,0,0,0.95)] overflow-hidden py-1.5 text-white"
+                    style={{ backgroundColor: '#091D3E', opacity: 1 }}
+                    className="absolute right-0 top-12 w-72 z-[9999] rounded-2xl border-2 border-emerald-400 shadow-[0_25px_60px_rgba(0,0,0,0.95),0_0_35px_rgba(16,185,129,0.25)] overflow-hidden py-1.5 text-white"
                 >
-                    <div className="px-3.5 py-2.5 bg-[#010c1c] border-b border-emerald-500/30 text-[11px] font-black text-emerald-300 uppercase tracking-wider flex items-center justify-between">
+                    <div className="px-3.5 py-2.5 bg-[#041226] border-b border-emerald-500/30 text-[11px] font-black text-emerald-300 uppercase tracking-wider flex items-center justify-between">
                         <span>Switch Store Outlet</span>
                         <span className="text-[9px] font-mono bg-emerald-500/30 text-emerald-200 font-bold px-2 py-0.5 rounded border border-emerald-500/40">
                             {outlets.length} Outlets
@@ -439,14 +441,15 @@ function HeaderOutletBadge() {
                         {outlets.map(o => (
                             <button
                                 key={o.outlet_id}
-                                onClick={() => {
+                                onClick={(e) => {
+                                    e.stopPropagation();
                                     switchOutlet(o.outlet_id);
                                     setDropdownOpen(false);
                                 }}
                                 className={`w-full text-left px-3.5 py-2.5 text-xs font-bold flex items-center justify-between transition-colors cursor-pointer ${
                                     o.outlet_id === activeOutlet.outlet_id
                                         ? 'bg-emerald-600 text-white border-l-4 border-emerald-300 shadow-md font-black'
-                                        : 'text-white hover:bg-sky-500/25 hover:text-white'
+                                        : 'text-white hover:bg-emerald-500/20 hover:text-white'
                                 }`}
                             >
                                 <span className="truncate pr-2 text-white">{o.outlet_name}</span>
@@ -498,19 +501,19 @@ function POSHeaderBanner({
 
     return (
         <header
-            className="sticky top-0 z-30 h-[72px] flex items-center px-4 lg:px-6 shadow-lg border-b border-sky-900/60 select-none relative overflow-visible bg-gradient-to-r from-[#02132b] via-[#041e44] to-[#02132b]"
+            className="sticky top-0 z-30 h-[72px] flex items-center px-4 lg:px-6 shadow-xl border-b border-emerald-500/20 select-none relative overflow-visible bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B]"
         >
             {/* Ambient neon radial glows (contained within header boundary) */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-0 left-1/4 w-96 h-full bg-emerald-500/10 blur-3xl pointer-events-none" />
-                <div className="absolute top-0 right-1/4 w-96 h-full bg-sky-500/10 blur-3xl pointer-events-none" />
+                <div className="absolute top-0 right-1/4 w-96 h-full bg-cyan-500/10 blur-3xl pointer-events-none" />
             </div>
 
             {/* Mobile drawer toggle */}
             {!isCashier && (
                 <button
                     onClick={() => setMobileOpen(true)}
-                    className="lg:hidden w-9 h-9 rounded-xl bg-[#031d40]/90 border border-sky-400/40 text-white flex items-center justify-center shadow-xs shrink-0 mr-3 z-20 cursor-pointer"
+                    className="lg:hidden w-9 h-9 rounded-xl bg-[#041226] border border-emerald-400/40 text-white flex items-center justify-center shadow-xs shrink-0 mr-3 z-20 cursor-pointer hover:bg-emerald-500/20"
                     title="Menu"
                 >
                     <Menu size={18} />
@@ -531,11 +534,11 @@ function POSHeaderBanner({
                 <div className="flex flex-col justify-center">
                     <div className="flex items-center gap-1.5 leading-none">
                         <span className="text-white font-black text-base sm:text-lg tracking-wider uppercase font-sans">VINROSE</span>
-                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-lime-300 font-black text-base sm:text-lg tracking-wider uppercase font-sans">HARDWARE</span>
+                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00E676] to-emerald-300 font-black text-base sm:text-lg tracking-wider uppercase font-sans">HARDWARE</span>
                     </div>
                     <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] sm:text-[11px] font-bold text-sky-200 uppercase tracking-widest leading-none">ALPHA RETAIL POS</span>
-                        <span className="text-sky-500 font-light text-[10px] leading-none">•</span>
+                        <span className="text-[10px] sm:text-[11px] font-bold text-emerald-300 uppercase tracking-widest leading-none">ALPHA RETAIL POS</span>
+                        <span className="text-emerald-500 font-light text-[10px] leading-none">•</span>
                         <span className="text-[10px] sm:text-[11px] italic text-slate-300 font-medium leading-none">Build · Equip · Grow</span>
                     </div>
                 </div>
@@ -543,7 +546,7 @@ function POSHeaderBanner({
 
             {/* Right-Side Capsule: Outlets Selector + User Dropdown + Online */}
             <div className="ml-auto relative z-30 flex items-center">
-                <div className="flex items-center gap-2 sm:gap-3 px-3.5 sm:px-4 py-2 rounded-full bg-[#021b3f] border border-sky-400/50 shadow-[0_0_15px_rgba(56,189,248,0.25)] text-white">
+                <div className="flex items-center gap-2 sm:gap-3 px-3.5 sm:px-4 py-2 rounded-full bg-[#041226] border border-emerald-400/50 shadow-[0_0_15px_rgba(16,185,129,0.25)] text-white">
                     {/* 1. Branch / Outlet Selector Dropdown */}
                     <div className="relative" ref={outletMenuRef}>
                         <button
@@ -575,13 +578,13 @@ function POSHeaderBanner({
                             )}
                         </button>
 
-                        {/* Outlet Dropdown Menu - 100% Solid Opaque Theme */}
+                        {/* Outlet Dropdown Menu - 100% Solid Login Theme */}
                         {outletMenuOpen && (
                             <div
-                                style={{ backgroundColor: '#02132b', opacity: 1 }}
-                                className="absolute right-0 top-12 w-72 rounded-2xl border-2 border-emerald-400 shadow-[0_25px_60px_rgba(0,0,0,0.95)] py-2 z-[9999] text-white animate-in fade-in zoom-in-95 duration-150 overflow-hidden"
+                                style={{ backgroundColor: '#091D3E', opacity: 1 }}
+                                className="absolute right-0 top-12 w-72 rounded-2xl border-2 border-emerald-400 shadow-[0_25px_60px_rgba(0,0,0,0.95),0_0_35px_rgba(16,185,129,0.25)] py-2 z-[9999] text-white animate-in fade-in zoom-in-95 duration-150 overflow-hidden"
                             >
-                                <div className="px-4 py-2.5 bg-[#010c1c] border-b border-emerald-500/30 flex items-center justify-between">
+                                <div className="px-4 py-2.5 bg-[#041226] border-b border-emerald-500/30 flex items-center justify-between">
                                     <span className="text-[11px] uppercase font-black text-emerald-300 tracking-wider">Switch Store Branch</span>
                                     <span className="text-[9px] font-mono bg-emerald-500/30 text-emerald-200 font-bold px-2 py-0.5 rounded border border-emerald-500/40">
                                         {outlets.length} Outlets
@@ -602,7 +605,7 @@ function POSHeaderBanner({
                                                 className={`w-full text-left px-4 py-2.5 text-xs font-bold flex items-center justify-between transition-colors cursor-pointer ${
                                                     isActive
                                                         ? 'bg-emerald-600 text-white border-l-4 border-emerald-300 shadow-md'
-                                                        : 'text-white hover:bg-sky-500/25 hover:text-white'
+                                                        : 'text-white hover:bg-emerald-500/20 hover:text-white'
                                                 }`}
                                             >
                                                 <div className="flex items-center gap-2.5 truncate pr-2">
@@ -634,30 +637,30 @@ function POSHeaderBanner({
                                 setUserMenuOpen(prev => !prev);
                                 setOutletMenuOpen(false);
                             }}
-                            className="flex items-center gap-1.5 sm:gap-2 text-white hover:text-sky-200 transition-colors cursor-pointer group"
+                            className="flex items-center gap-1.5 sm:gap-2 text-white hover:text-emerald-200 transition-colors cursor-pointer group"
                             title="User Profile & Settings"
                         >
-                            <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-sky-500/20 border border-sky-400/50 flex items-center justify-center text-sky-200 group-hover:scale-105 transition-transform shrink-0">
-                                <User size={13} className="text-sky-300" />
+                            <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-emerald-500/20 border border-emerald-400/50 flex items-center justify-center text-emerald-200 group-hover:scale-105 transition-transform shrink-0">
+                                <User size={13} className="text-emerald-300" />
                             </div>
-                            <span className="text-[12px] sm:text-[13px] font-bold tracking-tight text-white group-hover:text-sky-200 transition-colors max-w-[130px] sm:max-w-[180px] truncate">
+                            <span className="text-[12px] sm:text-[13px] font-bold tracking-tight text-white group-hover:text-emerald-200 transition-colors max-w-[130px] sm:max-w-[180px] truncate">
                                 {user?.name || 'Super Admin'}
                             </span>
                             <ChevronDown
                                 size={14}
-                                className={`text-sky-300 transition-transform duration-200 shrink-0 ${userMenuOpen ? 'rotate-180' : ''}`}
+                                className={`text-emerald-300 transition-transform duration-200 shrink-0 ${userMenuOpen ? 'rotate-180' : ''}`}
                             />
                         </button>
 
-                        {/* User Dropdown Menu - 100% Solid Opaque Theme */}
+                        {/* User Dropdown Menu - 100% Solid Login Theme */}
                         {userMenuOpen && (
                             <div
-                                style={{ backgroundColor: '#02132b', opacity: 1 }}
-                                className="absolute right-0 top-12 w-64 rounded-2xl border-2 border-sky-400 shadow-[0_25px_60px_rgba(0,0,0,0.95)] py-2 z-[9999] text-white animate-in fade-in zoom-in-95 duration-150 overflow-hidden"
+                                style={{ backgroundColor: '#091D3E', opacity: 1 }}
+                                className="absolute right-0 top-12 w-64 rounded-2xl border-2 border-emerald-400 shadow-[0_25px_60px_rgba(0,0,0,0.95),0_0_35px_rgba(16,185,129,0.25)] py-2 z-[9999] text-white animate-in fade-in zoom-in-95 duration-150 overflow-hidden"
                             >
-                                <div className="px-4 py-2.5 bg-[#010c1c] border-b border-sky-500/30">
+                                <div className="px-4 py-2.5 bg-[#041226] border-b border-emerald-500/30">
                                     <p className="text-[13px] font-black text-white truncate">{user?.name || 'Super Admin'}</p>
-                                    <p className="text-[11px] font-bold text-sky-300 capitalize mt-0.5">{user?.userType || 'Administrator'}</p>
+                                    <p className="text-[11px] font-bold text-emerald-300 capitalize mt-0.5">{user?.userType || 'Administrator'}</p>
                                     {activeOutlet && (
                                         <div className="flex items-center gap-1.5 mt-1 text-[11px] text-emerald-300 font-semibold">
                                             <Store size={12} className="text-emerald-400 shrink-0" />
@@ -670,22 +673,22 @@ function POSHeaderBanner({
                                     <Link
                                         href="/dashboard"
                                         onClick={() => setUserMenuOpen(false)}
-                                        className="flex items-center gap-2.5 px-4 py-2 text-xs font-bold text-white hover:bg-sky-500/25 hover:text-white transition-colors"
+                                        className="flex items-center gap-2.5 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500/20 hover:text-white transition-colors"
                                     >
-                                        <Home size={14} className="text-sky-300 shrink-0" />
+                                        <Home size={14} className="text-emerald-300 shrink-0" />
                                         <span>Main Dashboard</span>
                                     </Link>
                                     <Link
                                         href="/dashboard/settings"
                                         onClick={() => setUserMenuOpen(false)}
-                                        className="flex items-center gap-2.5 px-4 py-2 text-xs font-bold text-white hover:bg-sky-500/25 hover:text-white transition-colors"
+                                        className="flex items-center gap-2.5 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500/20 hover:text-white transition-colors"
                                     >
-                                        <Settings size={14} className="text-sky-300 shrink-0" />
+                                        <Settings size={14} className="text-emerald-300 shrink-0" />
                                         <span>Settings</span>
                                     </Link>
                                 </div>
 
-                                <div className="pt-1 border-t border-sky-500/30">
+                                <div className="pt-1 border-t border-emerald-500/30">
                                     <button
                                         type="button"
                                         onClick={() => {
@@ -707,7 +710,7 @@ function POSHeaderBanner({
 
                     {/* 3. Online Status */}
                     <div className="flex items-center gap-1.5 sm:gap-2 select-none shrink-0" title="System Online">
-                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse" />
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#00E676] shadow-[0_0_8px_rgba(0,230,118,0.8)] animate-pulse" />
                         <span className="text-[11px] sm:text-[12px] font-bold text-emerald-300 tracking-wide">Online</span>
                     </div>
                 </div>
@@ -1156,28 +1159,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             onClick={() => setMobileOpen(false)} />
                     )}
 
-                    {/* ═══════════ SIDEBAR (POS Theme: Rich Midnight Navy & Pure White Typography) ═══════════ */}
+                    {/* ═══════════ SIDEBAR (Login Theme: Deep Obsidian Canvas #041226, Executive Midnight Navy #091D3E, Electric Green Accents) ═══════════ */}
                     {!isCashier && (
-                        <aside className={`fixed top-0 left-0 h-full z-50 shadow-2xl flex flex-col transition-all duration-300 ease-in-out border-r border-sky-900/60 text-white
+                        <aside className={`fixed top-0 left-0 h-full z-50 shadow-2xl flex flex-col transition-all duration-300 ease-in-out border-r border-[#12356B]/60 text-white
                             ${collapsed ? 'w-[64px]' : 'w-[210px]'}
                             ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
                             style={{
-                                background: 'linear-gradient(180deg, #02132b 0%, #031e44 50%, #02132b 100%)',
+                                background: 'linear-gradient(180deg, #041226 0%, #091D3E 50%, #041226 100%)',
                             }}>
 
-                            {/* Logo matching POS theme */}
-                            <div className={`flex items-center h-[62px] border-b border-sky-900/60 px-3 gap-2 shrink-0 ${collapsed ? 'justify-center !px-1.5' : ''}`}>
+                            {/* Logo matching Login Theme */}
+                            <div className={`flex items-center h-[62px] border-b border-[#12356B]/60 px-3 gap-2 shrink-0 ${collapsed ? 'justify-center !px-1.5' : ''}`}>
                                 <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-transparent">
                                     <svg className="w-8 h-8" viewBox="0 0 100 80" fill="none">
                                         <path d="M10 45 L50 15 L70 30" stroke="#ffffff" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
-                                        <polygon points="50,22 68,35 60,45 42,32" fill="#facc15" />
-                                        <polygon points="56,28 74,41 68,49 50,36" fill="#eab308" />
+                                        <polygon points="50,22 68,35 60,45 42,32" fill="#00E676" />
+                                        <polygon points="56,28 74,41 68,49 50,36" fill="#059669" />
                                         <path d="M68 18 L80 8 L86 14 L74 24 Z" fill="#ffffff" />
                                         <rect x="74" y="19" width="5" height="18" transform="rotate(45 74 19)" fill="#ffffff" rx="2" />
-                                        <rect x="44" y="40" width="5" height="5" fill="#facc15" />
-                                        <rect x="51" y="40" width="5" height="5" fill="#facc15" />
-                                        <rect x="44" y="47" width="5" height="5" fill="#facc15" />
-                                        <rect x="51" y="47" width="5" height="5" fill="#facc15" />
+                                        <rect x="44" y="40" width="5" height="5" fill="#00E676" />
+                                        <rect x="51" y="40" width="5" height="5" fill="#00E676" />
+                                        <rect x="44" y="47" width="5" height="5" fill="#00E676" />
+                                        <rect x="51" y="47" width="5" height="5" fill="#00E676" />
                                     </svg>
                                 </div>
                                 {!collapsed && <CompanyBrand />}
@@ -1269,31 +1272,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 })}
                             </nav>
 
-                            {/* Secure & Compliant Badge matching POS theme */}
+                            {/* Secure & Compliant Badge matching Login Theme */}
                             {!collapsed && (
-                                <div className="mx-2 my-1.5 p-2 rounded-xl bg-white/5 border border-white/15 flex items-center gap-2">
-                                    <Shield size={15} className="text-white shrink-0" />
+                                <div className="mx-2 my-1.5 p-2 rounded-xl bg-[#091D3E]/80 border border-emerald-400/40 flex items-center gap-2 shadow-sm">
+                                    <Shield size={15} className="text-emerald-400 shrink-0" />
                                     <div>
                                         <p className="text-[9.5px] font-black text-white leading-tight">Secure & Compliant</p>
-                                        <p className="text-[8px] text-white/80 leading-tight">Your Data, Our Priority.</p>
+                                        <p className="text-[8px] text-emerald-200/90 leading-tight">Your Data, Our Priority.</p>
                                     </div>
                                 </div>
                             )}
 
-                            {/* User footer matching POS theme */}
-                            <div className={`border-t border-sky-900/60 shrink-0 ${collapsed ? 'p-1.5' : 'p-2'}`}>
+                            {/* User footer matching Login Theme */}
+                            <div className={`border-t border-[#12356B]/60 shrink-0 ${collapsed ? 'p-1.5' : 'p-2'}`}>
                                 {!collapsed ? (
-                                    <div className="flex items-center gap-2 p-1.5 rounded-xl bg-[#011838] border border-sky-500/30 shadow-md">
+                                    <div className="flex items-center gap-2 p-1.5 rounded-xl bg-[#041226] border border-emerald-400/40 shadow-md">
                                         <div className="w-7 h-7 rounded-full flex items-center justify-center text-slate-950 text-xs font-black shrink-0 bg-gradient-to-tr from-amber-400 to-yellow-300 ring-1 ring-amber-300/60 shadow">
                                             {user.name?.charAt(0)?.toUpperCase() || 'U'}
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className="text-[11.5px] font-black text-white truncate leading-tight">{user.name}</p>
-                                            <p className="text-[9.5px] text-white/80 font-bold capitalize truncate">{user.userType || 'Administrator'}</p>
+                                            <p className="text-[9.5px] text-emerald-300 font-bold capitalize truncate">{user.userType || 'Administrator'}</p>
                                         </div>
                                         <div className="h-4 w-px bg-white/20 mx-0.5" />
                                         <button onClick={() => router.push('/dashboard/company')} title="Settings"
-                                            className="p-1 text-white hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer">
+                                            className="p-1 text-white hover:text-emerald-300 hover:bg-white/10 rounded-lg transition-colors cursor-pointer">
                                             <Settings size={13} />
                                         </button>
                                         <button onClick={handleLogout} title="Logout"
@@ -1327,17 +1330,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 setMobileOpen={setMobileOpen}
                             />
                         ) : (
-                            /* Subpage Executive Header matching Midnight Navy Theme */
-                            <header className="sticky top-0 z-30 bg-gradient-to-r from-[#02132b] via-[#041e44] to-[#02132b] border-b border-sky-900/60 h-[70px] flex items-center px-4 lg:px-6 gap-2.5 lg:gap-3.5 shadow-lg select-none relative overflow-visible text-white">
+                            /* Subpage Executive Header matching Login Theme */
+                            <header className="sticky top-0 z-30 bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B] border-b border-emerald-500/20 h-[70px] flex items-center px-4 lg:px-6 gap-2.5 lg:gap-3.5 shadow-xl select-none relative overflow-visible text-white">
                                 {/* Ambient glow */}
                                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
                                     <div className="absolute top-0 left-1/4 w-96 h-full bg-emerald-500/10 blur-3xl pointer-events-none" />
-                                    <div className="absolute top-0 right-1/4 w-96 h-full bg-sky-500/10 blur-3xl pointer-events-none" />
+                                    <div className="absolute top-0 right-1/4 w-96 h-full bg-cyan-500/10 blur-3xl pointer-events-none" />
                                 </div>
 
                                 {/* Mobile drawer toggle */}
                                 {!isCashier && (
-                                    <button onClick={() => setMobileOpen(true)} className="lg:hidden w-10 h-10 rounded-2xl bg-[#031d40] border border-sky-400/40 hover:bg-sky-500/20 text-white flex items-center justify-center shadow-xs shrink-0 z-10 cursor-pointer">
+                                    <button onClick={() => setMobileOpen(true)} className="lg:hidden w-10 h-10 rounded-2xl bg-[#041226] border border-emerald-400/40 hover:bg-emerald-500/20 text-white flex items-center justify-center shadow-xs shrink-0 z-10 cursor-pointer">
                                         <Menu size={18} />
                                     </button>
                                 )}
@@ -1347,14 +1350,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     type="button"
                                     title="Quick Products / Inventory"
                                     onClick={() => router.push('/dashboard/products')}
-                                    className="hidden sm:flex w-10 h-10 lg:w-11 lg:h-11 rounded-2xl bg-[#011838] border border-sky-400/40 shadow-xs items-center justify-center shrink-0 text-sky-200 hover:text-white hover:bg-sky-500/20 transition-all cursor-pointer z-10"
+                                    className="hidden sm:flex w-10 h-10 lg:w-11 lg:h-11 rounded-2xl bg-[#041226] border border-emerald-400/40 shadow-xs items-center justify-center shrink-0 text-emerald-300 hover:text-white hover:bg-emerald-500/20 transition-all cursor-pointer z-10"
                                 >
-                                    <svg className="w-5 h-5 text-sky-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <svg className="w-5 h-5 text-emerald-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                         <path d="M4 8V4h4" />
                                         <path d="M20 8V4h-4" />
                                         <path d="M4 16v4h4" />
                                         <path d="M20 16v4h-4" />
-                                        <path d="M12 7l4 2.5v5l-4 2.5-4-2.5v-5z" fill="#02132b" stroke="currentColor" strokeWidth="1.8" />
+                                        <path d="M12 7l4 2.5v5l-4 2.5-4-2.5v-5z" fill="#041226" stroke="currentColor" strokeWidth="1.8" />
                                         <path d="M12 7v10" strokeWidth="1.6" />
                                         <path d="M12 12l4-2.5" strokeWidth="1.6" />
                                         <path d="M12 12l-4-2.5" strokeWidth="1.6" />
@@ -1362,14 +1365,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 </button>
 
                                 {/* 2. Full Pill Search Bar with Barcode Icon */}
-                                <div className="flex-1 min-w-[220px] max-w-xl xl:max-w-2xl flex items-center gap-2.5 bg-[#011838] border border-sky-400/40 rounded-full px-4 py-2 shadow-xs hover:border-sky-300 focus-within:ring-2 focus-within:ring-sky-400/30 transition-all z-10">
-                                    <Search className="text-sky-300 shrink-0" size={16} />
+                                <div className="flex-1 min-w-[220px] max-w-xl xl:max-w-2xl flex items-center gap-2.5 bg-[#041226] border border-emerald-400/40 rounded-full px-4 py-2 shadow-xs hover:border-emerald-300 focus-within:ring-2 focus-within:ring-emerald-400/30 transition-all z-10">
+                                    <Search className="text-emerald-300 shrink-0" size={16} />
                                     <input
                                         type="text"
                                         placeholder="Search for products (e.g. Hammer, Cement, Paint...) or scan barcode..."
-                                        className="bg-transparent text-[13px] text-white outline-none w-full placeholder:text-sky-200/50 font-medium"
+                                        className="bg-transparent text-[13px] text-white outline-none w-full placeholder:text-slate-400 font-medium"
                                     />
-                                    <div className="shrink-0 text-sky-300 hover:text-emerald-400 transition-colors cursor-pointer" title="Scan Barcode">
+                                    <div className="shrink-0 text-emerald-300 hover:text-emerald-200 transition-colors cursor-pointer" title="Scan Barcode">
                                         <svg className="w-6 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                                             <path d="M3 7V5a2 2 0 0 1 2-2h2" />
                                             <path d="M17 3h2a2 2 0 0 1 2 2v2" />
@@ -1409,8 +1412,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     <PledgeNotificationBell />
 
                                     {/* 6. Date & Time Capsule Pill */}
-                                    <div className="hidden lg:flex items-center gap-2.5 px-3.5 py-1.5 bg-[#021b3f] border border-sky-400/40 rounded-full text-white shadow-xs select-none shrink-0">
-                                        <svg className="w-5 h-5 text-sky-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <div className="hidden lg:flex items-center gap-2.5 px-3.5 py-1.5 bg-[#041226] border border-emerald-400/40 rounded-full text-white shadow-xs select-none shrink-0">
+                                        <svg className="w-5 h-5 text-emerald-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                             <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                                             <line x1="16" y1="2" x2="16" y2="6" />
                                             <line x1="8" y1="2" x2="8" y2="6" />
@@ -1423,16 +1426,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                             <p className="text-[12px] font-black text-white leading-tight">
                                                 {currentTime.dateStr}
                                             </p>
-                                            <p className="text-[10px] font-bold text-sky-200 font-mono leading-tight mt-0.5">
+                                            <p className="text-[10px] font-bold text-emerald-300 font-mono leading-tight mt-0.5">
                                                 {currentTime.timeStr}
                                             </p>
                                         </div>
-                                        <ChevronDown size={14} className="text-sky-300 shrink-0 ml-0.5" />
+                                        <ChevronDown size={14} className="text-emerald-300 shrink-0 ml-0.5" />
                                     </div>
 
                                     {/* 7. Online Status Capsule Pill */}
-                                    <div className="flex items-center gap-2 px-3.5 py-1.5 bg-[#021b3f] border border-sky-400/40 rounded-full text-white shadow-xs select-none shrink-0 hover:border-emerald-300 transition-colors">
-                                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse" />
+                                    <div className="flex items-center gap-2 px-3.5 py-1.5 bg-[#041226] border border-emerald-400/40 rounded-full text-white shadow-xs select-none shrink-0 hover:border-emerald-300 transition-colors">
+                                        <span className="w-2.5 h-2.5 rounded-full bg-[#00E676] shadow-[0_0_8px_rgba(0,230,118,0.8)] animate-pulse" />
                                         <span className="text-[12px] font-bold text-emerald-300 tracking-wide">Online</span>
                                     </div>
                                 </div>

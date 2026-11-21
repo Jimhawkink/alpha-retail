@@ -817,10 +817,10 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
                 {/* 1. Sales Performance Overview (Col Span 6) */}
                 <div className="lg:col-span-6 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col justify-between">
-                    {/* Midnight Navy Header Bar with Date Range Filter and White Font Dropdown */}
-                    <div className="bg-gradient-to-r from-[#02132b] via-[#041e44] to-[#02132b] border-b border-sky-900/60 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2.5 text-white">
+                    {/* Executive Header Bar with Date Range Filter and White Font Dropdown (Login Theme) */}
+                    <div className="bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B] border-b border-emerald-500/20 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2.5 text-white">
                         <div className="flex items-center gap-2">
-                            <TrendingUp size={16} className="text-emerald-400" />
+                            <TrendingUp size={16} className="text-[#00E676]" />
                             <span className="font-extrabold text-xs lg:text-sm tracking-tight text-white">
                                 Sales Performance Overview
                             </span>
@@ -832,20 +832,20 @@ export default function DashboardPage() {
                             <select
                                 value={periodPreset}
                                 onChange={e => applyPreset(e.target.value)}
-                                className="bg-[#02132b] text-white font-extrabold border border-sky-400/50 text-[11px] rounded-lg px-2.5 py-1 outline-none cursor-pointer shadow-xs"
+                                className="bg-[#091D3E] text-white font-extrabold border border-emerald-400/50 text-[11px] rounded-lg px-2.5 py-1 outline-none cursor-pointer shadow-xs"
                             >
-                                <option value="today" className="bg-[#02132b] text-white font-bold">Today</option>
-                                <option value="yesterday" className="bg-[#02132b] text-white font-bold">Yesterday</option>
-                                <option value="7d" className="bg-[#02132b] text-white font-bold">Last 7 Days</option>
-                                <option value="14d" className="bg-[#02132b] text-white font-bold">Last 14 Days</option>
-                                <option value="30d" className="bg-[#02132b] text-white font-bold">Last 30 Days</option>
-                                <option value="month" className="bg-[#02132b] text-white font-bold">This Month</option>
-                                <option value="custom" className="bg-[#02132b] text-white font-bold">Custom Range</option>
+                                <option value="today" className="bg-[#091D3E] text-white font-bold">Today</option>
+                                <option value="yesterday" className="bg-[#091D3E] text-white font-bold">Yesterday</option>
+                                <option value="7d" className="bg-[#091D3E] text-white font-bold">Last 7 Days</option>
+                                <option value="14d" className="bg-[#091D3E] text-white font-bold">Last 14 Days</option>
+                                <option value="30d" className="bg-[#091D3E] text-white font-bold">Last 30 Days</option>
+                                <option value="month" className="bg-[#091D3E] text-white font-bold">This Month</option>
+                                <option value="custom" className="bg-[#091D3E] text-white font-bold">Custom Range</option>
                             </select>
 
                             {/* Choose From -> Choose To Date Filter Inputs with White Fonts */}
-                            <div className="flex items-center gap-1.5 bg-[#02132b] border border-sky-400/50 px-2 py-0.5 rounded-lg text-white text-[11px] shadow-xs">
-                                <Calendar size={12} className="text-sky-300 shrink-0" />
+                            <div className="flex items-center gap-1.5 bg-[#091D3E] border border-emerald-400/50 px-2 py-0.5 rounded-lg text-white text-[11px] shadow-xs">
+                                <Calendar size={12} className="text-emerald-300 shrink-0" />
                                 <span className="text-white font-bold text-[10px]">From:</span>
                                 <input
                                     type="date"
@@ -853,7 +853,7 @@ export default function DashboardPage() {
                                     onChange={e => { setDateFrom(e.target.value); setPeriodPreset('custom'); }}
                                     className="bg-transparent text-white font-extrabold text-[11px] outline-none cursor-pointer [color-scheme:dark]"
                                 />
-                                <span className="text-sky-300 font-bold">→</span>
+                                <span className="text-emerald-300 font-bold">→</span>
                                 <span className="text-white font-bold text-[10px]">To:</span>
                                 <input
                                     type="date"
@@ -919,17 +919,17 @@ export default function DashboardPage() {
 
                 {/* 2. Top Selling Products (Col Span 3) */}
                 <div className="lg:col-span-3 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col justify-between">
-                    {/* Midnight Navy Header */}
-                    <div className="bg-gradient-to-r from-[#02132b] via-[#041e44] to-[#02132b] border-b border-sky-900/60 px-4 py-2.5 flex items-center justify-between text-white">
+                    {/* Executive Header (Login Theme) */}
+                    <div className="bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B] border-b border-emerald-500/20 px-4 py-2.5 flex items-center justify-between text-white">
                         <div className="flex items-center gap-2">
-                            <Award size={16} className="text-amber-400" />
+                            <Award size={16} className="text-[#00E676]" />
                             <span className="font-extrabold text-xs lg:text-sm tracking-tight text-white">
                                 Top Selling Products
                             </span>
                         </div>
                         <Link
                             href="/dashboard/products"
-                            className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-white flex items-center gap-1 transition-all"
+                            className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-white/10 hover:bg-white/20 border border-emerald-400/30 text-white flex items-center gap-1 transition-all"
                         >
                             View All →
                         </Link>
@@ -958,17 +958,17 @@ export default function DashboardPage() {
 
                 {/* 3. Inventory Status (Col Span 3) */}
                 <div className="lg:col-span-3 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col justify-between">
-                    {/* Midnight Navy Header */}
-                    <div className="bg-gradient-to-r from-[#02132b] via-[#041e44] to-[#02132b] border-b border-sky-900/60 px-4 py-2.5 flex items-center justify-between text-white">
+                    {/* Executive Header (Login Theme) */}
+                    <div className="bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B] border-b border-emerald-500/20 px-4 py-2.5 flex items-center justify-between text-white">
                         <div className="flex items-center gap-2">
-                            <Package size={16} className="text-emerald-400" />
+                            <Package size={16} className="text-[#00E676]" />
                             <span className="font-extrabold text-xs lg:text-sm tracking-tight text-white">
                                 Inventory Status
                             </span>
                         </div>
                         <Link
                             href="/dashboard/stock-movement"
-                            className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-white flex items-center gap-1 transition-all"
+                            className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-white/10 hover:bg-white/20 border border-emerald-400/30 text-white flex items-center gap-1 transition-all"
                         >
                             View Details →
                         </Link>
@@ -1006,8 +1006,8 @@ export default function DashboardPage() {
                             </div>
                         </div>
 
-                        {/* Low Stock Glowing Banner in Midnight Navy Theme */}
-                        <div className="mt-3 bg-gradient-to-r from-[#02132b] via-[#031e44] to-[#02132b] rounded-xl p-2.5 text-white flex items-center justify-between border border-sky-500/40 shadow-sm">
+                        {/* Low Stock Glowing Banner in Login Theme */}
+                        <div className="mt-3 bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B] rounded-xl p-2.5 text-white flex items-center justify-between border border-emerald-400/40 shadow-sm">
                             <div className="flex items-center gap-2">
                                 <div className="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-400 flex items-center justify-center shrink-0">
                                     <Bell size={14} className="text-amber-400" />
@@ -1016,7 +1016,7 @@ export default function DashboardPage() {
                                     <p className="text-[11px] font-extrabold text-white leading-tight">
                                         {lowStockCount > 0 ? lowStockCount : 23} Low Stock Alerts
                                     </p>
-                                    <p className="text-[9px] text-sky-200 leading-tight">Products need restocking</p>
+                                    <p className="text-[9px] text-emerald-200 leading-tight">Products need restocking</p>
                                 </div>
                             </div>
                             <Link
@@ -1036,15 +1036,15 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
                 {/* 1. Quick Actions (Col Span 4) */}
                 <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col justify-between">
-                    <div className="bg-gradient-to-r from-[#02132b] via-[#041e44] to-[#02132b] border-b border-sky-900/60 px-4 py-2.5 flex items-center justify-between text-white">
+                    <div className="bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B] border-b border-emerald-500/20 px-4 py-2.5 flex items-center justify-between text-white">
                         <div className="flex items-center gap-2">
                             <Zap size={16} className="text-amber-400" />
                             <div>
                                 <span className="font-extrabold text-xs lg:text-sm tracking-tight text-white">Quick Actions</span>
-                                <span className="text-[10px] text-sky-200 ml-2 hidden sm:inline">Access all features instantly</span>
+                                <span className="text-[10px] text-emerald-200 ml-2 hidden sm:inline">Access all features instantly</span>
                             </div>
                         </div>
-                        <Link href="/dashboard/operations" className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-white">
+                        <Link href="/dashboard/operations" className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-white/10 hover:bg-white/20 border border-emerald-400/30 text-white">
                             View All →
                         </Link>
                     </div>
@@ -1082,12 +1082,12 @@ export default function DashboardPage() {
 
                 {/* 2. Recent Transactions Table (Col Span 5) */}
                 <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col justify-between">
-                    <div className="bg-gradient-to-r from-[#02132b] via-[#041e44] to-[#02132b] border-b border-sky-900/60 px-4 py-2.5 flex items-center justify-between text-white">
+                    <div className="bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B] border-b border-emerald-500/20 px-4 py-2.5 flex items-center justify-between text-white">
                         <div className="flex items-center gap-2">
                             <FileText size={16} className="text-emerald-300" />
                             <span className="font-extrabold text-xs lg:text-sm tracking-tight text-white">Recent Transactions</span>
                         </div>
-                        <Link href="/dashboard/sales" className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-white">
+                        <Link href="/dashboard/sales" className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-white">
                             View All →
                         </Link>
                     </div>
@@ -1126,12 +1126,12 @@ export default function DashboardPage() {
 
                 {/* 3. Payment Channels Donut (Col Span 3) */}
                 <div className="lg:col-span-3 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col justify-between">
-                    <div className="bg-gradient-to-r from-[#02132b] via-[#041e44] to-[#02132b] border-b border-sky-900/60 px-4 py-2.5 flex items-center justify-between text-white">
+                    <div className="bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B] border-b border-emerald-500/20 px-4 py-2.5 flex items-center justify-between text-white">
                         <div className="flex items-center gap-2">
                             <CreditCard size={16} className="text-amber-300" />
                             <span className="font-extrabold text-xs lg:text-sm tracking-tight text-white">Payment Channels</span>
                         </div>
-                        <Link href="/dashboard/mpesa" className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-white">
+                        <Link href="/dashboard/mpesa" className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-white">
                             View Report →
                         </Link>
                     </div>
@@ -1242,28 +1242,31 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
-                {/* 4. Promotional Business Growth Banner in POS Midnight Navy Theme */}
-                <div className="bg-gradient-to-br from-[#02132b] via-[#041e44] to-[#02132b] rounded-2xl p-4 text-white shadow-md border border-sky-500/40 relative overflow-hidden flex flex-col justify-between">
+                {/* 4. Promotional Business Growth Banner in Login Deep Executive Navy Theme */}
+                <div
+                    className="bg-gradient-to-br from-[#091D3E] via-[#0E2852] to-[#12356B] rounded-2xl p-4 text-white shadow-xl border-2 border-emerald-400/60 relative overflow-hidden flex flex-col justify-between"
+                    style={{ boxShadow: '0 20px 50px -10px rgba(0,0,0,0.5), 0 0 25px rgba(16, 185, 129, 0.2)' }}
+                >
                     <div className="relative z-10">
                         <div className="flex items-start justify-between">
                             <div>
                                 <h4 className="font-black text-xs text-white leading-tight">
                                     Grow Your Hardware Business with Alpha Retail
                                 </h4>
-                                <p className="text-[10px] text-sky-200 mt-1">Smarter. Faster. More Profitable.</p>
+                                <p className="text-[10px] text-emerald-300 mt-1">Smarter. Faster. More Profitable.</p>
                             </div>
                             <span className="text-2xl">🏆</span>
                         </div>
                         {/* Decorative growth chart graph SVG */}
                         <svg className="w-full h-8 mt-2" viewBox="0 0 100 25" preserveAspectRatio="none">
-                            <path d="M0 22 L 20 18 L 40 14 L 60 10 L 80 5 L 100 2" fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" />
-                            <path d="M0 25 L 0 22 L 20 18 L 40 14 L 60 10 L 80 5 L 100 2 L 100 25 Z" fill="rgba(56, 189, 248, 0.15)" />
+                            <path d="M0 22 L 20 18 L 40 14 L 60 10 L 80 5 L 100 2" fill="none" stroke="#00E676" strokeWidth="2.5" strokeLinecap="round" />
+                            <path d="M0 25 L 0 22 L 20 18 L 40 14 L 60 10 L 80 5 L 100 2 L 100 25 Z" fill="rgba(0, 230, 118, 0.2)" />
                         </svg>
                     </div>
 
                     <Link
                         href="/dashboard/pos"
-                        className="mt-2.5 px-3 py-1.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-black text-xs rounded-xl shadow-lg flex items-center justify-center gap-1.5 transition-all"
+                        className="mt-2.5 px-3 py-1.5 bg-gradient-to-r from-[#00E676] via-emerald-400 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs rounded-xl shadow-lg flex items-center justify-center gap-1.5 transition-all"
                     >
                         <span>Open Retail POS →</span>
                     </Link>

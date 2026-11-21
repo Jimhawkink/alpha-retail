@@ -869,36 +869,41 @@ const PaymentModal = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-150">
-            <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
-                {/* ═══ Super Fine Clean Header ═══ */}
-                <div className="px-5 py-3.5 bg-slate-50/90 border-b border-slate-200 flex items-center justify-between shrink-0">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-150">
+            <div
+                className="bg-white rounded-3xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] border-2 border-emerald-400/80 relative z-10"
+                style={{
+                    boxShadow: '0 25px 65px -12px rgba(0, 0, 0, 0.7), 0 0 35px rgba(16, 185, 129, 0.25)',
+                }}
+            >
+                {/* ═══ Super Fine Executive Login Theme Header ═══ */}
+                <div className="px-5 py-3.5 bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B] border-b border-emerald-500/20 text-white flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600 shadow-2xs">
-                            <FiCreditCard size={16} />
+                        <div className="w-9 h-9 rounded-xl bg-[#041226] border border-emerald-400/40 flex items-center justify-center text-[#00E676] shadow-md">
+                            <FiCreditCard size={18} />
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
-                                <h2 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-800">
+                                <h2 className="text-xs sm:text-sm font-black uppercase tracking-wider text-white">
                                     Payment Settlement
                                 </h2>
-                                <span className="text-[10px] font-mono font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.2 rounded">
+                                <span className="text-[10px] font-mono font-bold text-emerald-300 bg-emerald-500/20 border border-emerald-400/30 px-2 py-0.5 rounded">
                                     {receiptNo}
                                 </span>
                             </div>
-                            <p className="text-[10px] text-slate-400 font-medium">Alpha Retail Checkout Terminal</p>
+                            <p className="text-[10px] text-emerald-200/80 font-medium">Alpha Retail Checkout Terminal</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
                         <div className="text-right">
-                            <p className="text-[9px] uppercase font-bold tracking-wider text-slate-400">Total Due</p>
-                            <p className="text-base sm:text-lg font-black font-mono text-emerald-600 leading-tight">
+                            <p className="text-[9px] uppercase font-bold tracking-wider text-emerald-300/80">Total Due</p>
+                            <p className="text-base sm:text-lg font-black font-mono text-[#00E676] leading-tight">
                                 Ksh {total.toLocaleString()}
                             </p>
                         </div>
                         <button
                             onClick={handleClose}
-                            className="w-7 h-7 rounded-lg bg-slate-200/70 hover:bg-slate-300 text-slate-600 flex items-center justify-center transition-colors"
+                            className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
                         >
                             <FiX size={15} />
                         </button>
@@ -1470,12 +1475,12 @@ const PaymentModal = ({
                             className={`flex-1 py-3 px-5 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md active:scale-95 ${
                                 isSaving || (paymentMethod === 'mpesa' && !mpesaReceipt && mpesaStatus !== 'success') || (paymentMethod === 'kcb' && !kcbReceipt && kcbStatus !== 'success') || (paymentMethod === 'credit' && !selectedCustomer)
                                 ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed shadow-none'
-                                : 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-emerald-500/25 cursor-pointer'
+                                : 'bg-gradient-to-r from-[#00E676] via-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black shadow-lg shadow-emerald-500/30 cursor-pointer'
                             }`}
                         >
-                            <FiCheckCircle size={15} className="text-white shrink-0" />
+                            <FiCheckCircle size={15} className="text-slate-950 shrink-0" />
                             <span>{isSaving ? 'Processing...' : (paymentMethod === 'credit' && !selectedCustomer ? 'Select Customer' : 'Complete Sale')}</span>
-                            <span className="ml-auto text-[9px] bg-white/20 px-2 py-0.5 rounded font-mono font-bold text-white uppercase tracking-wider">Enter</span>
+                            <span className="ml-auto text-[9px] bg-slate-950/20 px-2 py-0.5 rounded font-mono font-black text-slate-950 uppercase tracking-wider">Enter</span>
                         </button>
                     )}
                 </div>
@@ -3411,16 +3416,16 @@ export default function RetailPOSPage() {
 
                 {/* Right Side - Shopping Cart & Checkout */}
                 <div className="w-[410px] bg-white flex flex-col border-l border-slate-200 shadow-xl overflow-hidden min-h-0 shrink-0">
-                    {/* Cart Header */}
-                    <div className="px-3.5 py-3 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shrink-0 shadow-xs border-b border-slate-800">
+                    {/* Cart Header — Login Executive Midnight Navy Theme */}
+                    <div className="px-3.5 py-3 bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B] text-white shrink-0 shadow-xs border-b border-emerald-500/20">
                         <div className="flex items-center gap-2">
                             <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                                <div className="w-8 h-8 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center shrink-0 text-emerald-400">
+                                <div className="w-8 h-8 rounded-xl bg-[#041226] border border-emerald-400/40 flex items-center justify-center shrink-0 text-[#00E676] shadow-sm">
                                     <FiShoppingCart size={16} />
                                 </div>
                                 <div className="min-w-0">
                                     <p className="font-black text-xs uppercase tracking-wider text-white leading-tight">Shopping Cart</p>
-                                    <p className="text-slate-300 text-[10px] leading-tight whitespace-nowrap">
+                                    <p className="text-emerald-200/90 text-[10px] leading-tight whitespace-nowrap">
                                         {cart.length} item{cart.length !== 1 ? 's' : ''} • {cart.reduce((s, i) => s + i.qty, 0).toFixed(1)} units
                                     </p>
                                 </div>
@@ -3428,10 +3433,10 @@ export default function RetailPOSPage() {
                             <div className="flex items-center gap-1 shrink-0">
                                 <button
                                     onClick={() => setShowHeldSalesModal(true)}
-                                    className="relative h-7 px-2.5 bg-white/10 hover:bg-white/20 border border-white/10 rounded-lg text-xs font-bold flex items-center gap-1 transition-all"
+                                    className="relative h-7 px-2.5 bg-white/10 hover:bg-white/20 border border-emerald-400/30 rounded-lg text-xs font-bold text-white flex items-center gap-1 transition-all cursor-pointer"
                                     title="Recall Held Sale"
                                 >
-                                    <FiPlay size={11} className="text-sky-300" />
+                                    <FiPlay size={11} className="text-[#00E676]" />
                                     <span>Recall</span>
                                     {heldSales.length > 0 && (
                                         <span className="w-4 h-4 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center shadow-xs">
@@ -3442,7 +3447,7 @@ export default function RetailPOSPage() {
                                 {cart.length > 0 && (
                                     <button 
                                         onClick={holdCurrentSale} 
-                                        className="h-7 px-2.5 bg-amber-500/80 hover:bg-amber-500 text-slate-900 rounded-lg text-xs font-bold flex items-center gap-1 transition-all shadow-xs"
+                                        className="h-7 px-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg text-xs font-black flex items-center gap-1 transition-all shadow-xs cursor-pointer"
                                         title="Hold Sale"
                                     >
                                         <FiPause size={11} />
@@ -3452,7 +3457,7 @@ export default function RetailPOSPage() {
                                 {cart.length > 0 && (
                                     <button 
                                         onClick={clearCart} 
-                                        className="h-7 px-2 bg-white/10 hover:bg-rose-500/80 rounded-lg text-xs font-bold transition-all"
+                                        className="h-7 px-2 bg-white/10 hover:bg-rose-500/80 rounded-lg text-xs font-bold transition-all cursor-pointer"
                                         title="Clear Cart"
                                     >
                                         <FiTrash2 size={12} className="text-rose-300" />
@@ -3530,28 +3535,28 @@ export default function RetailPOSPage() {
                         )}
                     </div>
 
-                    {/* Pay Panel — Exact same panel as Shopping Cart Header, NO curved border, exact sharp fonts */}
-                    <div className="shrink-0 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-t border-slate-800">
+                    {/* Pay Panel — Exact same panel as Shopping Cart Header, Login Executive Theme, NO curved border, exact sharp fonts */}
+                    <div className="shrink-0 bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B] border-t border-emerald-500/20">
                         <button
                             onClick={() => setShowPayment(true)}
                             disabled={cart.length === 0}
                             className="w-full px-4 py-3.5 flex items-center justify-between text-white hover:bg-white/5 active:bg-white/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed group cursor-pointer"
                         >
                             <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center shrink-0 text-emerald-400 group-hover:scale-105 transition-transform">
+                                <div className="w-8 h-8 rounded-xl bg-[#041226] border border-emerald-400/40 flex items-center justify-center shrink-0 text-[#00E676] group-hover:scale-105 transition-transform shadow-sm">
                                     <FiCreditCard size={16} />
                                 </div>
                                 <div className="text-left">
                                     <p className="font-black text-xs uppercase tracking-wider text-white leading-tight">
                                         PAY Ksh {grandTotal.toLocaleString()}
                                     </p>
-                                    <p className="text-emerald-400 text-[10px] font-bold leading-tight whitespace-nowrap">
+                                    <p className="text-[#00E676] text-[10px] font-bold leading-tight whitespace-nowrap">
                                         Click to Tender &amp; Checkout
                                     </p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
-                                <span className="px-2.5 py-1 bg-white/10 border border-white/15 rounded text-[10px] font-mono font-black text-emerald-300">
+                                <span className="px-2.5 py-1 bg-[#041226] border border-emerald-400/40 rounded text-[10px] font-mono font-black text-emerald-300">
                                     F12
                                 </span>
                             </div>
