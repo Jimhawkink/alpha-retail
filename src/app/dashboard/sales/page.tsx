@@ -7,7 +7,6 @@ import { supabase } from '@/lib/supabase';
 import { useOutlet } from '@/context/OutletContext';
 import { printCustomerReceipt, loadCompanyInfo } from '@/lib/receiptPrinter';
 import toast, { Toaster } from 'react-hot-toast';
-import XLSX from 'xlsx-js-style';
 import {
   FiDollarSign,
   FiShoppingBag,
@@ -173,6 +172,10 @@ const payColor = (m: string) => {
    MAIN SALES PAGE COMPONENT
    ══════════════════════════════════════════════════════════════════════════════ */
 export default function SalesPage() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const { activeOutlet } = useOutlet();
   const outletId = activeOutlet?.outlet_id || 1;
   const companyName = useCompanyName();
@@ -445,8 +448,9 @@ ${(sale.discount || 0) > 0 ? `<div style="font-size:10px;">Discount: -Ksh ${(sal
   /* ─────────────────────────────────────────────────────────────────────────
      Ultra Super-Premium Styled Excel Export (.xlsx)
      ───────────────────────────────────────────────────────────────────────── */
-  const exportExcel = () => {
+  const exportExcel = async () => {
     try {
+      const XLSX = (await import('xlsx-js-style')).default || (await import('xlsx-js-style'));
       const wb = XLSX.utils.book_new();
 
       // 1. Data Matrix (AOA)
@@ -1140,6 +1144,17 @@ ${(sale.discount || 0) > 0 ? `<div style="font-size:10px;">Discount: -Ksh ${(sal
     () => (filteredSales.length > 0 ? totalRevenue / filteredSales.length : 0),
     [filteredSales.length, totalRevenue]
   );
+
+  if (!mounted) {
+    return (
+      <div className="w-full flex items-center justify-center py-24 min-h-[400px]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Loading Sales Register...</span>
+        </div>
+      </div>
+    );
+  }
 
   /* ─────────────────────────────────────────────────────────────────────────
      UI RENDER: Matching Products Page Design System

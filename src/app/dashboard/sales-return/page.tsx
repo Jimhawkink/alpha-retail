@@ -6,7 +6,6 @@ import { supabase } from '@/lib/supabase';
 import { useOutlet } from '@/context/OutletContext';
 import { useCompanyName } from '@/context/SettingsContext';
 import toast, { Toaster } from 'react-hot-toast';
-import XLSX from 'xlsx-js-style';
 import {
   FiRotateCcw,
   FiSearch,
@@ -34,6 +33,7 @@ import {
   FiPackage,
   FiArrowRight,
   FiSliders,
+  FiShoppingBag,
 } from 'react-icons/fi';
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -44,16 +44,18 @@ interface Sale {
   receipt_no: string;
   sale_date: string;
   customer_name: string;
+  customer_phone?: string | null;
   total_amount: number;
   payment_method: string;
   outlet_id: number;
   created_by?: string;
   cashier_name?: string;
+  sale_time?: string;
   sale_datetime?: string;
 }
 
 interface SaleItem {
-  item_id: number;
+  item_id?: number | null;
   _idx: number;
   sale_id: number;
   product_id: number;
@@ -61,6 +63,9 @@ interface SaleItem {
   quantity: number;
   unit_price: number;
   subtotal: number;
+  barcode?: string | null;
+  cost_price?: number;
+  discount?: number;
   selling_unit?: string;
   returnQty: number;
   selected: boolean;
@@ -97,15 +102,21 @@ const PAGE_SIZES = [10, 20, 50, 100];
 /* ══════════════════════════════════════════════════════════════════════════════
    FORMATTERS & HELPERS
    ══════════════════════════════════════════════════════════════════════════════ */
-const fmt = (n: number) =>
-  `Ksh ${(n || 0).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmt = (n: any) => {
+  const num = typeof n === 'number' ? n : parseFloat(n) || 0;
+  return `Ksh ${num.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
 
-const fmtKES = (n: number) => `Ksh ${(n || 0).toLocaleString('en-KE')}`;
+const fmtKES = (n: any) => {
+  const num = typeof n === 'number' ? n : parseFloat(n) || 0;
+  return `Ksh ${num.toLocaleString('en-KE')}`;
+};
 
-const fmtK = (n: number) => {
-  if (Math.abs(n) >= 1_000_000) return `Ksh ${(n / 1_000_000).toFixed(2)}M`;
-  if (Math.abs(n) >= 1_000) return `Ksh ${(n / 1_000).toFixed(1)}K`;
-  return `Ksh ${(n || 0).toLocaleString('en-KE')}`;
+const fmtK = (n: any) => {
+  const num = typeof n === 'number' ? n : parseFloat(n) || 0;
+  if (Math.abs(num) >= 1_000_000) return `Ksh ${(num / 1_000_000).toFixed(2)}M`;
+  if (Math.abs(num) >= 1_000) return `Ksh ${(num / 1_000).toFixed(1)}K`;
+  return `Ksh ${num.toLocaleString('en-KE')}`;
 };
 
 const fmtN = (n: number) => (n || 0).toLocaleString('en-KE');
@@ -164,6 +175,7 @@ function ReasonBadge({ reason }: { reason: string }) {
    MAIN SALES RETURN PAGE
    ══════════════════════════════════════════════════════════════════════════════ */
 export default function SalesReturnPage() {
+  const [mounted, setMounted] = useState(false);
   const { activeOutlet } = useOutlet();
   const outletId = activeOutlet?.outlet_id || null;
   const companyName = useCompanyName();
@@ -207,6 +219,7 @@ export default function SalesReturnPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    setMounted(true);
     try {
       const ud = localStorage.getItem('user');
       if (ud) {
@@ -353,22 +366,30 @@ export default function SalesReturnPage() {
     setLoadingItems(true);
     setStep(2);
     try {
-      const sid = Number(sale.sale_id);
+      let sid = Number(sale.sale_id);
       let itemsData: any[] = [];
-      const { data, error } = await supabase
-        .from('retail_sales_items')
-        .select('item_id,sale_id,product_id,product_name,barcode,quantity,unit_price,cost_price,discount,subtotal')
-        .eq('sale_id', sid);
 
-      if (!error && data && data.length > 0) {
-        itemsData = data;
-      } else if (sale.receipt_no) {
-        // Fallback by matching receipt number if sale_id was null
-        const { data: byReceipt } = await supabase
+      // If sale_id is missing/0, attempt to look it up by receipt_no
+      if ((!sid || isNaN(sid)) && sale.receipt_no) {
+        const { data: saleRow } = await supabase
+          .from('retail_sales')
+          .select('sale_id')
+          .eq('receipt_no', sale.receipt_no)
+          .limit(1);
+        if (saleRow && saleRow[0]?.sale_id) {
+          sid = Number(saleRow[0].sale_id);
+        }
+      }
+
+      if (sid && !isNaN(sid)) {
+        const { data, error } = await supabase
           .from('retail_sales_items')
           .select('item_id,sale_id,product_id,product_name,barcode,quantity,unit_price,cost_price,discount,subtotal')
           .eq('sale_id', sid);
-        itemsData = byReceipt || [];
+
+        if (!error && data && data.length > 0) {
+          itemsData = data;
+        }
       }
 
       setSaleItems(
@@ -376,7 +397,7 @@ export default function SalesReturnPage() {
           ...i,
           _idx: idx,
           unit_price: Number(i.unit_price || 0),
-          subtotal: Number(i.subtotal || (i.unit_price || 0) * (i.quantity || 1)),
+          subtotal: Number(i.subtotal || (Number(i.unit_price || 0) * (Number(i.quantity) || 1))),
           returnQty: 0,
           selected: false,
         }))
@@ -417,8 +438,8 @@ export default function SalesReturnPage() {
         .order('return_id', { ascending: false })
         .limit(1);
 
-      if (data && data.length > 0) {
-        const m = data[0].return_no.match(/SR-(\d+)/);
+      if (data && data.length > 0 && data[0]?.return_no) {
+        const m = String(data[0].return_no).match(/SR-(\d+)/);
         if (m) return `SR-${String(parseInt(m[1], 10) + 1).padStart(4, '0')}`;
       }
     } catch {}
@@ -526,8 +547,9 @@ export default function SalesReturnPage() {
   /* ─────────────────────────────────────────────────────────────────────────
      Ultra Super-Premium Styled Excel Export (.xlsx)
      ───────────────────────────────────────────────────────────────────────── */
-  const exportExcel = () => {
+  const exportExcel = async () => {
     try {
+      const XLSX = (await import('xlsx-js-style')).default || (await import('xlsx-js-style'));
       const wb = XLSX.utils.book_new();
 
       // 1. Data Matrix (AOA)
@@ -1142,6 +1164,17 @@ export default function SalesReturnPage() {
         .reduce((s, i) => s + i.returnQty * i.unit_price, 0),
     [saleItems]
   );
+
+  if (!mounted) {
+    return (
+      <div className="w-full flex items-center justify-center py-24 min-h-[400px]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-rose-200 border-t-rose-600 rounded-full animate-spin" />
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Loading Sales Return Ledger...</span>
+        </div>
+      </div>
+    );
+  }
 
   /* ─────────────────────────────────────────────────────────────────────────
      UI RENDER: Matching Products Page Design System
@@ -1826,7 +1859,8 @@ export default function SalesReturnPage() {
                   ) : (
                     salesList.map((sale) => (
                       <button
-                        key={sale.sale_id}
+                        key={sale.sale_id || sale.receipt_no}
+                        type="button"
                         onClick={() => selectSale(sale)}
                         className="w-full text-left p-3 rounded-2xl border border-slate-200 hover:border-rose-300 hover:bg-rose-50/40 transition-all flex items-center justify-between gap-3 group cursor-pointer"
                       >
