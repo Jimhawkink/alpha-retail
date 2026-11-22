@@ -104,6 +104,7 @@ const menuGroups = [
         { href: '/dashboard/smart-insights',  label: 'Smart Insights 🧠',icon: Zap,         roles: 'all', badge: 'AI' },
     ]},
     { label: 'Administration', icon: Settings, name: 'admin', collapsible: true, items: [
+        { href: '/dashboard/admin/database',    label: '💾 Database & Supabase', icon: Database,    roles: 'all', badge: 'PRO' },
         { href: '/dashboard/outlets',           label: 'Outlets',           icon: MapPin,      roles: 'superadmin' },
         { href: '/dashboard/users',             label: 'Users',             icon: Users,       roles: 'all' },
         { href: '/dashboard/user-roles',        label: 'User Roles',        icon: Shield,      roles: 'all' },

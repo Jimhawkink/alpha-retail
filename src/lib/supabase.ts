@@ -9,11 +9,98 @@ import { createClient } from '@supabase/supabase-js';
 // 3. Update the URL and Key below with your project credentials
 // ============================================
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://your-project.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'your-anon-key';
+const defaultSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://your-project.supabase.co';
+const defaultSupabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'your-anon-key';
 
-// Create Supabase client for Alpha Retail
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export interface SupabaseConfig {
+    url: string;
+    anonKey: string;
+    serviceKey?: string;
+    isCustom: boolean;
+    projectName?: string;
+}
+
+export function getDefaultSupabaseConfig(): SupabaseConfig {
+    return {
+        url: defaultSupabaseUrl,
+        anonKey: defaultSupabaseAnonKey,
+        isCustom: false,
+        projectName: 'Default Environment Project',
+    };
+}
+
+export function getActiveSupabaseConfig(): SupabaseConfig {
+    if (typeof window !== 'undefined') {
+        try {
+            const stored = localStorage.getItem('alpha_custom_supabase_config');
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                if (parsed?.url && parsed?.anonKey) {
+                    return {
+                        url: parsed.url,
+                        anonKey: parsed.anonKey,
+                        serviceKey: parsed.serviceKey || undefined,
+                        isCustom: true,
+                        projectName: parsed.projectName || 'Custom Project',
+                    };
+                }
+            }
+        } catch {
+            // fallback
+        }
+    }
+    return getDefaultSupabaseConfig();
+}
+
+export function setActiveSupabaseConfig(config: { url: string; anonKey: string; serviceKey?: string; projectName?: string }) {
+    if (typeof window !== 'undefined') {
+        localStorage.setItem(
+            'alpha_custom_supabase_config',
+            JSON.stringify({
+                url: config.url.trim(),
+                anonKey: config.anonKey.trim(),
+                serviceKey: config.serviceKey?.trim() || '',
+                projectName: config.projectName?.trim() || 'Custom Supabase',
+                activatedAt: new Date().toISOString(),
+            })
+        );
+    }
+}
+
+export function resetToDefaultSupabaseConfig() {
+    if (typeof window !== 'undefined') {
+        localStorage.removeItem('alpha_custom_supabase_config');
+    }
+}
+
+export function createDynamicSupabaseClient(url: string, key: string) {
+    return createClient(url, key);
+}
+
+// Initial active client
+const initialCfg = getActiveSupabaseConfig();
+let activeClientInstance = createClient(initialCfg.url, initialCfg.anonKey);
+let lastInitializedUrl = initialCfg.url;
+let lastInitializedKey = initialCfg.anonKey;
+
+// Create Dynamic Proxy Supabase client for Alpha Retail (hot-swappable across all pages)
+export const supabase = new Proxy({} as any, {
+    get(_target, prop) {
+        if (typeof window !== 'undefined') {
+            const current = getActiveSupabaseConfig();
+            if (current.url !== lastInitializedUrl || current.anonKey !== lastInitializedKey) {
+                activeClientInstance = createClient(current.url, current.anonKey);
+                lastInitializedUrl = current.url;
+                lastInitializedKey = current.anonKey;
+            }
+        }
+        const val = (activeClientInstance as any)[prop];
+        if (typeof val === 'function') {
+            return val.bind(activeClientInstance);
+        }
+        return val;
+    },
+});
 
 // ============================================
 // C2B/M-PESA SUPABASE CLIENT  
@@ -510,7 +597,7 @@ export async function getDashboardStats() {
         .lt('qty', 10);
 
     // Calculate totals
-    const totalRevenue = todaySales?.reduce((sum, sale) => sum + (sale.grand_total || 0), 0) || 0;
+    const totalRevenue = todaySales?.reduce((sum: number, sale: any) => sum + (sale.grand_total || 0), 0) || 0;
 
     return {
         todayRevenue: totalRevenue,
