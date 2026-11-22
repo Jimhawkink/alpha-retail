@@ -832,40 +832,43 @@ export default function DashboardPage() {
                             <select
                                 value={periodPreset}
                                 onChange={e => applyPreset(e.target.value)}
-                                className="bg-[#091D3E] text-white font-extrabold border border-emerald-400/50 text-[11px] rounded-lg px-2.5 py-1 outline-none cursor-pointer shadow-xs"
+                                style={{ color: '#ffffff' }}
+                                className="bg-[#091D3E] text-white !text-white font-extrabold border border-emerald-400/50 text-[11px] rounded-lg px-2.5 py-1 outline-none cursor-pointer shadow-xs"
                             >
-                                <option value="today" className="bg-[#091D3E] text-white font-bold">Today</option>
-                                <option value="yesterday" className="bg-[#091D3E] text-white font-bold">Yesterday</option>
-                                <option value="7d" className="bg-[#091D3E] text-white font-bold">Last 7 Days</option>
-                                <option value="14d" className="bg-[#091D3E] text-white font-bold">Last 14 Days</option>
-                                <option value="30d" className="bg-[#091D3E] text-white font-bold">Last 30 Days</option>
-                                <option value="month" className="bg-[#091D3E] text-white font-bold">This Month</option>
-                                <option value="custom" className="bg-[#091D3E] text-white font-bold">Custom Range</option>
+                                <option value="today" style={{ color: '#ffffff', backgroundColor: '#091D3E' }} className="bg-[#091D3E] text-white !text-white font-bold">Today</option>
+                                <option value="yesterday" style={{ color: '#ffffff', backgroundColor: '#091D3E' }} className="bg-[#091D3E] text-white !text-white font-bold">Yesterday</option>
+                                <option value="7d" style={{ color: '#ffffff', backgroundColor: '#091D3E' }} className="bg-[#091D3E] text-white !text-white font-bold">Last 7 Days</option>
+                                <option value="14d" style={{ color: '#ffffff', backgroundColor: '#091D3E' }} className="bg-[#091D3E] text-white !text-white font-bold">Last 14 Days</option>
+                                <option value="30d" style={{ color: '#ffffff', backgroundColor: '#091D3E' }} className="bg-[#091D3E] text-white !text-white font-bold">Last 30 Days</option>
+                                <option value="month" style={{ color: '#ffffff', backgroundColor: '#091D3E' }} className="bg-[#091D3E] text-white !text-white font-bold">This Month</option>
+                                <option value="custom" style={{ color: '#ffffff', backgroundColor: '#091D3E' }} className="bg-[#091D3E] text-white !text-white font-bold">Custom Range</option>
                             </select>
 
                             {/* Choose From -> Choose To Date Filter Inputs with White Fonts */}
-                            <div className="flex items-center gap-1.5 bg-[#091D3E] border border-emerald-400/50 px-2 py-0.5 rounded-lg text-white text-[11px] shadow-xs">
+                            <div className="flex items-center gap-1.5 bg-[#091D3E] border border-emerald-400/50 px-2 py-0.5 rounded-lg text-white !text-white text-[11px] shadow-xs">
                                 <Calendar size={12} className="text-emerald-300 shrink-0" />
-                                <span className="text-white font-bold text-[10px]">From:</span>
+                                <span className="text-white !text-white font-bold text-[10px]" style={{ color: '#ffffff' }}>From:</span>
                                 <input
                                     type="date"
                                     value={dateFrom}
                                     onChange={e => { setDateFrom(e.target.value); setPeriodPreset('custom'); }}
-                                    className="bg-transparent text-white font-extrabold text-[11px] outline-none cursor-pointer [color-scheme:dark]"
+                                    style={{ color: '#ffffff' }}
+                                    className="bg-transparent text-white !text-white font-extrabold text-[11px] outline-none cursor-pointer [color-scheme:dark]"
                                 />
                                 <span className="text-emerald-300 font-bold">→</span>
-                                <span className="text-white font-bold text-[10px]">To:</span>
+                                <span className="text-white !text-white font-bold text-[10px]" style={{ color: '#ffffff' }}>To:</span>
                                 <input
                                     type="date"
                                     value={dateTo}
                                     onChange={e => { setDateTo(e.target.value); setPeriodPreset('custom'); }}
-                                    className="bg-transparent text-white font-extrabold text-[11px] outline-none cursor-pointer [color-scheme:dark]"
+                                    style={{ color: '#ffffff' }}
+                                    className="bg-transparent text-white !text-white font-extrabold text-[11px] outline-none cursor-pointer [color-scheme:dark]"
                                 />
                                 <button
                                     onClick={loadDashboardData}
                                     disabled={isLoading}
                                     title="Filter Sales"
-                                    className="ml-0.5 p-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer"
+                                    className="ml-0.5 p-1 bg-emerald-600 hover:bg-emerald-500 text-white !text-white rounded text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer"
                                 >
                                     <RefreshCw size={11} className={isLoading ? 'animate-spin' : ''} />
                                     <span className="hidden sm:inline">Filter</span>
