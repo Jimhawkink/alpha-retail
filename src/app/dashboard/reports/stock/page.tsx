@@ -201,6 +201,20 @@ export default function StockReportPage() {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(25);
 
+  // Category Tab Pagination & Controls
+  const [catPage, setCatPage] = useState(1);
+  const [catPerPage, setCatPerPage] = useState(10);
+  const [catSearch, setCatSearch] = useState('');
+  const [catViewMode, setCatViewMode] = useState<'table' | 'cards'>('table');
+
+  // Ledger Tab Pagination
+  const [ledgerPage, setLedgerPage] = useState(1);
+  const [ledgerPerPage, setLedgerPerPage] = useState(25);
+
+  // Reorder Watchlist Pagination
+  const [reorderPage, setReorderPage] = useState(1);
+  const [reorderPerPage, setReorderPerPage] = useState(25);
+
   // Modals & Drawers
   const [viewingItem, setViewingItem] = useState<StockItem | null>(null);
   const [viewingItemMovements, setViewingItemMovements] = useState<StockMovementRow[]>([]);
@@ -665,6 +679,38 @@ export default function StockReportPage() {
 
     return arr.sort((a, b) => b.costVal - a.costVal);
   }, [items, metrics.totalCostValue]);
+
+  // Paginated & Filtered Category Breakdown for Analysis Tab
+  const filteredCategoryBreakdown = useMemo(() => {
+    const q = catSearch.toLowerCase().trim();
+    if (!q) return categoryBreakdown;
+    return categoryBreakdown.filter((c) => c.category.toLowerCase().includes(q));
+  }, [categoryBreakdown, catSearch]);
+
+  const totalCatPages = Math.max(1, Math.ceil(filteredCategoryBreakdown.length / catPerPage));
+  const paginatedCategories = useMemo(() => {
+    return filteredCategoryBreakdown.slice((catPage - 1) * catPerPage, catPage * catPerPage);
+  }, [filteredCategoryBreakdown, catPage, catPerPage]);
+
+  useEffect(() => {
+    setCatPage(1);
+  }, [catSearch, catPerPage]);
+
+  // Paginated Ledger Stream
+  const totalLedgerPages = Math.max(1, Math.ceil(recentMovements.length / ledgerPerPage));
+  const paginatedLedger = useMemo(() => {
+    return recentMovements.slice((ledgerPage - 1) * ledgerPerPage, ledgerPage * ledgerPerPage);
+  }, [recentMovements, ledgerPage, ledgerPerPage]);
+
+  // Paginated Reorder Watchlist
+  const deficitList = useMemo(() => {
+    return items.filter((it) => it.stock_qty <= it.reorder_point);
+  }, [items]);
+
+  const totalReorderPages = Math.max(1, Math.ceil(deficitList.length / reorderPerPage));
+  const paginatedReorder = useMemo(() => {
+    return deficitList.slice((reorderPage - 1) * reorderPerPage, reorderPage * reorderPerPage);
+  }, [deficitList, reorderPage, reorderPerPage]);
 
   // Inventory Health Pie Chart Data
   const healthPieData = useMemo(() => {
@@ -1583,23 +1629,23 @@ export default function StockReportPage() {
         <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B] text-white border-b border-emerald-500/20">
-                  <th className="py-2.5 px-3 font-extrabold uppercase tracking-wider text-[10px] w-10 text-center">#</th>
-                  <th className="py-2.5 px-3 font-extrabold uppercase tracking-wider text-[10px]">Barcode / Code</th>
-                  <th className="py-2.5 px-3 font-extrabold uppercase tracking-wider text-[10px]">Product &amp; Category</th>
-                  <th className="py-2.5 px-3 font-extrabold uppercase tracking-wider text-[10px]">Supplier</th>
-                  <th className="py-2.5 px-3 font-extrabold uppercase tracking-wider text-[10px] text-center">Units</th>
-                  <th className="py-2.5 px-3 font-extrabold uppercase tracking-wider text-[10px] text-right">Stock on Hand</th>
-                  <th className="py-2.5 px-3 font-extrabold uppercase tracking-wider text-[10px] text-center">Reorder</th>
-                  <th className="py-2.5 px-3 font-extrabold uppercase tracking-wider text-[10px] text-right">Cost Price</th>
-                  <th className="py-2.5 px-3 font-extrabold uppercase tracking-wider text-[10px] text-right">Selling Price</th>
-                  <th className="py-2.5 px-3 font-extrabold uppercase tracking-wider text-[10px] text-center">Margin %</th>
-                  <th className="py-2.5 px-3 font-extrabold uppercase tracking-wider text-[10px] text-right">Cost Value</th>
-                  <th className="py-2.5 px-3 font-extrabold uppercase tracking-wider text-[10px] text-right">Retail Value</th>
-                  <th className="py-2.5 px-3 font-extrabold uppercase tracking-wider text-[10px] text-right">Projected Profit</th>
-                  <th className="py-2.5 px-3 font-extrabold uppercase tracking-wider text-[10px] text-center">Status</th>
-                  <th className="py-2.5 px-3 font-extrabold uppercase tracking-wider text-[10px] text-center w-28">Actions</th>
+              <thead className="bg-slate-100 border-b-2 border-slate-300">
+                <tr className="bg-slate-100 border-b border-slate-300">
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] w-10 text-center text-slate-900 bg-slate-100 border-r border-slate-200">#</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-slate-900 bg-slate-100 border-r border-slate-200">Barcode / Code</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-slate-900 bg-slate-100 border-r border-slate-200">Product &amp; Category</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-slate-900 bg-slate-100 border-r border-slate-200">Supplier</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-center text-slate-900 bg-slate-100 border-r border-slate-200">Units</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-right text-slate-900 bg-slate-100 border-r border-slate-200">Stock on Hand</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-center text-slate-900 bg-slate-100 border-r border-slate-200">Reorder</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-right text-slate-900 bg-slate-100 border-r border-slate-200">Cost Price</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-right text-slate-900 bg-slate-100 border-r border-slate-200">Selling Price</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-center text-slate-900 bg-slate-100 border-r border-slate-200">Margin %</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-right text-slate-900 bg-slate-100 border-r border-slate-200">Cost Value</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-right text-slate-900 bg-slate-100 border-r border-slate-200">Retail Value</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-right text-slate-900 bg-slate-100 border-r border-slate-200">Projected Profit</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-center text-slate-900 bg-slate-100 border-r border-slate-200">Status</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-center w-28 text-slate-900 bg-slate-100">Actions</th>
                 </tr>
               </thead>
 
@@ -2110,41 +2156,41 @@ export default function StockReportPage() {
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-slate-100 text-slate-700 font-extrabold uppercase text-[10px]">
-                  <th className="py-2.5 px-3">Date &amp; Time</th>
-                  <th className="py-2.5 px-3">Product Name</th>
-                  <th className="py-2.5 px-3">Movement Type</th>
-                  <th className="py-2.5 px-3 text-right">Quantity Changed</th>
-                  <th className="py-2.5 px-3 text-center">Unit / Storage</th>
-                  <th className="py-2.5 px-3">Reference / Document</th>
-                  <th className="py-2.5 px-3">Audit Notes &amp; Reasons</th>
+              <thead className="bg-slate-100 border-b-2 border-slate-300">
+                <tr className="bg-slate-100 border-b border-slate-300">
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-slate-900 bg-slate-100 border-r border-slate-200">Date &amp; Time</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-slate-900 bg-slate-100 border-r border-slate-200">Product Name</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-slate-900 bg-slate-100 border-r border-slate-200">Movement Type</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-right text-slate-900 bg-slate-100 border-r border-slate-200">Quantity Changed</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-center text-slate-900 bg-slate-100 border-r border-slate-200">Unit / Storage</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-slate-900 bg-slate-100 border-r border-slate-200">Reference / Document</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-slate-900 bg-slate-100">Audit Notes &amp; Reasons</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {recentMovements.length === 0 ? (
+                {paginatedLedger.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-14 text-center text-slate-400">
                       No stock movement history recorded yet.
                     </td>
                   </tr>
                 ) : (
-                  recentMovements.slice(0, 150).map((mov) => {
+                  paginatedLedger.map((mov) => {
                     const isPositive = mov.qty > 0;
                     const invType = (mov.invoice_no || '').toUpperCase();
 
                     return (
                       <tr key={mov.st_id} className="hover:bg-slate-50 transition-colors">
-                        <td className="py-2 px-3 whitespace-nowrap text-slate-600 font-mono text-[11px]">
+                        <td className="py-2.5 px-3 whitespace-nowrap text-slate-700 font-mono text-[11px] font-semibold border-r border-slate-100">
                           {formatDateTime(mov.created_at)}
                         </td>
-                        <td className="py-2 px-3">
-                          <span className="font-bold text-slate-900 block">{mov.product_name}</span>
+                        <td className="py-2.5 px-3 border-r border-slate-100">
+                          <span className="font-extrabold text-slate-900 block">{mov.product_name}</span>
                           <span className="text-[10px] text-slate-400 font-mono">
                             {mov.barcode !== '—' ? mov.barcode : mov.product_code}
                           </span>
                         </td>
-                        <td className="py-2 px-3 whitespace-nowrap">
+                        <td className="py-2.5 px-3 whitespace-nowrap border-r border-slate-100">
                           {invType.includes('SALE') ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
                               <FiArrowDownRight size={10} /> Sale Deduction
@@ -2167,7 +2213,7 @@ export default function StockReportPage() {
                             </span>
                           )}
                         </td>
-                        <td className="py-2 px-3 text-right whitespace-nowrap">
+                        <td className="py-2.5 px-3 text-right whitespace-nowrap border-r border-slate-100">
                           <span
                             className={`font-mono font-black text-xs ${
                               isPositive ? 'text-emerald-700' : 'text-rose-700'
@@ -2176,13 +2222,13 @@ export default function StockReportPage() {
                             {isPositive ? `+${mov.qty}` : mov.qty}
                           </span>
                         </td>
-                        <td className="py-2 px-3 text-center whitespace-nowrap text-slate-600 font-semibold text-[10.5px]">
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap text-slate-600 font-semibold text-[10.5px] border-r border-slate-100">
                           {mov.storage_type || 'Pieces'}
                         </td>
-                        <td className="py-2 px-3 whitespace-nowrap font-mono text-[11px] font-bold text-slate-800">
+                        <td className="py-2.5 px-3 whitespace-nowrap font-mono text-[11px] font-bold text-slate-800 border-r border-slate-100">
                           {mov.invoice_no || '—'}
                         </td>
-                        <td className="py-2 px-3 text-slate-600 text-[11px] max-w-xs truncate" title={mov.notes || ''}>
+                        <td className="py-2.5 px-3 text-slate-600 text-[11px] max-w-xs truncate" title={mov.notes || ''}>
                           {mov.notes || '—'}
                         </td>
                       </tr>
@@ -2191,6 +2237,65 @@ export default function StockReportPage() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Ledger Pagination Dock */}
+          <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600 font-semibold">
+            <div className="flex items-center gap-2">
+              <span>Rows per page:</span>
+              <select
+                value={ledgerPerPage}
+                onChange={(e) => setLedgerPerPage(Number(e.target.value))}
+                className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 outline-none cursor-pointer"
+              >
+                {[15, 25, 50, 100].map((sz) => (
+                  <option key={sz} value={sz}>
+                    {sz} rows
+                  </option>
+                ))}
+              </select>
+              <span className="text-slate-400">|</span>
+              <span>
+                Showing {recentMovements.length === 0 ? 0 : (ledgerPage - 1) * ledgerPerPage + 1} to{' '}
+                {Math.min(ledgerPage * ledgerPerPage, recentMovements.length)} of {recentMovements.length} audit entries
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setLedgerPage(1)}
+                disabled={ledgerPage <= 1}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-30 disabled:pointer-events-none"
+              >
+                <FiChevronsLeft size={13} />
+              </button>
+              <button
+                onClick={() => setLedgerPage((p) => Math.max(1, p - 1))}
+                disabled={ledgerPage <= 1}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-30 disabled:pointer-events-none"
+              >
+                <FiChevronLeft size={13} />
+              </button>
+
+              <span className="px-3 py-1 font-mono font-bold text-slate-700 bg-white border border-slate-200 rounded-lg">
+                {ledgerPage} / {totalLedgerPages}
+              </span>
+
+              <button
+                onClick={() => setLedgerPage((p) => Math.min(totalLedgerPages, p + 1))}
+                disabled={ledgerPage >= totalLedgerPages}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-30 disabled:pointer-events-none"
+              >
+                <FiChevronRight size={13} />
+              </button>
+              <button
+                onClick={() => setLedgerPage(totalLedgerPages)}
+                disabled={ledgerPage >= totalLedgerPages}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-30 disabled:pointer-events-none"
+              >
+                <FiChevronsRight size={13} />
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -2204,7 +2309,7 @@ export default function StockReportPage() {
             <div>
               <h3 className="text-xs font-extrabold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
                 <FiAlertTriangle size={14} className="text-amber-600" />
-                <span>Replenishment Watchlist — Below Reorder Levels ({metrics.deficitItemsCount} SKUs)</span>
+                <span>Replenishment Watchlist — Below Reorder Levels ({deficitList.length} SKUs)</span>
               </h3>
               <p className="text-[10.5px] text-amber-800 font-medium">
                 Total replenishment capital required to restore safety buffer: <b>{fmtKES(metrics.replenishmentCapitalRequired)}</b>
@@ -2221,40 +2326,46 @@ export default function StockReportPage() {
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-slate-100 text-slate-700 font-extrabold uppercase text-[10px]">
-                  <th className="py-2.5 px-3">#</th>
-                  <th className="py-2.5 px-3">Product Name</th>
-                  <th className="py-2.5 px-3">Category</th>
-                  <th className="py-2.5 px-3">Supplier</th>
-                  <th className="py-2.5 px-3 text-right">Current Stock</th>
-                  <th className="py-2.5 px-3 text-center">Reorder Point</th>
-                  <th className="py-2.5 px-3 text-right">Deficit Needed</th>
-                  <th className="py-2.5 px-3 text-right">Unit Cost</th>
-                  <th className="py-2.5 px-3 text-right">Capital Required</th>
-                  <th className="py-2.5 px-3 text-center">Status</th>
-                  <th className="py-2.5 px-3 text-center">Action</th>
+              <thead className="bg-slate-100 border-b-2 border-slate-300">
+                <tr className="bg-slate-100 border-b border-slate-300">
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-slate-900 bg-slate-100 border-r border-slate-200">#</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-slate-900 bg-slate-100 border-r border-slate-200">Product Name</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-slate-900 bg-slate-100 border-r border-slate-200">Category</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-slate-900 bg-slate-100 border-r border-slate-200">Supplier</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-right text-slate-900 bg-slate-100 border-r border-slate-200">Current Stock</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-center text-slate-900 bg-slate-100 border-r border-slate-200">Reorder Point</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-right text-slate-900 bg-slate-100 border-r border-slate-200">Deficit Needed</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-right text-slate-900 bg-slate-100 border-r border-slate-200">Unit Cost</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-right text-slate-900 bg-slate-100 border-r border-slate-200">Capital Required</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-center text-slate-900 bg-slate-100 border-r border-slate-200">Status</th>
+                  <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-center text-slate-900 bg-slate-100">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {items
-                  .filter((it) => it.stock_qty <= it.reorder_point)
-                  .map((it, idx) => {
+                {paginatedReorder.length === 0 ? (
+                  <tr>
+                    <td colSpan={11} className="py-14 text-center text-slate-400">
+                      All products currently have healthy stock above reorder level.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedReorder.map((it, idx) => {
+                    const globalIdx = (reorderPage - 1) * reorderPerPage + idx + 1;
                     const deficit = Math.max(0, it.reorder_point - it.stock_qty);
                     const capital = deficit * it.purchase_cost;
 
                     return (
                       <tr key={it.pid} className="hover:bg-slate-50 transition-colors">
-                        <td className="py-2.5 px-3 text-slate-400 font-mono text-[11px] font-semibold">{idx + 1}</td>
-                        <td className="py-2.5 px-3 font-bold text-slate-900">{it.product_name}</td>
-                        <td className="py-2.5 px-3 text-slate-600">{it.category}</td>
-                        <td className="py-2.5 px-3 text-slate-600">{it.supplier_name}</td>
-                        <td className="py-2.5 px-3 text-right font-mono font-black text-rose-700">{it.stock_qty}</td>
-                        <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-700">{it.reorder_point}</td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-700">+{deficit}</td>
-                        <td className="py-2.5 px-3 text-right font-mono text-slate-700">{fmtKES(it.purchase_cost)}</td>
-                        <td className="py-2.5 px-3 text-right font-mono font-black text-slate-900">{fmtKES(capital)}</td>
-                        <td className="py-2.5 px-3 text-center">
+                        <td className="py-2.5 px-3 text-slate-400 font-mono text-[11px] font-semibold border-r border-slate-100">{globalIdx}</td>
+                        <td className="py-2.5 px-3 font-extrabold text-slate-900 border-r border-slate-100">{it.product_name}</td>
+                        <td className="py-2.5 px-3 text-slate-600 border-r border-slate-100">{it.category}</td>
+                        <td className="py-2.5 px-3 text-slate-600 border-r border-slate-100">{it.supplier_name}</td>
+                        <td className="py-2.5 px-3 text-right font-mono font-black text-rose-700 border-r border-slate-100">{it.stock_qty}</td>
+                        <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-700 border-r border-slate-100">{it.reorder_point}</td>
+                        <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-700 border-r border-slate-100">+{deficit}</td>
+                        <td className="py-2.5 px-3 text-right font-mono text-slate-700 border-r border-slate-100">{fmtKES(it.purchase_cost)}</td>
+                        <td className="py-2.5 px-3 text-right font-mono font-black text-slate-900 border-r border-slate-100">{fmtKES(capital)}</td>
+                        <td className="py-2.5 px-3 text-center border-r border-slate-100">
                           {it.stock_qty <= 0 ? (
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800">
                               OUT OF STOCK
@@ -2268,7 +2379,7 @@ export default function StockReportPage() {
                         <td className="py-2.5 px-3 text-center">
                           <Link
                             href="/dashboard/purchase"
-                            className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-[10.5px] font-bold transition inline-flex items-center gap-1"
+                            className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-[10.5px] font-bold transition inline-flex items-center gap-1"
                           >
                             <FiShoppingBag size={11} />
                             <span>Order</span>
@@ -2276,66 +2387,310 @@ export default function StockReportPage() {
                         </td>
                       </tr>
                     );
-                  })}
+                  })
+                )}
               </tbody>
             </table>
+          </div>
+
+          {/* Reorder Pagination Dock */}
+          <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600 font-semibold">
+            <div className="flex items-center gap-2">
+              <span>Rows per page:</span>
+              <select
+                value={reorderPerPage}
+                onChange={(e) => setReorderPerPage(Number(e.target.value))}
+                className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 outline-none cursor-pointer"
+              >
+                {[15, 25, 50, 100].map((sz) => (
+                  <option key={sz} value={sz}>
+                    {sz} rows
+                  </option>
+                ))}
+              </select>
+              <span className="text-slate-400">|</span>
+              <span>
+                Showing {deficitList.length === 0 ? 0 : (reorderPage - 1) * reorderPerPage + 1} to{' '}
+                {Math.min(reorderPage * reorderPerPage, deficitList.length)} of {deficitList.length} deficit items
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setReorderPage(1)}
+                disabled={reorderPage <= 1}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-30 disabled:pointer-events-none"
+              >
+                <FiChevronsLeft size={13} />
+              </button>
+              <button
+                onClick={() => setReorderPage((p) => Math.max(1, p - 1))}
+                disabled={reorderPage <= 1}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-30 disabled:pointer-events-none"
+              >
+                <FiChevronLeft size={13} />
+              </button>
+
+              <span className="px-3 py-1 font-mono font-bold text-slate-700 bg-white border border-slate-200 rounded-lg">
+                {reorderPage} / {totalReorderPages}
+              </span>
+
+              <button
+                onClick={() => setReorderPage((p) => Math.min(totalReorderPages, p + 1))}
+                disabled={reorderPage >= totalReorderPages}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-30 disabled:pointer-events-none"
+              >
+                <FiChevronRight size={13} />
+              </button>
+              <button
+                onClick={() => setReorderPage(totalReorderPages)}
+                disabled={reorderPage >= totalReorderPages}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-30 disabled:pointer-events-none"
+              >
+                <FiChevronsRight size={13} />
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* ══════════════════════════════════════════════════════════════════
-          TAB 5: CATEGORY ASSET VALUATION & ALLOCATION
+          TAB 5: CATEGORY ASSET VALUATION & ALLOCATION WITH PAGINATION
           ══════════════════════════════════════════════════════════════════ */}
       {activeTab === 'category-analytics' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {categoryBreakdown.map((cat) => (
-            <div key={cat.category} className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                  <h4 className="font-extrabold text-slate-900 text-sm tracking-tight">{cat.category}</h4>
-                  <span className="px-2 py-0.5 rounded-md font-mono text-[10px] font-bold bg-[#091D3E]/5 text-[#091D3E]">
-                    {cat.skus} SKUs
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 my-3 text-xs">
-                  <div className="p-2 rounded-xl bg-slate-50">
-                    <span className="text-[10px] font-semibold text-slate-400 block uppercase">Cost Valuation</span>
-                    <span className="text-sm font-black font-mono text-slate-900">{fmtKES(cat.costVal)}</span>
-                  </div>
-                  <div className="p-2 rounded-xl bg-emerald-50/50">
-                    <span className="text-[10px] font-semibold text-emerald-600 block uppercase">Retail Value</span>
-                    <span className="text-sm font-black font-mono text-emerald-700">{fmtKES(cat.retailVal)}</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1 text-[11px] text-slate-600 font-semibold">
-                  <div className="flex justify-between">
-                    <span>Physical Units:</span>
-                    <span className="font-bold text-slate-900">{fmtN(cat.units)} Pcs</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Gross Markup Margin:</span>
-                    <span className="font-bold text-teal-700">+{cat.margin}%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Share of Total Asset Capital:</span>
-                    <span className="font-bold text-indigo-700">{cat.share}%</span>
-                  </div>
-                </div>
+        <div className="space-y-3">
+          {/* Controls Bar for Category Tab */}
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-3 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="relative flex-1 sm:w-64">
+                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
+                <input
+                  type="text"
+                  placeholder="Filter categories..."
+                  value={catSearch}
+                  onChange={(e) => setCatSearch(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:bg-white focus:border-emerald-500"
+                />
               </div>
+              <span className="text-xs font-bold text-slate-500">
+                {filteredCategoryBreakdown.length} Categories
+              </span>
+            </div>
 
-              {/* Share Progress Bar */}
-              <div className="mt-3 pt-2 border-t border-slate-100">
-                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div
-                    className="bg-gradient-to-r from-emerald-500 to-teal-600 h-full rounded-full"
-                    style={{ width: `${Math.min(100, Math.max(3, cat.share))}%` }}
-                  ></div>
-                </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-500">View:</span>
+              <button
+                onClick={() => setCatViewMode('table')}
+                className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  catViewMode === 'table'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                Detailed Datagrid
+              </button>
+              <button
+                onClick={() => setCatViewMode('cards')}
+                className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  catViewMode === 'cards'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                Cards View
+              </button>
+            </div>
+          </div>
+
+          {/* TABLE VIEW */}
+          {catViewMode === 'table' ? (
+            <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-slate-100 border-b-2 border-slate-300">
+                    <tr className="bg-slate-100 border-b border-slate-300">
+                      <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] w-12 text-center text-slate-900 bg-slate-100 border-r border-slate-200">#</th>
+                      <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-slate-900 bg-slate-100 border-r border-slate-200">Category Name</th>
+                      <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-center text-slate-900 bg-slate-100 border-r border-slate-200">Catalog SKUs</th>
+                      <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-right text-slate-900 bg-slate-100 border-r border-slate-200">Physical Units</th>
+                      <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-right text-slate-900 bg-slate-100 border-r border-slate-200">Valuation at Cost</th>
+                      <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-right text-slate-900 bg-slate-100 border-r border-slate-200">Retail Turnover</th>
+                      <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-right text-slate-900 bg-slate-100 border-r border-slate-200">Projected Profit</th>
+                      <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-center text-slate-900 bg-slate-100 border-r border-slate-200">Margin %</th>
+                      <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-right text-slate-900 bg-slate-100 border-r border-slate-200">Share %</th>
+                      <th className="py-3 px-3 font-black uppercase tracking-wider text-[11px] text-center text-slate-900 bg-slate-100 w-36">Capital Share Bar</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {paginatedCategories.length === 0 ? (
+                      <tr>
+                        <td colSpan={10} className="py-12 text-center text-slate-400">
+                          No categories found matching &quot;{catSearch}&quot;
+                        </td>
+                      </tr>
+                    ) : (
+                      paginatedCategories.map((cat, idx) => {
+                        const globalIdx = (catPage - 1) * catPerPage + idx + 1;
+                        return (
+                          <tr key={cat.category} className="hover:bg-slate-50 transition-colors">
+                            <td className="py-2.5 px-3 text-center text-slate-400 font-mono text-[11px] font-semibold border-r border-slate-100">
+                              {globalIdx}
+                            </td>
+                            <td className="py-2.5 px-3 border-r border-slate-100">
+                              <span className="font-extrabold text-slate-900 text-xs block">{cat.category}</span>
+                            </td>
+                            <td className="py-2.5 px-3 text-center border-r border-slate-100">
+                              <span className="px-2 py-0.5 rounded-md font-mono text-[11px] font-bold bg-slate-100 text-slate-700">
+                                {cat.skus} SKUs
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-800 border-r border-slate-100">
+                              {fmtN(cat.units)} Pcs
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-mono font-black text-slate-900 border-r border-slate-100">
+                              {fmtKES(cat.costVal)}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700 border-r border-slate-100">
+                              {fmtKES(cat.retailVal)}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-teal-700 border-r border-slate-100">
+                              {fmtKES(cat.profit)}
+                            </td>
+                            <td className="py-2.5 px-3 text-center border-r border-slate-100">
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200">
+                                +{cat.margin}%
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-indigo-700 border-r border-slate-100">
+                              {cat.share}%
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                                <div
+                                  className="bg-gradient-to-r from-emerald-500 to-teal-600 h-full rounded-full"
+                                  style={{ width: `${Math.min(100, Math.max(4, cat.share))}%` }}
+                                ></div>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
-          ))}
+          ) : (
+            /* CARDS VIEW WITH PAGINATION */
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {paginatedCategories.map((cat) => (
+                <div key={cat.category} className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                      <h4 className="font-extrabold text-slate-900 text-sm tracking-tight">{cat.category}</h4>
+                      <span className="px-2 py-0.5 rounded-md font-mono text-[10px] font-bold bg-[#091D3E]/5 text-[#091D3E]">
+                        {cat.skus} SKUs
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 my-3 text-xs">
+                      <div className="p-2 rounded-xl bg-slate-50">
+                        <span className="text-[10px] font-semibold text-slate-400 block uppercase">Cost Valuation</span>
+                        <span className="text-sm font-black font-mono text-slate-900">{fmtKES(cat.costVal)}</span>
+                      </div>
+                      <div className="p-2 rounded-xl bg-emerald-50/50">
+                        <span className="text-[10px] font-semibold text-emerald-600 block uppercase">Retail Value</span>
+                        <span className="text-sm font-black font-mono text-emerald-700">{fmtKES(cat.retailVal)}</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 text-[11px] text-slate-600 font-semibold">
+                      <div className="flex justify-between">
+                        <span>Physical Units:</span>
+                        <span className="font-bold text-slate-900">{fmtN(cat.units)} Pcs</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Gross Markup Margin:</span>
+                        <span className="font-bold text-teal-700">+{cat.margin}%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Share of Total Asset Capital:</span>
+                        <span className="font-bold text-indigo-700">{cat.share}%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 pt-2 border-t border-slate-100">
+                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-emerald-500 to-teal-600 h-full rounded-full"
+                        style={{ width: `${Math.min(100, Math.max(3, cat.share))}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Category Pagination Dock */}
+          <div className="px-4 py-2.5 bg-white border border-slate-200/90 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600 font-semibold shadow-xs">
+            <div className="flex items-center gap-2">
+              <span>Categories per page:</span>
+              <select
+                value={catPerPage}
+                onChange={(e) => setCatPerPage(Number(e.target.value))}
+                className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 outline-none cursor-pointer"
+              >
+                {[6, 10, 20, 50].map((sz) => (
+                  <option key={sz} value={sz}>
+                    {sz} categories
+                  </option>
+                ))}
+              </select>
+              <span className="text-slate-400">|</span>
+              <span>
+                Showing {filteredCategoryBreakdown.length === 0 ? 0 : (catPage - 1) * catPerPage + 1} to{' '}
+                {Math.min(catPage * catPerPage, filteredCategoryBreakdown.length)} of {filteredCategoryBreakdown.length} categories
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCatPage(1)}
+                disabled={catPage <= 1}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-30 disabled:pointer-events-none"
+              >
+                <FiChevronsLeft size={13} />
+              </button>
+              <button
+                onClick={() => setCatPage((p) => Math.max(1, p - 1))}
+                disabled={catPage <= 1}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-30 disabled:pointer-events-none"
+              >
+                <FiChevronLeft size={13} />
+              </button>
+
+              <span className="px-3 py-1 font-mono font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg">
+                {catPage} / {totalCatPages}
+              </span>
+
+              <button
+                onClick={() => setCatPage((p) => Math.min(totalCatPages, p + 1))}
+                disabled={catPage >= totalCatPages}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-30 disabled:pointer-events-none"
+              >
+                <FiChevronRight size={13} />
+              </button>
+              <button
+                onClick={() => setCatPage(totalCatPages)}
+                disabled={catPage >= totalCatPages}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-30 disabled:pointer-events-none"
+              >
+                <FiChevronsRight size={13} />
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -2450,13 +2805,13 @@ export default function StockReportPage() {
                 ) : (
                   <div className="overflow-x-auto border border-slate-200 rounded-2xl max-h-[300px]">
                     <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-100 text-slate-600 font-extrabold uppercase text-[10px] sticky top-0">
-                        <tr>
-                          <th className="py-2 px-3">Date</th>
-                          <th className="py-2 px-3">Document / Ref</th>
-                          <th className="py-2 px-3 text-right">Quantity</th>
-                          <th className="py-2 px-3 text-center">Unit</th>
-                          <th className="py-2 px-3">Audit Reason</th>
+                      <thead className="bg-slate-100 border-b-2 border-slate-300 sticky top-0">
+                        <tr className="bg-slate-100 border-b border-slate-300">
+                          <th className="py-2.5 px-3 font-black text-slate-900 bg-slate-100 uppercase text-[10px] tracking-wider border-r border-slate-200">Date</th>
+                          <th className="py-2.5 px-3 font-black text-slate-900 bg-slate-100 uppercase text-[10px] tracking-wider border-r border-slate-200">Document / Ref</th>
+                          <th className="py-2.5 px-3 font-black text-slate-900 bg-slate-100 uppercase text-[10px] tracking-wider text-right border-r border-slate-200">Quantity</th>
+                          <th className="py-2.5 px-3 font-black text-slate-900 bg-slate-100 uppercase text-[10px] tracking-wider text-center border-r border-slate-200">Unit</th>
+                          <th className="py-2.5 px-3 font-black text-slate-900 bg-slate-100 uppercase text-[10px] tracking-wider">Audit Reason</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
