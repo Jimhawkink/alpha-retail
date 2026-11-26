@@ -81,7 +81,8 @@ interface Product {
     wholesale_price: number;
     reorder_point: number;
     margin_per: number;
-    show_ps: boolean;
+    show_in_pos?: boolean;
+    show_ps?: boolean;
     button_ui_color: string;
     photo: string;
     hscode: string;
@@ -190,7 +191,7 @@ interface ExpiryAgingTier {
 /* ══════════════════════════════════════════════════════════════════════════════
    CONSTANTS & CONFIGURATION
    ══════════════════════════════════════════════════════════════════════════════ */
-const defaultProduct: Omit<Product, 'pid' | 'product_code'> = {
+const defaultProduct: Omit<Product, 'pid' | 'product_code'> & { show_ps: boolean } = {
     product_name: '',
     alias: '',
     vat_commodity: 'Standard',
@@ -423,6 +424,89 @@ async function fetchAllStock(outletId: number): Promise<Array<{ pid: number; qty
         else page++;
     }
     return allRows;
+}
+
+const OPTIONAL_PRODUCT_COLUMNS = new Set([
+    'show_ps',
+    'show_in_pos',
+    'package_sales_cost',
+    'wholesale_price',
+    'vat_commodity',
+    'hscode',
+    'updated_at',
+    'created_at',
+    'alias',
+    'margin_per',
+    'button_ui_color',
+    'photo',
+    'batch_no',
+]);
+
+async function fetchNextProductId(): Promise<number> {
+    const { data } = await supabase
+        .from('retail_products')
+        .select('pid')
+        .not('pid', 'is', null)
+        .order('pid', { ascending: false })
+        .limit(1);
+    return (Number(data?.[0]?.pid) || 0) + 1;
+}
+
+/**
+ * Inserts or updates a row in `retail_products`, automatically reconciling
+ * schema differences (`show_in_pos` vs `show_ps` or missing optional columns)
+ * and PK/product_code collisions.
+ */
+async function persistRetailProduct(
+    mode: 'insert' | 'update',
+    initialPayload: Record<string, any>,
+    targetPid?: number
+): Promise<{ data: any; error: any }> {
+    const payload: Record<string, any> = { ...initialPayload };
+
+    for (let attempt = 0; attempt < 8; attempt++) {
+        const res =
+            mode === 'update'
+                ? await supabase.from('retail_products').update(payload).eq('pid', targetPid)
+                : await supabase.from('retail_products').insert(payload).select().single();
+
+        if (!res.error) {
+            return { data: res.data ?? null, error: null };
+        }
+
+        const msg = res.error.message || '';
+        const schemaMatch =
+            msg.match(/Could not find the '([^']+)' column of 'retail_products'/i) ||
+            msg.match(/column "([^"]+)" of relation "retail_products" does not exist/i);
+
+        if (schemaMatch?.[1]) {
+            const missingCol = schemaMatch[1];
+            if (missingCol === 'show_in_pos' && 'show_in_pos' in payload && !('show_ps' in payload)) {
+                payload.show_ps = payload.show_in_pos;
+                delete payload.show_in_pos;
+                continue;
+            }
+            if (OPTIONAL_PRODUCT_COLUMNS.has(missingCol) && missingCol in payload) {
+                delete payload[missingCol];
+                continue;
+            }
+        }
+
+        if (mode === 'insert' && (res.error.code === '23505' || msg.includes('duplicate key'))) {
+            if (msg.includes('product_code') && payload.product_code) {
+                payload.product_code = `${payload.product_code}-${Math.floor(10 + Math.random() * 90)}`;
+                continue;
+            }
+            if ('pid' in payload) {
+                payload.pid = await fetchNextProductId();
+                continue;
+            }
+        }
+
+        return { data: null, error: res.error };
+    }
+
+    return { data: null, error: { message: 'Exceeded retries while saving product' } };
 }
 
 function parseCSV(text: string): string[][] {
@@ -768,7 +852,7 @@ export default function ProductsPage() {
         try {
             const { data, error } = await supabase
                 .from('retail_suppliers')
-                .select('supplier_id, supplier_code, supplier_name')
+                .select('supplier_id, supplier_code, supplier_name, is_kitchen')
                 .eq('active', true)
                 .order('supplier_name');
             if (error) throw error;
@@ -796,9 +880,16 @@ export default function ProductsPage() {
     // ─── DATA LOADING: COMPANY NAME ───
     const loadCompanyName = useCallback(async () => {
         try {
-            const iv = (activeOutlet as any)?.company_id || (activeOutlet as any)?.outlet_id || 1;
-            const { data } = await supabase.from('retail_companies').select('company_name').eq('id', iv).single();
-            if (data?.company_name) setCompanyName(data.company_name);
+            const { data } = await supabase
+                .from('organisation_settings')
+                .select('setting_value')
+                .eq('setting_key', 'company_name')
+                .maybeSingle();
+            if (data?.setting_value) {
+                setCompanyName(data.setting_value);
+            } else if ((activeOutlet as any)?.outlet_name) {
+                setCompanyName((activeOutlet as any).outlet_name);
+            }
         } catch {
             /* silent */
         }
@@ -881,11 +972,12 @@ export default function ProductsPage() {
             const { data } = await supabase
                 .from('retail_products')
                 .select('pid')
+                .not('pid', 'is', null)
                 .order('pid', { ascending: false })
                 .limit(1);
-            if (data && data.length > 0) maxPid = data[0].pid;
+            if (data && data.length > 0) maxPid = Number(data[0].pid) || 0;
         } catch {
-            maxPid = products.reduce((max, p) => Math.max(max, p.pid), 0);
+            maxPid = products.reduce((max, p) => Math.max(max, p.pid || 0), 0);
         }
         const nextPid = maxPid + 1;
         setPreviewPid(nextPid);
@@ -930,7 +1022,7 @@ export default function ProductsPage() {
             package_sales_cost: initialPkgCost,
             reorder_point: product.reorder_point || 10,
             margin_per: product.margin_per || 0,
-            show_ps: product.show_ps !== false,
+            show_ps: (product.show_in_pos ?? product.show_ps) !== false,
             button_ui_color: product.button_ui_color || 'from-blue-400 to-blue-600',
             photo: product.photo || '',
             hscode: product.hscode || '',
@@ -1018,61 +1110,82 @@ export default function ProductsPage() {
         }
         setIsSaving(true);
         try {
-            const ppp = formData.pieces_per_package || 1;
-            const costPerPiece = costPerPieceOverride !== null ? costPerPieceOverride : (ppp > 1 ? formData.purchase_cost / ppp : formData.purchase_cost);
-            const margin = calcMargin(formData.sales_cost, costPerPiece);
-            const pkgCost = formData.package_sales_cost ?? (ppp > 1 ? formData.sales_cost * ppp : 0);
+            const ppp = Math.max(1, Math.round(parseFloat(String(formData.pieces_per_package)) || 1));
+            const purchaseCost = parseFloat(String(formData.purchase_cost)) || 0;
+            const salesCost = parseFloat(String(formData.sales_cost)) || 0;
+            const wholesalePrice = parseFloat(String(formData.wholesale_price)) || 0;
+            const rawPkgCost = parseFloat(String(formData.package_sales_cost));
+            const pkgCost = !isNaN(rawPkgCost) ? rawPkgCost : (ppp > 1 ? salesCost * ppp : 0);
+            const reorderPoint = Math.max(0, Math.round(parseFloat(String(formData.reorder_point)) || 0));
+            const costPerPiece =
+                costPerPieceOverride !== null
+                    ? parseFloat(String(costPerPieceOverride)) || 0
+                    : ppp > 1
+                      ? purchaseCost / ppp
+                      : purchaseCost;
+            const margin = calcMargin(salesCost, costPerPiece);
+
+            const basePayload: Record<string, any> = {
+                product_name: formData.product_name.trim(),
+                alias: formData.alias || null,
+                vat_commodity: formData.vat_commodity || 'Standard',
+                description: formData.description || null,
+                barcode: formData.barcode || null,
+                category: formData.category || null,
+                purchase_unit: formData.purchase_unit || 'Piece',
+                sales_unit: formData.sales_unit || 'Piece',
+                purchase_cost: purchaseCost,
+                sales_cost: salesCost,
+                wholesale_price: wholesalePrice,
+                package_sales_cost: pkgCost,
+                reorder_point: reorderPoint,
+                margin_per: isFinite(margin) ? margin : 0,
+                show_in_pos: formData.show_ps !== false,
+                button_ui_color: formData.button_ui_color,
+                photo: formData.photo || null,
+                hscode: formData.hscode || null,
+                batch_no: formData.batch_no || null,
+                supplier_name: formData.supplier_name || null,
+                active: formData.active !== false,
+                pieces_per_package: ppp,
+            };
 
             if (editingProduct) {
-                // Update existing product
-                const { error } = await supabase
-                    .from('retail_products')
-                    .update({
-                        product_name: formData.product_name,
-                        alias: formData.alias,
-                        vat_commodity: formData.vat_commodity,
-                        description: formData.description,
-                        barcode: formData.barcode,
-                        category: formData.category,
-                        purchase_unit: formData.purchase_unit,
-                        sales_unit: formData.sales_unit,
-                        purchase_cost: formData.purchase_cost,
-                        sales_cost: formData.sales_cost,
-                        wholesale_price: formData.wholesale_price,
-                        package_sales_cost: pkgCost,
-                        reorder_point: formData.reorder_point,
-                        margin_per: margin,
-                        show_ps: formData.show_ps,
-                        button_ui_color: formData.button_ui_color,
-                        photo: formData.photo,
-                        hscode: formData.hscode,
-                        batch_no: formData.batch_no,
-                        supplier_name: formData.supplier_name,
-                        active: formData.active,
-                        pieces_per_package: ppp,
-                    })
-                    .eq('pid', editingProduct.pid);
+                if (!editingProduct.pid) {
+                    throw new Error('Cannot update product without a valid PID');
+                }
 
-                if (error) throw error;
-
-                // Sync batches if any modified
-                for (const b of productBatches) {
-                    if (b.isNew) {
-                        await supabase.from('retail_product_batches').insert({
+                // Best-effort price audit log when costs change
+                if (editingProduct.purchase_cost !== purchaseCost || editingProduct.sales_cost !== salesCost) {
+                    try {
+                        await supabase.from('retail_price_history').insert({
                             pid: editingProduct.pid,
-                            batch_number: b.batch_number,
-                            expiry_date: b.expiry_date,
-                            qty_received: b.qty_received,
-                            qty_remaining: b.qty_remaining,
-                            cost_price: b.cost_price,
-                            selling_price: b.selling_price,
-                            supplier_name: b.supplier_name,
-                            outlet_id: outletId,
+                            product_name: editingProduct.product_name,
+                            old_buy: editingProduct.purchase_cost,
+                            new_buy: purchaseCost,
+                            old_sell: editingProduct.sales_cost,
+                            new_sell: salesCost,
+                            changed_at: new Date().toISOString(),
                         });
-                    } else if (b.batch_id && b.isEditing) {
-                        await supabase
-                            .from('retail_product_batches')
-                            .update({
+                    } catch {
+                        /* optional table */
+                    }
+                }
+
+                // Update existing product (reconciling show_in_pos/show_ps or optional columns automatically)
+                const { error } = await persistRetailProduct(
+                    'update',
+                    { ...basePayload, updated_at: new Date().toISOString() },
+                    editingProduct.pid
+                );
+                if (error) throw new Error(error.message || 'Failed to update product');
+
+                // Sync batches if any modified (best-effort when retail_product_batches exists)
+                for (const b of productBatches) {
+                    try {
+                        if (b.isNew) {
+                            await supabase.from('retail_product_batches').insert({
+                                pid: editingProduct.pid,
                                 batch_number: b.batch_number,
                                 expiry_date: b.expiry_date,
                                 qty_received: b.qty_received,
@@ -1080,67 +1193,63 @@ export default function ProductsPage() {
                                 cost_price: b.cost_price,
                                 selling_price: b.selling_price,
                                 supplier_name: b.supplier_name,
-                            })
-                            .eq('batch_id', b.batch_id);
+                                outlet_id: outletId,
+                            });
+                        } else if (b.batch_id && b.isEditing) {
+                            await supabase
+                                .from('retail_product_batches')
+                                .update({
+                                    batch_number: b.batch_number,
+                                    expiry_date: b.expiry_date,
+                                    qty_received: b.qty_received,
+                                    qty_remaining: b.qty_remaining,
+                                    cost_price: b.cost_price,
+                                    selling_price: b.selling_price,
+                                    supplier_name: b.supplier_name,
+                                })
+                                .eq('batch_id', b.batch_id);
+                        }
+                    } catch {
+                        /* optional batch table */
                     }
                 }
 
                 logActivity('PRODUCT_UPDATE', `Updated inventory product: ${formData.product_name} (${editingProduct.product_code})`);
                 toast.success('Product updated successfully!');
             } else {
-                // Insert new product
+                // Insert new product with guaranteed non-null sequential PID
                 let maxPid = 0;
                 try {
                     const { data } = await supabase
                         .from('retail_products')
                         .select('pid')
+                        .not('pid', 'is', null)
                         .order('pid', { ascending: false })
                         .limit(1);
-                    if (data && data.length > 0) maxPid = data[0].pid;
+                    if (data && data.length > 0) maxPid = Number(data[0].pid) || 0;
                 } catch {
-                    maxPid = products.reduce((max, p) => Math.max(max, p.pid), 0);
+                    maxPid = products.reduce((max, p) => Math.max(max, p.pid || 0), 0);
                 }
+                const nextPid = previewPid && previewPid > maxPid ? previewPid : maxPid + 1;
                 const newCode = previewCode || generateProductCode(maxPid);
 
-                const { data: inserted, error: insertError } = await supabase
-                    .from('retail_products')
-                    .insert({
-                        product_code: newCode,
-                        product_name: formData.product_name,
-                        alias: formData.alias,
-                        vat_commodity: formData.vat_commodity,
-                        description: formData.description,
-                        barcode: formData.barcode,
-                        category: formData.category,
-                        purchase_unit: formData.purchase_unit,
-                        sales_unit: formData.sales_unit,
-                        purchase_cost: formData.purchase_cost,
-                        sales_cost: formData.sales_cost,
-                        wholesale_price: formData.wholesale_price,
-                        package_sales_cost: pkgCost,
-                        reorder_point: formData.reorder_point,
-                        margin_per: margin,
-                        show_ps: formData.show_ps,
-                        button_ui_color: formData.button_ui_color,
-                        photo: formData.photo,
-                        hscode: formData.hscode,
-                        batch_no: formData.batch_no,
-                        supplier_name: formData.supplier_name,
-                        active: formData.active,
-                        pieces_per_package: ppp,
-                        outlet_id: outletId,
-                    })
-                    .select()
-                    .single();
+                const { data: inserted, error: insertError } = await persistRetailProduct('insert', {
+                    ...basePayload,
+                    pid: nextPid,
+                    product_code: newCode,
+                    outlet_id: outletId,
+                    created_at: new Date().toISOString(),
+                });
 
-                if (insertError) throw insertError;
-                const newPid = inserted.pid;
+                if (insertError) throw new Error(insertError.message || 'Failed to create product');
+                const newPid = inserted?.pid ?? nextPid;
 
                 // Write opening stock for Bags and Pieces
                 const stockInserts = [];
                 if (openingBags > 0) {
                     stockInserts.push({
                         pid: newPid,
+                        invoice_no: 'OPENING',
                         qty: openingBags,
                         storage_type: 'Bags',
                         outlet_id: outletId,
@@ -1149,32 +1258,41 @@ export default function ProductsPage() {
                 if (openingPieces > 0) {
                     stockInserts.push({
                         pid: newPid,
+                        invoice_no: 'OPENING',
                         qty: openingPieces,
                         storage_type: 'Pieces',
                         outlet_id: outletId,
                     });
                 }
                 if (stockInserts.length > 0) {
-                    await supabase.from('retail_stock').insert(stockInserts);
+                    const { error: stockErr } = await supabase.from('retail_stock').insert(stockInserts);
+                    if (stockErr) {
+                        console.error('Opening stock write error:', stockErr.message);
+                        toast.error(`Product saved, but opening stock failed: ${stockErr.message}`);
+                    }
                 }
 
-                // Insert queued batches
+                // Insert queued batches (best-effort when retail_product_batches exists)
                 if (productBatches.length > 0) {
-                    const batchInserts = productBatches.map(b => ({
-                        pid: newPid,
-                        batch_number: b.batch_number,
-                        expiry_date: b.expiry_date,
-                        qty_received: b.qty_received,
-                        qty_remaining: b.qty_remaining,
-                        cost_price: b.cost_price,
-                        selling_price: b.selling_price,
-                        supplier_name: b.supplier_name,
-                        outlet_id: outletId,
-                    }));
-                    await supabase.from('retail_product_batches').insert(batchInserts);
+                    try {
+                        const batchInserts = productBatches.map(b => ({
+                            pid: newPid,
+                            batch_number: b.batch_number,
+                            expiry_date: b.expiry_date,
+                            qty_received: b.qty_received,
+                            qty_remaining: b.qty_remaining,
+                            cost_price: b.cost_price,
+                            selling_price: b.selling_price,
+                            supplier_name: b.supplier_name,
+                            outlet_id: outletId,
+                        }));
+                        await supabase.from('retail_product_batches').insert(batchInserts);
+                    } catch {
+                        /* optional batch table */
+                    }
                 }
 
-                logActivity('PRODUCT_CREATE', `Created new inventory product: ${formData.product_name} (${newCode})`);
+                logActivity('PRODUCT_CREATE', `Created new inventory product: ${formData.product_name} (${inserted?.product_code || newCode})`);
                 toast.success('Product created with opening inventory!');
             }
 
@@ -1189,14 +1307,40 @@ export default function ProductsPage() {
 
     // ─── PRODUCT DELETION & TOGGLE STATUS ───
     const deleteProduct = async (product: Product) => {
-        if (!confirm(`Are you sure you want to permanently delete "${product.product_name}"? This action cannot be undone.`)) return;
+        if (!confirm(`Remove "${product.product_name}"?\n\nIf it has sales history it will be deactivated.\nIf no sales history it will be permanently deleted.`)) return;
         try {
-            await supabase.from('retail_stock').delete().eq('pid', product.pid).eq('outlet_id', outletId);
-            await supabase.from('retail_product_batches').delete().eq('pid', product.pid).eq('outlet_id', outletId);
-            const { error } = await supabase.from('retail_products').delete().eq('pid', product.pid);
-            if (error) throw error;
-            logActivity('PRODUCT_DELETE', `Deleted product: ${product.product_name} (${product.product_code})`);
-            toast.success('Product deleted successfully');
+            if (!product.pid) {
+                await supabase.from('retail_products').delete().eq('outlet_id', outletId).eq('product_name', product.product_name);
+                toast.success(`"${product.product_name}" deleted`);
+                await loadProducts();
+                await loadStockData();
+                return;
+            }
+
+            const { data: salesCheck } = await supabase
+                .from('retail_sales_items')
+                .select('sale_id')
+                .eq('product_id', product.pid)
+                .limit(1)
+                .maybeSingle();
+
+            if (salesCheck) {
+                const { error } = await supabase.from('retail_products').update({ active: false }).eq('pid', product.pid);
+                if (error) throw error;
+                logActivity('PRODUCT_DEACTIVATE', `Deactivated product (has sales history): ${product.product_name} (${product.product_code})`);
+                toast.success(`"${product.product_name}" deactivated (has sales history)`);
+            } else {
+                await supabase.from('retail_stock').delete().eq('pid', product.pid).eq('outlet_id', outletId);
+                try {
+                    await supabase.from('retail_product_batches').delete().eq('pid', product.pid).eq('outlet_id', outletId);
+                } catch {
+                    /* optional batch table */
+                }
+                const { error } = await supabase.from('retail_products').delete().eq('pid', product.pid);
+                if (error) throw error;
+                logActivity('PRODUCT_DELETE', `Deleted product: ${product.product_name} (${product.product_code})`);
+                toast.success('Product deleted successfully');
+            }
             await loadProducts();
             await loadStockData();
         } catch (err: any) {
@@ -1333,13 +1477,53 @@ export default function ProductsPage() {
         setStockHistoryProduct(p);
         setShowStockHistoryModal(true);
         try {
-            const { data } = await supabase
-                .from('retail_stock_movements')
+            const entries: Array<StockHistoryRow & { ts: number }> = [];
+            const { data: stockRows } = await supabase
+                .from('retail_stock')
                 .select('*')
                 .eq('pid', p.pid)
-                .order('id', { ascending: false })
-                .limit(40);
-            setStockHistory(data || []);
+                .order('created_at', { ascending: true });
+
+            (stockRows || []).forEach((r: any, i: number) => {
+                const q = Number(r.qty) || 0;
+                entries.push({
+                    id: i,
+                    ts: r.created_at ? new Date(r.created_at).getTime() : 0,
+                    date: r.created_at ? new Date(r.created_at).toLocaleDateString('en-GB') : '—',
+                    ref: r.invoice_no || 'N/A',
+                    type: q >= 0 ? `Stock In (${r.storage_type || 'Pieces'})` : `Adjustment (${r.storage_type || 'Pieces'})`,
+                    qty_in: q > 0 ? q : 0,
+                    qty_out: q < 0 ? Math.abs(q) : 0,
+                    balance: 0,
+                });
+            });
+
+            const { data: saleRows } = await supabase
+                .from('retail_sales_items')
+                .select('*, retail_sales!inner(sale_datetime, receipt_no)')
+                .eq('product_id', p.pid);
+
+            (saleRows || []).forEach((r: any, i: number) => {
+                const dt = r.retail_sales?.sale_datetime;
+                entries.push({
+                    id: 10000 + i,
+                    ts: dt ? new Date(dt).getTime() : 0,
+                    date: dt ? new Date(dt).toLocaleDateString('en-GB') : '—',
+                    ref: r.retail_sales?.receipt_no || 'N/A',
+                    type: 'POS Sale',
+                    qty_in: 0,
+                    qty_out: Number(r.quantity) || 0,
+                    balance: 0,
+                });
+            });
+
+            entries.sort((a, b) => a.ts - b.ts);
+            let bal = 0;
+            const rows: StockHistoryRow[] = entries.map(e => {
+                bal += e.qty_in - e.qty_out;
+                return { id: e.id, date: e.date, ref: e.ref, type: e.type, qty_in: e.qty_in, qty_out: e.qty_out, balance: bal };
+            });
+            setStockHistory(rows);
         } catch {
             setStockHistory([]);
         }
@@ -1353,9 +1537,18 @@ export default function ProductsPage() {
                 .from('retail_price_history')
                 .select('*')
                 .eq('pid', p.pid)
-                .order('id', { ascending: false })
+                .order('changed_at', { ascending: false })
                 .limit(30);
-            setPriceHistory(data || []);
+            setPriceHistory(
+                (data || []).map((r: any, i: number) => ({
+                    id: r.id ?? i,
+                    date: r.changed_at ? new Date(r.changed_at).toLocaleString('en-GB') : r.date || '—',
+                    old_buy: Number(r.old_buy ?? r.old_purchase_cost) || 0,
+                    new_buy: Number(r.new_buy ?? r.new_purchase_cost) || 0,
+                    old_sell: Number(r.old_sell ?? r.old_sales_cost) || 0,
+                    new_sell: Number(r.new_sell ?? r.new_sales_cost) || 0,
+                }))
+            );
         } catch {
             setPriceHistory([]);
         }
@@ -1373,32 +1566,38 @@ export default function ProductsPage() {
 
     const submitStockAdjust = async () => {
         if (!adjustProduct) return;
-        if (adjustBags === 0 && adjustPieces === 0) {
+        if (adjustBags <= 0 && adjustPieces <= 0) {
             toast.error('Enter at least 1 bag or 1 piece to adjust');
             return;
         }
         try {
+            const ref = `ADJ-${Date.now().toString(36).toUpperCase()}`;
             const mult = adjustType === 'add' ? 1 : -1;
+            const stockRecords: any[] = [];
+
             if (adjustBags > 0) {
-                const curBags = bagStockData[adjustProduct.pid] || 0;
-                const newBags = Math.max(0, curBags + adjustBags * mult);
-                await supabase
-                    .from('retail_stock')
-                    .upsert(
-                        { pid: adjustProduct.pid, qty: newBags, storage_type: 'Bags', outlet_id: outletId },
-                        { onConflict: 'pid,storage_type,outlet_id' }
-                    );
+                stockRecords.push({
+                    pid: adjustProduct.pid,
+                    invoice_no: ref,
+                    qty: adjustBags * mult,
+                    storage_type: 'Bags',
+                    notes: adjustReason || 'Stocktake Audit Adjustment',
+                    outlet_id: outletId,
+                });
             }
             if (adjustPieces > 0) {
-                const curPieces = pieceStockData[adjustProduct.pid] || 0;
-                const newPieces = Math.max(0, curPieces + adjustPieces * mult);
-                await supabase
-                    .from('retail_stock')
-                    .upsert(
-                        { pid: adjustProduct.pid, qty: newPieces, storage_type: 'Pieces', outlet_id: outletId },
-                        { onConflict: 'pid,storage_type,outlet_id' }
-                    );
+                stockRecords.push({
+                    pid: adjustProduct.pid,
+                    invoice_no: ref,
+                    qty: adjustPieces * mult,
+                    storage_type: 'Pieces',
+                    notes: adjustReason || 'Stocktake Audit Adjustment',
+                    outlet_id: outletId,
+                });
             }
+
+            const { error } = await supabase.from('retail_stock').insert(stockRecords);
+            if (error) throw error;
 
             logActivity('STOCK_ADJUST', `Stock adjusted for ${adjustProduct.product_name}: ${adjustType} (${adjustBags} bags, ${adjustPieces} pcs) - Reason: ${adjustReason}`);
             toast.success('Inventory balance adjusted successfully');
@@ -1560,6 +1759,7 @@ export default function ProductsPage() {
 
             let success = 0;
             const errs: string[] = [];
+            let nextImportPid = await fetchNextProductId();
 
             for (let i = 0; i < dataRows.length; i++) {
                 const r = dataRows[i];
@@ -1574,7 +1774,7 @@ export default function ProductsPage() {
                 const pCode = codeIdx !== -1 && r[codeIdx]?.trim() ? r[codeIdx].trim() : `PRD-IMP-${Date.now().toString().slice(-4)}-${i}`;
                 const pCat = catIdx !== -1 && r[catIdx]?.trim() ? r[catIdx].trim() : 'General';
                 const pBar = barIdx !== -1 && r[barIdx]?.trim() ? r[barIdx].trim() : generateBarcode();
-                const ppp = pppIdx !== -1 ? parseInt(r[pppIdx], 10) || 1 : 1;
+                const ppp = pppIdx !== -1 ? Math.max(1, parseInt(r[pppIdx], 10) || 1) : 1;
                 const bigPrice = bigPriceIdx !== -1 ? parseFloat(r[bigPriceIdx]) || 0 : ppp > 1 ? sCost * ppp : 0;
                 const wsPrice = wsIdx !== -1 ? parseFloat(r[wsIdx]) || 0 : 0;
 
@@ -1592,23 +1792,26 @@ export default function ProductsPage() {
                 }
 
                 if (existing && (importMode === 'update' || importMode === 'overwrite')) {
-                    const { error } = await supabase
-                        .from('retail_products')
-                        .update({
+                    const { error } = await persistRetailProduct(
+                        'update',
+                        {
                             product_name: rawName,
                             purchase_cost: pCost,
                             sales_cost: sCost,
                             wholesale_price: wsPrice,
                             package_sales_cost: bigPrice,
                             pieces_per_package: ppp,
-                            margin_per: margin,
+                            margin_per: isFinite(margin) ? margin : 0,
                             category: pCat,
-                        })
-                        .eq('pid', existing.pid);
+                            updated_at: new Date().toISOString(),
+                        },
+                        existing.pid
+                    );
                     if (error) errs.push(`Row ${i + 2}: ${error.message}`);
                     else success++;
                 } else {
-                    const { error } = await supabase.from('retail_products').insert({
+                    const { data: insertedRow, error } = await persistRetailProduct('insert', {
+                        pid: nextImportPid,
                         product_code: pCode,
                         product_name: rawName,
                         barcode: pBar,
@@ -1618,15 +1821,20 @@ export default function ProductsPage() {
                         wholesale_price: wsPrice,
                         package_sales_cost: bigPrice,
                         pieces_per_package: ppp,
-                        margin_per: margin,
+                        margin_per: isFinite(margin) ? margin : 0,
                         purchase_unit: 'Piece',
                         sales_unit: 'Piece',
                         reorder_point: 10,
+                        show_in_pos: true,
                         active: true,
                         outlet_id: outletId,
+                        created_at: new Date().toISOString(),
                     });
                     if (error) errs.push(`Row ${i + 2}: ${error.message}`);
-                    else success++;
+                    else {
+                        nextImportPid = Math.max(nextImportPid, Number(insertedRow?.pid) || nextImportPid) + 1;
+                        success++;
+                    }
                 }
             }
 
