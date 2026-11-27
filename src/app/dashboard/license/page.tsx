@@ -119,24 +119,101 @@ export default function LicensePage() {
 
     useEffect(() => { loadLicenses(); }, [loadLicenses]);
 
-    // Load POS settings
-    useEffect(() => {
-        supabase.from('organisation_settings').select('setting_value')
-            .eq('setting_key', 'prevent_negative_stock').single()
-            .then(({ data }) => { if (data) setPreventNegativeStock(data.setting_value === 'true'); });
+    // Load POS settings (retail_settings primary + service-role /api/pos-settings fallback)
+    const loadPosSettings = useCallback(async () => {
+        try {
+            const { data: rsData } = await supabase
+                .from('retail_settings')
+                .select('setting_value')
+                .eq('setting_key', 'prevent_negative_stock')
+                .maybeSingle();
+
+            if (rsData && rsData.setting_value !== undefined && rsData.setting_value !== null) {
+                setPreventNegativeStock(rsData.setting_value === 'true');
+                return;
+            }
+
+            const hasCustomDb = typeof window !== 'undefined' && Boolean(localStorage.getItem('alpha_custom_supabase_config'));
+            if (!hasCustomDb) {
+                const res = await fetch('/api/pos-settings', { cache: 'no-store' });
+                if (res.ok) {
+                    const json = await res.json();
+                    if (typeof json.prevent_negative_stock === 'boolean') {
+                        setPreventNegativeStock(json.prevent_negative_stock);
+                        return;
+                    }
+                }
+            }
+
+            const { data: orgData } = await supabase
+                .from('organisation_settings')
+                .select('setting_value')
+                .eq('setting_key', 'prevent_negative_stock')
+                .maybeSingle();
+            if (orgData) setPreventNegativeStock(orgData.setting_value === 'true');
+        } catch {
+            /* keep default */
+        }
     }, []);
+
+    useEffect(() => { loadPosSettings(); }, [loadPosSettings]);
 
     const savePosSettings = async () => {
         setSavingPosSettings(true);
         try {
-            await supabase.from('organisation_settings').upsert({
-                setting_key: 'prevent_negative_stock',
-                setting_value: String(preventNegativeStock),
-                setting_type: 'boolean',
-                description: 'Prevent cashiers from selling items when stock is 0 or would go negative'
-            }, { onConflict: 'setting_key' });
-            toast.success('✅ POS settings saved successfully!');
-        } catch { toast.error('Failed to save POS settings.'); }
+            const now = new Date().toISOString();
+            const valStr = String(preventNegativeStock);
+            const desc = 'Prevent cashiers from selling items when stock is 0 or would go negative';
+
+            // Save global setting AND sync all outlets in retail_settings so strict mode applies everywhere immediately
+            const rowsToUpsert: Array<Record<string, any>> = [
+                {
+                    setting_key: 'prevent_negative_stock',
+                    setting_value: valStr,
+                    setting_type: 'boolean',
+                    description: desc,
+                    updated_at: now,
+                },
+                ...licenses.map(l => ({
+                    setting_key: `prevent_negative_stock_${l.outlet_id}`,
+                    setting_value: valStr,
+                    setting_type: 'boolean',
+                    description: `${desc} (Outlet ${l.outlet_id})`,
+                    updated_at: now,
+                })),
+            ];
+
+            const { error: rsErr } = await supabase
+                .from('retail_settings')
+                .upsert(rowsToUpsert, { onConflict: 'setting_key' });
+
+            if (rsErr) throw new Error(rsErr.message);
+
+            // Keep organisation_settings synced via service-role endpoint when on default Supabase
+            const hasCustomDb = typeof window !== 'undefined' && Boolean(localStorage.getItem('alpha_custom_supabase_config'));
+            if (!hasCustomDb) {
+                const apiRes = await fetch('/api/pos-settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prevent_negative_stock: preventNegativeStock,
+                        syncAllOutlets: true,
+                    }),
+                });
+                if (!apiRes.ok) {
+                    const errJson = await apiRes.json().catch(() => ({}));
+                    console.warn('organisation_settings sync notice:', errJson?.error || apiRes.status);
+                }
+            }
+
+            toast.success(
+                preventNegativeStock
+                    ? '🔒 Strict Negative Stock Blocking ENABLED & saved across all outlets!'
+                    : '🔓 Negative Stock Sales ALLOWED & saved across all outlets!'
+            );
+        } catch (err: any) {
+            toast.error(`Failed to save POS settings: ${err?.message || 'Unknown error'}`);
+        }
         setSavingPosSettings(false);
     };
 
@@ -212,7 +289,7 @@ export default function LicensePage() {
                             </div>
                             <p className="text-white/65 text-sm mt-0.5">Control feature access per outlet based on payment status</p>
                         </div>
-                        <button onClick={loadLicenses} className="ml-auto flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-sm font-bold transition-all">
+                        <button onClick={() => { loadLicenses(); loadPosSettings(); }} className="ml-auto flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-sm font-bold transition-all">
                             <FiRefreshCw size={13} /> Refresh
                         </button>
                     </div>

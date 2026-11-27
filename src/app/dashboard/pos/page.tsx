@@ -361,7 +361,7 @@ const ProductCard = ({ product, onAdd, posDefaultPrice, shouldShowCost = true }:
             ) : (
                 <img src="/no-image.png" alt="No image" className="h-[66px] w-[66px] object-contain opacity-40" />
             )}
-            {product.availableQty === 0 && (
+            {product.availableQty <= 0 && (
                 <div className="absolute inset-0 bg-rose-500/10 backdrop-blur-[1px] flex items-end justify-center pb-1">
                     <span className="text-[7.5px] font-black text-rose-600 bg-white/95 border border-rose-300 px-1.5 py-0.2 rounded-full shadow-2xs tracking-wider">OUT OF STOCK</span>
                 </div>
@@ -1692,6 +1692,8 @@ export default function RetailPOSPage() {
     // ── PREVENT NEGATIVE STOCK ───
     const preventNegativeStockRef = useRef(false);
     const [preventNegativeStock, setPreventNegativeStockPOS] = useState(false);
+    const cartRef = useRef<CartItem[]>([]);
+    useEffect(() => { cartRef.current = cart; }, [cart]);
     // Keep ref in sync — read ref in callbacks to avoid stale closures without re-render deps
     useEffect(() => { preventNegativeStockRef.current = preventNegativeStock; }, [preventNegativeStock]);
     // ── CART PRICE EDITING ───
@@ -1699,6 +1701,69 @@ export default function RetailPOSPage() {
     // ── Premium FAB: only show for licensed/Silibwet outlets ──
     const showQuickActionsFAB = (activeOutlet?.outlet_code || '').toUpperCase().includes('SILB') ||
         (activeOutlet?.outlet_name || '').toLowerCase().includes('silibwet');
+
+    // Unit-aware stock calculator for any Product / CartItem
+    const getAvailStock = (p: Pick<Product, 'bagQty' | 'pieceQty' | 'availableQty' | 'piecesPerPackage'>) => {
+        const ppp = p.piecesPerPackage || 1;
+        const bags = Number(p.bagQty ?? 0);
+        const pieces = Number(p.pieceQty ?? 0);
+        const totalPieces = ppp > 1 ? bags * ppp + pieces : Number(p.availableQty ?? (bags + pieces));
+        return { ppp, bags, pieces, totalPieces };
+    };
+
+    // Reads strict negative-stock flag from retail_settings -> /api/pos-settings -> organisation_settings
+    const fetchStrictNegativeStock = useCallback(async (oid: number): Promise<boolean> => {
+        if (!oid) return false;
+        try {
+            const { data: rsRows } = await supabase
+                .from('retail_settings')
+                .select('setting_key, setting_value')
+                .in('setting_key', [`prevent_negative_stock_${oid}`, 'prevent_negative_stock']);
+
+            if (rsRows && rsRows.length > 0) {
+                const map: Record<string, string> = {};
+                rsRows.forEach((r: any) => { map[r.setting_key] = r.setting_value; });
+                const val = `prevent_negative_stock_${oid}` in map
+                    ? map[`prevent_negative_stock_${oid}`] === 'true'
+                    : map['prevent_negative_stock'] === 'true';
+                setPreventNegativeStockPOS(val);
+                preventNegativeStockRef.current = val;
+                return val;
+            }
+
+            const hasCustomDb = typeof window !== 'undefined' && Boolean(localStorage.getItem('alpha_custom_supabase_config'));
+            if (!hasCustomDb) {
+                const res = await fetch(`/api/pos-settings?outletId=${oid}`, { cache: 'no-store' });
+                if (res.ok) {
+                    const json = await res.json();
+                    const val = Boolean(json.effective);
+                    setPreventNegativeStockPOS(val);
+                    preventNegativeStockRef.current = val;
+                    return val;
+                }
+            }
+
+            const { data: perOutlet } = await supabase
+                .from('organisation_settings').select('setting_value')
+                .eq('setting_key', `prevent_negative_stock_${oid}`).maybeSingle();
+            if (perOutlet) {
+                const val = perOutlet.setting_value === 'true';
+                setPreventNegativeStockPOS(val);
+                preventNegativeStockRef.current = val;
+                return val;
+            }
+            const { data: globalData } = await supabase
+                .from('organisation_settings').select('setting_value')
+                .eq('setting_key', 'prevent_negative_stock').maybeSingle();
+            const val = globalData?.setting_value === 'true';
+            setPreventNegativeStockPOS(val);
+            preventNegativeStockRef.current = val;
+            return val;
+        } catch {
+            return preventNegativeStockRef.current;
+        }
+    }, []);
+
     // ─── LOAD POS PRICE MODE + SUPERADMIN CHECK ───
     useEffect(() => {
         try {
@@ -1711,7 +1776,7 @@ export default function RetailPOSPage() {
         } catch { /* silent */ }
     }, []);
 
-    // Reload per-outlet price mode + negative stock setting whenever outlet changes
+    // Reload per-outlet price mode + negative stock setting whenever outlet changes or window regains focus
     useEffect(() => {
         if (!outletId) return;
         supabase.from('license_settings').select('setting_value')
@@ -1719,27 +1784,20 @@ export default function RetailPOSPage() {
             .then(({ data }) => {
                 setPosDefaultPrice(data?.setting_value === 'retail' ? 'retail' : 'wholesale');
             });
-        // ── Prevent Negative Stock — truly per-outlet ──────────────────────
-        // Each outlet has its OWN independent setting.
-        // If outlet has an EXPLICIT key → use it (regardless of global).
-        // If NO explicit key exists → inherit global as default.
-        // This means per-outlet CAN override global in EITHER direction.
-        (async () => {
-            const { data: perOutlet, error: perErr } = await supabase
-                .from('organisation_settings').select('setting_value')
-                .eq('setting_key', `prevent_negative_stock_${outletId}`).single();
-            if (perOutlet && !perErr) {
-                // Outlet has an explicit setting — use it
-                setPreventNegativeStockPOS(perOutlet.setting_value === 'true');
-            } else {
-                // No explicit per-outlet key — fall back to global default
-                const { data: globalData } = await supabase
-                    .from('organisation_settings').select('setting_value')
-                    .eq('setting_key', 'prevent_negative_stock').single();
-                setPreventNegativeStockPOS(globalData?.setting_value === 'true');
+        fetchStrictNegativeStock(outletId);
+
+        const onFocusOrVisible = () => {
+            if (document.visibilityState !== 'hidden') {
+                fetchStrictNegativeStock(outletId);
             }
-        })();
-    }, [outletId]);
+        };
+        window.addEventListener('focus', onFocusOrVisible);
+        document.addEventListener('visibilitychange', onFocusOrVisible);
+        return () => {
+            window.removeEventListener('focus', onFocusOrVisible);
+            document.removeEventListener('visibilitychange', onFocusOrVisible);
+        };
+    }, [outletId, fetchStrictNegativeStock]);
 
 
     // ── Cart price editing helpers ────────────────────────────────────────────
@@ -2162,12 +2220,51 @@ export default function RetailPOSPage() {
         setCategoryProducts(catProducts);
     }, [products]);
 
-    // Add product to cart
-    // Add to cart with specific unit selection — accepts optional qty (default 1)
+    // Compute quantities of product `pid` already in cart (optionally excluding one unit row)
+    const getProductCartUsage = (items: CartItem[], pid: number, excludeSellingUnit?: string) => {
+        let usedPieces = 0;
+        let usedBags = 0;
+        for (const c of items) {
+            if (c.id !== pid) continue;
+            if (excludeSellingUnit !== undefined && c.sellingUnit === excludeSellingUnit) continue;
+            const ppp = c.piecesPerPackage || 1;
+            if ((c.unitMultiplier || 1) > 1) {
+                usedBags += c.qty;
+                usedPieces += c.qty * ppp;
+            } else {
+                usedPieces += c.qty;
+            }
+        }
+        return { usedPieces, usedBags };
+    };
+
+    // Add to cart with specific unit selection — enforces strict stock limits across units
     const addToCartWithUnit = useCallback((product: Product, sellingUnit: string, unitMultiplier: number, effectivePrice: number, qty: number = 1) => {
         const addQty = Math.max(0.01, qty);
+        if (preventNegativeStockRef.current) {
+            const { ppp, bags: availBags, totalPieces } = getAvailStock(product);
+            const { usedPieces, usedBags } = getProductCartUsage(cartRef.current, product.id);
+            const isBulk = (unitMultiplier || 1) > 1;
+            const eps = 1e-6;
+
+            if (isBulk) {
+                if (availBags <= 0 || usedBags + addQty > availBags + eps) {
+                    const remBags = Math.max(0, availBags - usedBags);
+                    toast.error(`🚫 Only ${remBags} ${product.purchaseUnit || 'Bag'}(s) available for ${product.name}`);
+                    return false;
+                }
+                if (usedPieces + addQty * ppp > totalPieces + eps) {
+                    toast.error(`🚫 Insufficient stock for ${product.name}`);
+                    return false;
+                }
+            } else if (totalPieces <= 0 || usedPieces + addQty > totalPieces + eps) {
+                const remPieces = Math.max(0, totalPieces - usedPieces);
+                toast.error(`🚫 Only ${remPieces} ${product.salesUnit || 'pc'}(s) available for ${product.name}`);
+                return false;
+            }
+        }
+
         setCart(prev => {
-            // Check for existing item with SAME product AND SAME selling unit
             const existing = prev.find(item => item.id === product.id && item.sellingUnit === sellingUnit);
             if (existing) {
                 return prev.map(item =>
@@ -2182,28 +2279,47 @@ export default function RetailPOSPage() {
         toast.success(`${product.name} x${addQty} (${sellingUnit}) added`);
         setSearchQuery('');
         searchInputRef.current?.focus();
+        return true;
     }, []);
 
     // Set exact qty for a cart item (for clicking on qty to type)
     const setCartItemQty = useCallback((id: number, sellingUnit: string, qty: number) => {
         const newQty = Math.max(0.01, qty);
-        setCart(prev => prev.map(item => {
-            if (item.id === id && item.sellingUnit === sellingUnit) {
-                // Cap at availableQty when prevent negative stock is ON
-                if (preventNegativeStockRef.current && newQty > item.availableQty && item.availableQty > 0) {
-                    toast.error(`⚠️ Only ${item.availableQty} units available for ${item.name}`);
-                    return { ...item, qty: item.availableQty };
-                }
-                return { ...item, qty: newQty };
+        const currentCart = cartRef.current;
+        const target = currentCart.find(item => item.id === id && item.sellingUnit === sellingUnit);
+        if (!target) return;
+
+        let cappedQty = newQty;
+        if (preventNegativeStockRef.current) {
+            const { ppp, bags: availBags, totalPieces } = getAvailStock(target);
+            const { usedPieces: otherPieces, usedBags: otherBags } = getProductCartUsage(currentCart, id, sellingUnit);
+            const isBulk = (target.unitMultiplier || 1) > 1;
+            const maxAllowed = isBulk
+                ? Math.max(0, Math.min(availBags - otherBags, (totalPieces - otherPieces) / ppp))
+                : Math.max(0, totalPieces - otherPieces);
+
+            if (maxAllowed <= 0) {
+                toast.error(`🚫 Out of stock for ${target.name}. Negative stock sales are disabled.`);
+                return;
             }
-            return item;
-        }));
+            if (newQty > maxAllowed + 1e-6) {
+                toast.error(`⚠️ Only ${Number(maxAllowed.toFixed(2))} available for ${target.name}`);
+                cappedQty = parseFloat(maxAllowed.toFixed(2));
+            }
+        }
+
+        setCart(prev => prev.map(item =>
+            item.id === id && item.sellingUnit === sellingUnit
+                ? { ...item, qty: cappedQty }
+                : item
+        ));
     }, []);
 
     // Add product to cart (checks for unit picker)
     const addToCart = useCallback((product: Product) => {
-        if (preventNegativeStockRef.current && product.availableQty === 0) {
-            toast.error('Out of stock! Enable "Allow Negative Stock" in Company Settings to sell anyway.');
+        const { bags, totalPieces } = getAvailStock(product);
+        if (preventNegativeStockRef.current && totalPieces <= 0 && bags <= 0) {
+            toast.error('Out of stock! Turn OFF "Prevent Negative Stock Sales" in License / Company Settings to sell anyway.');
             return;
         }
 
@@ -2243,24 +2359,10 @@ export default function RetailPOSPage() {
         }
 
         // ─── NORMAL FLOW (unchanged for non-expiry outlets) ───
-        // Check if product has different purchase/sales units
-        const ppp = product.piecesPerPackage || 1;
-        const pu = (product.purchaseUnit || '').trim().toLowerCase();
-        const su = (product.salesUnit || '').trim().toLowerCase();
-        const hasDifferentUnits = (pu && su && pu !== su) || (ppp > 1 && pu && su && pu !== su);
-
-        if (hasDifferentUnits) {
-            // Show unit picker modal
-            setUnitPickerProduct(product);
-            setShowUnitPicker(true);
-            return;
-        }
-
-        // Same unit — always show Retail vs Wholesale picker
+        setUnitPickerQty(1);
         setUnitPickerProduct(product);
         setShowUnitPicker(true);
-        setUnitPickerQty(1);
-    }, [addToCartWithUnit, expiryEnabled, outletId]);
+    }, [expiryEnabled, outletId]);
 
     // Handle batch selection from expiry modal
     const handleBatchSelect = useCallback((batch: typeof productBatches[0]) => {
@@ -2280,21 +2382,9 @@ export default function RetailPOSPage() {
         setShowBatchModal(false);
 
         // Now proceed to normal unit picker flow
-        const product = batchModalProduct;
-        const ppp = product.piecesPerPackage || 1;
-        const pu = (product.purchaseUnit || '').trim().toLowerCase();
-        const su = (product.salesUnit || '').trim().toLowerCase();
-        const hasDifferentUnits = (pu && su && pu !== su) || (ppp > 1 && pu && su && pu !== su);
-
-        if (hasDifferentUnits) {
-            setUnitPickerProduct(product);
-            setShowUnitPicker(true);
-            return;
-        }
-
-        setUnitPickerProduct(product);
-        setShowUnitPicker(true);
         setUnitPickerQty(1);
+        setUnitPickerProduct(batchModalProduct);
+        setShowUnitPicker(true);
     }, [batchModalProduct]);
 
     // Handle keyboard navigation in search results
@@ -2315,17 +2405,29 @@ export default function RetailPOSPage() {
 
     // Cart operations — use sellingUnit as part of key (same product can be in cart with different units)
     const increaseQty = (id: number, sellingUnit: string) => {
-        setCart(prev => prev.map(item => {
-            if (item.id === id && item.sellingUnit === sellingUnit) {
-                // Block increase beyond available stock when prevent negative stock is ON
-                if (preventNegativeStockRef.current && item.availableQty > 0 && item.qty >= item.availableQty) {
-                    toast.error(`⚠️ Max ${item.availableQty} units available for ${item.name}`);
-                    return item; // no change
-                }
-                return { ...item, qty: item.qty + 1 };
+        const currentCart = cartRef.current;
+        const target = currentCart.find(item => item.id === id && item.sellingUnit === sellingUnit);
+        if (!target) return;
+
+        if (preventNegativeStockRef.current) {
+            const { ppp, bags: availBags, totalPieces } = getAvailStock(target);
+            const { usedPieces: otherPieces, usedBags: otherBags } = getProductCartUsage(currentCart, id, sellingUnit);
+            const isBulk = (target.unitMultiplier || 1) > 1;
+            const maxAllowed = isBulk
+                ? Math.max(0, Math.min(availBags - otherBags, (totalPieces - otherPieces) / ppp))
+                : Math.max(0, totalPieces - otherPieces);
+
+            if (target.qty + 1 > maxAllowed + 1e-6 || maxAllowed <= 0) {
+                toast.error(`⚠️ Max ${Number(maxAllowed.toFixed(2))} available for ${target.name}`);
+                return;
             }
-            return item;
-        }));
+        }
+
+        setCart(prev => prev.map(item =>
+            item.id === id && item.sellingUnit === sellingUnit
+                ? { ...item, qty: item.qty + 1 }
+                : item
+        ));
     };
 
     const decreaseQty = (id: number, sellingUnit: string) => {
@@ -2553,17 +2655,93 @@ export default function RetailPOSPage() {
     const totalDiscount = cart.reduce((sum, item) => sum + item.discount, 0);
     const grandTotal = subtotal - totalDiscount;
 
+    // Live DB strict negative-stock verifier — ensures stale cart / recalled sales / multi-cashier cannot go negative
+    const verifyCartStockStrict = useCallback(async (): Promise<boolean> => {
+        const isStrict = await fetchStrictNegativeStock(outletId);
+        if (!isStrict) return true;
+
+        const currentCart = cartRef.current;
+        if (currentCart.length === 0) return true;
+
+        const pids = Array.from(new Set(currentCart.map(i => i.id)));
+        const { data: liveRows, error } = await supabase
+            .from('retail_stock')
+            .select('pid, qty, storage_type')
+            .eq('outlet_id', outletId)
+            .in('pid', pids);
+
+        if (error) {
+            toast.error(`Unable to verify live stock: ${error.message}`);
+            return false;
+        }
+
+        const bagMap: Record<number, number> = {};
+        const pieceMap: Record<number, number> = {};
+        (liveRows || []).forEach((s: any) => {
+            const q = Number(s.qty) || 0;
+            if (s.storage_type === 'Bags') bagMap[s.pid] = (bagMap[s.pid] || 0) + q;
+            else pieceMap[s.pid] = (pieceMap[s.pid] || 0) + q;
+        });
+
+        // Aggregate total demanded quantities per product across all cart rows
+        const demanded: Record<number, { name: string; ppp: number; bags: number; pieces: number; salesUnit: string; purchaseUnit: string }> = {};
+        for (const item of currentCart) {
+            const ppp = item.piecesPerPackage || 1;
+            const isBulk = (item.unitMultiplier || 1) > 1;
+            if (!demanded[item.id]) {
+                demanded[item.id] = {
+                    name: item.name,
+                    ppp,
+                    bags: 0,
+                    pieces: 0,
+                    salesUnit: item.salesUnit || 'Pc',
+                    purchaseUnit: item.purchaseUnit || 'Bag',
+                };
+            }
+            if (isBulk) {
+                demanded[item.id].bags += item.qty;
+                demanded[item.id].pieces += item.qty * ppp;
+            } else {
+                demanded[item.id].pieces += item.qty;
+            }
+        }
+
+        const eps = 1e-6;
+        const failures: string[] = [];
+        for (const [pidStr, req] of Object.entries(demanded)) {
+            const pid = Number(pidStr);
+            const liveBags = bagMap[pid] || 0;
+            const livePieces = pieceMap[pid] || 0;
+            const liveTotalPieces = req.ppp > 1 ? liveBags * req.ppp + livePieces : liveBags + livePieces;
+
+            if (liveTotalPieces <= 0 || req.pieces > liveTotalPieces + eps) {
+                failures.push(`${req.name} (avail: ${Math.max(0, Number(liveTotalPieces.toFixed(2)))} ${req.salesUnit}, need: ${Number(req.pieces.toFixed(2))})`);
+            } else if (req.bags > 0 && (liveBags <= 0 || req.bags > liveBags + eps)) {
+                failures.push(`${req.name} (avail: ${Math.max(0, Number(liveBags.toFixed(2)))} ${req.purchaseUnit}, need: ${Number(req.bags.toFixed(2))})`);
+            }
+        }
+
+        if (failures.length > 0) {
+            toast.error(`🚫 Strict Stock Block — insufficient stock for: ${failures.join('; ')}.`, { duration: 6000 });
+            return false;
+        }
+        return true;
+    }, [outletId, fetchStrictNegativeStock]);
+
+    const handleOpenPayment = useCallback(async () => {
+        if (cartRef.current.length === 0) return;
+        const ok = await verifyCartStockStrict();
+        if (ok) setShowPayment(true);
+    }, [verifyCartStockStrict]);
+
     // Complete sale
     const completeSale = async (method: string, amountPaid: number, mpesaReceipt?: string, customerName?: string, checkoutRequestId?: string, customerPhone?: string, partialPayMethod?: string) => {
-        // ── PREVENT NEGATIVE STOCK CHECK ────────────────────────────────────────────
-        // When setting is ON, block sales if any item quantity exceeds available stock
-        if (preventNegativeStock) {
-            const overStock = cart.filter(item => item.qty > item.availableQty);
-            if (overStock.length > 0) {
-                const names = overStock.map(i => i.name).join(', ');
-                toast.error(`❌ Cannot complete sale — insufficient stock for: ${names}. Negative stock sales are disabled. Please adjust quantities.`, { duration: 6000 });
-                return;
-            }
+        // ── PREVENT NEGATIVE STOCK CHECK (LIVE DB VERIFICATION) ──────────────────
+        const stockOk = await verifyCartStockStrict();
+        if (!stockOk) {
+            setShowPayment(false);
+            loadProducts();
+            return;
         }
         try {
             // Use selected customer info if available
@@ -3552,7 +3730,7 @@ export default function RetailPOSPage() {
                                 ].filter(p => p.amount >= grandTotal || p.label === 'Exact').slice(0, 4).map(p => (
                                     <button
                                         key={p.label}
-                                        onClick={() => setShowPayment(true)}
+                                        onClick={handleOpenPayment}
                                         className="px-2 py-0.5 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 rounded text-[10px] font-mono font-bold text-slate-700 hover:text-indigo-700 transition-all shadow-2xs whitespace-nowrap"
                                     >
                                         {p.label === 'Exact' ? 'Exact' : `Ksh ${p.label}`}
@@ -3565,7 +3743,7 @@ export default function RetailPOSPage() {
                     {/* Pay Panel — Exact same panel as Shopping Cart Header, Login Executive Theme, NO curved border, exact sharp fonts */}
                     <div className="shrink-0 bg-gradient-to-r from-[#091D3E] via-[#0E2852] to-[#12356B] border-t border-emerald-500/20">
                         <button
-                            onClick={() => setShowPayment(true)}
+                            onClick={handleOpenPayment}
                             disabled={cart.length === 0}
                             className="w-full px-4 py-3.5 flex items-center justify-between text-white hover:bg-white/5 active:bg-white/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed group cursor-pointer"
                         >
@@ -3824,25 +4002,56 @@ export default function RetailPOSPage() {
                     ? unitPickerProduct.packageSalesCost
                     : (wholesalePrice * ppp);
 
-                // ── Unit-aware stock ──────────────────────────────────────────
-                // bagQty  = full bags/boxes/dozens
-                // pieceQty = loose pieces
-                // Total pieces available = bagQty * ppp + pieceQty
+                // ── Unit-aware stock (accounting for items already in cart) ──
                 const availBags        = unitPickerProduct.bagQty   ?? 0;
                 const availPieces      = unitPickerProduct.pieceQty ?? 0;
-                const totalAvailPieces = availBags * ppp + availPieces;
+                const totalAvailPieces = ppp > 1 ? availBags * ppp + availPieces : Number(unitPickerProduct.availableQty ?? (availBags + availPieces));
+                const { usedPieces: inCartPieces, usedBags: inCartBags } = getProductCartUsage(cart, unitPickerProduct.id);
+                const remainingPieces = totalAvailPieces - inCartPieces;
+                const remainingBags   = availBags - inCartBags;
 
                 // Over-stock flags (only enforced when STRICT is ON)
-                const pieceOverStock = preventNegativeStock && unitPickerQty > totalAvailPieces;
-                const bagOverStock   = preventNegativeStock && unitPickerQty > availBags;
+                const pieceOverStock = preventNegativeStock && (remainingPieces <= 0 || unitPickerQty > remainingPieces + 1e-6);
+                const bagOverStock   = preventNegativeStock && (remainingBags <= 0 || unitPickerQty > remainingBags + 1e-6 || unitPickerQty * ppp > remainingPieces + 1e-6);
 
                 // Capped increment for + button
                 const incrementPieceQty = () => {
-                    if (preventNegativeStock) setUnitPickerQty(q => Math.min(q + 1, totalAvailPieces > 0 ? totalAvailPieces : q + 1));
-                    else setUnitPickerQty(q => q + 1);
+                    if (preventNegativeStock) {
+                        const cap = Math.max(0, remainingPieces);
+                        if (cap <= 0) return;
+                        setUnitPickerQty(q => Math.min(q + 1, cap));
+                    } else {
+                        setUnitPickerQty(q => q + 1);
+                    }
                 };
 
                 const closeUnitPicker = () => { setShowUnitPicker(false); setUnitPickerProduct(null); setUnitPickerQty(1); };
+
+                const handlePieceUnitSelect = async (selectedPrice: number) => {
+                    if (pieceOverStock) return;
+                    let productForCart = unitPickerProduct;
+                    if (ppp > 1 && unitPickerQty > availPieces && availBags > 0) {
+                        const deficit = unitPickerQty - Math.max(0, availPieces);
+                        const bagsNeeded = Math.min(Math.ceil(deficit / ppp), Math.floor(availBags));
+                        if (bagsNeeded > 0) {
+                            try {
+                                const convRows: any[] = [];
+                                for (let i = 0; i < bagsNeeded; i++) {
+                                    convRows.push({ pid: unitPickerProduct.id, invoice_no: 'AUTO-CONVERT', qty: -1, storage_type: 'Bags', outlet_id: outletId });
+                                    convRows.push({ pid: unitPickerProduct.id, invoice_no: 'AUTO-CONVERT', qty: ppp, storage_type: 'Pieces', outlet_id: outletId });
+                                }
+                                await supabase.from('retail_stock').insert(convRows);
+                                const nextBags = availBags - bagsNeeded;
+                                const nextPieces = availPieces + bagsNeeded * ppp;
+                                productForCart = { ...unitPickerProduct, bagQty: nextBags, pieceQty: nextPieces };
+                                setProducts(prev => prev.map(p => p.id === unitPickerProduct.id ? { ...p, bagQty: nextBags, pieceQty: nextPieces } : p));
+                                toast.success(`📦 Opened ${bagsNeeded} ${unitPickerProduct.purchaseUnit || 'box'}${bagsNeeded > 1 ? 'es' : ''} → ${bagsNeeded * ppp} pieces`);
+                            } catch (e) { console.error('Pre-add auto-convert error:', e); }
+                        }
+                    }
+                    const added = addToCartWithUnit(productForCart, productForCart.salesUnit || 'Piece', 1, selectedPrice, unitPickerQty);
+                    if (added) closeUnitPicker();
+                };
 
                 return (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={closeUnitPicker}>
@@ -3852,7 +4061,7 @@ export default function RetailPOSPage() {
 
                         {/* ── Stock Banner ── */}
                         <div className={`flex flex-wrap items-center gap-2 mb-3 p-2 rounded-xl border ${
-                            totalAvailPieces === 0 ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200'
+                            remainingPieces <= 0 ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200'
                         }`}>
                             <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">In Stock:</span>
                             {availBags > 0 && (
@@ -3866,10 +4075,10 @@ export default function RetailPOSPage() {
                                 🔢 {availPieces} {unitPickerProduct.salesUnit || 'Pc'}
                             </span>
                             {ppp > 1 && totalAvailPieces > 0 && (
-                                <span className="text-[10px] text-gray-400 font-medium">(Total: {totalAvailPieces} {unitPickerProduct.salesUnit})</span>
+                                <span className="text-[10px] text-gray-400 font-medium">(Total: {totalAvailPieces} {unitPickerProduct.salesUnit}{inCartPieces > 0 ? `, ${Math.max(0, remainingPieces)} left` : ''})</span>
                             )}
-                            {totalAvailPieces === 0 && (
-                                <span className="text-xs font-bold text-red-600">⚠️ OUT OF STOCK</span>
+                            {remainingPieces <= 0 && (
+                                <span className="text-xs font-bold text-red-600">⚠️ {totalAvailPieces <= 0 ? 'OUT OF STOCK' : 'ALL IN CART'}</span>
                             )}
                         </div>
 
@@ -3886,10 +4095,10 @@ export default function RetailPOSPage() {
                                     value={unitPickerQty}
                                     min={0.01}
                                     step="any"
-                                    max={preventNegativeStock ? totalAvailPieces : undefined}
+                                    max={preventNegativeStock && remainingPieces > 0 ? remainingPieces : undefined}
                                     onChange={e => {
                                         const v = Math.max(0.01, parseFloat(e.target.value) || 0.01);
-                                        setUnitPickerQty(preventNegativeStock ? Math.min(v, totalAvailPieces || v) : v);
+                                        setUnitPickerQty(preventNegativeStock && remainingPieces > 0 ? Math.min(v, remainingPieces) : v);
                                     }}
                                     onFocus={e => e.target.select()}
                                     className={`flex-1 text-center text-2xl font-bold py-2 border-2 rounded-xl focus:outline-none bg-white ${
@@ -3898,14 +4107,14 @@ export default function RetailPOSPage() {
                                 />
                                 <button
                                     onClick={incrementPieceQty}
-                                    disabled={preventNegativeStock && unitPickerQty >= totalAvailPieces}
+                                    disabled={preventNegativeStock && (remainingPieces <= 0 || unitPickerQty >= remainingPieces)}
                                     className="w-10 h-10 rounded-lg bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold text-xl flex items-center justify-center shadow-sm"
                                 >+</button>
                             </div>
                             {/* Decimal + whole number quick-qty buttons */}
                             <div className="flex gap-1 mt-2 flex-wrap">
                                 {[0.25, 0.5, 0.75, 1, 5, 10, 20, 50].map(q => {
-                                    const blocked = preventNegativeStock && q > totalAvailPieces;
+                                    const blocked = preventNegativeStock && (remainingPieces <= 0 || q > remainingPieces);
                                     return (
                                         <button key={q}
                                             onClick={() => { if (!blocked) setUnitPickerQty(q); }}
@@ -3923,7 +4132,7 @@ export default function RetailPOSPage() {
                             </div>
                             {pieceOverStock && (
                                 <p className="text-xs text-red-600 font-bold mt-1.5 text-center">
-                                    🚫 Max available: {totalAvailPieces} {unitPickerProduct.salesUnit}
+                                    🚫 Max available: {Math.max(0, remainingPieces)} {unitPickerProduct.salesUnit}
                                 </p>
                             )}
                         </div>
@@ -3933,31 +4142,10 @@ export default function RetailPOSPage() {
                         <div className="space-y-2 mb-4">
                             {/* Retail Price */}
                             <button
-                                disabled={pieceOverStock || (preventNegativeStock && totalAvailPieces === 0)}
-                                onClick={async () => {
-                                    if (preventNegativeStock && totalAvailPieces === 0) return;
-                                    if (pieceOverStock) return;
-                                    // ── AUTO-CONVERT bags → pieces if qty exceeds loose piece stock ──
-                                    if (ppp > 1 && unitPickerQty > availPieces && availBags > 0) {
-                                        const deficit = unitPickerQty - Math.max(0, availPieces);
-                                        const bagsNeeded = Math.min(Math.ceil(deficit / ppp), Math.floor(availBags));
-                                        if (bagsNeeded > 0) {
-                                            try {
-                                                const convRows: any[] = [];
-                                                for (let i = 0; i < bagsNeeded; i++) {
-                                                    convRows.push({ pid: unitPickerProduct.id, invoice_no: 'AUTO-CONVERT', qty: -1, storage_type: 'Bags', outlet_id: outletId });
-                                                    convRows.push({ pid: unitPickerProduct.id, invoice_no: 'AUTO-CONVERT', qty: ppp, storage_type: 'Pieces', outlet_id: outletId });
-                                                }
-                                                await supabase.from('retail_stock').insert(convRows);
-                                                toast.success(`📦 Opened ${bagsNeeded} ${unitPickerProduct.purchaseUnit || 'box'}${bagsNeeded > 1 ? 'es' : ''} → ${bagsNeeded * ppp} pieces`);
-                                            } catch (e) { console.error('Pre-add auto-convert error:', e); }
-                                        }
-                                    }
-                                    addToCartWithUnit(unitPickerProduct, unitPickerProduct.salesUnit || 'Piece', 1, retailPrice, unitPickerQty);
-                                    closeUnitPicker();
-                                }}
+                                disabled={pieceOverStock}
+                                onClick={() => handlePieceUnitSelect(retailPrice)}
                                 className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
-                                    pieceOverStock || (preventNegativeStock && totalAvailPieces === 0)
+                                    pieceOverStock
                                         ? 'border-red-200 bg-red-50 opacity-60 cursor-not-allowed'
                                         : 'border-blue-200 bg-blue-50 hover:bg-blue-100'
                                 }`}
@@ -3967,7 +4155,7 @@ export default function RetailPOSPage() {
                                     <div className="text-left">
                                         <p className="font-bold text-gray-800">Retail Price</p>
                                         <p className="text-xs text-gray-500">Per {unitPickerProduct.salesUnit} × {unitPickerQty}</p>
-                                        {pieceOverStock && <p className="text-[10px] text-red-600 font-bold">Only {totalAvailPieces} available</p>}
+                                        {pieceOverStock && <p className="text-[10px] text-red-600 font-bold">Only {Math.max(0, remainingPieces)} available</p>}
                                         {!pieceOverStock && ppp > 1 && unitPickerQty > availPieces && availBags > 0 && (
                                             <p className="text-[10px] text-amber-600 font-bold">📦 Will open {Math.ceil((unitPickerQty - Math.max(0, availPieces)) / ppp)} {unitPickerProduct.purchaseUnit || 'box'}</p>
                                         )}
@@ -3978,31 +4166,10 @@ export default function RetailPOSPage() {
 
                             {/* Wholesale Price */}
                             <button
-                                disabled={pieceOverStock || (preventNegativeStock && totalAvailPieces === 0)}
-                                onClick={async () => {
-                                    if (preventNegativeStock && totalAvailPieces === 0) return;
-                                    if (pieceOverStock) return;
-                                    // ── AUTO-CONVERT bags → pieces if qty exceeds loose piece stock ──
-                                    if (ppp > 1 && unitPickerQty > availPieces && availBags > 0) {
-                                        const deficit = unitPickerQty - Math.max(0, availPieces);
-                                        const bagsNeeded = Math.min(Math.ceil(deficit / ppp), Math.floor(availBags));
-                                        if (bagsNeeded > 0) {
-                                            try {
-                                                const convRows: any[] = [];
-                                                for (let i = 0; i < bagsNeeded; i++) {
-                                                    convRows.push({ pid: unitPickerProduct.id, invoice_no: 'AUTO-CONVERT', qty: -1, storage_type: 'Bags', outlet_id: outletId });
-                                                    convRows.push({ pid: unitPickerProduct.id, invoice_no: 'AUTO-CONVERT', qty: ppp, storage_type: 'Pieces', outlet_id: outletId });
-                                                }
-                                                await supabase.from('retail_stock').insert(convRows);
-                                                toast.success(`📦 Opened ${bagsNeeded} ${unitPickerProduct.purchaseUnit || 'box'}${bagsNeeded > 1 ? 'es' : ''} → ${bagsNeeded * ppp} pieces`);
-                                            } catch (e) { console.error('Pre-add auto-convert error:', e); }
-                                        }
-                                    }
-                                    addToCartWithUnit(unitPickerProduct, unitPickerProduct.salesUnit || 'Piece', 1, wholesalePrice, unitPickerQty);
-                                    closeUnitPicker();
-                                }}
+                                disabled={pieceOverStock}
+                                onClick={() => handlePieceUnitSelect(wholesalePrice)}
                                 className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
-                                    pieceOverStock || (preventNegativeStock && totalAvailPieces === 0)
+                                    pieceOverStock
                                         ? 'border-red-200 bg-red-50 opacity-60 cursor-not-allowed'
                                         : 'border-green-200 bg-green-50 hover:bg-green-100'
                                 }`}
@@ -4012,7 +4179,7 @@ export default function RetailPOSPage() {
                                     <div className="text-left">
                                         <p className="font-bold text-gray-800">Wholesale Price</p>
                                         <p className="text-xs text-gray-500">Per {unitPickerProduct.salesUnit} × {unitPickerQty}</p>
-                                        {pieceOverStock && <p className="text-[10px] text-red-600 font-bold">Only {totalAvailPieces} available</p>}
+                                        {pieceOverStock && <p className="text-[10px] text-red-600 font-bold">Only {Math.max(0, remainingPieces)} available</p>}
                                         {!pieceOverStock && ppp > 1 && unitPickerQty > availPieces && availBags > 0 && (
                                             <p className="text-[10px] text-amber-600 font-bold">📦 Will open {Math.ceil((unitPickerQty - Math.max(0, availPieces)) / ppp)} {unitPickerProduct.purchaseUnit || 'box'}</p>
                                         )}
@@ -4027,14 +4194,14 @@ export default function RetailPOSPage() {
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Per {unitPickerProduct.purchaseUnit}</p>
                         <div className="space-y-2">
                             <button
-                                disabled={bagOverStock || availBags === 0}
+                                disabled={bagOverStock}
                                 onClick={() => {
-                                    if (bagOverStock || availBags === 0) return;
-                                    addToCartWithUnit(unitPickerProduct, unitPickerProduct.purchaseUnit || 'Bag', ppp, bigQtyPrice, unitPickerQty);
-                                    closeUnitPicker();
+                                    if (bagOverStock) return;
+                                    const added = addToCartWithUnit(unitPickerProduct, unitPickerProduct.purchaseUnit || 'Bag', ppp, bigQtyPrice, unitPickerQty);
+                                    if (added) closeUnitPicker();
                                 }}
                                 className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
-                                    bagOverStock || availBags === 0
+                                    bagOverStock
                                         ? 'border-red-200 bg-red-50 opacity-60 cursor-not-allowed'
                                         : 'border-purple-200 bg-purple-50 hover:bg-purple-100'
                                 }`}
@@ -4044,7 +4211,7 @@ export default function RetailPOSPage() {
                                     <div className="text-left">
                                         <p className="font-bold text-gray-800">Per {unitPickerProduct.purchaseUnit}</p>
                                         <p className="text-xs text-gray-500">1 {unitPickerProduct.purchaseUnit} = {ppp} {unitPickerProduct.salesUnit} × {unitPickerQty}</p>
-                                        {bagOverStock && <p className="text-[10px] text-red-600 font-bold">Only {availBags} {unitPickerProduct.purchaseUnit} available</p>}
+                                        {bagOverStock && <p className="text-[10px] text-red-600 font-bold">Only {Math.max(0, remainingBags)} {unitPickerProduct.purchaseUnit} available</p>}
                                     </div>
                                 </div>
                                 <span className="text-lg font-bold text-purple-700">Ksh {bigQtyPrice.toLocaleString()}</span>
@@ -4381,7 +4548,7 @@ export default function RetailPOSPage() {
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
                                         {lowStockItems.map((item, i) => {
-                                            const status = item.pieceQty === 0 ? 'out' : item.pieceQty <= 3 ? 'critical' : 'low';
+                                            const status = item.pieceQty <= 0 ? 'out' : item.pieceQty <= 3 ? 'critical' : 'low';
                                             return (
                                                 <tr key={i} className={`transition-colors ${status === 'out' ? 'bg-red-50' : status === 'critical' ? 'bg-orange-50' : 'hover:bg-yellow-50/50'}`}>
                                                     <td className="py-3 px-4 text-sm text-gray-400">{i + 1}</td>
@@ -4394,7 +4561,7 @@ export default function RetailPOSPage() {
                                                         </span>
                                                     </td>
                                                     <td className="py-3 px-4 text-center">
-                                                        <span className={`px-2 py-0.5 rounded text-xs font-bold ${item.pieceQty === 0 ? 'bg-red-200 text-red-800' : item.pieceQty <= 3 ? 'bg-orange-200 text-orange-800' : 'bg-yellow-200 text-yellow-800'}`}>
+                                                        <span className={`px-2 py-0.5 rounded text-xs font-bold ${item.pieceQty <= 0 ? 'bg-red-200 text-red-800' : item.pieceQty <= 3 ? 'bg-orange-200 text-orange-800' : 'bg-yellow-200 text-yellow-800'}`}>
                                                             🔢 {item.pieceQty} {item.salesUnit}
                                                         </span>
                                                     </td>

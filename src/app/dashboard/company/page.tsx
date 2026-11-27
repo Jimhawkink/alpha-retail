@@ -100,20 +100,45 @@ export default function CompanyPage() {
             isSA = t === 'superadmin' || t === 'superuser';
         }
 
-        // Load org settings
+        // Load org settings + negative stock flags from retail_settings / API fallback
         const { data: orgData } = await supabase.from('organisation_settings').select('setting_key,setting_value');
+        const { data: rsNegData } = await supabase
+            .from('retail_settings')
+            .select('setting_key,setting_value')
+            .like('setting_key', 'prevent_negative_stock%');
+
+        let apiNegFallback: { global?: boolean; perOutlet?: Record<string, boolean> } = {};
+        const hasCustomDb = typeof window !== 'undefined' && Boolean(localStorage.getItem('alpha_custom_supabase_config'));
+        if (!hasCustomDb) {
+            try {
+                const res = await fetch('/api/pos-settings', { cache: 'no-store' });
+                if (res.ok) {
+                    const j = await res.json();
+                    apiNegFallback = { global: j.prevent_negative_stock, perOutlet: j.perOutlet || {} };
+                }
+            } catch { /* silent */ }
+        }
+
+        const loadedOrg = { ...defaultOrg };
         if (orgData) {
-            const o = { ...defaultOrg };
             orgData.forEach((r: any) => {
                 const k = r.setting_key as keyof OrgSettings;
-                if (k in o) {
-                    if (typeof o[k] === 'boolean') (o as any)[k] = r.setting_value === 'true';
-                    else if (typeof o[k] === 'number') (o as any)[k] = parseFloat(r.setting_value) || 0;
-                    else (o as any)[k] = r.setting_value || '';
+                if (k in loadedOrg) {
+                    if (typeof loadedOrg[k] === 'boolean') (loadedOrg as any)[k] = r.setting_value === 'true';
+                    else if (typeof loadedOrg[k] === 'number') (loadedOrg as any)[k] = parseFloat(r.setting_value) || 0;
+                    else (loadedOrg as any)[k] = r.setting_value || '';
                 }
             });
-            setOrg(o);
         }
+
+        const rsNegMap: Record<string, string> = {};
+        (rsNegData || []).forEach((r: any) => { rsNegMap[r.setting_key] = r.setting_value; });
+        if ('prevent_negative_stock' in rsNegMap) {
+            loadedOrg.prevent_negative_stock = rsNegMap['prevent_negative_stock'] === 'true';
+        } else if (typeof apiNegFallback.global === 'boolean') {
+            loadedOrg.prevent_negative_stock = apiNegFallback.global;
+        }
+        setOrg(loadedOrg);
 
         // Load smtp settings
         const { data: smtpData } = await supabase
@@ -140,10 +165,15 @@ export default function CompanyPage() {
                     const { data: ft } = await supabase.from('license_settings').select('setting_value').eq('setting_key', `outlet_features_${o.outlet_id}`).single();
                     try { features[o.outlet_id] = JSON.parse(ft?.setting_value || '[]'); } catch { features[o.outlet_id] = []; }
                     names[o.outlet_id] = o.outlet_name;
-                    // Load per-outlet negative stock — fall back to global setting if no per-outlet key
-                    const { data: ns } = await supabase.from('organisation_settings').select('setting_value').eq('setting_key', `prevent_negative_stock_${o.outlet_id}`).single();
-                    // If outlet has explicit key, use it. If not, inherit from global (o.prevent_negative_stock)
-                    negStock[o.outlet_id] = ns ? ns.setting_value === 'true' : o.prevent_negative_stock;
+                    const oKey = `prevent_negative_stock_${o.outlet_id}`;
+                    if (oKey in rsNegMap) {
+                        negStock[o.outlet_id] = rsNegMap[oKey] === 'true';
+                    } else if (apiNegFallback.perOutlet && String(o.outlet_id) in apiNegFallback.perOutlet) {
+                        negStock[o.outlet_id] = Boolean(apiNegFallback.perOutlet[String(o.outlet_id)]);
+                    } else {
+                        const { data: ns } = await supabase.from('organisation_settings').select('setting_value').eq('setting_key', oKey).maybeSingle();
+                        negStock[o.outlet_id] = ns ? ns.setting_value === 'true' : loadedOrg.prevent_negative_stock;
+                    }
                 }
                 setOutletPriceModes(modes);
                 setOutletFeatures(features);
@@ -160,9 +190,35 @@ export default function CompanyPage() {
 
     useEffect(() => { loadAll(); }, [loadAll]);
 
-    // ── Reliable save: UPDATE existing row, INSERT if none found ──────────
+    // ── Reliable save: upsert retail_settings for POS negative stock + sync organisation_settings ──
     const saveOrgSetting = async (key: string, value: string): Promise<string | null> => {
         const now = new Date().toISOString();
+        if (key.startsWith('prevent_negative_stock')) {
+            const { error: rsErr } = await supabase
+                .from('retail_settings')
+                .upsert(
+                    {
+                        setting_key: key,
+                        setting_value: value,
+                        setting_type: 'boolean',
+                        description: 'Prevent cashiers from selling items when stock is 0 or would go negative',
+                        updated_at: now,
+                    },
+                    { onConflict: 'setting_key' }
+                );
+            if (rsErr) return rsErr.message;
+
+            const hasCustomDb = typeof window !== 'undefined' && Boolean(localStorage.getItem('alpha_custom_supabase_config'));
+            if (!hasCustomDb) {
+                await fetch('/api/pos-settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ setting_key: key, setting_value: value }),
+                }).catch(() => {});
+            }
+            return null;
+        }
+
         // Try UPDATE first
         const { data: updated, error: updateErr } = await supabase
             .from('organisation_settings')
